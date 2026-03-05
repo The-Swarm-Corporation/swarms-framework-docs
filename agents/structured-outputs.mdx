@@ -1,0 +1,452 @@
+---
+title: 'Structured Outputs'
+description: 'Get structured, typed responses from agents using JSON schemas and Pydantic models'
+icon: 'code'
+---
+
+# Structured Outputs
+
+Structured outputs enable agents to return responses in a specific format, such as JSON objects, lists, or Pydantic models. This is essential for integrating agents into applications and workflows.
+
+## Output Types
+
+Swarms supports multiple output formats through the `output_type` parameter:
+
+```python
+from swarms import Agent
+
+# String output (default)
+agent = Agent(output_type="str")
+
+# JSON output
+agent = Agent(output_type="json")
+
+# Dictionary output
+agent = Agent(output_type="dict")
+
+# List output
+agent = Agent(output_type="list")
+
+# YAML output
+agent = Agent(output_type="yaml")
+
+# XML output
+agent = Agent(output_type="xml")
+```
+
+## JSON Schema Output
+
+### Basic JSON Schema
+
+Use Pydantic models to define structured output schemas:
+
+```python
+from swarms import Agent
+from pydantic import BaseModel, Field
+from typing import List
+
+class CompanyAnalysis(BaseModel):
+    company_name: str = Field(description="Name of the company")
+    industry: str = Field(description="Primary industry")
+    revenue: float = Field(description="Annual revenue in millions")
+    growth_rate: float = Field(description="Year-over-year growth rate")
+    strengths: List[str] = Field(description="Key strengths")
+    risks: List[str] = Field(description="Main risk factors")
+    recommendation: str = Field(description="Investment recommendation")
+
+agent = Agent(
+    agent_name="Financial-Analyst",
+    model_name="gpt-4o",
+    max_loops=1,
+    list_base_models=[CompanyAnalysis],  # Define schema
+)
+
+result = agent.run(
+    "Analyze Tesla as an investment opportunity"
+)
+
+# Result is structured according to CompanyAnalysis schema
+print(result)
+```
+
+### Multiple Output Schemas
+
+Define multiple possible output formats:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class ProductReview(BaseModel):
+    product_name: str
+    rating: float = Field(ge=0, le=5)
+    pros: List[str]
+    cons: List[str]
+    verdict: str
+
+class ComparisonReport(BaseModel):
+    products: List[str]
+    winner: str
+    reasoning: str
+    price_comparison: dict
+
+agent = Agent(
+    agent_name="Product-Reviewer",
+    model_name="gpt-4o",
+    list_base_models=[ProductReview, ComparisonReport],
+)
+
+# Agent chooses appropriate schema based on task
+review = agent.run("Review the iPhone 15 Pro")
+comparison = agent.run("Compare iPhone 15 Pro vs Samsung S24 Ultra")
+```
+
+## Tool Schema
+
+### Using tool_schema Parameter
+
+Define output structure using `tool_schema`:
+
+```python
+from pydantic import BaseModel, Field
+
+class EmailDraft(BaseModel):
+    subject: str = Field(description="Email subject line")
+    body: str = Field(description="Email body content")
+    recipients: list[str] = Field(description="List of recipient email addresses")
+    cc: list[str] = Field(default=[], description="CC recipients")
+    priority: str = Field(default="normal", description="Email priority: low, normal, high")
+
+agent = Agent(
+    agent_name="Email-Assistant",
+    model_name="gpt-4o",
+    tool_schema=EmailDraft,  # Define output schema
+)
+
+email = agent.run(
+    "Draft an email to the engineering team about the new feature release"
+)
+
+# Access structured fields
+print(f"Subject: {email['subject']}")
+print(f"To: {', '.join(email['recipients'])}")
+print(f"Body: {email['body']}")
+```
+
+## Complex Output Structures
+
+### Nested Models
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from datetime import datetime
+
+class Task(BaseModel):
+    title: str
+    description: str
+    priority: str = Field(pattern="^(low|medium|high|critical)$")
+    estimated_hours: float
+    assigned_to: Optional[str] = None
+
+class Milestone(BaseModel):
+    name: str
+    deadline: str
+    tasks: List[Task]
+    status: str = Field(pattern="^(planning|in_progress|completed)$")
+
+class ProjectPlan(BaseModel):
+    project_name: str
+    description: str
+    start_date: str
+    end_date: str
+    milestones: List[Milestone]
+    budget: float
+    team_size: int
+
+agent = Agent(
+    agent_name="Project-Manager",
+    model_name="gpt-4o",
+    list_base_models=[ProjectPlan],
+    max_loops=1,
+)
+
+project = agent.run(
+    """
+    Create a 3-month project plan for building a mobile app with the following requirements:
+    - User authentication
+    - Real-time chat
+    - Push notifications
+    - Payment integration
+    """
+)
+
+# Access nested structure
+for milestone in project['milestones']:
+    print(f"\nMilestone: {milestone['name']}")
+    for task in milestone['tasks']:
+        print(f"  - {task['title']} ({task['priority']} priority)")
+```
+
+### Lists and Arrays
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class StockRecommendation(BaseModel):
+    ticker: str = Field(description="Stock ticker symbol")
+    company_name: str
+    current_price: float
+    target_price: float
+    action: str = Field(pattern="^(buy|sell|hold)$")
+    confidence: float = Field(ge=0, le=100)
+    reasoning: str
+
+class PortfolioRecommendations(BaseModel):
+    recommendations: List[StockRecommendation]
+    overall_strategy: str
+    risk_level: str = Field(pattern="^(conservative|moderate|aggressive)$")
+
+agent = Agent(
+    agent_name="Portfolio-Advisor",
+    model_name="gpt-4o",
+    list_base_models=[PortfolioRecommendations],
+)
+
+portfolio = agent.run(
+    "Provide 5 stock recommendations for a moderate-risk portfolio"
+)
+
+for rec in portfolio['recommendations']:
+    print(f"{rec['ticker']}: {rec['action']} - {rec['reasoning']}")
+```
+
+## Validation and Constraints
+
+### Field Validation
+
+```python
+from pydantic import BaseModel, Field, validator
+from typing import List
+
+class FinancialReport(BaseModel):
+    quarter: str = Field(pattern="^Q[1-4] 20[0-9]{2}$")
+    revenue: float = Field(gt=0, description="Revenue in millions")
+    expenses: float = Field(gt=0, description="Total expenses in millions")
+    profit_margin: float = Field(ge=0, le=100, description="Profit margin percentage")
+    key_metrics: dict
+    recommendations: List[str] = Field(min_items=1, max_items=10)
+    
+    @validator('expenses')
+    def expenses_less_than_revenue(cls, v, values):
+        if 'revenue' in values and v >= values['revenue']:
+            raise ValueError('Expenses should be less than revenue for profitable quarter')
+        return v
+
+agent = Agent(
+    agent_name="Financial-Reporter",
+    model_name="gpt-4o",
+    list_base_models=[FinancialReport],
+)
+
+report = agent.run(
+    "Create a financial report for Q4 2024 based on revenue of $100M"
+)
+```
+
+### Enums and Choices
+
+```python
+from pydantic import BaseModel, Field
+from enum import Enum
+from typing import List
+
+class Priority(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class Status(str, Enum):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    REVIEW = "review"
+    DONE = "done"
+
+class Bug(BaseModel):
+    title: str
+    description: str
+    priority: Priority
+    status: Status
+    affected_components: List[str]
+    steps_to_reproduce: List[str]
+    expected_behavior: str
+    actual_behavior: str
+
+agent = Agent(
+    agent_name="Bug-Tracker",
+    model_name="gpt-4o",
+    list_base_models=[Bug],
+)
+
+bug = agent.run(
+    """
+    Create a bug report: Users can't login after the latest update.
+    Login button is unresponsive on mobile devices.
+    """
+)
+
+print(f"Priority: {bug['priority']}")
+print(f"Status: {bug['status']}")
+```
+
+## Output Processing
+
+### JSON Output
+
+```python
+import json
+
+agent = Agent(
+    agent_name="Data-Agent",
+    model_name="gpt-4o",
+    output_type="json",  # Force JSON output
+)
+
+result = agent.run("List the top 5 programming languages in 2024")
+data = json.loads(result)
+
+for lang in data['languages']:
+    print(f"- {lang}")
+```
+
+### Dictionary Output
+
+```python
+agent = Agent(
+    agent_name="Analyzer",
+    model_name="gpt-4o",
+    output_type="dict",
+)
+
+result = agent.run("Analyze sentiment: 'This product is amazing!'")
+
+print(f"Sentiment: {result['sentiment']}")
+print(f"Score: {result['score']}")
+```
+
+## Working with Responses
+
+### Pydantic Model Response
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class Article(BaseModel):
+    title: str
+    summary: str
+    key_points: List[str]
+    word_count: int
+
+agent = Agent(
+    agent_name="Content-Creator",
+    model_name="gpt-4o",
+    list_base_models=[Article],
+)
+
+response = agent.run("Write an article about renewable energy")
+
+# Response is structured as Article model
+if isinstance(response, dict):
+    article = Article(**response)
+    print(f"Title: {article.title}")
+    print(f"Summary: {article.summary}")
+    print(f"Key points: {', '.join(article.key_points)}")
+```
+
+### Function Calling Response
+
+When tools are used, responses include function calls:
+
+```python
+from swarms import Agent
+
+def calculate(expression: str) -> float:
+    """Calculate a mathematical expression"""
+    return eval(expression)
+
+agent = Agent(
+    agent_name="Calculator",
+    model_name="gpt-4o",
+    tools=[calculate],
+    max_loops=2,
+)
+
+response = agent.run("What is 25 * 4 + 10?")
+# Agent calls the tool and returns the result
+print(response)
+```
+
+## Best Practices
+
+### 1. Use Descriptive Field Names
+
+```python
+# Good
+class UserProfile(BaseModel):
+    full_name: str = Field(description="User's full name")
+    email_address: str = Field(description="Contact email")
+    
+# Bad
+class UserProfile(BaseModel):
+    n: str  # ❌ Not clear
+    e: str  # ❌ Not clear
+```
+
+### 2. Add Field Descriptions
+
+```python
+class Product(BaseModel):
+    name: str = Field(description="Product name")
+    price: float = Field(description="Price in USD", gt=0)
+    category: str = Field(description="Product category (electronics, clothing, etc.)")
+    in_stock: bool = Field(description="Whether the product is currently available")
+```
+
+### 3. Use Appropriate Constraints
+
+```python
+class Review(BaseModel):
+    rating: int = Field(ge=1, le=5, description="Star rating 1-5")
+    comment: str = Field(min_length=10, max_length=500)
+    verified_purchase: bool
+```
+
+### 4. Provide Examples in Descriptions
+
+```python
+class Address(BaseModel):
+    street: str = Field(description="Street address, e.g., '123 Main St'")
+    city: str = Field(description="City name, e.g., 'San Francisco'")
+    state: str = Field(description="Two-letter state code, e.g., 'CA'")
+    zip_code: str = Field(pattern=r"^\d{5}(-\d{4})?$", description="ZIP code, e.g., '94102' or '94102-1234'")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Tools" icon="wrench" href="/agents/agent-tools">
+    Add tools to extend agent capabilities
+  </Card>
+  <Card title="Creating Agents" icon="robot" href="/agents/creating-agents">
+    Learn how to create agents
+  </Card>
+</CardGroup>
+
+## Reference
+
+- Output type handling: `swarms/structs/agent.py:396-500`
+- Pydantic integration: `swarms/tools/pydantic_to_json.py`
+- Tool schema: `swarms/structs/agent.py:624-628`

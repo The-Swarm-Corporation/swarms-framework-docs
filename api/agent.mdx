@@ -1,0 +1,590 @@
+---
+title: 'Agent'
+description: 'The core Agent class for building autonomous AI agents with tools, memory, and multi-modal capabilities'
+icon: 'robot'
+---
+
+## Overview
+
+The `Agent` class is the backbone of the Swarms framework, connecting LLMs with tools, long-term memory, and advanced autonomous capabilities. It provides a production-ready interface for building intelligent agents that can reason, use tools, handle multimodal inputs, and execute complex tasks.
+
+## Import
+
+```python
+from swarms import Agent
+```
+
+## Key Features
+
+- **Tool Integration**: Native support for function calling and tool execution
+- **Long-term Memory**: RAG-based memory system for context retention
+- **Autonomous Loops**: Dynamic execution with configurable stopping conditions
+- **Multi-modal Support**: Process text, images, and other media
+- **MCP Support**: Integration with Model Context Protocol servers
+- **Agent Handoffs**: Delegate tasks to specialized agents
+- **Streaming**: Real-time token streaming with callbacks
+- **Fallback Models**: Automatic failover to backup models
+- **State Management**: Autosave and state persistence
+
+## Initialization
+
+<ParamField path="id" type="str" default="agent-{uuid}">
+  Unique identifier for the agent instance
+</ParamField>
+
+<ParamField path="agent_name" type="str" default="swarm-worker-01">
+  The name of the agent, used for identification and logging
+</ParamField>
+
+<ParamField path="agent_description" type="str">
+  A description of the agent's purpose and capabilities
+</ParamField>
+
+<ParamField path="system_prompt" type="str">
+  The system prompt that defines the agent's behavior and personality
+</ParamField>
+
+<ParamField path="llm" type="Any">
+  The language model instance to use. If None, a LiteLLM instance will be created
+</ParamField>
+
+<ParamField path="model_name" type="str">
+  The name of the model to use (e.g., "gpt-4o", "claude-3-opus")
+</ParamField>
+
+<ParamField path="max_loops" type="Union[int, str]" default="1">
+  Maximum number of reasoning loops. Use "auto" for autonomous mode with dynamic planning
+</ParamField>
+
+<ParamField path="tools" type="List[Callable]">
+  List of callable functions that the agent can use as tools
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.5">
+  Temperature for LLM sampling (0.0 to 1.0)
+</ParamField>
+
+<ParamField path="max_tokens" type="int" default="4096">
+  Maximum number of tokens in the LLM response
+</ParamField>
+
+<ParamField path="context_length" type="int">
+  Context window size. Automatically set based on model_name if not specified
+</ParamField>
+
+<ParamField path="streaming_on" type="bool" default="false">
+  Enable basic streaming with formatted panels
+</ParamField>
+
+<ParamField path="stream" type="bool" default="false">
+  Enable detailed token-by-token streaming with metadata (citations, tokens used, etc.)
+</ParamField>
+
+<ParamField path="streaming_callback" type="Callable[[str], None]">
+  Callback function to receive streaming tokens in real-time
+</ParamField>
+
+<ParamField path="interactive" type="bool" default="false">
+  Enable interactive mode for user input between loops
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="false">
+  Enable verbose logging for debugging
+</ParamField>
+
+<ParamField path="return_history" type="bool" default="false">
+  Return the full conversation history instead of just the final response
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="str-all-except-first">
+  Output format: 'str', 'string', 'list', 'json', 'dict', 'yaml', 'xml'
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="false">
+  Automatically save agent state during execution
+</ParamField>
+
+<ParamField path="dashboard" type="bool" default="false">
+  Display agent dashboard on initialization
+</ParamField>
+
+<ParamField path="long_term_memory" type="Union[Callable, Any]">
+  Long-term memory system (e.g., vector database) for RAG
+</ParamField>
+
+<ParamField path="rag_every_loop" type="bool" default="false">
+  Query RAG memory on every loop iteration
+</ParamField>
+
+<ParamField path="fallback_models" type="List[str]">
+  List of model names to try in order. First model is primary, rest are fallbacks
+</ParamField>
+
+<ParamField path="retry_attempts" type="int" default="3">
+  Number of retry attempts for LLM calls
+</ParamField>
+
+<ParamField path="retry_interval" type="int" default="1">
+  Interval in seconds between retry attempts
+</ParamField>
+
+<ParamField path="stopping_token" type="str">
+  Token that signals the agent to stop execution
+</ParamField>
+
+<ParamField path="stopping_condition" type="Callable[[str], bool]">
+  Function that returns True when the agent should stop
+</ParamField>
+
+<ParamField path="stopping_func" type="Callable">
+  Alternative stopping function
+</ParamField>
+
+<ParamField path="dynamic_temperature_enabled" type="bool" default="false">
+  Enable dynamic temperature adjustment during execution
+</ParamField>
+
+<ParamField path="dynamic_loops" type="bool" default="false">
+  Enable dynamic loop count adjustment (sets max_loops="auto")
+</ParamField>
+
+<ParamField path="user_name" type="str" default="Human">
+  Name of the user in conversation history
+</ParamField>
+
+<ParamField path="saved_state_path" type="str">
+  Path to save agent state
+</ParamField>
+
+<ParamField path="sop" type="str">
+  Standard operating procedure for the agent
+</ParamField>
+
+<ParamField path="sop_list" type="List[str]">
+  List of standard operating procedures
+</ParamField>
+
+<ParamField path="rules" type="str">
+  Rules that govern agent behavior
+</ParamField>
+
+<ParamField path="planning_prompt" type="str">
+  Prompt for planning phase
+</ParamField>
+
+<ParamField path="plan_enabled" type="bool" default="false">
+  Enable planning phase before execution
+</ParamField>
+
+<ParamField path="multi_modal" type="bool">
+  Enable multi-modal processing (images, etc.)
+</ParamField>
+
+<ParamField path="timeout" type="int">
+  Timeout for agent execution in seconds
+</ParamField>
+
+<ParamField path="artifacts_on" type="bool" default="false">
+  Enable artifact generation and storage
+</ParamField>
+
+<ParamField path="artifacts_output_path" type="str">
+  Path to save artifacts
+</ParamField>
+
+<ParamField path="artifacts_file_extension" type="str">
+  File extension for artifacts (.pdf, .md, .txt)
+</ParamField>
+
+<ParamField path="mcp_url" type="Union[str, MCPConnection]">
+  URL or connection object for a single MCP server
+</ParamField>
+
+<ParamField path="mcp_urls" type="List[str]">
+  List of MCP server URLs for multiple connections
+</ParamField>
+
+<ParamField path="mcp_config" type="MCPConnection">
+  MCP connection configuration object
+</ParamField>
+
+<ParamField path="mcp_configs" type="MultipleMCPConnections">
+  Configuration for multiple MCP connections
+</ParamField>
+
+<ParamField path="handoffs" type="Union[Sequence[Callable], Any]">
+  List of agents to enable task handoffs/delegation
+</ParamField>
+
+<ParamField path="capabilities" type="List[str]">
+  List of agent capabilities for documentation
+</ParamField>
+
+<ParamField path="mode" type="Literal['interactive', 'fast', 'standard']" default="standard">
+  Execution mode: interactive (with user input), fast (minimal logging), or standard
+</ParamField>
+
+<ParamField path="marketplace_prompt_id" type="str">
+  UUID of a prompt from the Swarms marketplace to use as system prompt
+</ParamField>
+
+<ParamField path="skills_dir" type="str">
+  Path to directory containing Agent Skills in SKILL.md format (Anthropic framework)
+</ParamField>
+
+<ParamField path="selected_tools" type="Union[str, List[str]]" default="all">
+  Tools to enable for autonomous looper when max_loops="auto". Options: "all" or list of tool names
+</ParamField>
+
+<ParamField path="reasoning_enabled" type="bool" default="false">
+  Enable reasoning mode for supported models (e.g., o1, o3)
+</ParamField>
+
+<ParamField path="reasoning_effort" type="str">
+  Effort level for reasoning models ("low", "medium", "high")
+</ParamField>
+
+<ParamField path="thinking_tokens" type="int">
+  Maximum thinking tokens for reasoning models
+</ParamField>
+
+## Methods
+
+### run
+
+Execute the agent's main loop for a given task.
+
+```python
+def run(
+    task: Optional[Union[str, Any]] = None,
+    img: Optional[str] = None,
+    *args,
+    **kwargs
+) -> Any
+```
+
+<ParamField path="task" type="Union[str, Any]">
+  The task or prompt for the agent to process
+</ParamField>
+
+<ParamField path="img" type="str">
+  Optional image path or data for vision-enabled models
+</ParamField>
+
+<ResponseField name="return" type="Any">
+  Agent output formatted according to output_type configuration
+</ResponseField>
+
+### __call__
+
+Alternative syntax for running the agent (calls `run` internally).
+
+```python
+def __call__(
+    task: str,
+    *args,
+    **kwargs
+) -> str
+```
+
+### run_concurrent
+
+Run multiple tasks concurrently.
+
+```python
+def run_concurrent(
+    tasks: List[str],
+    *args,
+    **kwargs
+) -> List[str]
+```
+
+### bulk_run
+
+Execute multiple tasks in batch.
+
+```python
+def bulk_run(
+    tasks: List[str],
+    *args,
+    **kwargs
+) -> List[str]
+```
+
+### save
+
+Save the agent's current state to disk.
+
+```python
+def save(
+    file_path: str = None
+) -> None
+```
+
+### load
+
+Load agent state from a saved file.
+
+```python
+def load(
+    file_path: str
+) -> Agent
+```
+
+### to_dict
+
+Convert agent configuration to dictionary.
+
+```python
+def to_dict() -> Dict[str, Any]
+```
+
+### to_json
+
+Convert agent configuration to JSON string.
+
+```python
+def to_json(
+    indent: int = 4
+) -> str
+```
+
+### to_yaml
+
+Convert agent configuration to YAML string.
+
+```python
+def to_yaml(
+    indent: int = 4
+) -> str
+```
+
+### add_tool
+
+Dynamically add a tool to the agent.
+
+```python
+def add_tool(
+    tool: Callable
+) -> None
+```
+
+### reset
+
+Reset the agent's memory and state.
+
+```python
+def reset() -> None
+```
+
+### print_dashboard
+
+Display the agent's configuration dashboard.
+
+```python
+def print_dashboard() -> None
+```
+
+## Examples
+
+### Basic Usage
+
+```python
+from swarms import Agent
+
+# Create a simple agent
+agent = Agent(
+    agent_name="Financial-Analyst",
+    model_name="gpt-4o",
+    max_loops=1,
+    system_prompt="You are a financial analyst. Provide detailed, data-driven insights."
+)
+
+# Run a task
+response = agent.run("Analyze the Q4 2024 revenue trends")
+print(response)
+```
+
+### Agent with Tools
+
+```python
+from swarms import Agent
+
+def search_web(query: str) -> str:
+    """Search the web for information."""
+    # Implementation
+    return f"Search results for: {query}"
+
+def calculate(expression: str) -> float:
+    """Evaluate a mathematical expression."""
+    return eval(expression)
+
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="gpt-4o",
+    max_loops=5,
+    tools=[search_web, calculate],
+    system_prompt="You are a research assistant with web search and calculation abilities."
+)
+
+result = agent.run("Search for the population of Tokyo and calculate its growth rate")
+```
+
+### Multi-modal Agent
+
+```python
+agent = Agent(
+    agent_name="Vision-Agent",
+    model_name="gpt-4o",
+    multi_modal=True,
+    max_loops=1
+)
+
+response = agent.run(
+    task="Describe what you see in this image and identify any objects",
+    img="path/to/image.jpg"
+)
+```
+
+### Autonomous Agent with Auto Loops
+
+```python
+agent = Agent(
+    agent_name="Autonomous-Developer",
+    model_name="gpt-4o",
+    max_loops="auto",  # Enables autonomous planning and execution
+    system_prompt="You are an autonomous software developer."
+)
+
+result = agent.run("Build a REST API for a todo application with authentication")
+# Agent will:
+# 1. Create a plan with subtasks
+# 2. Execute each subtask using available tools
+# 3. Generate a comprehensive summary
+```
+
+### Agent with Streaming
+
+```python
+def on_token(token: str):
+    print(token, end="", flush=True)
+
+agent = Agent(
+    agent_name="Streaming-Agent",
+    model_name="gpt-4o",
+    stream=True,
+    streaming_callback=on_token,
+    max_loops=1
+)
+
+response = agent.run("Write a creative story about space exploration")
+```
+
+### Agent with Fallback Models
+
+```python
+agent = Agent(
+    agent_name="Reliable-Agent",
+    fallback_models=["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
+    max_loops=1
+)
+
+# Will try gpt-4o first, then gpt-4o-mini, then gpt-3.5-turbo if each fails
+response = agent.run("Generate a market analysis report")
+```
+
+### Agent with MCP Integration
+
+```python
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="gpt-4o",
+    mcp_url="npx -y @modelcontextprotocol/server-filesystem /path/to/directory",
+    max_loops=3
+)
+
+result = agent.run("Read the contents of config.json and summarize the settings")
+```
+
+### Agent Handoffs
+
+```python
+# Create specialized agents
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="gpt-4o",
+    system_prompt="You are a research specialist."
+)
+
+writer = Agent(
+    agent_name="Writer",
+    model_name="gpt-4o",
+    system_prompt="You are a technical writer."
+)
+
+# Create coordinator with handoffs
+coordinator = Agent(
+    agent_name="Coordinator",
+    model_name="gpt-4o",
+    max_loops=5,
+    handoffs=[researcher, writer],
+    system_prompt="You coordinate tasks between research and writing teams."
+)
+
+result = coordinator.run("Create a comprehensive report on quantum computing")
+# Coordinator can delegate research to researcher and writing to writer
+```
+
+### Marketplace Prompt Loading
+
+```python
+# Load a prompt from Swarms marketplace in one line
+agent = Agent(
+    model_name="gpt-4o",
+    marketplace_prompt_id="550e8400-e29b-41d4-a716-446655440000",
+    max_loops=1
+)
+
+response = agent.run("Execute the marketplace prompt task")
+# Agent automatically loads system prompt from marketplace
+```
+
+## Output Types
+
+The agent supports multiple output formats via the `output_type` parameter:
+
+- `"str"` or `"string"`: Returns the last response as a string
+- `"str-all-except-first"`: Returns all responses except system prompt as string (default)
+- `"list"`: Returns conversation as a list of messages
+- `"json"`: Returns conversation as JSON string
+- `"dict"`: Returns conversation as dictionary
+- `"yaml"`: Returns conversation as YAML string
+- `"xml"`: Returns conversation as XML string
+
+## Error Handling
+
+The Agent class includes comprehensive error handling:
+
+- **AgentInitializationError**: Raised when agent fails to initialize
+- **AgentRunError**: Raised when execution fails
+- **AgentLLMError**: Raised when LLM encounters issues
+- **AgentToolError**: Raised when tool execution fails
+- **AgentMemoryError**: Raised for memory-related issues
+
+## Best Practices
+
+1. **Set appropriate max_loops**: Use 1 for simple tasks, higher numbers for complex reasoning, or "auto" for autonomous planning
+2. **Use tools wisely**: Provide well-documented tools with clear function signatures and docstrings
+3. **Enable autosave for long-running tasks**: Prevents data loss on interruption
+4. **Configure fallback models**: Ensures reliability in production
+5. **Use streaming for real-time feedback**: Better user experience for long-running tasks
+6. **Set context_length appropriately**: Prevents token limit errors
+7. **Enable verbose mode during development**: Helps debug issues
+8. **Use agent handoffs for complex workflows**: Delegate subtasks to specialized agents
+
+## Related
+
+- [BaseSwarm](/api/base-swarm) - Base class for multi-agent systems
+- [BaseStructure](/api/base-structure) - Foundation for swarm structures
+- [Tools](/concepts/tools) - Creating and using agent tools
+- [Memory](/concepts/memory) - Long-term memory systems

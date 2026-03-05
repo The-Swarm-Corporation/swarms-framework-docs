@@ -1,0 +1,455 @@
+---
+title: Schemas
+description: Pydantic schemas for agents, conversations, and API interactions in Swarms
+---
+
+## Overview
+
+The `swarms.schemas` module provides Pydantic BaseModel schemas for structured data validation, API interactions, and agent step tracking. These schemas ensure type safety and data consistency across the Swarms framework.
+
+## Agent Step Schemas
+
+### Step
+
+Represents a single execution step in an agent's workflow.
+
+```python
+from swarms.schemas import Step
+
+step = Step(
+    step_id="unique-step-id",
+    time=1.234,
+    response=agent_response
+)
+```
+
+<ParamField path="step_id" type="str" default="uuid.uuid4().hex">
+  Unique identifier for the task step
+</ParamField>
+
+<ParamField path="time" type="float" default="current_time">
+  Time taken to complete the task step
+</ParamField>
+
+<ParamField path="response" type="AgentChatCompletionResponse" default="None">
+  Agent's response for this step
+</ParamField>
+
+### ManySteps
+
+Tracks multiple execution steps and agent run metadata.
+
+```python
+from swarms.schemas import ManySteps
+
+run_data = ManySteps(
+    agent_id="financial-agent-1",
+    agent_name="FinancialAnalyst",
+    task="Analyze Q4 earnings",
+    max_loops=3,
+    steps=[step1, step2, step3],
+    total_tokens=5000
+)
+```
+
+<ParamField path="agent_id" type="str" required>
+  Unique identifier of the agent
+</ParamField>
+
+<ParamField path="agent_name" type="str" required>
+  Name of the agent
+</ParamField>
+
+<ParamField path="task" type="str" required>
+  Description of the task being executed
+</ParamField>
+
+<ParamField path="max_loops" type="Any" required>
+  Maximum number of execution loops
+</ParamField>
+
+<ParamField path="run_id" type="str" default="uuid.uuid4().hex">
+  Unique identifier for this execution run
+</ParamField>
+
+<ParamField path="steps" type="List[Union[Step, Any]]" default="[]">
+  List of execution steps
+</ParamField>
+
+<ParamField path="full_history" type="str" required>
+  Complete execution history as a string
+</ParamField>
+
+<ParamField path="total_tokens" type="int" required>
+  Total number of tokens consumed
+</ParamField>
+
+<ParamField path="stopping_token" type="str" required>
+  Token that caused execution to stop
+</ParamField>
+
+<ParamField path="interactive" type="bool" required>
+  Whether the task was interactive
+</ParamField>
+
+<ParamField path="dynamic_temperature_enabled" type="bool" required>
+  Whether dynamic temperature adjustment was enabled
+</ParamField>
+
+## MCP Schemas
+
+### MCPConnection
+
+Defines connection parameters for Model Context Protocol (MCP) servers.
+
+```python
+from swarms.schemas import MCPConnection
+
+mcp = MCPConnection(
+    server_name="filesystem",
+    command="npx",
+    args=["-y", "@modelcontextprotocol/server-filesystem", "/path/to/data"],
+    env={"API_KEY": "secret"}
+)
+```
+
+### MultipleMCPConnections
+
+Manages multiple MCP server connections.
+
+```python
+from swarms.schemas import MultipleMCPConnections
+
+connections = MultipleMCPConnections(
+    connections=[mcp1, mcp2, mcp3]
+)
+```
+
+## Base Schemas
+
+### ModelCard
+
+Metadata about a machine learning model.
+
+```python
+from swarms.schemas.base_schemas import ModelCard
+
+model = ModelCard(
+    id="gpt-4",
+    object="model",
+    created=1234567890,
+    owned_by="openai"
+)
+```
+
+<ParamField path="id" type="str" required>
+  Model identifier
+</ParamField>
+
+<ParamField path="object" type="str" default="model">
+  Object type (always "model")
+</ParamField>
+
+<ParamField path="created" type="int" default="current_timestamp">
+  Unix timestamp of model creation
+</ParamField>
+
+<ParamField path="owned_by" type="str" default="owner">
+  Model owner/organization
+</ParamField>
+
+<ParamField path="root" type="str" default="None">
+  Root model identifier
+</ParamField>
+
+<ParamField path="parent" type="str" default="None">
+  Parent model identifier
+</ParamField>
+
+<ParamField path="permission" type="list" default="None">
+  Model permissions
+</ParamField>
+
+### ChatMessageInput
+
+Input message for chat completions.
+
+```python
+from swarms.schemas.base_schemas import ChatMessageInput
+
+message = ChatMessageInput(
+    role="user",
+    content="Analyze this financial report"
+)
+
+# Multi-modal message
+multimodal_message = ChatMessageInput(
+    role="user",
+    content=[
+        {"type": "text", "text": "What's in this image?"},
+        {"type": "image_url", "image_url": {"url": "https://..."}}
+    ]
+)
+```
+
+<ParamField path="role" type="str" required>
+  Role of message sender: 'user', 'assistant', or 'system'
+</ParamField>
+
+<ParamField path="content" type="Union[str, List[ContentItem]]" required>
+  Message content (text or multi-modal)
+</ParamField>
+
+### ChatCompletionRequest
+
+Request schema for chat completions.
+
+```python
+from swarms.schemas.base_schemas import ChatCompletionRequest
+
+request = ChatCompletionRequest(
+    model="gpt-4",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"}
+    ],
+    temperature=0.7,
+    max_tokens=1000,
+    stream=False
+)
+```
+
+<ParamField path="model" type="str" default="gpt-4.1">
+  Model to use for completion
+</ParamField>
+
+<ParamField path="messages" type="List[ChatMessageInput]" required>
+  List of messages in the conversation
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.8">
+  Sampling temperature (0.0 to 2.0)
+</ParamField>
+
+<ParamField path="top_p" type="float" default="0.8">
+  Nucleus sampling parameter
+</ParamField>
+
+<ParamField path="max_tokens" type="int" default="4000">
+  Maximum tokens to generate
+</ParamField>
+
+<ParamField path="stream" type="bool" default="False">
+  Enable streaming responses
+</ParamField>
+
+<ParamField path="repetition_penalty" type="float" default="1.0">
+  Penalty for token repetition
+</ParamField>
+
+### ChatCompletionResponse
+
+Response schema for chat completions.
+
+```python
+from swarms.schemas.base_schemas import ChatCompletionResponse
+
+response = ChatCompletionResponse(
+    model="gpt-4",
+    object="chat.completion",
+    choices=[
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "Hello! How can I help?"},
+            "input": "Hello!"
+        }
+    ],
+    created=1234567890
+)
+```
+
+<ParamField path="model" type="str" required>
+  Model used for completion
+</ParamField>
+
+<ParamField path="object" type="Literal['chat.completion', 'chat.completion.chunk']" required>
+  Response object type
+</ParamField>
+
+<ParamField path="choices" type="List[Union[ChatCompletionResponseChoice, ChatCompletionResponseStreamChoice]]" required>
+  List of completion choices
+</ParamField>
+
+<ParamField path="created" type="int" default="current_timestamp">
+  Unix timestamp of response creation
+</ParamField>
+
+### AgentChatCompletionResponse
+
+Agent-specific chat completion response with tracking metadata.
+
+```python
+from swarms.schemas.base_schemas import AgentChatCompletionResponse
+
+response = AgentChatCompletionResponse(
+    id="agent-abc123",
+    agent_name="FinancialAnalyst",
+    object="chat.completion",
+    choices=choice_data,
+    created=1234567890
+)
+```
+
+<ParamField path="id" type="str" default="agent-{uuid}">
+  Unique identifier for this agent response
+</ParamField>
+
+<ParamField path="agent_name" type="str" required>
+  Name of the agent that generated the response
+</ParamField>
+
+<ParamField path="object" type="Literal['chat.completion', 'chat.completion.chunk']" default="None">
+  Response object type
+</ParamField>
+
+<ParamField path="choices" type="ChatCompletionResponseChoice" default="None">
+  Completion choice data
+</ParamField>
+
+<ParamField path="created" type="int" default="current_timestamp">
+  Unix timestamp of response creation
+</ParamField>
+
+### UsageInfo
+
+Token usage information for API calls.
+
+```python
+from swarms.schemas.base_schemas import UsageInfo
+
+usage = UsageInfo(
+    prompt_tokens=150,
+    completion_tokens=300,
+    total_tokens=450
+)
+```
+
+<ParamField path="prompt_tokens" type="int" default="0">
+  Number of tokens in the prompt
+</ParamField>
+
+<ParamField path="total_tokens" type="int" default="0">
+  Total tokens used (prompt + completion)
+</ParamField>
+
+<ParamField path="completion_tokens" type="int" default="0">
+  Number of tokens in the completion
+</ParamField>
+
+## Example: Complete Agent Tracking
+
+```python
+from swarms.schemas import Step, ManySteps
+from swarms.schemas.base_schemas import AgentChatCompletionResponse
+import time
+
+# Track individual steps
+steps = []
+
+for i in range(3):
+    step_start = time.time()
+    
+    # Simulate agent execution
+    response = AgentChatCompletionResponse(
+        agent_name="FinancialAnalyst",
+        choices={"message": {"role": "assistant", "content": f"Analysis {i+1}"}}
+    )
+    
+    step = Step(
+        step_id=f"step-{i}",
+        time=time.time() - step_start,
+        response=response
+    )
+    steps.append(step)
+
+# Create complete run record
+run_record = ManySteps(
+    agent_id="financial-agent-1",
+    agent_name="FinancialAnalyst",
+    task="Analyze Q4 earnings reports",
+    max_loops=3,
+    run_id="run-abc123",
+    steps=steps,
+    full_history="Complete execution history...",
+    total_tokens=5000,
+    stopping_token="<END>",
+    interactive=False,
+    dynamic_temperature_enabled=True
+)
+
+print(f"Run ID: {run_record.run_id}")
+print(f"Total steps: {len(run_record.steps)}")
+print(f"Total tokens: {run_record.total_tokens}")
+```
+
+## Example: MCP Connection Setup
+
+```python
+from swarms.schemas import MCPConnection, MultipleMCPConnections
+
+# Define individual connections
+filesystem_mcp = MCPConnection(
+    server_name="filesystem",
+    command="npx",
+    args=["-y", "@modelcontextprotocol/server-filesystem", "/data"]
+)
+
+web_search_mcp = MCPConnection(
+    server_name="brave-search",
+    command="npx",
+    args=["-y", "@modelcontextprotocol/server-brave-search"],
+    env={"BRAVE_API_KEY": "your-api-key"}
+)
+
+# Combine multiple connections
+connections = MultipleMCPConnections(
+    connections=[filesystem_mcp, web_search_mcp]
+)
+
+# Use with agent
+from swarms import Agent
+
+agent = Agent(
+    agent_name="MultiTool-Agent",
+    mcp_connections=connections,
+    model_name="gpt-4"
+)
+```
+
+## Best Practices
+
+1. **Type Safety**: Always use the provided schemas for type-safe data handling
+2. **Validation**: Leverage Pydantic's validation to catch errors early
+3. **Serialization**: Use `.model_dump()` and `.model_dump_json()` for serialization
+4. **Step Tracking**: Track all agent steps for debugging and analysis
+5. **Token Monitoring**: Monitor token usage through UsageInfo schemas
+6. **MCP Configuration**: Use MCPConnection schemas for consistent tool integration
+
+## Schema Inheritance
+
+All schemas inherit from Pydantic's `BaseModel`, providing:
+- Automatic validation
+- JSON serialization/deserialization
+- Schema generation
+- IDE autocomplete support
+- Type checking
+
+```python
+# Serialization
+step_dict = step.model_dump()
+step_json = step.model_dump_json(indent=2)
+
+# Deserialization
+step_from_dict = Step(**step_dict)
+step_from_json = Step.model_validate_json(step_json)
+```

@@ -1,0 +1,149 @@
+---
+title: Multi-Agent Architectures Overview
+description: Comprehensive guide to all multi-agent architectures in Swarms with comparison table and use cases
+---
+
+# Multi-Agent Architectures Overview
+
+Swarms provides a comprehensive suite of multi-agent architectures for orchestrating complex workflows. Each architecture is designed for specific use cases and collaboration patterns.
+
+## Quick Comparison
+
+| Architecture | Execution Pattern | Best For | Complexity |
+|--------------|------------------|----------|------------|
+| [Sequential Workflow](/architectures/sequential-workflow) | Linear chain | Step-by-step processes | Low |
+| [Concurrent Workflow](/architectures/concurrent-workflow) | Parallel execution | High-throughput tasks | Low |
+| [Agent Rearrange](/architectures/agent-rearrange) | Custom flow patterns | Flexible workflows | Medium |
+| [Mixture of Agents](/architectures/mixture-of-agents) | Parallel + aggregation | Expert synthesis | Medium |
+| [Swarm Router](/architectures/swarm-router) | Dynamic selection | Unified orchestration | Medium |
+| [Hierarchical Swarm](/architectures/hierarchical-swarm) | Director-worker pattern | Project management | High |
+| [Heavy Swarm](/architectures/heavy-swarm) | 5-phase analysis | Research & analysis | High |
+| [Group Chat](/architectures/group-chat) | Conversational | Debate & collaboration | Medium |
+| [Graph Workflow](/architectures/graph-workflow) | DAG-based | Complex dependencies | High |
+| [Social Algorithms](/architectures/social-algorithms) | Custom patterns | Flexible communication | Medium |
+
+## Architecture Categories
+
+### Linear Architectures
+
+These architectures execute tasks in a straightforward manner:
+
+- **Sequential Workflow**: Agents execute in order (A → B → C)
+- **Concurrent Workflow**: Agents execute simultaneously on the same task
+
+### Dynamic Architectures
+
+These provide flexible orchestration patterns:
+
+- **Agent Rearrange**: Define custom flows with → and , operators
+- **Swarm Router**: Dynamically select and execute any swarm type
+- **Social Algorithms**: Upload arbitrary communication patterns
+
+### Hierarchical Architectures
+
+These implement structured command patterns:
+
+- **Hierarchical Swarm**: Director coordinates specialized workers
+- **Heavy Swarm**: 5-phase workflow with question generation
+
+### Collaborative Architectures
+
+These enable agent interaction and synthesis:
+
+- **Mixture of Agents**: Parallel experts with aggregation
+- **Group Chat**: Conversational multi-agent interaction
+- **Graph Workflow**: DAG-based complex workflows
+
+## Choosing the Right Architecture
+
+<Steps>
+  <Step title="Identify Your Pattern">
+    Determine if your task needs sequential, parallel, or mixed execution
+  </Step>
+  
+  <Step title="Consider Complexity">
+    Match architecture complexity to task requirements
+  </Step>
+  
+  <Step title="Evaluate Features">
+    Review specific features like feedback loops, aggregation, or dynamic routing
+  </Step>
+  
+  <Step title="Test and Iterate">
+    Start simple and upgrade to more complex architectures as needed
+  </Step>
+</Steps>
+
+## Architecture Selection Guide
+
+### Use Sequential Workflow When:
+- Tasks have clear sequential dependencies
+- Each step builds on previous output
+- Simple linear processing is sufficient
+
+### Use Concurrent Workflow When:
+- Tasks can run in parallel
+- High throughput is needed
+- Multiple perspectives on same input
+
+### Use Agent Rearrange When:
+- Need custom flow patterns
+- Mix of sequential and parallel execution
+- Dynamic routing requirements
+
+### Use Mixture of Agents When:
+- Multiple expert perspectives needed
+- Quality through collaboration
+- Synthesis of diverse outputs
+
+### Use Swarm Router When:
+- Need flexibility to switch strategies
+- Testing multiple architectures
+- Unified interface for all swarms
+
+### Use Hierarchical Swarm When:
+- Complex project coordination
+- Specialized worker agents
+- Feedback and refinement needed
+
+### Use Heavy Swarm When:
+- Comprehensive research required
+- Multiple analysis phases
+- Thorough investigation needed
+
+### Use Group Chat When:
+- Debate and discussion beneficial
+- Conversational problem-solving
+- Multi-perspective reasoning
+
+### Use Graph Workflow When:
+- Complex task dependencies
+- DAG structure required
+- Parallel branches with convergence
+
+### Use Social Algorithms When:
+- Custom communication patterns
+- Arbitrary agent interactions
+- Flexible orchestration needed
+
+## Next Steps
+
+Explore each architecture in detail:
+
+<CardGroup cols={2}>
+  <Card title="Sequential Workflow" icon="arrow-right" href="/architectures/sequential-workflow">
+    Linear agent execution
+  </Card>
+  
+  <Card title="Concurrent Workflow" icon="layer-group" href="/architectures/concurrent-workflow">
+    Parallel agent processing
+  </Card>
+  
+  <Card title="Agent Rearrange" icon="diagram-project" href="/architectures/agent-rearrange">
+    Custom flow patterns
+  </Card>
+  
+  <Card title="Mixture of Agents" icon="users" href="/architectures/mixture-of-agents">
+    Expert synthesis
+  </Card>
+</CardGroup>

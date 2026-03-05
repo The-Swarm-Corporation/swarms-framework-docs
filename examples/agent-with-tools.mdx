@@ -1,0 +1,528 @@
+---
+title: 'Agent with Tools'
+description: 'Enhance agents with external tools and function calling'
+icon: 'wrench'
+---
+
+# Agent with Tools
+
+Learn how to create powerful agents that can use external tools to interact with APIs, search the web, process data, and perform complex operations.
+
+## Overview
+
+Tools extend agent capabilities beyond language generation, allowing them to:
+
+- Search the web for real-time information
+- Execute code and scripts
+- Query databases
+- Make API calls
+- Process files and data
+- Perform calculations
+
+## Basic Tool Integration
+
+Here's a simple example of creating a tool and using it with an agent:
+
+```python
+from swarms import Agent
+
+def calculate_roi(investment: float, return_amount: float) -> str:
+    """
+    Calculate Return on Investment (ROI)
+    
+    Args:
+        investment (float): Initial investment amount
+        return_amount (float): Return amount received
+    
+    Returns:
+        str: ROI percentage and analysis
+    """
+    roi = ((return_amount - investment) / investment) * 100
+    return f"ROI: {roi:.2f}%. Investment: ${investment:,.2f}, Return: ${return_amount:,.2f}"
+
+# Create agent with the tool
+agent = Agent(
+    agent_name="Financial-Analyst",
+    system_prompt="You are a financial analyst. Use the calculate_roi tool to analyze investments.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+    tools=[calculate_roi],  # Add tools here
+)
+
+# Agent will automatically use the tool when needed
+response = agent.run(
+    "What's the ROI if I invest $10,000 and get back $15,000?"
+)
+print(response)
+```
+
+## Real-World Example: Web Search Agent
+
+Here's a production-ready example using the Exa search API:
+
+```python
+from swarms import Agent
+import os
+import httpx
+from loguru import logger
+from swarms.utils.any_to_str import any_to_str
+
+def exa_search(query: str) -> str:
+    """
+    Exa Web Search Tool
+    
+    Advanced web search using the Exa.ai API for research agents.
+    Retrieves up-to-date information from documentation, articles, and more.
+    
+    Args:
+        query (str): Natural language search query
+        
+    Returns:
+        str: JSON-formatted search results with summaries
+        
+    Example:
+        exa_search("Latest PyTorch 2.2.0 quantization APIs")
+    """
+    api_key = os.getenv("EXA_API_KEY")
+    
+    if not api_key:
+        raise ValueError("EXA_API_KEY environment variable is not set")
+    
+    headers = {
+        "x-api-key": api_key,
+        "content-type": "application/json",
+    }
+    
+    payload = {
+        "query": query,
+        "type": "auto",
+        "numResults": 5,
+        "contents": {
+            "text": True,
+            "summary": {
+                "schema": {
+                    "type": "object",
+                    "required": ["answer"],
+                    "properties": {
+                        "answer": {
+                            "type": "string",
+                            "description": "Key insights from the search result",
+                        }
+                    },
+                }
+            },
+        },
+    }
+    
+    try:
+        logger.info(f"[SEARCH] Executing Exa search for: {query[:50]}...")
+        
+        response = httpx.post(
+            "https://api.exa.ai/search",
+            json=payload,
+            headers=headers,
+            timeout=30,
+        )
+        
+        response.raise_for_status()
+        json_data = response.json()
+        
+        return any_to_str(json_data)
+        
+    except Exception as e:
+        logger.error(f"Exa search failed: {e}")
+        return f"Search failed: {str(e)}. Please try again."
+
+# Initialize agent with search tool
+agent = Agent(
+    agent_name="Quantitative-Trading-Agent",
+    agent_description="Advanced quantitative trading and algorithmic analysis agent",
+    model_name="gpt-4.1",
+    dynamic_temperature_enabled=True,
+    max_loops=1,
+    tools=[exa_search],
+)
+
+out = agent.run(
+    "Create a report on the most undervalued and high potential energy stocks"
+)
+print(out)
+```
+
+## Multiple Tools Example
+
+Agents can use multiple tools in a single workflow:
+
+```python
+from swarms import Agent
+import httpx
+import json
+
+def search_stocks(query: str) -> str:
+    """
+    Search for stock information
+    
+    Args:
+        query (str): Stock symbol or company name
+        
+    Returns:
+        str: Stock information
+    """
+    # Implementation here
+    return f"Stock information for {query}"
+
+def analyze_financials(stock_symbol: str) -> str:
+    """
+    Analyze financial statements for a stock
+    
+    Args:
+        stock_symbol (str): Stock ticker symbol
+        
+    Returns:
+        str: Financial analysis
+    """
+    # Implementation here
+    return f"Financial analysis for {stock_symbol}"
+
+def calculate_metrics(revenue: float, expenses: float) -> str:
+    """
+    Calculate financial metrics
+    
+    Args:
+        revenue (float): Total revenue
+        expenses (float): Total expenses
+        
+    Returns:
+        str: Calculated metrics including profit margin
+    """
+    profit = revenue - expenses
+    margin = (profit / revenue) * 100 if revenue > 0 else 0
+    return f"Profit: ${profit:,.2f}, Margin: {margin:.2f}%"
+
+# Agent with multiple tools
+multi_tool_agent = Agent(
+    agent_name="Investment-Analyst",
+    system_prompt="You are an investment analyst. Use the available tools to research and analyze stocks.",
+    model_name="gpt-4o-mini",
+    max_loops=3,
+    tools=[search_stocks, analyze_financials, calculate_metrics],
+)
+
+result = multi_tool_agent.run(
+    "Analyze Apple (AAPL) stock and provide investment recommendation"
+)
+print(result)
+```
+
+## Tool Types
+
+### 1. Python Functions
+
+Simple Python functions with type hints and docstrings:
+
+```python
+def get_weather(city: str, units: str = "celsius") -> str:
+    """
+    Get current weather for a city
+    
+    Args:
+        city (str): City name
+        units (str): Temperature units (celsius or fahrenheit)
+        
+    Returns:
+        str: Weather information
+    """
+    # API call here
+    return f"Weather in {city}: 22°C, Sunny"
+
+agent = Agent(
+    model_name="gpt-4o-mini",
+    tools=[get_weather],
+)
+```
+
+### 2. BaseTool Class
+
+For more complex tools, use the `BaseTool` class:
+
+```python
+from swarms.tools.base_tool import BaseTool
+from pydantic import Field
+
+class WebSearchTool(BaseTool):
+    """
+    Web search tool for finding information online
+    """
+    name: str = "web_search"
+    description: str = "Search the web for information"
+    api_key: str = Field(..., description="API key for search service")
+    
+    def run(self, query: str) -> str:
+        """
+        Execute web search
+        
+        Args:
+            query (str): Search query
+            
+        Returns:
+            str: Search results
+        """
+        # Implementation
+        return f"Search results for: {query}"
+
+# Use the tool
+search_tool = WebSearchTool(api_key=os.getenv("SEARCH_API_KEY"))
+
+agent = Agent(
+    model_name="gpt-4o-mini",
+    tools=[search_tool],
+)
+```
+
+### 3. External Tool Libraries
+
+Integrate tools from external libraries:
+
+```python
+# Pip install swarms-tools
+from swarms_tools import exa_search, browser_use
+from swarms import Agent
+
+# Agent with pre-built tools
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="gpt-4o-mini",
+    tools=[exa_search, browser_use],
+)
+
+result = agent.run("Find the latest AI research papers from 2024")
+```
+
+## Advanced Tool Patterns
+
+### Tool with Error Handling
+
+```python
+def safe_api_call(endpoint: str, params: dict) -> str:
+    """
+    Make API call with error handling
+    
+    Args:
+        endpoint (str): API endpoint URL
+        params (dict): Request parameters
+        
+    Returns:
+        str: API response or error message
+    """
+    try:
+        response = httpx.get(endpoint, params=params, timeout=10)
+        response.raise_for_status()
+        return json.dumps(response.json())
+    except httpx.HTTPError as e:
+        return f"API call failed: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+```
+
+### Stateful Tool
+
+```python
+class DatabaseTool:
+    """
+    Tool that maintains connection state
+    """
+    def __init__(self, connection_string: str):
+        self.connection_string = connection_string
+        self.connection = None
+    
+    def query(self, sql: str) -> str:
+        """
+        Execute SQL query
+        
+        Args:
+            sql (str): SQL query to execute
+            
+        Returns:
+            str: Query results
+        """
+        if not self.connection:
+            self.connection = self._connect()
+        
+        # Execute query
+        return "Query results"
+    
+    def _connect(self):
+        # Establish connection
+        return None
+
+# Use stateful tool
+db_tool = DatabaseTool("postgresql://localhost/mydb")
+
+agent = Agent(
+    model_name="gpt-4o-mini",
+    tools=[db_tool.query],
+)
+```
+
+## Best Practices
+
+### 1. Clear Tool Documentation
+
+Always provide detailed docstrings:
+
+```python
+def analyze_sentiment(text: str) -> str:
+    """
+    Analyze sentiment of text
+    
+    This tool uses natural language processing to determine whether
+    the sentiment of the input text is positive, negative, or neutral.
+    
+    Args:
+        text (str): The text to analyze. Should be at least 10 characters.
+        
+    Returns:
+        str: Sentiment analysis result with score and classification
+        
+    Example:
+        >>> analyze_sentiment("I love this product!")
+        "Sentiment: Positive (Score: 0.92)"
+    """
+    # Implementation
+    pass
+```
+
+### 2. Type Hints
+
+Use proper type hints for better tool discovery:
+
+```python
+from typing import Dict, List, Optional
+
+def search_database(
+    query: str,
+    filters: Optional[Dict[str, str]] = None,
+    limit: int = 10
+) -> List[Dict[str, Any]]:
+    """
+    Search database with filters
+    """
+    pass
+```
+
+### 3. Error Handling
+
+Handle errors gracefully:
+
+```python
+def robust_tool(input_data: str) -> str:
+    """
+    Tool with robust error handling
+    """
+    try:
+        # Tool logic
+        result = process(input_data)
+        return result
+    except ValueError as e:
+        return f"Invalid input: {e}"
+    except Exception as e:
+        logger.error(f"Tool error: {e}")
+        return "Tool execution failed. Please try again."
+```
+
+### 4. Logging
+
+Add logging for debugging:
+
+```python
+from loguru import logger
+
+def logged_tool(param: str) -> str:
+    """
+    Tool with logging
+    """
+    logger.info(f"Tool called with param: {param}")
+    
+    try:
+        result = execute(param)
+        logger.success(f"Tool completed successfully")
+        return result
+    except Exception as e:
+        logger.error(f"Tool failed: {e}")
+        raise
+```
+
+## Tool Configuration
+
+### Dynamic Tool Loading
+
+```python
+from swarms import Agent
+
+# Load tools dynamically
+tools = []
+
+if os.getenv("ENABLE_SEARCH"):
+    tools.append(exa_search)
+
+if os.getenv("ENABLE_DATABASE"):
+    tools.append(db_query)
+
+agent = Agent(
+    model_name="gpt-4o-mini",
+    tools=tools,
+)
+```
+
+### Tool Registry
+
+```python
+from swarms.tools.tool_registry import ToolRegistry
+
+# Create tool registry
+registry = ToolRegistry()
+
+# Register tools
+registry.register("search", exa_search)
+registry.register("calculate", calculate_metrics)
+
+# Use registered tools
+agent = Agent(
+    model_name="gpt-4o-mini",
+    tools=registry.get_all_tools(),
+)
+```
+
+## Output Examples
+
+When an agent uses tools, you'll see output like:
+
+```
+🤖 Agent: Financial-Analyst
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 Using tool: calculate_roi
+   Arguments: {"investment": 10000, "return_amount": 15000}
+
+📊 Tool Result:
+   ROI: 50.00%. Investment: $10,000.00, Return: $15,000.00
+
+💡 Analysis:
+   Based on the ROI calculation, this investment returned 50%, which is
+   an excellent return. The investment of $10,000 generated a profit of
+   $5,000, indicating strong performance.
+```
+
+## Next Steps
+
+- [Vision Agent](/examples/vision-agent) - Add image processing capabilities
+- [Streaming](/examples/streaming) - Stream tool results in real-time
+- [Multi-Agent Workflows](/swarms/structs/sequential_workflow) - Coordinate agents with different tools
+- [Tool Development Guide](/swarms/tools/base_tool) - Build custom tools
+
+## Learn More
+
+- [BaseTool API Reference](/swarms/tools/base_tool)
+- [Tool Registry](/swarms/tools/tool_registry)
+- [Model Context Protocol (MCP)](/swarms/examples/multi_mcp_agent)
+- [Swarms Tools Library](https://github.com/The-Swarm-Corporation/swarms-tools)

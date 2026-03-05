@@ -1,0 +1,292 @@
+---
+title: SwarmRouter
+description: A dynamic router that routes tasks to different swarm types based on user selection or automatic matching
+---
+
+## Overview
+
+The `SwarmRouter` class dynamically routes tasks to different swarm architectures based on user selection or automatic matching. It provides a unified interface for managing multiple swarm types and enables flexible task execution with logging, type validation, and metadata capture.
+
+## Class Definition
+
+```python
+from swarms.structs.swarm_router import SwarmRouter
+```
+
+## Parameters
+
+<ParamField path="id" type="str" default="generate_api_key(prefix='swarm-router')">
+  Unique identifier for the SwarmRouter instance
+</ParamField>
+
+<ParamField path="name" type="str" default="swarm-router">
+  Name identifier for the SwarmRouter instance
+</ParamField>
+
+<ParamField path="description" type="str" default="Routes your task to the desired swarm">
+  Description of the SwarmRouter's purpose
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of execution loops
+</ParamField>
+
+<ParamField path="agents" type="List[Union[Agent, Callable]]" default="[]">
+  List of Agent objects or callables to use in the swarm
+</ParamField>
+
+<ParamField path="swarm_type" type="SwarmType" default="SequentialWorkflow">
+  Type of swarm to use. Options: "AgentRearrange", "MixtureOfAgents", "SequentialWorkflow", "ConcurrentWorkflow", "GroupChat", "MultiAgentRouter", "HierarchicalSwarm", "HeavySwarm", "MajorityVoting", "CouncilAsAJudge", "BatchedGridWorkflow", "LLMCouncil", "DebateWithJudge", "RoundRobin"
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="False">
+  Whether to enable autosaving of swarm configuration, state, and metadata to workspace_dir/swarms/SwarmRouter/{swarm-name}-{timestamp}/
+</ParamField>
+
+<ParamField path="autosave_use_timestamp" type="bool" default="True">
+  If True, use timestamp in directory name; if False, use UUID
+</ParamField>
+
+<ParamField path="rearrange_flow" type="str" optional>
+  Flow configuration string for AgentRearrange swarm type
+</ParamField>
+
+<ParamField path="return_json" type="bool" default="False">
+  Whether to return results as JSON
+</ParamField>
+
+<ParamField path="auto_generate_prompts" type="bool" default="False">
+  Whether to auto-generate agent prompts
+</ParamField>
+
+<ParamField path="shared_memory_system" type="Any" optional>
+  Shared memory system for agents
+</ParamField>
+
+<ParamField path="rules" type="str" optional>
+  Rules to inject into every agent's system prompt
+</ParamField>
+
+<ParamField path="documents" type="List[str]" default="[]">
+  List of document file paths to use
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict-all-except-first">
+  Output format type. Supported: 'str', 'string', 'list', 'json', 'dict', 'yaml', 'xml'
+</ParamField>
+
+<ParamField path="multi_agent_collab_prompt" type="bool" default="True">
+  Whether to enable multi-agent collaboration prompts
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Enable verbose logging output
+</ParamField>
+
+## Available Swarm Types
+
+- **AgentRearrange**: Optimizes agent arrangement for task execution with custom flow configuration
+- **MixtureOfAgents**: Combines multiple agent types for diverse task perspectives
+- **SequentialWorkflow**: Executes tasks sequentially through agents in order
+- **ConcurrentWorkflow**: Executes tasks in parallel across agents
+- **GroupChat**: Enables collaborative discussion and consensus-building
+- **MultiAgentRouter**: Intelligent routing and load balancing across agents
+- **HierarchicalSwarm**: Layered decision-making with director and worker agents
+- **HeavySwarm**: High-capacity processing with specialized question generation and synthesis
+- **MajorityVoting**: Democratic decision-making with voting mechanisms
+- **CouncilAsAJudge**: Deliberative decision-making with expert evaluation
+- **BatchedGridWorkflow**: Batched task processing across agent grids
+- **LLMCouncil**: Council-based deliberation with chairman coordination
+- **DebateWithJudge**: Structured debate with pro, con, and judge agents
+- **RoundRobin**: Cycles through agents in round-robin fashion
+
+## Methods
+
+### `reliability_check()`
+
+```python
+def reliability_check(self) -> None
+```
+
+Performs reliability checks on swarm configuration to validate essential parameters.
+
+**Raises:**
+- `SwarmRouterConfigError`: If swarm configuration is invalid
+
+---
+
+### `run()`
+
+```python
+def run(
+    self,
+    task: Optional[str] = None,
+    img: Optional[str] = None,
+    tasks: Optional[List[str]] = None,
+    *args,
+    **kwargs,
+) -> Any
+```
+
+Executes a task on the selected swarm type.
+
+**Parameters:**
+
+<ParamField path="task" type="str" optional>
+  The task to be executed by the swarm
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input for the task
+</ParamField>
+
+<ParamField path="tasks" type="List[str]" optional>
+  Optional list of tasks for batch processing (used by BatchedGridWorkflow)
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="Any">
+  The result of the swarm's execution, format depends on output_type setting
+</ResponseField>
+
+**Raises:**
+- `SwarmRouterRunError`: If task execution fails
+
+---
+
+### `batch_run()`
+
+```python
+def batch_run(
+    self,
+    tasks: List[str],
+    img: Optional[str] = None,
+    imgs: Optional[List[str]] = None,
+    *args,
+    **kwargs,
+) -> List[Any]
+```
+
+Executes multiple tasks in sequence.
+
+**Parameters:**
+
+<ParamField path="tasks" type="List[str]" required>
+  A list of tasks to be executed by the swarm
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input for all tasks
+</ParamField>
+
+<ParamField path="imgs" type="List[str]" optional>
+  Optional list of images corresponding to each task
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="results" type="List[Any]">
+  A list of results from the swarm's execution for each task
+</ResponseField>
+
+---
+
+### `concurrent_run()`
+
+```python
+def concurrent_run(
+    self,
+    task: str,
+    img: Optional[str] = None,
+    imgs: Optional[List[str]] = None,
+    *args,
+    **kwargs,
+) -> Any
+```
+
+Executes a task using concurrent execution with ThreadPoolExecutor.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to be executed by the swarm
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input for the task
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="Any">
+  The result of the swarm's concurrent execution
+</ResponseField>
+
+---
+
+### `to_dict()`
+
+```python
+def to_dict(self) -> Dict[str, Any]
+```
+
+Converts all attributes of the SwarmRouter to a dictionary for serialization.
+
+**Returns:**
+
+<ResponseField name="config" type="Dict[str, Any]">
+  A dictionary representation of the SwarmRouter's configuration and state
+</ResponseField>
+
+## Usage Example
+
+```python
+from swarms.structs.agent import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+# Create agents
+agent1 = Agent(
+    agent_name="Research-Agent",
+    system_prompt="Research specialist",
+    model_name="gpt-4o"
+)
+
+agent2 = Agent(
+    agent_name="Analysis-Agent",
+    system_prompt="Analysis specialist",
+    model_name="gpt-4o"
+)
+
+# Create SwarmRouter with SequentialWorkflow
+router = SwarmRouter(
+    name="research-analysis-swarm",
+    description="A swarm for research and analysis tasks",
+    agents=[agent1, agent2],
+    swarm_type="SequentialWorkflow",
+    max_loops=1,
+    autosave=True,
+    verbose=True
+)
+
+# Execute a task
+result = router.run(
+    task="Research the latest trends in AI and provide analysis"
+)
+
+print(result)
+```
+
+## Autosave Configuration
+
+When `autosave=True`, the SwarmRouter automatically saves:
+
+1. **config.json**: Initial configuration on initialization
+2. **state.json**: Current state after each run
+3. **metadata.json**: Execution metadata including results
+
+Files are saved to: `workspace_dir/swarms/SwarmRouter/{swarm-name}-{timestamp}/`
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarm_router.py)

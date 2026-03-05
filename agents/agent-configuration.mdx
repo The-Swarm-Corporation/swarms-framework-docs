@@ -1,0 +1,411 @@
+---
+title: 'Agent Configuration'
+description: 'Complete guide to configuring agents with all available parameters'
+icon: 'sliders'
+---
+
+# Agent Configuration
+
+The `Agent` class provides extensive configuration options to customize behavior, performance, and capabilities.
+
+## Core Parameters
+
+### Model Configuration
+
+<ParamField path="model_name" type="str" default="gpt-4o-mini">
+  The name of the language model to use. Supports any model from OpenAI, Anthropic, Groq, Cohere, and more via LiteLLM.
+  
+  ```python
+  agent = Agent(model_name="gpt-4o")
+  agent = Agent(model_name="claude-sonnet-4-5")
+  agent = Agent(model_name="groq/llama-3.1-70b")
+  ```
+</ParamField>
+
+<ParamField path="llm" type="Any" default="None">
+  Pre-configured LLM instance. If not provided, will be created automatically based on `model_name`.
+  
+  ```python
+  from swarms.utils.litellm_wrapper import LiteLLM
+  
+  llm = LiteLLM(model_name="gpt-4o", temperature=0.5)
+  agent = Agent(llm=llm)
+  ```
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.5">
+  Controls randomness in model outputs (0.0 = deterministic, 1.0 = creative).
+  
+  ```python
+  # Deterministic for code generation
+  agent = Agent(model_name="gpt-4o", temperature=0.1)
+  
+  # Creative for writing
+  agent = Agent(model_name="gpt-4o", temperature=0.9)
+  ```
+</ParamField>
+
+<ParamField path="max_tokens" type="int" default="4096">
+  Maximum number of tokens to generate in a single response.
+  
+  ```python
+  agent = Agent(model_name="gpt-4o", max_tokens=8192)
+  ```
+</ParamField>
+
+<ParamField path="context_length" type="int" default="Based on model">
+  Maximum context window size. Automatically set based on the model.
+  
+  ```python
+  agent = Agent(model_name="gpt-4o", context_length=128000)
+  ```
+</ParamField>
+
+### Agent Identity
+
+<ParamField path="agent_name" type="str" default="swarm-worker-01">
+  Unique name for the agent. Used in multi-agent systems and logging.
+  
+  ```python
+  agent = Agent(
+      agent_name="Financial-Analyst",
+      model_name="gpt-4o"
+  )
+  ```
+</ParamField>
+
+<ParamField path="agent_description" type="str" default="Auto-generated">
+  Description of the agent's purpose and capabilities.
+  
+  ```python
+  agent = Agent(
+      agent_name="Data-Analyst",
+      agent_description="Expert in data analysis, visualization, and statistical modeling",
+      model_name="gpt-4o"
+  )
+  ```
+</ParamField>
+
+<ParamField path="system_prompt" type="str" default="Default system prompt">
+  The system prompt that defines agent behavior and expertise.
+  
+  ```python
+  SYSTEM_PROMPT = """
+  You are a senior software engineer specializing in:
+  - Clean code architecture
+  - Test-driven development
+  - Code review best practices
+  
+  Provide detailed, well-documented code solutions.
+  """
+  
+  agent = Agent(
+      system_prompt=SYSTEM_PROMPT,
+      model_name="gpt-4o"
+  )
+  ```
+</ParamField>
+
+### Execution Control
+
+<ParamField path="max_loops" type="Union[int, str]" default="1">
+  Number of execution loops. Set to "auto" for autonomous mode.
+  
+  ```python
+  # Single execution
+  agent = Agent(max_loops=1)
+  
+  # Multi-step reasoning
+  agent = Agent(max_loops=5)
+  
+  # Autonomous mode
+  agent = Agent(max_loops="auto")
+  ```
+</ParamField>
+
+<ParamField path="loop_interval" type="int" default="0">
+  Delay in seconds between loops.
+  
+  ```python
+  agent = Agent(max_loops=5, loop_interval=1)  # 1 second delay
+  ```
+</ParamField>
+
+<ParamField path="retry_attempts" type="int" default="3">
+  Number of retry attempts for failed LLM calls.
+  
+  ```python
+  agent = Agent(retry_attempts=5)
+  ```
+</ParamField>
+
+<ParamField path="retry_interval" type="int" default="1">
+  Delay in seconds between retry attempts.
+  
+  ```python
+  agent = Agent(retry_attempts=3, retry_interval=2)
+  ```
+</ParamField>
+
+<ParamField path="timeout" type="int" default="None">
+  Timeout in seconds for agent execution.
+  
+  ```python
+  agent = Agent(timeout=300)  # 5 minute timeout
+  ```
+</ParamField>
+
+### Output Configuration
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for agent output. Options: "str", "list", "json", "dict", "yaml", "xml".
+  
+  ```python
+  # String output
+  agent = Agent(output_type="str")
+  
+  # JSON output
+  agent = Agent(output_type="json")
+  
+  # Dictionary output
+  agent = Agent(output_type="dict")
+  ```
+</ParamField>
+
+<ParamField path="streaming_on" type="bool" default="False">
+  Enable basic streaming with formatted panels.
+  
+  ```python
+  agent = Agent(streaming_on=True)
+  ```
+</ParamField>
+
+<ParamField path="stream" type="bool" default="False">
+  Enable detailed token-by-token streaming with metadata.
+  
+  ```python
+  agent = Agent(stream=True)
+  response = agent.run("Tell me a story")  # Streams each token
+  ```
+</ParamField>
+
+<ParamField path="streaming_callback" type="Callable" default="None">
+  Callback function to receive streaming tokens in real-time.
+  
+  ```python
+  def on_token(token: str):
+      print(f"Token: {token}", end="", flush=True)
+  
+  agent = Agent(streaming_callback=on_token)
+  ```
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Enable detailed logging output.
+  
+  ```python
+  agent = Agent(verbose=True)
+  ```
+</ParamField>
+
+<ParamField path="print_on" type="bool" default="True">
+  Enable printing of agent responses.
+  
+  ```python
+  agent = Agent(print_on=True)
+  ```
+</ParamField>
+
+### Memory and History
+
+<ParamField path="return_history" type="bool" default="False">
+  Return full conversation history instead of just final response.
+  
+  ```python
+  agent = Agent(return_history=True)
+  response = agent.run("Hello")  # Returns full conversation
+  ```
+</ParamField>
+
+<ParamField path="user_name" type="str" default="Human">
+  Name to use for user messages in conversation history.
+  
+  ```python
+  agent = Agent(user_name="John")
+  ```
+</ParamField>
+
+<ParamField path="dynamic_context_window" type="bool" default="True">
+  Automatically manage context window to prevent overflow.
+  
+  ```python
+  agent = Agent(dynamic_context_window=True)
+  ```
+</ParamField>
+
+### Advanced Features
+
+<ParamField path="dynamic_temperature_enabled" type="bool" default="False">
+  Randomly adjust temperature between loops for varied outputs.
+  
+  ```python
+  agent = Agent(dynamic_temperature_enabled=True)
+  ```
+</ParamField>
+
+<ParamField path="reasoning_prompt_on" type="bool" default="True">
+  Add reasoning prompts to guide multi-step thinking.
+  
+  ```python
+  agent = Agent(max_loops=5, reasoning_prompt_on=True)
+  ```
+</ParamField>
+
+<ParamField path="interactive" type="bool" default="False">
+  Enable interactive mode for conversational agents.
+  
+  ```python
+  agent = Agent(interactive=True)
+  ```
+</ParamField>
+
+<ParamField path="dashboard" type="bool" default="False">
+  Display agent dashboard on initialization.
+  
+  ```python
+  agent = Agent(dashboard=True)
+  ```
+</ParamField>
+
+### State Management
+
+<ParamField path="autosave" type="bool" default="False">
+  Automatically save agent state after each execution.
+  
+  ```python
+  agent = Agent(autosave=True)
+  ```
+</ParamField>
+
+<ParamField path="saved_state_path" type="str" default="Auto-generated">
+  Path to save agent state.
+  
+  ```python
+  agent = Agent(
+      autosave=True,
+      saved_state_path="./states/my_agent.json"
+  )
+  ```
+</ParamField>
+
+<ParamField path="load_state_path" type="str" default="None">
+  Path to load previous agent state from.
+  
+  ```python
+  agent = Agent(load_state_path="./states/my_agent.json")
+  ```
+</ParamField>
+
+### Reliability
+
+<ParamField path="fallback_models" type="List[str]" default="None">
+  List of fallback models to try if primary model fails.
+  
+  ```python
+  agent = Agent(
+      fallback_models=[
+          "gpt-4o",
+          "gpt-4o-mini",
+          "gpt-3.5-turbo"
+      ]
+  )
+  ```
+</ParamField>
+
+### Performance
+
+<ParamField path="mode" type="str" default="standard">
+  Agent execution mode. Options: "interactive", "fast", "standard".
+  
+  ```python
+  # Fast mode (no printing, minimal overhead)
+  agent = Agent(mode="fast")
+  
+  # Interactive mode
+  agent = Agent(mode="interactive")
+  ```
+</ParamField>
+
+<ParamField path="top_p" type="float" default="0.90">
+  Nucleus sampling parameter for model generation.
+  
+  ```python
+  agent = Agent(top_p=0.95)
+  ```
+</ParamField>
+
+## Example Configurations
+
+### Production Agent
+
+```python
+production_agent = Agent(
+    agent_name="Production-Agent",
+    agent_description="Production-ready agent with reliability features",
+    model_name="gpt-4o",
+    fallback_models=["gpt-4o", "gpt-4o-mini"],
+    max_loops=1,
+    temperature=0.3,
+    max_tokens=4096,
+    retry_attempts=5,
+    retry_interval=2,
+    timeout=300,
+    autosave=True,
+    verbose=True,
+    dynamic_context_window=True,
+)
+```
+
+### Research Agent
+
+```python
+research_agent = Agent(
+    agent_name="Research-Agent",
+    system_prompt="Expert researcher providing detailed analysis",
+    model_name="gpt-4o",
+    max_loops=3,
+    temperature=0.5,
+    reasoning_prompt_on=True,
+    verbose=True,
+    return_history=True,
+)
+```
+
+### Fast Batch Processing Agent
+
+```python
+batch_agent = Agent(
+    agent_name="Batch-Processor",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+    mode="fast",  # Disable printing for performance
+    temperature=0.2,
+    print_on=False,
+    verbose=False,
+)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Memory" icon="database" href="/agents/agent-memory">
+    Configure conversation history and memory
+  </Card>
+  <Card title="Agent Tools" icon="wrench" href="/agents/agent-tools">
+    Add tools to extend capabilities
+  </Card>
+</CardGroup>
+
+## Reference
+
+Location in source: `swarms/structs/agent.py:352-454`

@@ -1,0 +1,353 @@
+---
+title: Concurrent Workflow Example
+description: Learn how to run multiple agents simultaneously for maximum efficiency with parallel execution
+---
+
+# Concurrent Workflow Example
+
+A `ConcurrentWorkflow` runs multiple agents simultaneously, allowing for parallel execution of tasks. This architecture drastically reduces execution time for tasks that can be performed in parallel, making it ideal for high-throughput scenarios where agents work on similar tasks concurrently.
+
+## How Concurrent Workflow Works
+
+In a concurrent workflow:
+
+1. **Parallel Execution**: All agents receive the same task and execute simultaneously
+2. **Independent Processing**: Each agent works independently without dependencies on others
+3. **Aggregated Results**: Outputs from all agents are collected and returned together
+4. **Maximum Efficiency**: Execution time is determined by the slowest agent, not the sum of all agents
+
+## Basic Example: Multi-Analyst Financial Review
+
+This example demonstrates three analysts working in parallel to provide comprehensive insights:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+# Create agents for different analysis tasks
+market_analyst = Agent(
+    agent_name="Market-Analyst",
+    system_prompt="Analyze market trends and provide insights on the given topic.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+financial_analyst = Agent(
+    agent_name="Financial-Analyst", 
+    system_prompt="Provide financial analysis and recommendations on the given topic.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+risk_analyst = Agent(
+    agent_name="Risk-Analyst",
+    system_prompt="Assess risks and provide risk management strategies for the given topic.",
+    model_name="gpt-4o-mini", 
+    max_loops=1,
+)
+
+# Create concurrent workflow
+concurrent_workflow = ConcurrentWorkflow(
+    agents=[market_analyst, financial_analyst, risk_analyst],
+    max_loops=1,
+)
+
+# Run all agents concurrently on the same task
+results = concurrent_workflow.run(
+    "Analyze the potential impact of AI technology on the healthcare industry"
+)
+
+print(results)
+```
+
+## How This Example Works
+
+1. **Task Distribution**: The task "Analyze the potential impact of AI technology on the healthcare industry" is sent to all three agents simultaneously
+2. **Parallel Processing**: Each analyst processes the task independently at the same time:
+   - Market Analyst examines market trends
+   - Financial Analyst evaluates financial implications
+   - Risk Analyst identifies potential risks
+3. **Result Collection**: All three analyses are collected and returned as a dictionary
+4. **Comprehensive Output**: You receive multiple perspectives on the same topic in the time it takes for the slowest agent to complete
+
+## Common Use Cases
+
+ConcurrentWorkflow excels at:
+
+- **Multi-Perspective Analysis**: Getting different viewpoints on the same topic
+- **Batch Processing**: Processing multiple similar items simultaneously
+- **Content Generation**: Creating multiple variations of content at once
+- **Parallel Research**: Researching different aspects of a topic concurrently
+- **Competitive Analysis**: Analyzing multiple competitors simultaneously
+- **A/B Testing**: Generating multiple approaches to compare
+
+## Real-World Examples
+
+### Investment Analysis Team
+
+Analyze a stock from multiple financial perspectives:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+# Create specialized financial analysts
+technical_analyst = Agent(
+    agent_name="Technical-Analyst",
+    system_prompt="Perform technical analysis using chart patterns, indicators, and price action.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+fundamental_analyst = Agent(
+    agent_name="Fundamental-Analyst",
+    system_prompt="Analyze company financials, earnings, valuation metrics, and business fundamentals.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+sentiment_analyst = Agent(
+    agent_name="Sentiment-Analyst",
+    system_prompt="Analyze market sentiment, news, social media, and investor sentiment indicators.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+quant_analyst = Agent(
+    agent_name="Quant-Analyst",
+    system_prompt="Perform quantitative analysis using statistical models, algorithms, and data-driven metrics.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+# Create investment analysis workflow
+investment_workflow = ConcurrentWorkflow(
+    agents=[technical_analyst, fundamental_analyst, sentiment_analyst, quant_analyst],
+    max_loops=1,
+)
+
+# Analyze a stock from all angles simultaneously
+analysis = investment_workflow.run("Should we invest in NVIDIA stock right now?")
+
+# Process results from each analyst
+for analyst_name, analysis_result in analysis.items():
+    print(f"\n=== {analyst_name} ===")
+    print(analysis_result)
+```
+
+### Content Variation Generator
+
+Generate multiple content variations for A/B testing:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+# Create agents for different content styles
+formal_writer = Agent(
+    agent_name="Formal-Writer",
+    system_prompt="Write in a professional, formal tone suitable for corporate communications.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+casual_writer = Agent(
+    agent_name="Casual-Writer",
+    system_prompt="Write in a friendly, conversational tone that resonates with general audiences.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+technical_writer = Agent(
+    agent_name="Technical-Writer",
+    system_prompt="Write with technical precision and detail for expert audiences.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+persuasive_writer = Agent(
+    agent_name="Persuasive-Writer",
+    system_prompt="Write compelling, persuasive copy that drives action and engagement.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+# Create content generation workflow
+content_workflow = ConcurrentWorkflow(
+    agents=[formal_writer, casual_writer, technical_writer, persuasive_writer],
+    max_loops=1,
+)
+
+# Generate multiple versions simultaneously
+variations = content_workflow.run(
+    "Create a product description for our new AI-powered project management tool"
+)
+
+print(variations)
+```
+
+### Multi-Language Translation
+
+Translate content into multiple languages simultaneously:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+# Create translation agents for different languages
+spanish_translator = Agent(
+    agent_name="Spanish-Translator",
+    system_prompt="Translate the given text into Spanish while maintaining tone and context.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+french_translator = Agent(
+    agent_name="French-Translator",
+    system_prompt="Translate the given text into French while maintaining tone and context.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+german_translator = Agent(
+    agent_name="German-Translator",
+    system_prompt="Translate the given text into German while maintaining tone and context.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+japanese_translator = Agent(
+    agent_name="Japanese-Translator",
+    system_prompt="Translate the given text into Japanese while maintaining tone and context.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+# Create translation workflow
+translation_workflow = ConcurrentWorkflow(
+    agents=[spanish_translator, french_translator, german_translator, japanese_translator],
+    max_loops=1,
+)
+
+# Translate simultaneously into all languages
+translations = translation_workflow.run(
+    "Welcome to our platform! We're excited to help you achieve your goals."
+)
+
+print(translations)
+```
+
+### Competitive Product Analysis
+
+Analyze multiple competitors simultaneously:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+# Create competitor analysis agents
+product_analyzer = Agent(
+    agent_name="Product-Analyzer",
+    system_prompt="Analyze the product features, capabilities, and user experience.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+pricing_analyzer = Agent(
+    agent_name="Pricing-Analyzer",
+    system_prompt="Analyze pricing strategies, plans, and value proposition.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+marketing_analyzer = Agent(
+    agent_name="Marketing-Analyzer",
+    system_prompt="Analyze marketing strategies, messaging, and positioning.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+customer_analyzer = Agent(
+    agent_name="Customer-Analyzer",
+    system_prompt="Analyze customer reviews, satisfaction, and feedback patterns.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+# Create competitive analysis workflow
+competitive_workflow = ConcurrentWorkflow(
+    agents=[product_analyzer, pricing_analyzer, marketing_analyzer, customer_analyzer],
+    max_loops=1,
+)
+
+# Analyze competitor from all angles
+competitor_analysis = competitive_workflow.run(
+    "Analyze Notion as a competitor in the productivity software space"
+)
+
+print(competitor_analysis)
+```
+
+## Performance Benefits
+
+### Time Savings Comparison
+
+**Sequential Execution** (3 agents, 10 seconds each):
+- Agent 1: 10 seconds
+- Agent 2: 10 seconds  
+- Agent 3: 10 seconds
+- **Total: 30 seconds**
+
+**Concurrent Execution** (3 agents, 10 seconds each):
+- All agents run simultaneously
+- **Total: ~10 seconds**
+
+**Result: 3x faster execution**
+
+## Best Practices
+
+1. **Independent Tasks**: Use for tasks that don't depend on each other's outputs
+2. **Similar Complexity**: Agents should have roughly similar execution times for optimal efficiency
+3. **Resource Management**: Consider system resources when running many agents concurrently
+4. **Error Handling**: One agent's failure shouldn't block others from completing
+5. **Result Processing**: Plan how to aggregate and synthesize multiple outputs
+
+## Limitations and Considerations
+
+- **Resource Intensive**: Running multiple agents simultaneously requires more computational resources
+- **No Dependencies**: Not suitable when agents need outputs from other agents
+- **Result Management**: More complex to process multiple simultaneous outputs
+- **Cost**: May incur higher API costs when using paid LLM services
+
+## Combining with Other Patterns
+
+ConcurrentWorkflow works well with:
+
+```python
+from swarms import Agent, ConcurrentWorkflow, MixtureOfAgents
+
+# Run agents concurrently, then aggregate results
+experts = [market_analyst, financial_analyst, risk_analyst]
+
+# Use MoA to synthesize concurrent results
+aggregator = Agent(
+    agent_name="Synthesizer",
+    system_prompt="Combine all analyses into a comprehensive recommendation.",
+    model_name="gpt-4o-mini",
+)
+
+moa = MixtureOfAgents(
+    agents=experts,
+    aggregator_agent=aggregator,
+)
+
+final_recommendation = moa.run("Should we invest in renewable energy stocks?")
+print(final_recommendation)
+```
+
+## Related Architectures
+
+- **[SequentialWorkflow](/examples/sequential-workflow-example)**: Run agents in sequence when order matters
+- **[MixtureOfAgents](/examples/mixture-of-agents-example)**: Combine concurrent execution with result synthesis
+- **[SwarmRouter](https://docs.swarms.world/en/latest/swarms/examples/swarm_router/)**: Switch between concurrent and other patterns dynamically
+
+## Learn More
+
+- [ConcurrentWorkflow API Reference](https://docs.swarms.world/en/latest/swarms/structs/concurrent_workflow/)
+- [Performance Optimization Guide](https://docs.swarms.world/en/latest/swarms/framework/performance/)
+- [Multi-Agent Architectures Overview](https://docs.swarms.world/en/latest/swarms/concept/swarm_architectures/)

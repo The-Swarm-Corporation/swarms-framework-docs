@@ -1,0 +1,234 @@
+---
+title: "Conversation"
+description: "A class to manage conversation history with in-memory storage, supporting multiple export formats and automatic token management"
+icon: "comments"
+---
+
+## Overview
+
+The `Conversation` class manages conversation history for agents, allowing for addition, deletion, and retrieval of messages. It supports saving and loading in JSON/YAML formats, automatic token counting, and dynamic context window management.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Attributes
+
+<ParamField path="id" type="str" default="auto-generated">
+  Unique identifier for the conversation
+</ParamField>
+
+<ParamField path="name" type="str" default="conversation-test">
+  Name of the conversation
+</ParamField>
+
+<ParamField path="system_prompt" type="Optional[str]" default="None">
+  The system prompt for the conversation
+</ParamField>
+
+<ParamField path="time_enabled" type="bool" default="False">
+  Flag to enable time tracking for messages
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="False">
+  Flag to enable automatic saving of conversation history
+</ParamField>
+
+<ParamField path="save_filepath" type="str" default="None">
+  File path for saving the conversation history
+</ParamField>
+
+<ParamField path="context_length" type="int" default="8192">
+  Maximum number of tokens allowed in the conversation history
+</ParamField>
+
+<ParamField path="user" type="str" default="User">
+  The user identifier for messages
+</ParamField>
+
+<ParamField path="token_count" type="bool" default="False">
+  Flag to enable token counting for messages
+</ParamField>
+
+<ParamField path="export_method" type="str" default="json">
+  Export format: "json" or "yaml"
+</ParamField>
+
+<ParamField path="dynamic_context_window" type="bool" default="True">
+  Enable dynamic context window management
+</ParamField>
+
+<ParamField path="caching" type="bool" default="True">
+  Enable conversation caching
+</ParamField>
+
+## Methods
+
+### add()
+
+Add a message to the conversation history.
+
+```python
+def add(
+    self,
+    role: str,
+    content: Union[str, dict, list, Any],
+    metadata: Optional[dict] = None,
+    category: Optional[str] = None,
+)
+```
+
+**Parameters:**
+- `role` (str): The role of the speaker (e.g., 'User', 'System', 'Agent')
+- `content` (Union[str, dict, list]): The content of the message
+- `metadata` (Optional[dict]): Optional metadata for the message
+- `category` (Optional[str]): Optional category for the message (e.g., 'input', 'output')
+
+### return_history_as_string()
+
+Return the conversation history as a formatted string.
+
+```python
+def return_history_as_string(self) -> str:
+```
+
+**Returns:** String representation of the conversation history
+
+### export()
+
+Export the conversation to a file based on the export method.
+
+```python
+def export(self, force: bool = True)
+```
+
+**Parameters:**
+- `force` (bool): If True, saves regardless of autosave setting
+
+### load()
+
+Load conversation history from a file (auto-detects format).
+
+```python
+def load(self, filename: str)
+```
+
+**Parameters:**
+- `filename` (str): Path to the file to load from
+
+### search()
+
+Search for messages containing a keyword.
+
+```python
+def search(self, keyword: str) -> list
+```
+
+**Parameters:**
+- `keyword` (str): The keyword to search for
+
+**Returns:** List of messages containing the keyword
+
+### truncate_memory_with_tokenizer()
+
+Truncate conversation history based on token count using tokenizer.
+
+```python
+def truncate_memory_with_tokenizer(self)
+```
+
+### export_and_count_categories()
+
+Export all messages with category 'input' and 'output' and count their tokens.
+
+```python
+def export_and_count_categories(self) -> Dict[str, int]
+```
+
+**Returns:** Dictionary with input_tokens, output_tokens, and total_tokens
+
+## Usage Examples
+
+### Basic Usage
+
+```python
+from swarms.structs import Conversation
+
+# Create a conversation
+conversation = Conversation(
+    name="my-conversation",
+    system_prompt="You are a helpful assistant.",
+    time_enabled=True,
+    autosave=True,
+    token_count=True,
+    context_length=8192
+)
+
+# Add messages
+conversation.add("user", "Hello, how are you?")
+conversation.add("assistant", "I am doing well, thanks.")
+conversation.add("user", "What is the weather in Tokyo?")
+
+# Get conversation as string
+print(conversation.return_history_as_string())
+```
+
+### Export and Load
+
+```python
+# Export to JSON
+conversation.export_method = "json"
+conversation.export()
+
+# Load from file
+conversation = Conversation.load_conversation(
+    name="my-conversation",
+    load_filepath="conversation_my-conversation.json"
+)
+```
+
+### Token Management
+
+```python
+# Enable token counting and context management
+conversation = Conversation(
+    token_count=True,
+    context_length=4096,
+    dynamic_context_window=True
+)
+
+# Add messages with categories for tracking
+conversation.add("user", "My input", category="input")
+conversation.add("assistant", "My response", category="output")
+
+# Count tokens by category
+tokens = conversation.export_and_count_categories()
+print(f"Input tokens: {tokens['input_tokens']}")
+print(f"Output tokens: {tokens['output_tokens']}")
+print(f"Total tokens: {tokens['total_tokens']}")
+```
+
+### Search and Query
+
+```python
+# Search for messages
+results = conversation.search("weather")
+
+# Get last message
+last_message = conversation.get_last_message_as_string()
+
+# Get specific message by index
+message = conversation.query(0)
+```
+
+## Features
+
+- **Automatic Saving**: Enable autosave to automatically persist conversation history
+- **Token Management**: Track token counts and automatically truncate based on context length
+- **Multiple Export Formats**: Save as JSON or YAML
+- **Dynamic Context Window**: Automatically manage conversation length to fit context limits
+- **Message Search**: Search through conversation history by keyword
+- **Categorization**: Tag messages with categories for organized tracking
+- **Time Tracking**: Optionally track timestamps for all messages

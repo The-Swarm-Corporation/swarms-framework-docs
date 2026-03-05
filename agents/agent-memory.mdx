@@ -1,0 +1,436 @@
+---
+title: 'Agent Memory'
+description: 'Understanding and configuring agent memory and conversation history'
+icon: 'database'
+---
+
+# Agent Memory
+
+Agents in Swarms use the `Conversation` class to manage short-term memory and conversation history. This enables context-aware responses and multi-turn interactions.
+
+## Memory Architecture
+
+Each agent maintains:
+
+1. **Short-term memory** - Current conversation history
+2. **Long-term memory** (optional) - RAG-based knowledge retrieval
+3. **System prompt** - Persistent instructions
+
+## Short-Term Memory
+
+Short-term memory stores the conversation history for the current session.
+
+### Automatic Memory Management
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Assistant",
+    model_name="gpt-4o-mini",
+    max_loops=3,
+)
+
+# Each message is automatically added to memory
+response = agent.run("What is machine learning?")
+# Agent remembers context for follow-up
+response = agent.run("Give me an example")
+```
+
+### Memory Configuration
+
+<ParamField path="user_name" type="str" default="Human">
+  Name used for user messages in conversation history.
+  
+  ```python
+  agent = Agent(
+      user_name="Alice",
+      model_name="gpt-4o-mini"
+  )
+  ```
+</ParamField>
+
+<ParamField path="return_history" type="bool" default="False">
+  Return full conversation history instead of just final response.
+  
+  ```python
+  agent = Agent(
+      return_history=True,
+      model_name="gpt-4o-mini"
+  )
+  
+  history = agent.run("Hello")
+  print(history)  # Full conversation
+  ```
+</ParamField>
+
+<ParamField path="context_length" type="int" default="Auto-detected">
+  Maximum context window size in tokens.
+  
+  ```python
+  agent = Agent(
+      context_length=16000,
+      model_name="gpt-4o-mini"
+  )
+  ```
+</ParamField>
+
+<ParamField path="dynamic_context_window" type="bool" default="True">
+  Automatically manage context to prevent overflow.
+  
+  ```python
+  agent = Agent(
+      dynamic_context_window=True,  # Auto-truncate if needed
+      model_name="gpt-4o-mini"
+  )
+  ```
+</ParamField>
+
+## Accessing Memory
+
+### View Conversation History
+
+```python
+agent = Agent(model_name="gpt-4o-mini")
+
+agent.run("Hello!")
+agent.run("What's the weather?")
+
+# Get conversation history as string
+history = agent.short_memory.return_history_as_string()
+print(history)
+
+# Get as list of dictionaries
+history_list = agent.short_memory.to_dict()
+print(history_list)
+
+# Get as JSON
+json_history = agent.short_memory.return_json()
+print(json_history)
+```
+
+### Get Specific Messages
+
+```python
+# Get the last message
+last_message = agent.short_memory.get_final_message_content()
+print(last_message)
+
+# Get all messages except system prompt
+conversation = agent.short_memory.return_all_except_first_string()
+print(conversation)
+```
+
+## Memory Persistence
+
+### Auto-save Conversations
+
+```python
+agent = Agent(
+    agent_name="Persistent-Agent",
+    model_name="gpt-4o-mini",
+    autosave=True,  # Auto-save after each run
+)
+
+agent.run("Remember this conversation")
+# Conversation automatically saved to file
+```
+
+### Manual Save and Load
+
+```python
+# Save conversation
+agent.short_memory.export(force=True)  # Saves to default path
+
+# Or specify path
+agent.short_memory.save_as_json(force=True)
+agent.short_memory.save_as_yaml(force=True)
+
+# Load conversation
+agent.short_memory.load("conversation_agent-123.json")
+```
+
+### Configure Save Location
+
+```python
+agent = Agent(
+    agent_name="My-Agent",
+    model_name="gpt-4o-mini",
+    autosave=True,
+)
+
+# Conversations saved to: ~/.swarms/conversations/
+```
+
+## Context Window Management
+
+### Dynamic Context Truncation
+
+When conversations exceed the context window, Swarms automatically manages the history:
+
+```python
+agent = Agent(
+    model_name="gpt-4o-mini",
+    context_length=4096,
+    dynamic_context_window=True,  # Automatically truncate if needed
+)
+
+# Have a long conversation
+for i in range(100):
+    agent.run(f"Tell me fact {i} about AI")
+
+# Old messages are automatically removed to fit context
+```
+
+### Manual Truncation
+
+```python
+# Truncate to fit context window
+agent.short_memory.truncate_memory_with_tokenizer()
+
+# Clear all memory
+agent.short_memory.clear()
+```
+
+## Long-Term Memory (RAG)
+
+For knowledge retrieval across sessions, use long-term memory with a vector database.
+
+### Basic RAG Setup
+
+```python
+from swarms.memory import ChromaDB
+
+# Initialize vector database
+vector_db = ChromaDB(
+    output_dir="agent_memory",
+    docs_folder="knowledge_base",
+)
+
+agent = Agent(
+    agent_name="Knowledge-Agent",
+    model_name="gpt-4o",
+    long_term_memory=vector_db,
+    max_loops=1,
+)
+
+# Agent automatically queries RAG on each task
+response = agent.run("What do we know about quantum computing?")
+```
+
+### RAG Configuration
+
+<ParamField path="long_term_memory" type="BaseVectorDatabase" default="None">
+  Vector database for long-term knowledge retrieval.
+  
+  ```python
+  from swarms.memory import ChromaDB
+  
+  memory = ChromaDB(output_dir="./memory")
+  agent = Agent(long_term_memory=memory)
+  ```
+</ParamField>
+
+<ParamField path="rag_every_loop" type="bool" default="False">
+  Query RAG on every loop iteration vs. once at start.
+  
+  ```python
+  agent = Agent(
+      long_term_memory=vector_db,
+      rag_every_loop=True,  # Query RAG each loop
+      max_loops=3,
+  )
+  ```
+</ParamField>
+
+<ParamField path="memory_chunk_size" type="int" default="2000">
+  Size of memory chunks for RAG retrieval.
+  
+  ```python
+  agent = Agent(
+      long_term_memory=vector_db,
+      memory_chunk_size=1000,
+  )
+  ```
+</ParamField>
+
+### RAG Query Examples
+
+```python
+from swarms.memory import ChromaDB
+
+vector_db = ChromaDB(output_dir="knowledge")
+
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="gpt-4o",
+    long_term_memory=vector_db,
+    rag_every_loop=False,  # Query once at start
+    max_loops=1,
+)
+
+# RAG is automatically queried with the task
+response = agent.run(
+    "Summarize what we know about renewable energy from our documents"
+)
+```
+
+## Memory Search
+
+### Search Conversation History
+
+```python
+agent = Agent(model_name="gpt-4o-mini")
+
+agent.run("AI is transforming healthcare")
+agent.run("Machine learning improves diagnostics")
+agent.run("Deep learning detects diseases")
+
+# Search for keyword
+results = agent.short_memory.search("healthcare")
+print(results)
+
+# Search with keyword method
+matches = agent.short_memory.search_keyword_in_conversation("learning")
+print(matches)
+```
+
+## Message Metadata
+
+### Enable Timestamps and IDs
+
+```python
+# The Conversation class is created internally by Agent
+# Configure through agent initialization
+agent = Agent(
+    agent_name="Tracked-Agent",
+    model_name="gpt-4o-mini",
+)
+
+# Messages automatically include metadata:
+# - role: "user" or agent name
+# - content: message text
+# - timestamp: ISO format datetime (if time_enabled=True in Conversation)
+# - message_id: UUID (if message_id_on=True in Conversation)
+```
+
+### Access Message Metadata
+
+```python
+# Get full history with metadata
+history = agent.short_memory.to_dict()
+
+for message in history:
+    print(f"Role: {message['role']}")
+    print(f"Content: {message['content']}")
+    if 'timestamp' in message:
+        print(f"Time: {message['timestamp']}")
+    if 'message_id' in message:
+        print(f"ID: {message['message_id']}")
+```
+
+## Advanced Memory Patterns
+
+### Multi-Turn Conversation
+
+```python
+agent = Agent(
+    agent_name="Tutor",
+    system_prompt="You are a helpful math tutor",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+# Build context over multiple interactions
+agent.run("I want to learn calculus")
+agent.run("Start with derivatives")  # Remembers previous context
+agent.run("Give me a practice problem")  # Still has full context
+```
+
+### Conversation Export
+
+```python
+# Export to different formats
+agent.short_memory.save_as_json(force=True)  # JSON format
+agent.short_memory.save_as_yaml(force=True)  # YAML format
+
+# Get as string
+json_str = agent.short_memory.to_json()
+print(json_str)
+```
+
+### Clear and Reset
+
+```python
+# Clear conversation history
+agent.short_memory.clear()
+
+# Start fresh
+agent.run("New conversation")
+```
+
+## Best Practices
+
+### 1. Use Dynamic Context Window
+
+```python
+# Good - Automatically manages context
+agent = Agent(
+    dynamic_context_window=True,
+    context_length=8192,
+)
+```
+
+### 2. Enable Autosave for Important Conversations
+
+```python
+# Good - Persist important work
+agent = Agent(
+    autosave=True,
+    agent_name="Important-Agent",
+)
+```
+
+### 3. Use RAG for Knowledge-Intensive Tasks
+
+```python
+# Good - Leverage external knowledge
+from swarms.memory import ChromaDB
+
+memory = ChromaDB(docs_folder="./knowledge")
+agent = Agent(
+    long_term_memory=memory,
+    model_name="gpt-4o",
+)
+```
+
+### 4. Clear Memory Between Unrelated Tasks
+
+```python
+agent = Agent(model_name="gpt-4o-mini")
+
+# Task 1
+agent.run("Analyze sales data")
+
+# Clear before unrelated task
+agent.short_memory.clear()
+
+# Task 2 (no context from Task 1)
+agent.run("Write a poem")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Tools" icon="wrench" href="/agents/agent-tools">
+    Add tools to extend agent capabilities
+  </Card>
+  <Card title="Structured Outputs" icon="code" href="/agents/structured-outputs">
+    Get structured responses from agents
+  </Card>
+</CardGroup>
+
+## Reference
+
+- Conversation class: `swarms/structs/conversation.py:51`
+- Agent memory initialization: `swarms/structs/agent.py:1060-1082`

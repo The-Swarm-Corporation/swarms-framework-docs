@@ -1,0 +1,264 @@
+---
+title: "CouncilAsAJudge"
+description: "A council of AI agents that evaluates task responses across multiple dimensions in parallel, then aggregates findings into a comprehensive report"
+icon: "gavel"
+---
+
+## Overview
+
+The `CouncilAsAJudge` implements a parallel evaluation system where multiple specialized judge agents evaluate different aspects of a task response simultaneously. Their findings are aggregated into a comprehensive technical report.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Evaluation Dimensions
+
+The council evaluates responses across six key dimensions:
+
+1. **Accuracy**: Factual correctness, source credibility, logical consistency
+2. **Helpfulness**: Practical value, solution feasibility, problem-solving efficacy
+3. **Harmlessness**: Safety assessment, ethical considerations, bias detection
+4. **Coherence**: Structural integrity, logical flow, organization
+5. **Conciseness**: Communication efficiency, precision, information density
+6. **Instruction Adherence**: Compliance with requirements, constraint adherence
+
+## Attributes
+
+<ParamField path="id" type="str" default="auto-generated">
+  Unique identifier for the council
+</ParamField>
+
+<ParamField path="name" type="str" default="CouncilAsAJudge">
+  Display name of the council
+</ParamField>
+
+<ParamField path="description" type="str" default="Evaluates task responses across multiple dimensions">
+  Description of the council's purpose
+</ParamField>
+
+<ParamField path="model_name" type="str" default="gpt-4o-mini">
+  Model name for judge agents (if not using random models)
+</ParamField>
+
+<ParamField path="output_type" type="str" default="final">
+  Type of output to return ("final", "dict", "list", etc.)
+</ParamField>
+
+<ParamField path="cache_size" type="int" default="128">
+  Size of the LRU cache for prompts
+</ParamField>
+
+<ParamField path="random_model_name" type="bool" default="True">
+  Whether to use random model names for diversity
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of loops for agents
+</ParamField>
+
+<ParamField path="aggregation_model_name" type="str" default="gpt-4o-mini">
+  Model name for the aggregator agent
+</ParamField>
+
+<ParamField path="judge_agent_model_name" type="Optional[str]" default="None">
+  Specific model for judge agents (overrides model_name)
+</ParamField>
+
+## Methods
+
+### run()
+
+Run the evaluation process using parallel execution.
+
+```python
+def run(self, task: str)
+```
+
+**Parameters:**
+- `task` (str): Task containing the response to evaluate
+
+**Returns:** Formatted evaluation report based on output_type
+
+## Usage Examples
+
+### Basic Evaluation
+
+```python
+from swarms import CouncilAsAJudge
+
+# Create council
+council = CouncilAsAJudge(
+    name="Response-Evaluator",
+    output_type="final"
+)
+
+# Evaluate a response
+task_response = """
+Question: Explain how neural networks work.
+
+Response: Neural networks are computational models inspired by the human brain. 
+They consist of layers of interconnected nodes (neurons) that process information. 
+Each connection has a weight that adjusts during training. The network learns by 
+adjusting these weights to minimize error between predictions and actual outputs.
+This process is called backpropagation.
+"""
+
+evaluation = council.run(task_response)
+print(evaluation)
+```
+
+### Custom Model Configuration
+
+```python
+# Use specific models for evaluation
+council = CouncilAsAJudge(
+    model_name="gpt-4o",  # For judge agents
+    aggregation_model_name="gpt-4o",  # For final synthesis
+    random_model_name=False,  # Don't randomize
+    output_type="dict"
+)
+
+evaluation = council.run(task_response)
+```
+
+### With Random Model Diversity
+
+```python
+# Use random models for diverse perspectives
+council = CouncilAsAJudge(
+    random_model_name=True,  # Each judge uses different model
+    output_type="final"
+)
+
+evaluation = council.run(task_response)
+```
+
+### Full Conversation History
+
+```python
+# Get complete evaluation breakdown
+council = CouncilAsAJudge(
+    output_type="dict-all-except-first"
+)
+
+full_evaluation = council.run(task_response)
+
+# Access individual dimension evaluations
+for message in full_evaluation:
+    print(f"\n{message['role']}:")
+    print(message['content'][:200])
+```
+
+### Specific Judge Model
+
+```python
+# Use Claude for all judge agents
+council = CouncilAsAJudge(
+    judge_agent_model_name="anthropic/claude-sonnet-4-5",
+    aggregation_model_name="gpt-4o",
+    random_model_name=False
+)
+
+evaluation = council.run(task_response)
+```
+
+## Evaluation Report Structure
+
+The final aggregated report includes:
+
+### 1. Executive Summary
+- Key strengths and weaknesses
+- Critical issues requiring immediate attention
+- Overall assessment
+
+### 2. Detailed Analysis
+- Cross-dimensional patterns
+- Specific examples and their implications
+- Technical impact assessment
+
+### 3. Recommendations
+- Prioritized improvement areas
+- Specific technical suggestions
+- Implementation considerations
+
+## Dimension-Specific Evaluations
+
+Each judge provides:
+
+1. **Specific Observations**: References exact parts of the response
+2. **Impact Analysis**: Explains how issues affect quality
+3. **Concrete Examples**: Demonstrates strengths and weaknesses
+4. **Improvement Suggestions**: Actionable recommendations
+
+## Parallel Execution
+
+The council uses `ThreadPoolExecutor` to evaluate all dimensions simultaneously:
+
+- **Workers**: Automatically configured based on CPU count (75% of cores)
+- **Concurrency**: All 6 dimensions evaluated in parallel
+- **Error Handling**: Individual dimension failures don't stop other evaluations
+- **Performance**: Significantly faster than sequential evaluation
+
+## Example Output
+
+```python
+evaluation = council.run(task_response)
+
+# Output structure (when output_type="dict"):
+[
+    {"role": "User", "content": "Task response..."},
+    {"role": "accuracy_judge", "content": "Accuracy analysis..."},
+    {"role": "helpfulness_judge", "content": "Helpfulness analysis..."},
+    {"role": "harmlessness_judge", "content": "Safety analysis..."},
+    {"role": "coherence_judge", "content": "Coherence analysis..."},
+    {"role": "conciseness_judge", "content": "Conciseness analysis..."},
+    {"role": "instruction_adherence_judge", "content": "Adherence analysis..."},
+    {"role": "aggregator_agent", "content": "Final comprehensive report..."}
+]
+```
+
+## Features
+
+- **Multi-Dimensional Evaluation**: Comprehensive assessment across 6 key dimensions
+- **Parallel Processing**: All evaluations run concurrently for maximum speed
+- **Expert Judge Agents**: Each dimension evaluated by specialized agent
+- **Intelligent Aggregation**: Senior agent synthesizes all findings
+- **Technical Analysis**: Detailed, actionable feedback for improvement
+- **Flexible Models**: Support for any LLM model via LiteLLM
+- **Caching**: LRU cache for frequently used prompts
+- **Error Handling**: Robust exception handling for each dimension
+- **Multiple Output Formats**: Choose from various output types
+
+## Use Cases
+
+1. **Response Quality Assessment**: Evaluate LLM outputs before deployment
+2. **Model Comparison**: Compare different models' responses
+3. **Training Data Evaluation**: Assess quality of training examples
+4. **Content Review**: Evaluate generated content for publication
+5. **Automated QA**: Build quality assurance pipelines
+6. **A/B Testing**: Compare different prompt variations
+
+## Best Practices
+
+1. **Output Type Selection**:
+   - Use `"final"` for quick summary reports
+   - Use `"dict"` to analyze individual dimension evaluations
+   - Use `"json"` for integration with other systems
+
+2. **Model Selection**:
+   - Enable `random_model_name=True` for diverse perspectives
+   - Use stronger models (GPT-4, Claude) for critical evaluations
+   - Use faster models (GPT-4o-mini) for development/testing
+
+3. **Performance**:
+   - Council auto-configures workers based on CPU count
+   - Consider cache_size for repeated similar evaluations
+   - Monitor costs when using multiple premium models
+
+4. **Integration**:
+   - Parse the aggregated report for actionable insights
+   - Use dimension-specific feedback for targeted improvements
+   - Store evaluations for tracking quality over time

@@ -1,0 +1,512 @@
+---
+title: "Financial Analysis System"
+description: "Build a comprehensive financial analysis system with market analysis, risk assessment, and investment recommendations"
+icon: "chart-pie"
+---
+
+## Overview
+
+This example demonstrates how to build a sophisticated financial analysis system using the MixtureOfAgents architecture. The system combines multiple specialized financial analysts to provide comprehensive market analysis, risk assessment, and investment recommendations.
+
+## Business Value
+
+- **Multi-Perspective Analysis**: Combine different analytical approaches for robust insights
+- **Risk Management**: Identify and quantify financial risks across portfolios
+- **Faster Decisions**: Reduce analysis time from hours to minutes
+- **Consistent Quality**: Standardized analytical frameworks ensure reliability
+- **Scalability**: Analyze multiple securities or portfolios simultaneously
+
+## Architecture Choice
+
+We use **MixtureOfAgents** because:
+- Financial analysis benefits from diverse analytical perspectives
+- Multiple expert agents can debate and validate findings
+- Aggregator synthesizes consensus from different approaches
+- Reduces bias from any single analytical method
+- Provides confidence levels based on agent agreement
+
+## Complete Implementation
+
+```python
+from swarms import Agent, MixtureOfAgents
+import os
+
+# Configure your LLM
+api_key = os.getenv("OPENAI_API_KEY")
+
+# Define specialized financial analyst agents
+fundamental_analyst = Agent(
+    agent_name="Fundamental-Analyst",
+    system_prompt="""
+    You are a fundamental analysis expert.
+    Your role is to:
+    - Analyze financial statements (P&L, balance sheet, cash flow)
+    - Calculate key financial ratios (P/E, ROE, debt-to-equity, etc.)
+    - Assess company financial health and profitability
+    - Evaluate management quality and corporate governance
+    - Determine intrinsic value using DCF and comparable analysis
+    
+    Provide thorough fundamental analysis with specific metrics.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+technical_analyst = Agent(
+    agent_name="Technical-Analyst",
+    system_prompt="""
+    You are a technical analysis specialist.
+    Your role is to:
+    - Analyze price trends, support/resistance levels
+    - Identify chart patterns and technical indicators
+    - Assess momentum using RSI, MACD, moving averages
+    - Evaluate volume patterns and market sentiment
+    - Provide entry/exit points based on technical signals
+    
+    Focus on price action and market dynamics.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+risk_analyst = Agent(
+    agent_name="Risk-Analyst",
+    system_prompt="""
+    You are a risk management expert.
+    Your role is to:
+    - Assess market risk, credit risk, and operational risk
+    - Calculate Value at Risk (VaR) and stress test scenarios
+    - Analyze volatility and beta
+    - Evaluate concentration risk and correlations
+    - Recommend risk mitigation strategies
+    
+    Identify and quantify all material risks.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+macro_analyst = Agent(
+    agent_name="Macro-Analyst",
+    system_prompt="""
+    You are a macroeconomic analysis expert.
+    Your role is to:
+    - Analyze economic indicators (GDP, inflation, employment)
+    - Assess monetary and fiscal policy impacts
+    - Evaluate sector and industry trends
+    - Identify macroeconomic risks and opportunities
+    - Provide economic context for investment decisions
+    
+    Connect macro trends to investment implications.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+quant_analyst = Agent(
+    agent_name="Quantitative-Analyst",
+    system_prompt="""
+    You are a quantitative analyst specializing in statistical models.
+    Your role is to:
+    - Build statistical and mathematical models
+    - Perform regression analysis and factor modeling
+    - Calculate Sharpe ratio, alpha, and other performance metrics
+    - Analyze historical patterns and correlations
+    - Backtest investment strategies
+    
+    Provide data-driven quantitative insights.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+sentiment_analyst = Agent(
+    agent_name="Sentiment-Analyst",
+    system_prompt="""
+    You are a market sentiment and behavioral finance expert.
+    Your role is to:
+    - Analyze news sentiment and social media trends
+    - Assess investor sentiment and positioning
+    - Identify behavioral biases in market pricing
+    - Monitor insider trading and institutional flows
+    - Evaluate market psychology and crowd behavior
+    
+    Gauge market sentiment and contrarian opportunities.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+aggregator_agent = Agent(
+    agent_name="Chief-Investment-Officer",
+    system_prompt="""
+    You are the Chief Investment Officer who synthesizes all analyst inputs.
+    Your role is to:
+    - Integrate insights from all analytical perspectives
+    - Identify consensus views and disagreements
+    - Weigh different analytical approaches appropriately
+    - Assess confidence level based on analyst agreement
+    - Provide clear investment recommendations with rationale
+    - Assign conviction levels (High/Medium/Low)
+    
+    Make final investment decisions based on collective intelligence.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+# Create the Mixture of Agents financial analysis system
+financial_analysis_system = MixtureOfAgents(
+    name="Financial-Analysis-System",
+    agents=[
+        fundamental_analyst,
+        technical_analyst,
+        risk_analyst,
+        macro_analyst,
+        quant_analyst,
+        sentiment_analyst,
+    ],
+    aggregator_agent=aggregator_agent,
+    aggregator_system_prompt="""
+    Synthesize all analyst perspectives into a comprehensive investment recommendation.
+    
+    Structure your output as:
+    1. Executive Summary
+    2. Analyst Consensus & Disagreements
+    3. Investment Thesis
+    4. Risk Assessment
+    5. Recommendation (Buy/Hold/Sell with conviction level)
+    6. Price Targets and Timeline
+    7. Key Risks and Mitigants
+    """,
+    layers=2,  # Two rounds of analysis for deeper insights
+)
+
+# Execute financial analysis
+if __name__ == "__main__":
+    analysis_request = """
+    Provide comprehensive investment analysis for:
+    
+    Company: Tesla Inc. (TSLA)
+    
+    Analysis scope:
+    - Current valuation and financial health
+    - Technical price trends and momentum
+    - Risk factors (market, business, regulatory)
+    - Macroeconomic tailwinds/headwinds for EV sector
+    - Quantitative performance metrics vs peers
+    - Market sentiment and investor positioning
+    
+    Context:
+    - Investment horizon: 12-18 months
+    - Portfolio context: Growth-oriented equity portfolio
+    - Risk tolerance: Moderate-aggressive
+    
+    Provide actionable buy/hold/sell recommendation with price targets.
+    """
+    
+    # Run the financial analysis
+    print("Running multi-agent financial analysis...")
+    investment_report = financial_analysis_system.run(analysis_request)
+    
+    # Save the investment report
+    with open("tesla_investment_analysis.md", "w") as f:
+        f.write(investment_report)
+    
+    print("Investment analysis complete! Report saved to tesla_investment_analysis.md")
+```
+
+## How It Works
+
+### Layer 1: Specialized Analysis
+Six specialist agents independently analyze the investment:
+- **Fundamental Analyst**: Financial statements and valuation
+- **Technical Analyst**: Price action and momentum
+- **Risk Analyst**: Risk quantification and mitigation
+- **Macro Analyst**: Economic context and sector trends
+- **Quant Analyst**: Statistical models and metrics
+- **Sentiment Analyst**: Market psychology and positioning
+
+### Layer 2: Synthesis & Recommendation
+The **Chief Investment Officer** (aggregator):
+- Reviews all specialist analyses
+- Identifies consensus and conflicting views
+- Weighs perspectives based on current market regime
+- Provides final investment recommendation
+- Assigns conviction level based on analyst agreement
+
+### Multi-Layer Processing
+With `layers=2`, the system:
+1. First layer: All analysts provide initial analysis
+2. Second layer: Analysts review each other's work and refine
+3. Aggregator synthesizes the refined analyses
+
+## Customization Tips
+
+### Add ESG Analysis
+
+```python
+esg_analyst = Agent(
+    agent_name="ESG-Analyst",
+    system_prompt="""
+    You are an ESG (Environmental, Social, Governance) analyst.
+    Your role is to:
+    - Assess environmental impact and sustainability
+    - Evaluate social responsibility and labor practices
+    - Analyze governance structure and ethics
+    - Identify ESG risks and opportunities
+    - Rate ESG performance vs peers
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+
+# Add to the agent list
+financial_analysis_system = MixtureOfAgents(
+    agents=[
+        fundamental_analyst,
+        technical_analyst,
+        risk_analyst,
+        macro_analyst,
+        quant_analyst,
+        sentiment_analyst,
+        esg_analyst,  # Add ESG perspective
+    ],
+    aggregator_agent=aggregator_agent,
+)
+```
+
+### Portfolio-Level Analysis
+
+```python
+portfolio_manager = Agent(
+    agent_name="Portfolio-Manager",
+    system_prompt="""
+    You manage portfolio construction and optimization.
+    Your role is to:
+    - Assess how new position fits existing portfolio
+    - Analyze correlation and diversification benefits
+    - Optimize position sizing
+    - Evaluate portfolio-level risk metrics
+    - Recommend rebalancing actions
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+```
+
+### Sector-Specific Expertise
+
+```python
+# For technology stocks
+tech_specialist = Agent(
+    agent_name="Tech-Sector-Specialist",
+    system_prompt="""
+    You are a technology sector specialist.
+    Expertise in:
+    - SaaS metrics (ARR, LTV/CAC, net retention)
+    - Platform economics and network effects
+    - Technology moats and competitive dynamics
+    - Regulatory risks (antitrust, privacy)
+    - Innovation cycles and disruption risks
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+
+# For financial services
+financials_specialist = Agent(
+    agent_name="Financials-Specialist",
+    system_prompt="""
+    You specialize in financial services analysis.
+    Expertise in:
+    - Net interest margin and efficiency ratios
+    - Loan quality and credit metrics
+    - Capital adequacy and regulatory compliance
+    - Interest rate sensitivity
+    - Fintech disruption risks
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+```
+
+### Configure Analysis Depth
+
+```python
+# For quick screening
+quick_screen = MixtureOfAgents(
+    agents=[fundamental_analyst, technical_analyst, risk_analyst],
+    aggregator_agent=aggregator_agent,
+    layers=1,  # Single layer for speed
+)
+
+# For deep due diligence
+deep_analysis = MixtureOfAgents(
+    agents=[all_analysts],
+    aggregator_agent=aggregator_agent,
+    layers=3,  # Three layers for thorough analysis
+)
+```
+
+### Add Competitive Analysis
+
+```python
+competitive_analyst = Agent(
+    agent_name="Competitive-Analyst",
+    system_prompt="""
+    You analyze competitive positioning and market share.
+    Your role is to:
+    - Map competitive landscape and key players
+    - Assess competitive advantages and moats
+    - Analyze market share trends
+    - Evaluate pricing power and unit economics
+    - Identify competitive threats and opportunities
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+```
+
+## Real-World Applications
+
+- **Equity Research**: Comprehensive stock analysis and recommendations
+- **Portfolio Management**: Investment decisions for fund managers
+- **Risk Management**: Enterprise risk assessment for financial institutions
+- **M&A Due Diligence**: Target company evaluation
+- **Credit Analysis**: Bond ratings and credit risk assessment
+- **Hedge Fund Strategies**: Multi-strategy investment analysis
+
+## Advanced Features
+
+### Confidence Scoring
+
+```python
+aggregator_agent = Agent(
+    agent_name="Chief-Investment-Officer",
+    system_prompt="""
+    Provide confidence score based on analyst agreement:
+    
+    High Confidence (85-100%):
+    - 5+ analysts agree on direction
+    - Strong fundamental and technical alignment
+    
+    Medium Confidence (60-84%):
+    - 3-4 analysts agree
+    - Some conflicting signals
+    
+    Low Confidence (<60%):
+    - Significant analyst disagreement
+    - Mixed or unclear signals
+    - Recommend further analysis or wait
+    
+    Always disclose confidence level in recommendation.
+    """,
+    # ... other params
+)
+```
+
+### Scenario Analysis
+
+```python
+analysis_request = """
+Analyze TSLA under three scenarios:
+
+1. Bull Case: Strong EV adoption, margin expansion
+2. Base Case: Moderate growth, competitive pressure
+3. Bear Case: Recession, increased competition
+
+Provide price targets and probabilities for each scenario.
+"""
+
+result = financial_analysis_system.run(analysis_request)
+```
+
+### Real-Time Market Monitoring
+
+```python
+market_monitor = Agent(
+    agent_name="Market-Monitor",
+    system_prompt="""
+    Monitor real-time market developments:
+    - Breaking news and events
+    - Price movements and volume spikes
+    - Earnings announcements
+    - Regulatory filings
+    
+    Alert on material changes requiring re-analysis.
+    """,
+    max_loops="auto",
+    stopping_condition="market_close",
+)
+```
+
+## Performance Metrics
+
+Track analysis quality:
+
+```python
+aggregator_agent = Agent(
+    agent_name="Chief-Investment-Officer",
+    system_prompt="""
+    Include performance metrics in recommendation:
+    
+    - Analyst Agreement Score: X/6 analysts agree
+    - Confidence Level: High/Medium/Low
+    - Risk-Reward Ratio: X:1
+    - Conviction Level: 1-5 stars
+    - Expected Return: X% (base case)
+    - Downside Risk: -X% (worst case)
+    - Time Horizon: X months
+    """,
+    # ... other params
+)
+```
+
+## Integration Examples
+
+### With Data Sources
+
+```python
+# Pseudo-code for data integration
+from financial_data_api import get_financial_data
+
+# Gather data
+data = get_financial_data("TSLA")
+
+# Enhance request with data
+enhanced_request = f"""
+{analysis_request}
+
+Current financial data:
+{data}
+"""
+
+result = financial_analysis_system.run(enhanced_request)
+```
+
+### With Alerting
+
+```python
+def send_alert(report, threshold="High"):
+    if threshold in report:
+        # Send email/Slack notification
+        notify_investors(report)
+
+result = financial_analysis_system.run(analysis_request)
+send_alert(result)
+```
+
+## Next Steps
+
+- See [Data Analysis Swarm](/examples/use-cases/data-analysis) for data-focused workflows
+- Explore [MixtureOfAgents](/core-concepts/swarms#mixture-of-agents) for architecture details
+- Review [Research Team](/examples/use-cases/research-team) for qualitative analysis
+- Check [Best Practices](/guides/best-practices) for production deployment

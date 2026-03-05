@@ -1,0 +1,629 @@
+---
+title: Tools Integration
+description: Add custom tools and functions to your Swarms agents for extended capabilities
+---
+
+Swarms provides a comprehensive tool system that allows agents to execute custom functions, interact with APIs, and perform specialized tasks. The framework supports multiple tool integration patterns with automatic schema generation and validation.
+
+## Overview
+
+The Swarms tool system provides:
+
+- **Automatic Schema Generation**: Convert Python functions to OpenAI-compatible tool schemas
+- **Type Safety**: Full type hint support with validation
+- **Tool Registry**: Centralized management of available tools
+- **Pydantic Integration**: Use Pydantic models for structured tool inputs
+- **Batch Execution**: Execute multiple tools concurrently
+- **Error Handling**: Comprehensive error handling and validation
+
+## Quick Start
+
+### Basic Tool Usage
+
+Add a simple function as a tool:
+
+```python
+from swarms import Agent
+
+def get_weather(location: str, units: str = "celsius") -> str:
+    """
+    Get the weather for a location.
+    
+    Args:
+        location: The city or location to get weather for
+        units: Temperature units (celsius or fahrenheit)
+    
+    Returns:
+        Weather information as a string
+    """
+    # Your weather API logic here
+    return f"The weather in {location} is 72°{units[0].upper()}"
+
+# Create agent with the tool
+agent = Agent(
+    agent_name="Weather-Agent",
+    model_name="gpt-4o",
+    tools=[get_weather],
+    max_loops=1,
+)
+
+result = agent.run("What's the weather in San Francisco?")
+```
+
+<Note>
+Tools must have:
+1. Type hints for all parameters
+2. A docstring describing the function
+3. Return type annotation
+</Note>
+
+## BaseTool Class
+
+### Core Tool Management
+
+The `BaseTool` class provides comprehensive tool management:
+
+```python
+from swarms.tools import BaseTool
+
+def calculate_roi(investment: float, return_amount: float) -> float:
+    """
+    Calculate return on investment percentage.
+    
+    Args:
+        investment: Initial investment amount
+        return_amount: Final return amount
+        
+    Returns:
+        ROI as a percentage
+    """
+    return ((return_amount - investment) / investment) * 100
+
+# Create tool manager
+tool_manager = BaseTool(
+    tools=[calculate_roi],
+    verbose=True,
+    autocheck=True,
+)
+
+# Convert function to OpenAI schema
+schema = tool_manager.func_to_dict(calculate_roi)
+print(schema)
+```
+
+### Multiple Tools
+
+Manage multiple tools with validation:
+
+```python
+from swarms.tools import BaseTool
+from typing import List
+
+def search_database(query: str, limit: int = 10) -> List[dict]:
+    """
+    Search the database for records.
+    
+    Args:
+        query: Search query string
+        limit: Maximum number of results
+        
+    Returns:
+        List of matching records
+    """
+    return [{"id": 1, "title": "Result 1"}]
+
+def send_email(to: str, subject: str, body: str) -> bool:
+    """
+    Send an email.
+    
+    Args:
+        to: Recipient email address
+        subject: Email subject
+        body: Email body content
+        
+    Returns:
+        True if sent successfully
+    """
+    return True
+
+def analyze_sentiment(text: str) -> dict:
+    """
+    Analyze sentiment of text.
+    
+    Args:
+        text: Text to analyze
+        
+    Returns:
+        Sentiment analysis results
+    """
+    return {"sentiment": "positive", "score": 0.95}
+
+# Create tool manager with multiple tools
+tool_manager = BaseTool(
+    tools=[search_database, send_email, analyze_sentiment],
+    verbose=True,
+)
+
+# Convert all tools to OpenAI schema
+tool_manager.convert_funcs_into_tools()
+
+# Access the function map
+print(tool_manager.function_map.keys())
+# Output: dict_keys(['search_database', 'send_email', 'analyze_sentiment'])
+```
+
+## Pydantic Model Tools
+
+### Structured Tool Inputs
+
+Use Pydantic models for complex tool schemas:
+
+```python
+from swarms.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import List
+
+class UserProfile(BaseModel):
+    """User profile information."""
+    name: str = Field(..., description="User's full name")
+    email: str = Field(..., description="User's email address")
+    age: int = Field(..., ge=0, le=150, description="User's age")
+    interests: List[str] = Field(
+        default_factory=list,
+        description="List of user interests"
+    )
+
+class SearchQuery(BaseModel):
+    """Database search parameters."""
+    query: str = Field(..., description="Search query string")
+    filters: dict = Field(
+        default_factory=dict,
+        description="Optional filters"
+    )
+    limit: int = Field(10, ge=1, le=100, description="Result limit")
+
+# Create tool manager with Pydantic models
+tool_manager = BaseTool(
+    base_models=[UserProfile, SearchQuery],
+    verbose=True,
+)
+
+# Convert to OpenAI schema
+user_schema = tool_manager.base_model_to_dict(UserProfile)
+search_schema = tool_manager.base_model_to_dict(SearchQuery)
+
+print(user_schema)
+print(search_schema)
+```
+
+### Multiple Pydantic Models
+
+```python
+from swarms.tools import BaseTool
+from pydantic import BaseModel
+
+class Model1(BaseModel):
+    """First model."""
+    field1: str
+    field2: int
+
+class Model2(BaseModel):
+    """Second model."""
+    field_a: str
+    field_b: bool
+
+tool_manager = BaseTool(
+    base_models=[Model1, Model2],
+)
+
+# Convert all models to schemas
+schemas = tool_manager.multi_base_models_to_dict(
+    base_models=[Model1, Model2],
+    output_str=False,
+)
+
+print(f"Generated {len(schemas)} schemas")
+```
+
+## Tool Registry
+
+### Centralized Tool Management
+
+Use the `ToolStorage` registry for managing tools:
+
+```python
+from swarms.tools import ToolStorage, tool_registry
+
+# Create tool storage
+storage = ToolStorage(
+    name="My Tool Registry",
+    description="A registry for my custom tools",
+    verbose=True,
+)
+
+# Register tools using decorator
+@tool_registry(storage)
+def calculate_tax(amount: float, rate: float) -> float:
+    """
+    Calculate tax amount.
+    
+    Args:
+        amount: Base amount
+        rate: Tax rate as decimal (e.g., 0.08 for 8%)
+        
+    Returns:
+        Tax amount
+    """
+    return amount * rate
+
+@tool_registry(storage)
+def format_currency(amount: float, currency: str = "USD") -> str:
+    """
+    Format amount as currency.
+    
+    Args:
+        amount: Monetary amount
+        currency: Currency code (USD, EUR, etc.)
+        
+    Returns:
+        Formatted currency string
+    """
+    return f"{currency} {amount:.2f}"
+
+# List all registered tools
+print(storage.list_tools())
+
+# Get a specific tool
+tax_tool = storage.get_tool("calculate_tax")
+result = tax_tool(100.0, 0.08)
+print(f"Tax: ${result}")
+```
+
+### Batch Tool Registration
+
+```python
+from swarms.tools import ToolStorage
+
+storage = ToolStorage(
+    name="Batch Registry",
+    description="Registry with batch-loaded tools",
+)
+
+def tool1(x: int) -> int:
+    """Tool 1."""
+    return x * 2
+
+def tool2(x: int) -> int:
+    """Tool 2."""
+    return x + 10
+
+def tool3(x: int) -> int:
+    """Tool 3."""
+    return x ** 2
+
+# Add multiple tools at once
+storage.add_many_tools([tool1, tool2, tool3])
+
+print(storage.list_tools())
+```
+
+## Tool Execution
+
+### Execute Tools Dynamically
+
+```python
+from swarms.tools import BaseTool
+import json
+
+def process_data(data: str, format: str = "json") -> dict:
+    """
+    Process data in various formats.
+    
+    Args:
+        data: Input data string
+        format: Output format (json, xml, etc.)
+        
+    Returns:
+        Processed data
+    """
+    return {"processed": data, "format": format}
+
+tool_manager = BaseTool(
+    tools=[process_data],
+    verbose=True,
+)
+
+tool_manager.convert_funcs_into_tools()
+
+# Execute tool with JSON response
+tool_call = json.dumps({
+    "name": "process_data",
+    "parameters": {
+        "data": "sample data",
+        "format": "json"
+    }
+})
+
+result = tool_manager.execute_tool_from_text(tool_call)
+print(result)
+```
+
+### Execute by Name
+
+```python
+from swarms.tools import BaseTool
+
+tool_manager = BaseTool(
+    tools=[process_data],
+)
+
+tool_manager.convert_funcs_into_tools()
+
+# Execute specific tool by name
+result = tool_manager.execute_tool_by_name(
+    tool_name="process_data",
+    response='{"data": "test", "format": "json"}',
+)
+```
+
+## Advanced Patterns
+
+### Tool Validation
+
+Validate tools before execution:
+
+```python
+from swarms.tools import BaseTool
+
+def my_tool(x: int, y: int) -> int:
+    """
+    A properly documented tool.
+    
+    Args:
+        x: First number
+        y: Second number
+        
+    Returns:
+        Sum of x and y
+    """
+    return x + y
+
+tool_manager = BaseTool(verbose=True)
+
+# Check documentation
+has_docs = tool_manager.check_func_if_have_docs(my_tool)
+print(f"Has documentation: {has_docs}")
+
+# Check type hints
+has_hints = tool_manager.check_func_if_have_type_hints(my_tool)
+print(f"Has type hints: {has_hints}")
+```
+
+### Dynamic Tool Generation
+
+```python
+from swarms.tools import BaseTool
+
+class DynamicToolManager:
+    def __init__(self):
+        self.tool_manager = BaseTool(verbose=True)
+        
+    def create_tool_from_api(self, api_name: str) -> callable:
+        """Generate a tool from API specification."""
+        def api_tool(endpoint: str, params: dict) -> dict:
+            f"""
+            Call {api_name} API.
+            
+            Args:
+                endpoint: API endpoint
+                params: Request parameters
+                
+            Returns:
+                API response
+            """
+            # API call logic here
+            return {"api": api_name, "endpoint": endpoint}
+        
+        return api_tool
+    
+    def register_api_tools(self, apis: list[str]):
+        """Register tools for multiple APIs."""
+        tools = [self.create_tool_from_api(api) for api in apis]
+        self.tool_manager.tools = tools
+        self.tool_manager.convert_funcs_into_tools()
+        
+manager = DynamicToolManager()
+manager.register_api_tools(["stripe", "sendgrid", "twilio"])
+```
+
+### Tool Composition
+
+Combine multiple tools into workflows:
+
+```python
+from swarms import Agent
+from typing import Dict, List
+
+def fetch_data(source: str) -> Dict:
+    """Fetch data from source."""
+    return {"data": f"Data from {source}"}
+
+def transform_data(data: Dict, format: str) -> Dict:
+    """Transform data format."""
+    return {"transformed": data, "format": format}
+
+def save_data(data: Dict, destination: str) -> bool:
+    """Save data to destination."""
+    return True
+
+# Create agent with pipeline tools
+pipeline_agent = Agent(
+    agent_name="Pipeline-Agent",
+    model_name="gpt-4o",
+    tools=[fetch_data, transform_data, save_data],
+    system_prompt="Execute data pipeline: fetch, transform, and save.",
+    max_loops=3,
+)
+
+result = pipeline_agent.run(
+    "Fetch data from API, transform to JSON, and save to database"
+)
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Documentation" icon="book">
+    Always include comprehensive docstrings with parameter descriptions
+  </Card>
+  <Card title="Type Hints" icon="code">
+    Use type hints for all function parameters and return values
+  </Card>
+  <Card title="Error Handling" icon="shield">
+    Implement robust error handling in your tools
+  </Card>
+  <Card title="Validation" icon="check">
+    Validate inputs using Pydantic models for complex schemas
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### API Integration Tool
+
+```python
+import httpx
+from typing import Dict, Optional
+
+def call_api(
+    url: str,
+    method: str = "GET",
+    headers: Optional[Dict] = None,
+    params: Optional[Dict] = None,
+) -> Dict:
+    """
+    Make HTTP API calls.
+    
+    Args:
+        url: API endpoint URL
+        method: HTTP method (GET, POST, etc.)
+        headers: Optional HTTP headers
+        params: Optional query parameters or body
+        
+    Returns:
+        API response as dictionary
+    """
+    with httpx.Client() as client:
+        response = client.request(
+            method=method,
+            url=url,
+            headers=headers or {},
+            params=params or {},
+        )
+        return response.json()
+```
+
+### Database Tool
+
+```python
+from typing import List, Dict, Optional
+
+def query_database(
+    query: str,
+    parameters: Optional[Dict] = None,
+    limit: int = 100,
+) -> List[Dict]:
+    """
+    Execute database query.
+    
+    Args:
+        query: SQL query string
+        parameters: Query parameters
+        limit: Maximum results to return
+        
+    Returns:
+        Query results as list of dictionaries
+    """
+    # Database logic here
+    return [{"id": 1, "name": "Example"}]
+```
+
+### File Processing Tool
+
+```python
+from pathlib import Path
+from typing import Union
+
+def process_file(
+    file_path: str,
+    operation: str,
+    output_path: Optional[str] = None,
+) -> str:
+    """
+    Process files with various operations.
+    
+    Args:
+        file_path: Path to input file
+        operation: Operation to perform (read, write, convert, etc.)
+        output_path: Optional output file path
+        
+    Returns:
+        Operation result message
+    """
+    path = Path(file_path)
+    
+    if operation == "read":
+        return path.read_text()
+    elif operation == "convert":
+        # Conversion logic
+        return f"Converted {file_path} to {output_path}"
+    
+    return "Operation completed"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Missing Type Hints**
+```python
+# ❌ Wrong - no type hints
+def bad_tool(x, y):
+    return x + y
+
+# ✅ Correct - with type hints
+def good_tool(x: int, y: int) -> int:
+    """Add two numbers."""
+    return x + y
+```
+
+**Missing Documentation**
+```python
+# ❌ Wrong - no docstring
+def bad_tool(x: int) -> int:
+    return x * 2
+
+# ✅ Correct - with docstring
+def good_tool(x: int) -> int:
+    """
+    Double the input value.
+    
+    Args:
+        x: Input value
+        
+    Returns:
+        Doubled value
+    """
+    return x * 2
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MCP Integration" icon="plug" href="/integrations/mcp">
+    Connect to MCP servers for more tools
+  </Card>
+  <Card title="Marketplace" icon="store" href="/integrations/marketplace">
+    Share and discover prompts on the marketplace
+  </Card>
+</CardGroup>

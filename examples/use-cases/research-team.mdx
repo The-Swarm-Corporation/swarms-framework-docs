@@ -1,0 +1,261 @@
+---
+title: "Research Team Swarm"
+description: "Build an autonomous research team that collaborates to produce comprehensive research reports"
+icon: "microscope"
+---
+
+## Overview
+
+This example demonstrates how to build a research team swarm that collaborates to produce comprehensive research reports. The team consists of specialized agents working in a hierarchical structure to gather information, analyze data, and synthesize findings into actionable insights.
+
+## Business Value
+
+- **Accelerated Research**: Complete comprehensive research in hours instead of days
+- **Diverse Perspectives**: Multiple specialized agents provide different analytical viewpoints
+- **Quality Assurance**: Built-in review and synthesis steps ensure accuracy
+- **Scalability**: Handle multiple research projects simultaneously
+- **Cost Efficiency**: Reduce manual research hours by 70-80%
+
+## Architecture Choice
+
+We use **HierarchicalSwarm** because:
+- Research flows naturally from data gathering → analysis → synthesis
+- A director agent can coordinate specialist researchers
+- Each layer builds upon the previous layer's output
+- Clear separation of concerns (research vs analysis vs writing)
+
+## Complete Implementation
+
+```python
+from swarms import Agent, HierarchicalSwarm
+import os
+
+# Configure your LLM - using OpenAI as example
+api_key = os.getenv("OPENAI_API_KEY")
+
+# Define specialized research agents
+researcher_agent = Agent(
+    agent_name="Primary-Researcher",
+    system_prompt="""
+    You are an expert researcher specializing in gathering comprehensive information.
+    Your role is to:
+    - Identify key information sources and data points
+    - Gather relevant facts, statistics, and expert opinions
+    - Cite sources accurately
+    - Flag areas requiring deeper investigation
+    
+    Provide thorough, well-sourced research findings.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+data_analyst = Agent(
+    agent_name="Data-Analyst",
+    system_prompt="""
+    You are a data analyst who transforms raw research into insights.
+    Your role is to:
+    - Identify patterns and trends in research data
+    - Perform statistical analysis where applicable
+    - Highlight key findings and anomalies
+    - Present data in clear, logical structures
+    
+    Focus on extracting actionable insights from research.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+critical_analyst = Agent(
+    agent_name="Critical-Analyst",
+    system_prompt="""
+    You are a critical analyst who evaluates research quality.
+    Your role is to:
+    - Assess the validity and reliability of findings
+    - Identify gaps, biases, or logical inconsistencies
+    - Challenge assumptions and verify conclusions
+    - Suggest areas for additional investigation
+    
+    Provide rigorous quality assurance for research outputs.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+report_writer = Agent(
+    agent_name="Report-Writer",
+    system_prompt="""
+    You are an expert technical writer who synthesizes research into reports.
+    Your role is to:
+    - Combine research, analysis, and critical feedback into coherent narratives
+    - Structure information logically with clear sections
+    - Write in clear, professional language
+    - Include executive summaries and key recommendations
+    
+    Create publication-ready research reports.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+# Create the hierarchical research team
+research_team = HierarchicalSwarm(
+    name="Research-Team-Swarm",
+    description="Autonomous research team for comprehensive analysis",
+    agents=[researcher_agent, data_analyst, critical_analyst, report_writer],
+    max_loops=1,
+)
+
+# Execute research project
+if __name__ == "__main__":
+    research_query = """
+    Conduct a comprehensive research report on the current state of 
+    artificial intelligence in healthcare, focusing on:
+    - Current applications and use cases
+    - Regulatory challenges and compliance
+    - Market size and growth projections
+    - Key players and competitive landscape
+    - Future trends and opportunities
+    
+    Target audience: Healthcare executives and investors
+    """
+    
+    # Run the swarm
+    result = research_team.run(research_query)
+    
+    # Save the report
+    with open("healthcare_ai_report.md", "w") as f:
+        f.write(result)
+    
+    print("Research report completed and saved to healthcare_ai_report.md")
+```
+
+## How It Works
+
+1. **Primary Researcher** gathers initial information and sources
+2. **Data Analyst** processes the research into structured insights
+3. **Critical Analyst** reviews findings for quality and completeness
+4. **Report Writer** synthesizes everything into a final report
+
+Each agent receives the output of previous agents, building upon their work to create a comprehensive final product.
+
+## Customization Tips
+
+### Add Domain Experts
+
+```python
+medical_expert = Agent(
+    agent_name="Medical-Expert",
+    system_prompt="You are a medical doctor who validates healthcare claims...",
+    model_name="gpt-4o",
+    max_loops=1,
+)
+
+# Insert between data_analyst and critical_analyst
+research_team = HierarchicalSwarm(
+    agents=[researcher_agent, data_analyst, medical_expert, critical_analyst, report_writer],
+    # ... other params
+)
+```
+
+### Add Multi-Loop Research
+
+For iterative research that digs deeper:
+
+```python
+researcher_agent = Agent(
+    agent_name="Primary-Researcher",
+    # ... other params
+    max_loops=3,  # Allow multiple research iterations
+    stopping_condition="research is comprehensive",
+)
+```
+
+### Configure Output Format
+
+```python
+report_writer = Agent(
+    agent_name="Report-Writer",
+    system_prompt="""
+    Create reports in the following format:
+    1. Executive Summary (1 page)
+    2. Methodology
+    3. Key Findings (with data visualizations)
+    4. Detailed Analysis
+    5. Recommendations
+    6. Appendices
+    
+    Use markdown formatting with tables and bullet points.
+    """,
+    # ... other params
+)
+```
+
+### Add Memory for Long Projects
+
+```python
+from swarms.memory import ChromaDB
+
+memory = ChromaDB(
+    output_dir="research_memory",
+    n_results=5,
+)
+
+researcher_agent = Agent(
+    agent_name="Primary-Researcher",
+    long_term_memory=memory,
+    # ... other params
+)
+```
+
+## Real-World Applications
+
+- **Market Research**: Competitive intelligence and market analysis
+- **Due Diligence**: Investment and M&A research
+- **Academic Research**: Literature reviews and meta-analysis
+- **Policy Analysis**: Regulatory impact assessments
+- **Technology Evaluation**: Vendor selection and technology assessments
+
+## Performance Optimization
+
+### Parallel Research Tasks
+
+For independent research streams:
+
+```python
+from swarms import ConcurrentWorkflow
+
+# Research multiple topics in parallel
+topics = [
+    "AI in diagnostics",
+    "AI in drug discovery",
+    "AI in patient care",
+]
+
+parallel_research = ConcurrentWorkflow(
+    agents=[researcher_agent],
+    max_loops=1,
+)
+
+results = [parallel_research.run(topic) for topic in topics]
+```
+
+### Cache Common Research
+
+```python
+researcher_agent = Agent(
+    agent_name="Primary-Researcher",
+    # ... other params
+    cache_enabled=True,  # Reuse similar research queries
+)
+```
+
+## Next Steps
+
+- Explore [Content Creation Pipeline](/examples/use-cases/content-creation) for publishing research
+- See [Data Analysis Swarm](/examples/use-cases/data-analysis) for quantitative research
+- Review [Agent Configuration](/core-concepts/agents) for advanced agent customization

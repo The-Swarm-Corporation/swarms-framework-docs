@@ -1,0 +1,213 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Swarms",
+  "theme": "aspen",
+  "colors": {
+    "primary": "#3670A0",
+    "light": "#5B9BD5",
+    "dark": "#1E3A5F"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/kyegomez/swarms"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/kyegomez/swarms",
+      "discord": "https://discord.gg/EamjgSaEQf",
+      "twitter": "https://twitter.com/swarms_corp",
+      "website": "https://swarms.ai"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation",
+              "environment-setup"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/agents",
+              "concepts/swarms",
+              "concepts/workflows",
+              "concepts/tools"
+            ]
+          },
+          {
+            "group": "Agent Development",
+            "pages": [
+              "agents/creating-agents",
+              "agents/agent-configuration",
+              "agents/agent-memory",
+              "agents/agent-tools",
+              "agents/agent-skills",
+              "agents/structured-outputs"
+            ]
+          },
+          {
+            "group": "Multi-Agent Architectures",
+            "pages": [
+              "architectures/overview",
+              "architectures/sequential-workflow",
+              "architectures/concurrent-workflow",
+              "architectures/agent-rearrange",
+              "architectures/mixture-of-agents",
+              "architectures/swarm-router",
+              "architectures/hierarchical-swarm",
+              "architectures/heavy-swarm",
+              "architectures/group-chat",
+              "architectures/graph-workflow",
+              "architectures/social-algorithms"
+            ]
+          },
+          {
+            "group": "Deployment & Operations",
+            "pages": [
+              "deployment/agent-orchestration-protocol",
+              "deployment/production-best-practices",
+              "deployment/scaling",
+              "deployment/monitoring"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/model-providers",
+              "integrations/mcp",
+              "integrations/tools",
+              "integrations/marketplace"
+            ]
+          },
+          {
+            "group": "CLI Reference",
+            "pages": [
+              "cli/overview",
+              "cli/commands",
+              "cli/configuration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api/agent",
+              "api/base-swarm",
+              "api/base-structure",
+              "api/conversation"
+            ]
+          },
+          {
+            "group": "Workflows",
+            "pages": [
+              "api/sequential-workflow",
+              "api/concurrent-workflow",
+              "api/agent-rearrange",
+              "api/graph-workflow"
+            ]
+          },
+          {
+            "group": "Multi-Agent Systems",
+            "pages": [
+              "api/mixture-of-agents",
+              "api/swarm-router",
+              "api/hierarchical-swarm",
+              "api/heavy-swarm",
+              "api/group-chat",
+              "api/auto-swarm-builder",
+              "api/multi-agent-router",
+              "api/spreadsheet-swarm",
+              "api/round-robin-swarm",
+              "api/llm-council",
+              "api/council-as-judge"
+            ]
+          },
+          {
+            "group": "Tools & Utilities",
+            "pages": [
+              "api/tools",
+              "api/prompts",
+              "api/schemas",
+              "api/utils"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "api/aop",
+              "api/cron-job"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Basic Examples",
+            "pages": [
+              "examples/basic-agent",
+              "examples/agent-with-tools",
+              "examples/vision-agent",
+              "examples/streaming"
+            ]
+          },
+          {
+            "group": "Multi-Agent Examples",
+            "pages": [
+              "examples/sequential-workflow-example",
+              "examples/concurrent-workflow-example",
+              "examples/mixture-of-agents-example",
+              "examples/hierarchical-swarm-example",
+              "examples/group-chat-example"
+            ]
+          },
+          {
+            "group": "Use Cases",
+            "pages": [
+              "examples/use-cases/research-team",
+              "examples/use-cases/content-creation",
+              "examples/use-cases/data-analysis",
+              "examples/use-cases/financial-analysis"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Community",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "community/contributing",
+              "community/code-of-conduct",
+              "community/development-setup"
+            ]
+          },
+          {
+            "group": "Support",
+            "pages": [
+              "community/discord",
+              "community/github",
+              "community/faq"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,635 @@
+---
+title: Utilities
+description: Essential utility functions and classes for file processing, logging, formatting, and token management
+---
+
+## Overview
+
+The `swarms.utils` module provides essential utilities for file operations, logging, output formatting, token counting, and data processing. These utilities support core agent functionality and framework operations.
+
+## Logging
+
+### initialize_logger
+
+Initialize a Loguru logger with custom formatting and output configuration.
+
+```python
+from swarms.utils.loguru_logger import initialize_logger
+
+logger = initialize_logger(log_folder="my_logs")
+
+logger.info("Application started")
+logger.error("An error occurred")
+logger.debug("Debug information")
+```
+
+<ParamField path="log_folder" type="str" default="logs">
+  Name of the folder for log storage
+</ParamField>
+
+<ResponseField name="return" type="Logger">
+  Configured Loguru logger instance
+</ResponseField>
+
+**Features:**
+- Colored console output
+- Timestamp formatting
+- Function and line number tracking
+- Backtrace and diagnostics enabled
+- Thread-safe enqueuing
+
+## Formatting & Output
+
+### Formatter
+
+Rich-based formatter for beautiful console output with markdown support.
+
+```python
+from swarms.utils.formatter import Formatter
+
+formatter = Formatter(md=True)
+
+# Print formatted panels
+formatter.print_panel(
+    "Analysis complete",
+    title="Status",
+    style="bold green"
+)
+
+# Print markdown with syntax highlighting
+formatter.print_markdown(
+    "# Results\n\n```python\nprint('hello')\n```",
+    title="Code Output"
+)
+```
+
+#### Constructor
+
+<ParamField path="md" type="bool" default="True">
+  Enable markdown output rendering
+</ParamField>
+
+#### Methods
+
+##### print_panel
+
+Print content in a styled panel.
+
+```python
+formatter.print_panel(
+    content="Task completed successfully",
+    title="Success",
+    style="bold green"
+)
+```
+
+<ParamField path="content" type="str" required>
+  Content to display in the panel
+</ParamField>
+
+<ParamField path="title" type="str" default="">
+  Panel title
+</ParamField>
+
+<ParamField path="style" type="str" default="bold blue">
+  Panel style (color and formatting)
+</ParamField>
+
+##### print_markdown
+
+Render markdown content with syntax highlighting.
+
+```python
+formatter.print_markdown(
+    content="# Analysis\n\nResults are **positive**",
+    title="Report",
+    border_style="blue"
+)
+```
+
+<ParamField path="content" type="str" required>
+  Markdown content to render
+</ParamField>
+
+<ParamField path="title" type="str" default="">
+  Panel title
+</ParamField>
+
+<ParamField path="border_style" type="str" default="blue">
+  Border color style
+</ParamField>
+
+##### print_streaming_panel
+
+Display real-time streaming response with live updates.
+
+```python
+response = formatter.print_streaming_panel(
+    streaming_response=llm_stream,
+    title="Agent Response",
+    collect_chunks=True
+)
+```
+
+<ParamField path="streaming_response" type="Generator" required>
+  Streaming response generator from LLM
+</ParamField>
+
+<ParamField path="title" type="str" default="Agent Streaming Response">
+  Panel title
+</ParamField>
+
+<ParamField path="style" type="str" default="None">
+  Panel style (uses random color if None)
+</ParamField>
+
+<ParamField path="collect_chunks" type="bool" default="False">
+  Whether to collect individual chunks
+</ParamField>
+
+<ParamField path="on_chunk_callback" type="Callable" default="None">
+  Callback function for each chunk
+</ParamField>
+
+<ResponseField name="return" type="str">
+  Complete accumulated response text
+</ResponseField>
+
+##### print_agent_dashboard
+
+Display a live dashboard showing agent statuses.
+
+```python
+agents_data = [
+    {"name": "Agent-1", "status": "running", "output": "Processing..."},
+    {"name": "Agent-2", "status": "completed", "output": "Done!"}
+]
+
+formatter.print_agent_dashboard(
+    agents_data=agents_data,
+    title="Swarm Dashboard",
+    is_final=False
+)
+```
+
+<ParamField path="agents_data" type="List[Dict[str, Any]]" required>
+  List of agent information dictionaries with name, status, and output
+</ParamField>
+
+<ParamField path="title" type="str" default="Concurrent Workflow Dashboard">
+  Dashboard title
+</ParamField>
+
+<ParamField path="is_final" type="bool" default="False">
+  Whether this is the final update
+</ParamField>
+
+## File Processing
+
+### create_file_in_folder
+
+Create a file with content in a specified folder.
+
+```python
+from swarms.utils import create_file_in_folder
+
+file_path = create_file_in_folder(
+    folder_path="./reports",
+    file_name="analysis.txt",
+    content="Financial analysis results..."
+)
+```
+
+<ParamField path="folder_path" type="str" required>
+  Path to the folder (created if doesn't exist)
+</ParamField>
+
+<ParamField path="file_name" type="str" required>
+  Name of the file to create
+</ParamField>
+
+<ParamField path="content" type="Any" required>
+  Content to write to the file
+</ParamField>
+
+<ResponseField name="return" type="str">
+  Path to the created file
+</ResponseField>
+
+### sanitize_file_path
+
+Clean and sanitize file paths for cross-platform compatibility.
+
+```python
+from swarms.utils import sanitize_file_path
+
+safe_path = sanitize_file_path("`C:/Users/file<name>.txt`")
+# Returns: C:/Users/file_name_.txt
+```
+
+<ParamField path="file_path" type="str" required>
+  File path to sanitize
+</ParamField>
+
+<ResponseField name="return" type="str">
+  Sanitized file path safe for all platforms
+</ResponseField>
+
+### load_json
+
+Load and parse a JSON string.
+
+```python
+from swarms.utils import load_json
+
+json_str = '{"name": "Agent", "status": "active"}'
+data = load_json(json_str)
+print(data["name"])  # "Agent"
+```
+
+<ParamField path="json_string" type="str" required>
+  JSON string to parse
+</ParamField>
+
+<ResponseField name="return" type="object">
+  Parsed Python object (dict, list, etc.)
+</ResponseField>
+
+### zip_workspace
+
+Zip an entire workspace directory.
+
+```python
+from swarms.utils import zip_workspace
+
+zip_path = zip_workspace(
+    workspace_path="./my_workspace",
+    output_filename="workspace_backup"
+)
+```
+
+<ParamField path="workspace_path" type="str" required>
+  Path to workspace directory to zip
+</ParamField>
+
+<ParamField path="output_filename" type="str" required>
+  Name for output zip file (without .zip extension)
+</ParamField>
+
+<ResponseField name="return" type="str">
+  Path to created zip file
+</ResponseField>
+
+### zip_folders
+
+Zip multiple folders into a single archive.
+
+```python
+from swarms.utils import zip_folders
+
+zip_folders(
+    folder1_path="./data",
+    folder2_path="./logs",
+    zip_file_path="combined_backup"
+)
+```
+
+<ParamField path="folder1_path" type="str" required>
+  Path to first folder
+</ParamField>
+
+<ParamField path="folder2_path" type="str" required>
+  Path to second folder
+</ParamField>
+
+<ParamField path="zip_file_path" type="str" required>
+  Output zip file path
+</ParamField>
+
+## Data Conversion
+
+### csv_to_text
+
+Convert CSV data to formatted text.
+
+```python
+from swarms.utils import csv_to_text
+
+text = csv_to_text("data.csv")
+print(text)
+```
+
+### json_to_text
+
+Convert JSON data to formatted text.
+
+```python
+from swarms.utils import json_to_text
+
+text = json_to_text("config.json")
+print(text)
+```
+
+### data_to_text
+
+Universal data-to-text converter supporting multiple formats.
+
+```python
+from swarms.utils import data_to_text
+
+text = data_to_text("report.xlsx")
+print(text)
+```
+
+### pdf_to_text
+
+Extract text from PDF files.
+
+```python
+from swarms.utils import pdf_to_text
+
+text = pdf_to_text("document.pdf")
+print(text)
+```
+
+<ParamField path="pdf_path" type="str" required>
+  Path to PDF file
+</ParamField>
+
+<ResponseField name="return" type="str">
+  Extracted text content
+</ResponseField>
+
+## Token Management
+
+### count_tokens
+
+Count tokens in text using LiteLLM tokenizer.
+
+```python
+from swarms.utils import count_tokens
+
+text = "Analyze the financial statements"
+token_count = count_tokens(
+    text=text,
+    model="gpt-4"
+)
+print(f"Tokens: {token_count}")
+```
+
+<ParamField path="text" type="str" required>
+  Text to count tokens for
+</ParamField>
+
+<ParamField path="model" type="str" default="gpt-3.5-turbo">
+  Model to use for tokenization
+</ParamField>
+
+<ResponseField name="return" type="int">
+  Number of tokens in the text
+</ResponseField>
+
+### check_all_model_max_tokens
+
+Check maximum token limits for available models.
+
+```python
+from swarms.utils import check_all_model_max_tokens
+
+max_tokens = check_all_model_max_tokens("gpt-4")
+print(f"Max tokens: {max_tokens}")
+```
+
+## Code Processing
+
+### extract_code_from_markdown
+
+Extract code blocks from markdown text.
+
+```python
+from swarms.utils import extract_code_from_markdown
+
+markdown = """
+Here's some code:
+```python
+def hello():
+    print("Hello")
+```
+"""
+
+code = extract_code_from_markdown(markdown)
+print(code)
+# Output: def hello():\n    print("Hello")
+```
+
+<ParamField path="markdown_text" type="str" required>
+  Markdown text containing code blocks
+</ParamField>
+
+<ResponseField name="return" type="str">
+  Extracted code without markdown formatting
+</ResponseField>
+
+## Agent Loading
+
+### load_agent_from_markdown
+
+Load agent configuration from markdown file.
+
+```python
+from swarms.utils import load_agent_from_markdown
+
+agent = load_agent_from_markdown("agent_config.md")
+```
+
+### load_agents_from_markdown
+
+Load multiple agents from markdown files.
+
+```python
+from swarms.utils import load_agents_from_markdown
+
+agents = load_agents_from_markdown([
+    "agent1.md",
+    "agent2.md",
+    "agent3.md"
+])
+```
+
+### MarkdownAgentLoader
+
+Class for loading agents from markdown with advanced options.
+
+```python
+from swarms.utils import MarkdownAgentLoader
+
+loader = MarkdownAgentLoader()
+agent = loader.load("agent_config.md")
+```
+
+## Context Window Management
+
+### dynamic_auto_chunking
+
+Automatically chunk text based on context window limits.
+
+```python
+from swarms.utils import dynamic_auto_chunking
+
+long_text = "...very long document..."
+chunks = dynamic_auto_chunking(
+    text=long_text,
+    max_tokens=4000,
+    model="gpt-4"
+)
+
+for i, chunk in enumerate(chunks):
+    print(f"Chunk {i}: {len(chunk)} chars")
+```
+
+<ParamField path="text" type="str" required>
+  Text to chunk
+</ParamField>
+
+<ParamField path="max_tokens" type="int" default="4000">
+  Maximum tokens per chunk
+</ParamField>
+
+<ParamField path="model" type="str" default="gpt-3.5-turbo">
+  Model to use for token counting
+</ParamField>
+
+<ResponseField name="return" type="List[str]">
+  List of text chunks
+</ResponseField>
+
+## Output History Formatting
+
+### history_output_formatter
+
+Format agent conversation history for display.
+
+```python
+from swarms.utils import history_output_formatter
+
+formatted = history_output_formatter(
+    history=conversation_history,
+    format_type="markdown"
+)
+print(formatted)
+```
+
+## LiteLLM Wrapper
+
+### LiteLLM
+
+Wrapper class for LiteLLM with error handling.
+
+```python
+from swarms.utils import LiteLLM
+
+llm = LiteLLM(
+    model="gpt-4",
+    temperature=0.7,
+    max_tokens=1000
+)
+
+response = llm.run("Analyze this data")
+```
+
+### NetworkConnectionError
+
+Exception raised for network connection issues.
+
+```python
+from swarms.utils import NetworkConnectionError
+
+try:
+    response = llm.run(prompt)
+except NetworkConnectionError as e:
+    print(f"Network error: {e}")
+    # Handle retry logic
+```
+
+### LiteLLMException
+
+General exception for LiteLLM errors.
+
+```python
+from swarms.utils import LiteLLMException
+
+try:
+    response = llm.run(prompt)
+except LiteLLMException as e:
+    print(f"LiteLLM error: {e}")
+```
+
+## Example: Complete Utility Usage
+
+```python
+from swarms.utils import (
+    initialize_logger,
+    Formatter,
+    create_file_in_folder,
+    count_tokens,
+    extract_code_from_markdown,
+    sanitize_file_path
+)
+
+# Initialize logging
+logger = initialize_logger("my_app")
+logger.info("Starting application")
+
+# Create formatter for output
+formatter = Formatter(md=True)
+
+# Process some data
+markdown_content = """
+# Analysis Results
+
+Here's the code:
+```python
+def analyze():
+    return "results"
+```
+"""
+
+# Extract code
+code = extract_code_from_markdown(markdown_content)
+logger.info(f"Extracted code: {code}")
+
+# Count tokens
+tokens = count_tokens(code, model="gpt-4")
+formatter.print_panel(
+    f"Code has {tokens} tokens",
+    title="Token Count",
+    style="bold cyan"
+)
+
+# Save to file
+safe_path = sanitize_file_path("./reports/analysis_results.txt")
+file_path = create_file_in_folder(
+    folder_path="./reports",
+    file_name="analysis_results.txt",
+    content=markdown_content
+)
+
+logger.info(f"Saved to: {file_path}")
+
+# Display markdown
+formatter.print_markdown(
+    markdown_content,
+    title="Analysis Report",
+    border_style="green"
+)
+```
+
+## Best Practices
+
+1. **Use logging extensively**: Initialize logger in all modules for debugging
+2. **Sanitize paths**: Always sanitize file paths before file operations
+3. **Count tokens**: Monitor token usage to stay within model limits
+4. **Format output**: Use Formatter for consistent, beautiful CLI output
+5. **Handle errors**: Wrap file operations in try-catch blocks
+6. **Chunk large texts**: Use dynamic_auto_chunking for long documents
+7. **Stream responses**: Use print_streaming_panel for real-time output

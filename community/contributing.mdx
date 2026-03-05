@@ -1,0 +1,256 @@
+---
+title: Contributing to Swarms
+description: Learn how to contribute to the Swarms framework and help build the future of multi-agent AI systems
+icon: "code-pull-request"
+---
+
+## Welcome Contributors
+
+Swarms is an enterprise-grade, production-ready multi-agent orchestration framework built by the community, for the community. We believe that collaborative development is the key to pushing the boundaries of what's possible with multi-agent AI.
+
+Your contributions are not only welcome—they are essential to our mission to accelerate the transition to a fully autonomous world economy.
+
+## Why Contribute?
+
+By joining us, you have the opportunity to:
+
+- **Work on the Frontier of Agents**: Shape the future of autonomous agent technology and help build a production-grade, open-source framework
+- **Join a Vibrant Community**: Collaborate with a passionate and growing group of agent developers, researchers, and enthusiasts
+- **Make a Tangible Impact**: Whether you're fixing a bug, adding a new feature, or improving documentation, your work will be used in real-world applications
+- **Learn and Grow**: Gain hands-on experience with advanced AI concepts and strengthen your software engineering skills
+
+## Areas Needing Contributions
+
+We have several areas where contributions are particularly welcome:
+
+### Writing Tests
+
+- **Goal**: Increase test coverage to ensure the library's robustness
+- **Tasks**:
+  - Write unit tests for existing code in `swarms/`
+  - Identify edge cases and potential failure points
+  - Ensure tests are repeatable and independent
+  - Add integration tests for swarm orchestration methods
+
+### Improving Documentation
+
+- **Goal**: Maintain clear and comprehensive documentation for users and developers
+- **Tasks**:
+  - Update docstrings to reflect any changes
+  - Add examples and tutorials in the `examples/` directory
+  - Improve or expand the content in the `docs/` directory
+  - Create video tutorials and walkthroughs
+
+### Adding New Swarm Architectures
+
+- **Goal**: Provide new multi-agent orchestration methods
+- **Current Architectures**:
+  - [SequentialWorkflow](https://docs.swarms.world/en/latest/swarms/structs/sequential_workflow/)
+  - [AgentRearrange](https://docs.swarms.world/en/latest/swarms/structs/agent_rearrange/)
+  - [MixtureOfAgents](https://docs.swarms.world/en/latest/swarms/structs/moa/)
+  - [SpreadSheetSwarm](https://docs.swarms.world/en/latest/swarms/structs/spreadsheet_swarm/)
+  - [ForestSwarm](https://docs.swarms.world/en/latest/swarms/structs/forest_swarm/)
+  - [GraphWorkflow](https://docs.swarms.world/en/latest/swarms/structs/graph_swarm/)
+  - [GroupChat](https://docs.swarms.world/en/latest/swarms/structs/group_chat/)
+  - [SwarmRouter](https://docs.swarms.world/en/latest/swarms/structs/swarm_router/)
+
+### Enhancing Agent Capabilities
+
+- **Goal**: Improve existing agents and add new specialized agents
+- **Areas of Focus**:
+  - Financial analysis agents
+  - Medical diagnosis agents
+  - Code generation and review agents
+  - Research and analysis agents
+  - Creative content generation agents
+
+### Removing Defunct Code
+
+- **Goal**: Clean up and remove bad code to improve maintainability
+- **Tasks**:
+  - Identify unused or deprecated code
+  - Remove duplicate implementations
+  - Simplify complex functions
+  - Update outdated dependencies
+
+## How to Contribute
+
+### Reporting Issues
+
+If you find any bugs, inconsistencies, or have suggestions for enhancements, please open an issue on GitHub:
+
+1. **Search Existing Issues**: Before opening a new issue, check if it has already been reported
+2. **Open a New Issue**: If it hasn't been reported, create a new issue and provide detailed information
+   - **Title**: A concise summary of the issue
+   - **Description**: Detailed description, steps to reproduce, expected behavior, and any relevant logs or screenshots
+3. **Label Appropriately**: Use labels to categorize the issue (e.g., bug, enhancement, documentation)
+
+**Issue Templates**: Use our issue templates for bug reports and feature requests:
+
+- [Bug Report](https://github.com/kyegomez/swarms/issues/new?template=bug_report.md)
+- [Feature Request](https://github.com/kyegomez/swarms/issues/new?template=feature_request.md)
+
+### Good First Issues
+
+The easiest way to contribute is to pick any issue with the `good first issue` tag. These are specifically designed for new contributors:
+
+- [Good First Issues](https://github.com/kyegomez/swarms/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
+- [Contributing Board](https://github.com/users/kyegomez/projects/1) - Participate in roadmap discussions!
+
+### Submitting Pull Requests
+
+We welcome pull requests (PRs) for bug fixes, improvements, and new features. Please follow these guidelines:
+
+1. **Fork the Repository**: Create a personal fork of the repository on GitHub
+
+2. **Clone Your Fork**: Clone your forked repository to your local machine
+
+   ```bash
+   git clone https://github.com/kyegomez/swarms.git
+   cd swarms
+   ```
+
+3. **Create a New Branch**: Use a descriptive branch name
+
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+4. **Make Your Changes**: Implement your code, ensuring it adheres to the coding standards
+
+5. **Add Tests**: Write tests to cover your changes
+
+6. **Commit Your Changes**: Write clear and concise commit messages
+
+   ```bash
+   git commit -am "Add feature X"
+   ```
+
+7. **Push to Your Fork**:
+
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+8. **Create a Pull Request**:
+
+   - Go to the original repository on GitHub
+   - Click on "New Pull Request"
+   - Select your branch and create the PR
+   - Provide a clear description of your changes and reference any related issues
+
+9. **Respond to Feedback**: Be prepared to make changes based on code reviews
+
+<Note>
+  It's recommended to create small and focused PRs for easier review and faster integration.
+</Note>
+
+## Coding Standards
+
+To maintain code quality and consistency, please adhere to the following standards:
+
+### Type Annotations
+
+- **Mandatory**: All functions and methods must have type annotations
+- **Example**:
+
+  ```python
+  def add_numbers(a: int, b: int) -> int:
+      return a + b
+  ```
+
+- **Benefits**:
+  - Improves code readability
+  - Helps with static type checking tools
+
+### Docstrings and Documentation
+
+- **Docstrings**: Every public class, function, and method must have a docstring following the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings) or [NumPy Docstring Standard](https://numpydoc.readthedocs.io/en/latest/format.html)
+
+- **Content**:
+  - **Description**: Briefly describe what the function or class does
+  - **Args**: List and describe each parameter
+  - **Returns**: Describe the return value(s)
+  - **Raises**: List any exceptions that are raised
+
+- **Example**:
+
+  ```python
+  def calculate_mean(values: List[float]) -> float:
+      """
+      Calculates the mean of a list of numbers.
+
+      Args:
+          values (List[float]): A list of numerical values.
+
+      Returns:
+          float: The mean of the input values.
+
+      Raises:
+          ValueError: If the input list is empty.
+      """
+      if not values:
+          raise ValueError("The input list is empty.")
+      return sum(values) / len(values)
+  ```
+
+- **Documentation**: Update or create documentation pages if your changes affect the public API
+
+### Testing
+
+- **Required**: All new features and bug fixes must include appropriate unit tests
+- **Framework**: Use `unittest`, `pytest`, or a similar testing framework
+- **Test Location**: Place tests in the `tests/` directory, mirroring the structure of `swarms/`
+- **Test Coverage**: Aim for high test coverage to ensure code reliability
+- **Running Tests**:
+
+  ```bash
+  pytest tests/
+  ```
+
+### Code Style
+
+- **PEP 8 Compliance**: Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guidelines
+- **Linting Tools**: Use `flake8`, `black`, or `pylint` to check code style
+- **Consistency**: Maintain consistency with the existing codebase
+
+## Development Resources
+
+### Documentation
+
+- **Official Documentation**: [docs.swarms.world](https://docs.swarms.world)
+- **Installation Guide**: [Installation](https://docs.swarms.world/en/latest/swarms/install/install/)
+- **Quickstart Guide**: [Get Started](https://docs.swarms.world/en/latest/swarms/install/quickstart/)
+- **Agent Architecture**: [Agent Internal Mechanisms](https://docs.swarms.world/en/latest/swarms/framework/agents_explained/)
+- **Agent API**: [Agent API](https://docs.swarms.world/en/latest/swarms/structs/agent/)
+
+### Examples and Tutorials
+
+- **Basic Examples**: [examples/](https://github.com/kyegomez/swarms/tree/master/examples)
+- **Agent Examples**: [examples/single_agent/](https://github.com/kyegomez/swarms/tree/master/examples/single_agent)
+- **Multi-Agent Examples**: [examples/multi_agent/](https://github.com/kyegomez/swarms/tree/master/examples/multi_agent)
+- **Tool Examples**: [examples/tools/](https://github.com/kyegomez/swarms/tree/master/examples/tools)
+
+### API Reference
+
+- **Core Classes**: [swarms/structs/](https://github.com/kyegomez/swarms/tree/master/swarms/structs)
+- **Agent Implementations**: [swarms/agents/](https://github.com/kyegomez/swarms/tree/master/swarms/agents)
+- **Tool Implementations**: [swarms/tools/](https://github.com/kyegomez/swarms/tree/master/swarms/tools)
+- **Utility Functions**: [swarms/utils/](https://github.com/kyegomez/swarms/tree/master/swarms/utils)
+
+## License
+
+By contributing to Swarms, you agree that your contributions will be licensed under the [Apache License 2.0](https://github.com/kyegomez/swarms/blob/master/LICENSE).
+
+## Get Help
+
+If you have any questions or need assistance, please feel free to:
+
+- Open an issue on [GitHub](https://github.com/kyegomez/swarms/issues)
+- Join our [Discord community](https://discord.gg/EamjgSaEQf)
+- Reach out to the maintainers
+- Schedule an [onboarding session](https://cal.com/swarms/swarms-onboarding-session)
+
+<Card title="Thank You" icon="heart">
+  Thank you for contributing to Swarms! Your efforts help make this project better for everyone.
+</Card>

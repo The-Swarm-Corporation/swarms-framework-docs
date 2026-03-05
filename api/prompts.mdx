@@ -1,0 +1,387 @@
+---
+title: Prompts
+description: Complete reference for the Swarms prompts module including the Prompt class and pre-built prompt templates
+---
+
+## Overview
+
+The `swarms.prompts` module provides tools for creating, managing, and versioning prompts with comprehensive history tracking, autosaving capabilities, and integration with agent systems.
+
+## Prompt Class
+
+A powerful class for managing prompts with version control, edit history, and autosaving features.
+
+```python
+from swarms.prompts import Prompt
+
+prompt = Prompt(
+    name="analysis_prompt",
+    description="Financial analysis prompt",
+    content="Analyze the following financial data...",
+    autosave=True,
+    autosave_folder="prompts"
+)
+```
+
+### Constructor
+
+<ParamField path="id" type="str" default="uuid.uuid4().hex">
+  Unique identifier for the prompt
+</ParamField>
+
+<ParamField path="name" type="str" default="prompt">
+  Name of your prompt
+</ParamField>
+
+<ParamField path="description" type="str" default="Simple Prompt">
+  Description of the prompt
+</ParamField>
+
+<ParamField path="content" type="str" required>
+  The main content of the prompt (minimum 1 character)
+</ParamField>
+
+<ParamField path="created_at" type="str" default="current_time">
+  Timestamp when the prompt was created
+</ParamField>
+
+<ParamField path="last_modified_at" type="str" default="current_time">
+  Timestamp when the prompt was last modified
+</ParamField>
+
+<ParamField path="edit_count" type="int" default="0">
+  Number of times the prompt has been edited
+</ParamField>
+
+<ParamField path="edit_history" type="List[str]" default="[]">
+  History of all prompt versions
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="False">
+  Enable automatic saving of the prompt
+</ParamField>
+
+<ParamField path="autosave_folder" type="str" default="prompts">
+  Folder path within WORKSPACE_DIR for autosaving
+</ParamField>
+
+<ParamField path="auto_generate_prompt" type="bool" default="False">
+  Enable auto-generation of prompts
+</ParamField>
+
+<ParamField path="parent_folder" type="str" default="workspace_dir">
+  Parent folder for the autosave folder
+</ParamField>
+
+<ParamField path="llm" type="Any" default="None">
+  Optional LLM instance for prompt generation
+</ParamField>
+
+### Methods
+
+#### edit_prompt
+
+Edit the prompt content and update version control.
+
+```python
+prompt.edit_prompt("Updated prompt content here")
+```
+
+<ParamField path="new_content" type="str" required>
+  The updated content of the prompt
+</ParamField>
+
+**Raises:**
+- `ValueError`: If the new content is identical to the current content
+
+**Thread-safe**: This method is safe for concurrent access.
+
+#### rollback
+
+Roll back the prompt to a previous version.
+
+```python
+# Rollback to the first version
+prompt.rollback(version=0)
+```
+
+<ParamField path="version" type="int" required>
+  The version index to roll back to (0 is the first version)
+</ParamField>
+
+**Raises:**
+- `IndexError`: If the version number is out of range
+
+#### get_prompt
+
+Return the current prompt content as a string.
+
+```python
+content = prompt.get_prompt()
+print(content)
+```
+
+<ResponseField name="return" type="str">
+  The current prompt content
+</ResponseField>
+
+#### return_json
+
+Return the prompt as a JSON string.
+
+```python
+json_data = prompt.return_json()
+print(json_data)
+```
+
+<ResponseField name="return" type="str">
+  JSON representation of the prompt with all metadata
+</ResponseField>
+
+#### add_tools
+
+Add tool schemas to the prompt content.
+
+```python
+from swarms.tools import BaseTool
+
+def my_tool(x: int) -> int:
+    """Double the input."""
+    return x * 2
+
+prompt.add_tools([my_tool])
+```
+
+<ParamField path="tools" type="List[Callable]" required>
+  List of callable functions to add as tools
+</ParamField>
+
+## Pre-built Prompt Templates
+
+The module includes numerous pre-built prompt templates for common agent roles:
+
+### Finance Prompts
+
+#### FINANCE_AGENT_PROMPT
+
+Comprehensive prompt for financial analysis agents.
+
+```python
+from swarms.prompts import FINANCE_AGENT_PROMPT
+
+agent = Agent(
+    agent_name="Financial-Analyst",
+    system_prompt=FINANCE_AGENT_PROMPT,
+    # ... other config
+)
+```
+
+### Legal Prompts
+
+#### LEGAL_AGENT_PROMPT
+
+Prompt template for legal analysis and research agents.
+
+```python
+from swarms.prompts import LEGAL_AGENT_PROMPT
+
+agent = Agent(
+    agent_name="Legal-Advisor",
+    system_prompt=LEGAL_AGENT_PROMPT,
+    # ... other config
+)
+```
+
+### Product & Operations
+
+#### PRODUCT_AGENT_PROMPT
+
+Prompt for product management agents.
+
+```python
+from swarms.prompts import PRODUCT_AGENT_PROMPT
+```
+
+#### OPERATIONS_AGENT_PROMPT
+
+Prompt for operations management agents.
+
+```python
+from swarms.prompts import OPERATIONS_AGENT_PROMPT
+```
+
+#### GROWTH_AGENT_PROMPT
+
+Prompt for growth and marketing agents.
+
+```python
+from swarms.prompts import GROWTH_AGENT_PROMPT
+```
+
+### Development Prompts
+
+#### CODE_INTERPRETER
+
+Prompt for code interpretation and execution agents.
+
+```python
+from swarms.prompts import CODE_INTERPRETER
+
+agent = Agent(
+    agent_name="Code-Interpreter",
+    system_prompt=CODE_INTERPRETER,
+    # ... other config
+)
+```
+
+#### DOCUMENTATION_WRITER_SOP
+
+Standard operating procedure for documentation writing agents.
+
+```python
+from swarms.prompts import DOCUMENTATION_WRITER_SOP
+```
+
+### Autonomous Agent Prompts
+
+#### AUTONOMOUS_AGENT_SYSTEM_PROMPT
+
+Base system prompt for autonomous agents.
+
+```python
+from swarms.prompts import AUTONOMOUS_AGENT_SYSTEM_PROMPT
+```
+
+#### get_autonomous_agent_prompt
+
+Generate an autonomous agent prompt.
+
+```python
+from swarms.prompts import get_autonomous_agent_prompt
+
+prompt = get_autonomous_agent_prompt()
+```
+
+#### get_autonomous_agent_prompt_with_context
+
+Generate an autonomous agent prompt with additional context.
+
+```python
+from swarms.prompts import get_autonomous_agent_prompt_with_context
+
+prompt = get_autonomous_agent_prompt_with_context(
+    context="Analyze financial markets with focus on tech stocks"
+)
+```
+
+## Example: Complete Prompt Management
+
+```python
+from swarms.prompts import Prompt
+from swarms.tools import BaseTool
+import os
+
+# Set workspace directory
+os.environ["WORKSPACE_DIR"] = "./workspace"
+
+# Create a prompt with autosave
+prompt = Prompt(
+    name="market_analysis",
+    description="Financial market analysis prompt",
+    content="""You are a financial analyst. Analyze the following:
+    1. Market trends
+    2. Risk factors
+    3. Investment opportunities
+    """,
+    autosave=True,
+    autosave_folder="financial_prompts"
+)
+
+# Edit the prompt
+prompt.edit_prompt("""
+You are an expert financial analyst specializing in equity markets.
+
+Analyze the following aspects:
+1. Current market trends and momentum
+2. Key risk factors and hedging strategies
+3. High-conviction investment opportunities
+4. Portfolio allocation recommendations
+
+Provide detailed analysis with supporting data.
+""")
+
+print(f"Edit count: {prompt.edit_count}")  # 1
+print(f"Total versions: {len(prompt.edit_history)}")  # 2
+
+# Add tools to the prompt
+def calculate_sharpe_ratio(returns: float, risk_free_rate: float, std_dev: float) -> float:
+    """Calculate Sharpe ratio for investment analysis."""
+    return (returns - risk_free_rate) / std_dev
+
+prompt.add_tools([calculate_sharpe_ratio])
+
+# Rollback if needed
+prompt.rollback(version=0)  # Back to original version
+
+# Get the current prompt
+current = prompt.get_prompt()
+print(current)
+
+# Export as JSON
+json_export = prompt.return_json()
+print(json_export)
+```
+
+## Best Practices
+
+1. **Enable autosave**: Always enable autosave for important prompts to prevent data loss
+2. **Use descriptive names**: Give prompts clear, descriptive names for easy identification
+3. **Version control**: Leverage the built-in version control to track prompt evolution
+4. **Add context**: Include detailed descriptions to document the prompt's purpose
+5. **Organize by folder**: Use the `autosave_folder` parameter to organize prompts by category
+6. **Regular rollbacks**: Test different prompt versions using rollback functionality
+7. **Tool integration**: Use `add_tools()` to seamlessly integrate function calling
+
+## Thread Safety
+
+The Prompt class implements thread-safe operations for:
+- Edit operations
+- Rollback operations
+- Autosaving
+
+This makes it safe to use in concurrent environments and multi-agent systems.
+
+## Autosave Behavior
+
+When autosave is enabled:
+1. Prompts are saved to `{WORKSPACE_DIR}/{autosave_folder}/prompt-id-{id}.json`
+2. Each edit automatically triggers a save
+3. Rollback operations also trigger saves
+4. The entire prompt state (including history) is preserved
+
+## Integration with Agents
+
+```python
+from swarms import Agent
+from swarms.prompts import Prompt, FINANCE_AGENT_PROMPT
+
+# Using pre-built prompts
+agent1 = Agent(
+    agent_name="Financial-Analyst",
+    system_prompt=FINANCE_AGENT_PROMPT,
+    model_name="gpt-4"
+)
+
+# Using custom Prompt class
+custom_prompt = Prompt(
+    name="custom_analyst",
+    content="You are a specialized quantitative analyst...",
+    autosave=True
+)
+
+agent2 = Agent(
+    agent_name="Quant-Analyst",
+    system_prompt=custom_prompt.get_prompt(),
+    model_name="gpt-4"
+)
+```

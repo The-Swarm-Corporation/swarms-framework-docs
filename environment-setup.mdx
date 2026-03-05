@@ -1,0 +1,426 @@
+---
+title: Environment Setup
+description: Configure API keys, workspace directory, and environment variables for Swarms
+---
+
+## Overview
+
+Before you can start using Swarms, you need to configure your environment with the necessary API keys and settings. This guide will walk you through setting up your environment variables and workspace directory.
+
+<Note>
+  Swarms supports multiple LLM providers including OpenAI, Anthropic, Groq, and more. You only need to configure the API keys for the providers you plan to use.
+</Note>
+
+## Quick Setup
+
+The fastest way to get started is to create a `.env` file in your project root:
+
+<Steps>
+  <Step title="Create a .env file">
+    Create a file named `.env` in your project's root directory:
+    
+    ```bash
+    touch .env
+    ```
+  </Step>
+
+  <Step title="Add your API keys">
+    Add your API keys to the `.env` file:
+    
+    ```bash
+    OPENAI_API_KEY="your-openai-api-key-here"
+    WORKSPACE_DIR="agent_workspace"
+    ANTHROPIC_API_KEY="your-anthropic-api-key-here"
+    GROQ_API_KEY="your-groq-api-key-here"
+    ```
+  </Step>
+
+  <Step title="Verify the setup">
+    Load and verify your environment variables:
+    
+    ```python
+    import os
+    from dotenv import load_dotenv
+
+    # Load environment variables
+    load_dotenv()
+
+    # Verify API keys are loaded
+    print(f"OpenAI API Key: {os.getenv('OPENAI_API_KEY')[:10]}...")
+    print(f"Workspace: {os.getenv('WORKSPACE_DIR')}")
+    ```
+  </Step>
+</Steps>
+
+## Required Environment Variables
+
+### Core Configuration
+
+<ParamField path="WORKSPACE_DIR" type="string" default="agent_workspace">
+  The directory where agents will store their outputs, logs, and temporary files.
+  
+  ```bash
+  WORKSPACE_DIR="agent_workspace"
+  ```
+</ParamField>
+
+### LLM Provider API Keys
+
+Configure the API keys for the LLM providers you want to use:
+
+<ParamField path="OPENAI_API_KEY" type="string" required>
+  Your OpenAI API key for using GPT models (gpt-4, gpt-4o-mini, etc.)
+  
+  **Get your key:** [OpenAI API Keys](https://platform.openai.com/api-keys)
+  
+  ```bash
+  OPENAI_API_KEY="sk-..."
+  ```
+</ParamField>
+
+<ParamField path="ANTHROPIC_API_KEY" type="string">
+  Your Anthropic API key for using Claude models (claude-sonnet-4-5, etc.)
+  
+  **Get your key:** [Anthropic Console](https://console.anthropic.com/)
+  
+  ```bash
+  ANTHROPIC_API_KEY="sk-ant-..."
+  ```
+</ParamField>
+
+<ParamField path="GROQ_API_KEY" type="string">
+  Your Groq API key for using Groq's fast LLM inference
+  
+  **Get your key:** [Groq Console](https://console.groq.com/)
+  
+  ```bash
+  GROQ_API_KEY="gsk_..."
+  ```
+</ParamField>
+
+## Complete .env File Example
+
+Here's a complete example of a `.env` file with all supported providers:
+
+```bash .env
+# Core Configuration
+WORKSPACE_DIR="agent_workspace"
+
+# OpenAI
+OPENAI_API_KEY="sk-proj-..."
+
+# Anthropic
+ANTHROPIC_API_KEY="sk-ant-..."
+
+# Groq
+GROQ_API_KEY="gsk_..."
+
+# Additional Providers (Optional)
+COHERE_API_KEY="your-cohere-key"
+DEEPSEEK_API_KEY="your-deepseek-key"
+OPENROUTER_API_KEY="your-openrouter-key"
+XAI_API_KEY="your-xai-key"
+
+# Workspace Settings (Optional)
+LOG_LEVEL="INFO"
+MAX_WORKERS="4"
+CACHE_ENABLED="true"
+```
+
+<Warning>
+  **Security Best Practices:**
+  - Never commit your `.env` file to version control
+  - Add `.env` to your `.gitignore` file
+  - Use different API keys for development and production
+  - Rotate your API keys regularly
+</Warning>
+
+## Workspace Directory Setup
+
+The workspace directory is where agents store their outputs, logs, and state:
+
+### Default Structure
+
+```
+agent_workspace/
+├── logs/              # Agent execution logs
+├── outputs/           # Agent-generated outputs
+├── cache/             # Cached results
+└── state/             # Agent state files
+```
+
+### Custom Workspace Configuration
+
+You can customize the workspace location:
+
+```python
+import os
+from swarms import Agent
+
+# Set workspace directory
+os.environ["WORKSPACE_DIR"] = "/path/to/custom/workspace"
+
+# Or specify per-agent
+agent = Agent(
+    model_name="gpt-4o-mini",
+    workspace_dir="./my_agent_workspace"
+)
+```
+
+<Tip>
+  Use absolute paths for workspace directories in production environments to avoid path resolution issues.
+</Tip>
+
+## Loading Environment Variables
+
+There are several ways to load your environment variables:
+
+### Method 1: Using python-dotenv (Recommended)
+
+```python
+from dotenv import load_dotenv
+import os
+
+# Load from .env file
+load_dotenv()
+
+# Access variables
+api_key = os.getenv("OPENAI_API_KEY")
+workspace = os.getenv("WORKSPACE_DIR", "agent_workspace")  # with default
+```
+
+### Method 2: Manual Loading
+
+```python
+import os
+
+# Set environment variables directly
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+os.environ["WORKSPACE_DIR"] = "agent_workspace"
+```
+
+### Method 3: System Environment Variables
+
+<Tabs>
+  <Tab title="Linux/macOS">
+    ```bash
+    # Add to ~/.bashrc or ~/.zshrc
+    export OPENAI_API_KEY="your-api-key"
+    export WORKSPACE_DIR="agent_workspace"
+    
+    # Reload shell configuration
+    source ~/.bashrc
+    ```
+  </Tab>
+
+  <Tab title="Windows (PowerShell)">
+    ```powershell
+    # Set for current session
+    $env:OPENAI_API_KEY = "your-api-key"
+    $env:WORKSPACE_DIR = "agent_workspace"
+    
+    # Set permanently
+    [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', 'your-api-key', 'User')
+    ```
+  </Tab>
+
+  <Tab title="Windows (CMD)">
+    ```cmd
+    # Set for current session
+    set OPENAI_API_KEY=your-api-key
+    set WORKSPACE_DIR=agent_workspace
+    
+    # Set permanently
+    setx OPENAI_API_KEY "your-api-key"
+    ```
+  </Tab>
+</Tabs>
+
+## Getting API Keys
+
+Here's where to get API keys for each supported provider:
+
+<CardGroup cols={2}>
+  <Card title="OpenAI" icon="openai" href="https://platform.openai.com/api-keys">
+    Create an account and generate API keys from the OpenAI platform
+  </Card>
+  
+  <Card title="Anthropic" icon="robot" href="https://console.anthropic.com/">
+    Sign up for Anthropic Claude and get your API key from the console
+  </Card>
+  
+  <Card title="Groq" icon="bolt" href="https://console.groq.com/">
+    Register for Groq's fast inference and generate your API key
+  </Card>
+  
+  <Card title="Cohere" icon="message" href="https://dashboard.cohere.com/api-keys">
+    Create a Cohere account and access your API keys
+  </Card>
+  
+  <Card title="DeepSeek" icon="brain" href="https://platform.deepseek.com/">
+    Sign up for DeepSeek and generate your API credentials
+  </Card>
+  
+  <Card title="OpenRouter" icon="route" href="https://openrouter.ai/keys">
+    Access multiple models through OpenRouter with a single API key
+  </Card>
+</CardGroup>
+
+## Verifying Your Setup
+
+Run this script to verify your environment is configured correctly:
+
+```python verify_setup.py
+import os
+from dotenv import load_dotenv
+from swarms import Agent
+
+# Load environment variables
+load_dotenv()
+
+def verify_setup():
+    """Verify that the environment is properly configured."""
+    
+    print("🔍 Verifying Swarms Environment Setup...\n")
+    
+    # Check workspace directory
+    workspace = os.getenv("WORKSPACE_DIR", "agent_workspace")
+    print(f"✓ Workspace Directory: {workspace}")
+    
+    # Check API keys
+    providers = {
+        "OpenAI": "OPENAI_API_KEY",
+        "Anthropic": "ANTHROPIC_API_KEY",
+        "Groq": "GROQ_API_KEY",
+    }
+    
+    configured_providers = []
+    for name, env_var in providers.items():
+        if os.getenv(env_var):
+            configured_providers.append(name)
+            print(f"✓ {name} API Key: Configured")
+        else:
+            print(f"✗ {name} API Key: Not configured")
+    
+    print(f"\n✨ Setup complete! {len(configured_providers)} provider(s) configured.")
+    
+    # Test agent creation
+    if "OpenAI" in configured_providers:
+        print("\n🤖 Testing agent creation...")
+        try:
+            agent = Agent(
+                model_name="gpt-4o-mini",
+                max_loops=1,
+            )
+            response = agent.run("Say 'Setup verified!'")
+            print(f"✓ Agent test successful: {response[:50]}...")
+        except Exception as e:
+            print(f"✗ Agent test failed: {str(e)}")
+
+if __name__ == "__main__":
+    verify_setup()
+```
+
+Run the verification script:
+
+```bash
+python verify_setup.py
+```
+
+## Environment Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use different environments for dev/prod">
+    Create separate `.env` files for different environments:
+    
+    ```
+    .env.development
+    .env.production
+    .env.test
+    ```
+    
+    Load the appropriate one:
+    
+    ```python
+    from dotenv import load_dotenv
+    import os
+    
+    env = os.getenv("ENV", "development")
+    load_dotenv(f".env.{env}")
+    ```
+  </Accordion>
+
+  <Accordion title="Validate required variables">
+    Always validate that required environment variables are set:
+    
+    ```python
+    import os
+    
+    required_vars = ["OPENAI_API_KEY", "WORKSPACE_DIR"]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing_vars)}"
+        )
+    ```
+  </Accordion>
+
+  <Accordion title="Use secret management in production">
+    For production deployments, use proper secret management:
+    
+    - **AWS:** AWS Secrets Manager or Parameter Store
+    - **Azure:** Azure Key Vault
+    - **GCP:** Google Secret Manager
+    - **Kubernetes:** Kubernetes Secrets
+    - **Docker:** Docker Secrets
+  </Accordion>
+
+  <Accordion title="Rotate API keys regularly">
+    - Set up a key rotation schedule (e.g., every 90 days)
+    - Monitor API key usage for anomalies
+    - Use separate keys for different applications
+    - Revoke unused or compromised keys immediately
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Environment variables not loading">
+    1. Verify the `.env` file is in the correct directory
+    2. Check that you're calling `load_dotenv()` before accessing variables
+    3. Ensure there are no syntax errors in the `.env` file
+    4. Try printing `os.getcwd()` to verify current directory
+  </Accordion>
+
+  <Accordion title="API key authentication errors">
+    1. Verify the API key is correct (no extra spaces or quotes)
+    2. Check that the key has the necessary permissions
+    3. Ensure the key hasn't expired or been revoked
+    4. Test the key directly with the provider's API
+  </Accordion>
+
+  <Accordion title="Workspace directory errors">
+    1. Ensure the directory path exists or can be created
+    2. Check file system permissions
+    3. Use absolute paths to avoid resolution issues
+    4. Verify sufficient disk space
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/getting-started/quickstart">
+    Create your first agent now that your environment is configured
+  </Card>
+  
+  <Card title="Model Providers" icon="microchip" href="https://docs.swarms.world/en/latest/swarms/examples/model_providers/">
+    Learn about all supported LLM providers and how to use them
+  </Card>
+</CardGroup>
+
+<Info>
+  For more detailed information about environment configuration, visit the [official documentation](https://docs.swarms.world/en/latest/swarms/install/env/).
+</Info>

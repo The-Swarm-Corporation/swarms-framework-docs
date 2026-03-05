@@ -1,0 +1,305 @@
+---
+title: 'Creating Agents'
+description: 'Learn how to create and initialize agents in the Swarms framework'
+icon: 'robot'
+---
+
+# Creating Agents
+
+Agents are the fundamental building blocks of the Swarms framework. An agent is an autonomous entity powered by an LLM with tools, memory, and the ability to execute complex tasks.
+
+## Basic Agent Creation
+
+The simplest way to create an agent is to instantiate the `Agent` class with minimal configuration:
+
+```python
+from swarms import Agent
+
+# Create a basic agent
+agent = Agent(
+    agent_name="my-agent",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+# Run the agent
+response = agent.run("What are the key benefits of using a multi-agent system?")
+print(response)
+```
+
+## Agent Initialization Patterns
+
+### Pattern 1: Simple Agent
+
+For quick prototyping and simple tasks:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+response = agent.run("Generate a report on the financials.")
+print(response)
+```
+
+### Pattern 2: Named Agent with Description
+
+For better organization and clarity:
+
+```python
+agent = Agent(
+    agent_name="Financial-Analyst",
+    agent_description="An expert financial analyst specializing in market analysis and reporting",
+    model_name="gpt-4o",
+    max_loops=1,
+    verbose=True,
+)
+```
+
+### Pattern 3: Agent with System Prompt
+
+For specialized behavior and domain expertise:
+
+```python
+SYSTEM_PROMPT = """
+You are a senior financial analyst with expertise in:
+- Financial statement analysis
+- Market research and competitor analysis
+- Investment recommendations
+- Risk assessment
+
+Provide detailed, data-driven insights with proper citations.
+"""
+
+agent = Agent(
+    agent_name="Financial-Expert",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+```
+
+### Pattern 4: Interactive Agent
+
+For conversational interfaces:
+
+```python
+agent = Agent(
+    agent_name="Assistant",
+    model_name="gpt-4o-mini",
+    max_loops=5,
+    interactive=True,  # Enable interactive mode
+    user_name="User",
+    custom_exit_command="exit",
+)
+
+# Agent will prompt for user input in a loop
+agent.run("Hello! How can I help you today?")
+```
+
+### Pattern 5: Autonomous Agent
+
+For complex, multi-step reasoning:
+
+```python
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="gpt-4o",
+    max_loops="auto",  # Autonomous loop mode
+    reasoning_prompt_on=True,
+    dynamic_temperature_enabled=True,
+    verbose=True,
+)
+
+response = agent.run(
+    "Research the latest trends in AI and create a comprehensive report"
+)
+```
+
+### Pattern 6: Agent with Fallback Models
+
+For reliability and cost optimization:
+
+```python
+agent = Agent(
+    agent_name="Reliable-Agent",
+    fallback_models=[
+        "gpt-4o",           # Primary model
+        "gpt-4o-mini",      # First fallback
+        "gpt-3.5-turbo"     # Final fallback
+    ],
+    max_loops=1,
+)
+
+# Agent will automatically try fallback models if primary fails
+response = agent.run("Generate a report")
+```
+
+### Pattern 7: Agent from Marketplace Prompt
+
+Load prompts from the Swarms Marketplace:
+
+```python
+import os
+
+# Set your Swarms API key
+os.environ["SWARMS_API_KEY"] = "your-api-key"
+
+agent = Agent(
+    model_name="gpt-4o",
+    marketplace_prompt_id="550e8400-e29b-41d4-a716-446655440000",  # UUID from marketplace
+    max_loops=1,
+)
+
+# System prompt is automatically loaded from the marketplace
+response = agent.run("Execute the marketplace prompt task")
+```
+
+## Best Practices
+
+### 1. Always Name Your Agents
+
+```python
+# Good
+agent = Agent(
+    agent_name="Financial-Analyst",
+    agent_description="Expert in financial analysis",
+    model_name="gpt-4o",
+)
+
+# Avoid
+agent = Agent(model_name="gpt-4o")  # Uses default name
+```
+
+### 2. Use Descriptive System Prompts
+
+```python
+# Good - Specific and detailed
+system_prompt = """
+You are a healthcare data analyst specializing in:
+1. Patient data analysis
+2. Medical coding (ICD-10, CPT)
+3. HIPAA compliance
+4. Clinical research metrics
+
+Always maintain patient privacy and follow HIPAA guidelines.
+"""
+
+# Avoid - Too vague
+system_prompt = "You are a helpful assistant."
+```
+
+### 3. Set Appropriate Max Loops
+
+```python
+# For simple tasks
+agent = Agent(max_loops=1)  # Single response
+
+# For multi-step reasoning
+agent = Agent(max_loops=5)  # Fixed iterations
+
+# For autonomous tasks
+agent = Agent(max_loops="auto")  # Dynamic execution
+```
+
+### 4. Enable Verbose Mode During Development
+
+```python
+agent = Agent(
+    model_name="gpt-4o-mini",
+    verbose=True,  # See detailed logs
+    print_on=True,  # Print agent responses
+)
+```
+
+### 5. Use Autosave for Important Work
+
+```python
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="gpt-4o",
+    autosave=True,  # Automatically save state
+    saved_state_path="./agent_states/",
+)
+```
+
+### 6. Set Environment Variables
+
+```python
+import os
+
+# Set API keys
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+os.environ["WORKSPACE_DIR"] = "agent_workspace"
+
+# Create agent
+agent = Agent(
+    model_name="gpt-4o",
+    max_loops=1,
+)
+```
+
+## Common Patterns
+
+### Research Agent
+
+```python
+research_agent = Agent(
+    agent_name="Researcher",
+    system_prompt="You are an expert researcher. Provide detailed, cited information.",
+    model_name="gpt-4o",
+    max_loops=3,
+    temperature=0.5,
+    verbose=True,
+)
+```
+
+### Writing Agent
+
+```python
+writer_agent = Agent(
+    agent_name="Writer",
+    system_prompt="You are a professional writer. Create engaging, well-structured content.",
+    model_name="gpt-4o",
+    max_loops=1,
+    temperature=0.7,
+)
+```
+
+### Code Generation Agent
+
+```python
+code_agent = Agent(
+    agent_name="Code-Generator",
+    system_prompt="You are an expert software engineer. Write clean, documented code.",
+    model_name="gpt-4o",
+    max_loops=2,
+    temperature=0.3,  # Lower temperature for more deterministic output
+)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Configuration" icon="sliders" href="/agents/agent-configuration">
+    Learn about all configuration parameters
+  </Card>
+  <Card title="Agent Memory" icon="database" href="/agents/agent-memory">
+    Configure memory and conversation history
+  </Card>
+  <Card title="Agent Tools" icon="wrench" href="/agents/agent-tools">
+    Add tools to extend agent capabilities
+  </Card>
+  <Card title="Structured Outputs" icon="code" href="/agents/structured-outputs">
+    Get structured responses from agents
+  </Card>
+</CardGroup>
+
+## Reference
+
+For the complete API reference, see the [Agent class documentation](/swarms/structs/agent).
+
+Location in source: `swarms/structs/agent.py:205`

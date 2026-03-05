@@ -1,0 +1,453 @@
+---
+title: Model Context Protocol (MCP)
+description: Connect Swarms agents to MCP servers for dynamic tool discovery and execution
+---
+
+The Model Context Protocol (MCP) is a standardized protocol that enables AI agents to interact with external tools and services through MCP servers. Swarms provides first-class support for MCP integration, allowing your agents to dynamically discover and execute tools.
+
+## What is MCP?
+
+MCP (Model Context Protocol) provides:
+
+- **Standardized Tool Interface**: Unified protocol for tool integration
+- **Dynamic Discovery**: Automatically discover available tools from MCP servers
+- **Multi-Server Support**: Connect to multiple MCP servers simultaneously
+- **Type Safety**: Automatic schema validation for tool calls
+- **Flexible Transport**: Support for HTTP, WebSocket, and stdio transports
+
+## Quick Start
+
+### Basic MCP Integration
+
+Connect an agent to an MCP server:
+
+```python
+from swarms import Agent
+from swarms.tools import get_mcp_tools_sync
+
+# Fetch tools from MCP server
+tools = get_mcp_tools_sync(
+    server_path="https://api.example.com/mcp",
+    format="openai",
+    transport="streamable-http",
+)
+
+# Create agent with MCP tools
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="gpt-4o",
+    tools=tools,
+    max_loops=1,
+)
+
+result = agent.run("Execute a task using MCP tools")
+```
+
+### Async Tool Loading
+
+For async environments, use the async API:
+
+```python
+import asyncio
+from swarms.tools import aget_mcp_tools
+
+async def setup_agent():
+    # Fetch tools asynchronously
+    tools = await aget_mcp_tools(
+        server_path="https://api.example.com/mcp",
+        format="openai",
+        transport="streamable-http",
+        verbose=True,
+    )
+    
+    return tools
+
+tools = asyncio.run(setup_agent())
+```
+
+## MCP Connection Configuration
+
+### Using MCPConnection Object
+
+For advanced configuration, use the `MCPConnection` schema:
+
+```python
+from swarms.schemas.mcp_schemas import MCPConnection
+from swarms.tools import get_mcp_tools_sync
+
+# Configure MCP connection
+connection = MCPConnection(
+    url="https://api.example.com/mcp",
+    transport="streamable-http",
+    headers={"X-Custom-Header": "value"},
+    authorization_token="your-token-here",
+    timeout=30,
+)
+
+# Fetch tools with connection object
+tools = get_mcp_tools_sync(
+    connection=connection,
+    format="openai",
+    verbose=True,
+)
+```
+
+### Transport Options
+
+Swarms supports multiple transport protocols:
+
+```python
+from swarms.tools import get_mcp_tools_sync
+
+# Streamable HTTP (recommended for web APIs)
+tools_http = get_mcp_tools_sync(
+    server_path="https://api.example.com/mcp",
+    transport="streamable-http",
+)
+
+# Auto-detect transport from URL
+tools_auto = get_mcp_tools_sync(
+    server_path="https://api.example.com/mcp",
+    transport=None,  # Auto-detects from URL scheme
+)
+```
+
+## Multi-Server Integration
+
+### Connect to Multiple MCP Servers
+
+Fetch tools from multiple servers simultaneously:
+
+```python
+from swarms.tools import get_tools_for_multiple_mcp_servers
+from swarms.schemas.mcp_schemas import MCPConnection
+
+# Define multiple server URLs
+urls = [
+    "https://api.example.com/mcp",
+    "https://tools.example.com/mcp",
+    "https://services.example.com/mcp",
+]
+
+# Optional: Define connection configs for each server
+connections = [
+    MCPConnection(
+        url=urls[0],
+        authorization_token="token1",
+    ),
+    MCPConnection(
+        url=urls[1],
+        authorization_token="token2",
+    ),
+    MCPConnection(
+        url=urls[2],
+        authorization_token="token3",
+    ),
+]
+
+# Fetch tools from all servers concurrently
+all_tools = get_tools_for_multiple_mcp_servers(
+    urls=urls,
+    connections=connections,
+    format="openai",
+    max_workers=3,
+    verbose=True,
+)
+
+print(f"Loaded {len(all_tools)} tools from {len(urls)} servers")
+```
+
+### Execute Tools Across Multiple Servers
+
+```python
+from swarms.tools import (
+    execute_multiple_tools_on_multiple_mcp_servers_sync
+)
+
+# Tool call requests
+responses = [
+    {
+        "function": {
+            "name": "database_query",
+            "arguments": {"query": "SELECT * FROM users"}
+        }
+    },
+    {
+        "function": {
+            "name": "send_email",
+            "arguments": {"to": "user@example.com", "subject": "Hello"}
+        }
+    },
+]
+
+# Execute across multiple servers
+results = execute_multiple_tools_on_multiple_mcp_servers_sync(
+    responses=responses,
+    urls=urls,
+    connections=connections,
+    output_type="str",
+    max_concurrent=5,
+    transport="streamable-http",
+    verbose=True,
+)
+
+for result in results:
+    print(f"Function: {result['function_name']}")
+    print(f"Status: {result['status']}")
+    print(f"Result: {result['result']}")
+```
+
+## Real-World Example
+
+### Building a Multi-Tool Agent
+
+Here's a complete example from the source code:
+
+```python
+from swarms import Agent
+from swarms.tools import get_mcp_tools_sync
+from swarms.schemas.mcp_schemas import MCPConnection
+
+# Configure MCP server connection
+mcp_connection = MCPConnection(
+    url="https://mcp.example.com/api",
+    transport="streamable-http",
+    authorization_token="your-mcp-api-token",
+    timeout=30,
+)
+
+# Fetch available tools from MCP server
+print("Fetching tools from MCP server...")
+tools = get_mcp_tools_sync(
+    connection=mcp_connection,
+    format="openai",
+    verbose=True,
+)
+
+print(f"Loaded {len(tools)} tools from MCP server")
+
+# Create agent with MCP tools
+agent = Agent(
+    agent_name="MCP-Enabled-Agent",
+    system_prompt="You are an AI assistant with access to various tools via MCP.",
+    model_name="gpt-4o",
+    max_loops=1,
+    tools=tools,
+    verbose=True,
+    streaming_on=True,
+)
+
+# Run agent with tool access
+result = agent.run(
+    "Use the available tools to analyze the database and send a summary email"
+)
+
+print(result)
+```
+
+## Tool Execution
+
+### Execute Individual Tools
+
+```python
+from swarms.tools import execute_tool_call_simple
+
+# Define tool call
+tool_call = {
+    "function": {
+        "name": "get_weather",
+        "arguments": {
+            "location": "San Francisco",
+            "units": "celsius"
+        }
+    }
+}
+
+# Execute tool
+result = await execute_tool_call_simple(
+    response=tool_call,
+    server_path="https://api.example.com/mcp",
+    output_type="str",
+    transport="streamable-http",
+    verbose=True,
+)
+
+print(result)
+```
+
+### Batch Tool Execution
+
+```python
+import asyncio
+from swarms.tools import (
+    execute_multiple_tools_on_multiple_mcp_servers
+)
+
+async def execute_batch():
+    tool_calls = [
+        {"function": {"name": "tool1", "arguments": {"param": "value1"}}},
+        {"function": {"name": "tool2", "arguments": {"param": "value2"}}},
+        {"function": {"name": "tool3", "arguments": {"param": "value3"}}},
+    ]
+    
+    results = await execute_multiple_tools_on_multiple_mcp_servers(
+        responses=tool_calls,
+        urls=["https://api.example.com/mcp"],
+        output_type="dict",
+        max_concurrent=3,
+        verbose=True,
+    )
+    
+    return results
+
+results = asyncio.run(execute_batch())
+```
+
+## Error Handling
+
+### Retry Logic and Timeouts
+
+The MCP client includes automatic retry with exponential backoff:
+
+```python
+from swarms.tools import get_mcp_tools_sync
+from swarms.schemas.mcp_schemas import MCPConnection
+
+try:
+    # Connection with custom timeout
+    connection = MCPConnection(
+        url="https://api.example.com/mcp",
+        timeout=60,  # 60 second timeout
+    )
+    
+    # Automatic retry on failure (3 retries with backoff)
+    tools = get_mcp_tools_sync(
+        connection=connection,
+        verbose=True,
+    )
+except Exception as e:
+    print(f"Failed to connect to MCP server: {e}")
+```
+
+### Custom Error Handling
+
+```python
+from swarms.tools.mcp_client_tools import (
+    MCPConnectionError,
+    MCPToolError,
+    MCPValidationError,
+    MCPExecutionError,
+)
+
+try:
+    tools = get_mcp_tools_sync(
+        server_path="https://api.example.com/mcp",
+    )
+except MCPConnectionError as e:
+    print(f"Connection failed: {e}")
+except MCPValidationError as e:
+    print(f"Validation error: {e}")
+except MCPToolError as e:
+    print(f"Tool error: {e}")
+except MCPExecutionError as e:
+    print(f"Execution error: {e}")
+```
+
+## Advanced Features
+
+### Auto-Detect Transport
+
+The client automatically detects the appropriate transport from the URL:
+
+```python
+from swarms.tools.mcp_client_tools import auto_detect_transport
+
+# Detects 'streamable-http' from https:// scheme
+transport = auto_detect_transport("https://api.example.com/mcp")
+print(transport)  # 'streamable-http'
+
+# Detects 'stdio' from empty scheme
+transport = auto_detect_transport("stdio://local-mcp")
+print(transport)  # 'stdio'
+```
+
+### Tool Schema Transformation
+
+Convert between MCP and OpenAI tool formats:
+
+```python
+from swarms.tools.mcp_client_tools import (
+    transform_mcp_tool_to_openai_tool
+)
+from mcp.types import Tool as MCPTool
+
+# MCP tool object
+mcp_tool = MCPTool(
+    name="example_tool",
+    description="An example tool",
+    inputSchema={"type": "object", "properties": {}},
+)
+
+# Convert to OpenAI format
+openai_tool = transform_mcp_tool_to_openai_tool(
+    mcp_tool=mcp_tool,
+    verbose=True,
+)
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Connection Pooling" icon="network-wired">
+    Reuse MCP connections when fetching tools multiple times
+  </Card>
+  <Card title="Timeout Configuration" icon="clock">
+    Set appropriate timeouts based on server response times
+  </Card>
+  <Card title="Error Recovery" icon="shield">
+    Implement fallback strategies for MCP server failures
+  </Card>
+  <Card title="Verbose Logging" icon="terminal">
+    Enable verbose mode during development for debugging
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Common Issues
+
+**Connection Timeouts**
+```python
+# Increase timeout for slow servers
+connection = MCPConnection(
+    url="https://slow-server.com/mcp",
+    timeout=120,  # 2 minutes
+)
+```
+
+**Authentication Failures**
+```python
+# Ensure authorization token is set
+connection = MCPConnection(
+    url="https://api.example.com/mcp",
+    authorization_token="Bearer your-token",
+)
+```
+
+**Tool Not Found**
+```python
+# Verify tools are loaded correctly
+tools = get_mcp_tools_sync(server_path=url, verbose=True)
+print(f"Available tools: {[t['function']['name'] for t in tools]}")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Model Providers" icon="brain" href="/integrations/model-providers">
+    Configure different LLM providers
+  </Card>
+  <Card title="Custom Tools" icon="wrench" href="/integrations/tools">
+    Create your own tool integrations
+  </Card>
+</CardGroup>

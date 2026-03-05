@@ -1,0 +1,509 @@
+---
+title: AOP (Agent Orchestration Platform)
+description: Deploy multiple Swarms agents as tools in an MCP (Model Context Protocol) server with queue-based execution and persistence
+---
+
+## Overview
+
+The **AOP** (Agent Orchestration Platform) class enables you to deploy multiple Swarms agents as individual tools in an MCP server. It provides production-ready features including queue-based task execution, automatic restart capabilities, network monitoring, and comprehensive error handling.
+
+## Constructor
+
+Create an AOP instance to manage and deploy agents as MCP tools.
+
+```python
+from swarms.structs.aop import AOP
+from swarms import Agent
+
+aop = AOP(
+    server_name="Production Swarm",
+    description="Multi-agent production cluster",
+    agents=[agent1, agent2, agent3],
+    port=8000,
+    queue_enabled=True,
+    persistence=True,
+    verbose=True
+)
+```
+
+### Parameters
+
+<ParamField path="server_name" type="str" default="AOP Cluster">
+  Name for the MCP server
+</ParamField>
+
+<ParamField path="description" type="str" default="A cluster that enables you to deploy multiple agents as tools in an MCP server.">
+  Description of the AOP cluster
+</ParamField>
+
+<ParamField path="agents" type="any" default="None">
+  Optional list of agents to add initially
+</ParamField>
+
+<ParamField path="port" type="int" default="8000">
+  Port for the MCP server
+</ParamField>
+
+<ParamField path="transport" type="str" default="streamable-http">
+  Transport type for the MCP server
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Enable verbose logging
+</ParamField>
+
+<ParamField path="traceback_enabled" type="bool" default="True">
+  Enable traceback logging for errors
+</ParamField>
+
+<ParamField path="host" type="str" default="localhost">
+  Host to bind the server to
+</ParamField>
+
+<ParamField path="queue_enabled" type="bool" default="True">
+  Enable queue-based task execution
+</ParamField>
+
+<ParamField path="max_workers_per_agent" type="int" default="1">
+  Maximum number of workers per agent
+</ParamField>
+
+<ParamField path="max_queue_size_per_agent" type="int" default="1000">
+  Maximum queue size per agent
+</ParamField>
+
+<ParamField path="processing_timeout" type="int" default="30">
+  Timeout for task processing in seconds
+</ParamField>
+
+<ParamField path="retry_delay" type="float" default="1.0">
+  Delay between retries in seconds
+</ParamField>
+
+<ParamField path="persistence" type="bool" default="False">
+  Enable automatic restart on shutdown (with failsafe)
+</ParamField>
+
+<ParamField path="max_restart_attempts" type="int" default="10">
+  Maximum number of restart attempts before giving up
+</ParamField>
+
+<ParamField path="restart_delay" type="float" default="5.0">
+  Delay between restart attempts in seconds
+</ParamField>
+
+<ParamField path="network_monitoring" type="bool" default="True">
+  Enable network connection monitoring and retry
+</ParamField>
+
+<ParamField path="max_network_retries" type="int" default="5">
+  Maximum number of network reconnection attempts
+</ParamField>
+
+<ParamField path="network_retry_delay" type="float" default="10.0">
+  Delay between network retry attempts in seconds
+</ParamField>
+
+<ParamField path="log_level" type="Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']" default="INFO">
+  Logging level
+</ParamField>
+
+## Methods
+
+### add_agent
+
+Add a single agent to the MCP server as a tool.
+
+```python
+tool_name = aop.add_agent(
+    agent=financial_agent,
+    tool_name="financial_analyzer",
+    tool_description="Analyzes financial data and generates reports",
+    timeout=60,
+    max_retries=3,
+    verbose=True
+)
+```
+
+<ParamField path="agent" type="AgentType" required>
+  The Swarms Agent instance to deploy
+</ParamField>
+
+<ParamField path="tool_name" type="str" default="None">
+  Name for the tool (defaults to agent.agent_name)
+</ParamField>
+
+<ParamField path="tool_description" type="str" default="None">
+  Description of the tool (defaults to agent.agent_description)
+</ParamField>
+
+<ParamField path="input_schema" type="Dict[str, Any]" default="None">
+  JSON schema for input parameters
+</ParamField>
+
+<ParamField path="output_schema" type="Dict[str, Any]" default="None">
+  JSON schema for output
+</ParamField>
+
+<ParamField path="timeout" type="int" default="30">
+  Maximum execution time in seconds
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Number of retries on failure
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="None">
+  Enable verbose logging for this tool (defaults to deployer's verbose setting)
+</ParamField>
+
+<ParamField path="traceback_enabled" type="bool" default="None">
+  Enable traceback logging for this tool
+</ParamField>
+
+<ResponseField name="return" type="str">
+  The tool name that was registered
+</ResponseField>
+
+**Raises:**
+- `ValueError`: If agent is None or tool_name already exists
+
+### add_agents_batch
+
+Add multiple agents to the MCP server in batch.
+
+```python
+tool_names = aop.add_agents_batch(
+    agents=[agent1, agent2, agent3],
+    tool_names=["analyzer", "researcher", "writer"],
+    tool_descriptions=[
+        "Analyzes data",
+        "Researches topics",
+        "Writes reports"
+    ],
+    timeouts=[30, 60, 45],
+    verbose_list=[True, True, False]
+)
+```
+
+<ParamField path="agents" type="List[Agent]" required>
+  List of Swarms Agent instances
+</ParamField>
+
+<ParamField path="tool_names" type="List[str]" default="None">
+  Optional list of tool names (defaults to agent names)
+</ParamField>
+
+<ParamField path="tool_descriptions" type="List[str]" default="None">
+  Optional list of tool descriptions
+</ParamField>
+
+<ParamField path="input_schemas" type="List[Dict[str, Any]]" default="None">
+  Optional list of input schemas
+</ParamField>
+
+<ParamField path="output_schemas" type="List[Dict[str, Any]]" default="None">
+  Optional list of output schemas
+</ParamField>
+
+<ParamField path="timeouts" type="List[int]" default="None">
+  Optional list of timeout values
+</ParamField>
+
+<ParamField path="max_retries_list" type="List[int]" default="None">
+  Optional list of max retry values
+</ParamField>
+
+<ParamField path="verbose_list" type="List[bool]" default="None">
+  Optional list of verbose settings for each agent
+</ParamField>
+
+<ParamField path="traceback_enabled_list" type="List[bool]" default="None">
+  Optional list of traceback settings for each agent
+</ParamField>
+
+<ResponseField name="return" type="List[str]">
+  List of tool names that were registered
+</ResponseField>
+
+**Raises:**
+- `ValueError`: If agents list is empty or contains None values
+
+### remove_agent
+
+Remove an agent from the MCP server.
+
+```python
+success = aop.remove_agent("financial_analyzer")
+```
+
+<ParamField path="tool_name" type="str" required>
+  Name of the tool to remove
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if agent was removed, False if not found
+</ResponseField>
+
+### list_agents
+
+Get a list of all registered agent tool names.
+
+```python
+agent_names = aop.list_agents()
+print(f"Active agents: {agent_names}")
+```
+
+<ResponseField name="return" type="List[str]">
+  List of tool names
+</ResponseField>
+
+### get_agent_info
+
+Get detailed information about a specific agent tool.
+
+```python
+info = aop.get_agent_info("financial_analyzer")
+print(info)
+# {
+#   "tool_name": "financial_analyzer",
+#   "agent_name": "FinancialAgent",
+#   "agent_description": "...",
+#   "model_name": "gpt-4",
+#   "max_loops": 3,
+#   "timeout": 60,
+#   "max_retries": 3,
+#   "verbose": True
+# }
+```
+
+<ParamField path="tool_name" type="str" required>
+  Name of the tool
+</ParamField>
+
+<ResponseField name="return" type="Optional[Dict[str, Any]]">
+  Dictionary containing agent information, or None if not found
+</ResponseField>
+
+### get_queue_stats
+
+Get queue statistics for agents.
+
+```python
+# Stats for specific agent
+stats = aop.get_queue_stats(tool_name="financial_analyzer")
+
+# Stats for all agents
+all_stats = aop.get_queue_stats()
+
+print(stats)
+# {
+#   "success": True,
+#   "agent_name": "financial_analyzer",
+#   "stats": {
+#     "total_tasks": 150,
+#     "completed_tasks": 145,
+#     "failed_tasks": 2,
+#     "pending_tasks": 3,
+#     "processing_tasks": 1,
+#     "average_processing_time": 2.34,
+#     "queue_size": 3,
+#     "queue_status": "running"
+#   }
+# }
+```
+
+<ParamField path="tool_name" type="str" default="None">
+  Optional specific agent name. If None, returns stats for all agents.
+</ParamField>
+
+<ResponseField name="return" type="Dict[str, Any]">
+  Dictionary containing queue statistics
+</ResponseField>
+
+## Queue Management
+
+When `queue_enabled=True`, each agent gets its own task queue with the following features:
+
+### TaskQueue Features
+
+1. **Priority-based execution**: Tasks can be assigned priorities
+2. **Automatic retries**: Failed tasks are automatically retried
+3. **Worker threads**: Background workers process tasks concurrently
+4. **Statistics tracking**: Comprehensive metrics on task execution
+5. **Pause/resume**: Queues can be paused and resumed
+
+### Queue States
+
+- **RUNNING**: Queue is actively processing tasks
+- **PAUSED**: Queue is paused, workers wait for resume
+- **STOPPED**: Queue is stopped, workers are terminated
+
+### Task States
+
+- **PENDING**: Task is waiting in queue
+- **PROCESSING**: Task is currently being executed
+- **COMPLETED**: Task completed successfully
+- **FAILED**: Task failed after max retries
+- **CANCELLED**: Task was cancelled
+
+## Persistence & Network Monitoring
+
+### Persistence Mode
+
+When `persistence=True`:
+- Server automatically restarts on shutdown
+- Configurable restart attempts and delays
+- Failsafe protection prevents infinite restart loops
+
+### Network Monitoring
+
+When `network_monitoring=True`:
+- Automatic detection of network issues
+- Retry logic for network failures
+- Configurable retry attempts and delays
+
+## Complete Example
+
+```python
+from swarms import Agent
+from swarms.structs.aop import AOP
+
+# Create specialized agents
+financial_agent = Agent(
+    agent_name="Financial-Analyst",
+    system_prompt="You are a financial analysis expert...",
+    model_name="gpt-4",
+    max_loops=3,
+    verbose=True
+)
+
+research_agent = Agent(
+    agent_name="Research-Specialist",
+    system_prompt="You are a research expert...",
+    model_name="gpt-4",
+    max_loops=2,
+    verbose=True
+)
+
+writing_agent = Agent(
+    agent_name="Content-Writer",
+    system_prompt="You are a content writing expert...",
+    model_name="gpt-4",
+    max_loops=1,
+    verbose=False
+)
+
+# Deploy all agents in an AOP cluster
+aop = AOP(
+    server_name="Production Analysis Swarm",
+    description="Multi-agent cluster for financial analysis",
+    agents=[financial_agent, research_agent, writing_agent],
+    port=8000,
+    host="0.0.0.0",
+    queue_enabled=True,
+    max_workers_per_agent=2,
+    max_queue_size_per_agent=100,
+    processing_timeout=120,
+    persistence=True,
+    max_restart_attempts=5,
+    network_monitoring=True,
+    log_level="INFO",
+    verbose=True,
+    traceback_enabled=True
+)
+
+# Add another agent dynamically
+data_agent = Agent(
+    agent_name="Data-Processor",
+    system_prompt="You process and analyze data...",
+    model_name="gpt-4"
+)
+
+aop.add_agent(
+    agent=data_agent,
+    tool_name="data_processor",
+    timeout=60,
+    max_retries=5
+)
+
+# Monitor queue statistics
+stats = aop.get_queue_stats()
+for agent_name, agent_stats in stats["stats"].items():
+    print(f"{agent_name}: {agent_stats['completed_tasks']} tasks completed")
+
+# Get agent information
+info = aop.get_agent_info("financial_analyzer")
+print(f"Model: {info['model_name']}")
+print(f"Max loops: {info['max_loops']}")
+
+# List all active agents
+agents = aop.list_agents()
+print(f"Active agents: {', '.join(agents)}")
+
+# The server automatically handles:
+# - Queue management and task execution
+# - Automatic retries on failures
+# - Network monitoring and recovery
+# - Server persistence and restarts
+# - Comprehensive error logging
+```
+
+## Best Practices
+
+1. **Enable queuing**: Use `queue_enabled=True` for production reliability
+2. **Set timeouts**: Configure appropriate timeouts based on task complexity
+3. **Monitor queues**: Regularly check queue statistics to identify bottlenecks
+4. **Use persistence**: Enable persistence mode for critical production deployments
+5. **Configure workers**: Adjust `max_workers_per_agent` based on load requirements
+6. **Enable logging**: Use `verbose=True` and appropriate `log_level` for debugging
+7. **Handle failures**: Set `max_retries` appropriately for your use case
+8. **Network resilience**: Enable `network_monitoring` for unstable connections
+9. **Gradual scaling**: Start with fewer agents and scale up based on metrics
+10. **Health monitoring**: Regular check `get_queue_stats()` for system health
+
+## Error Handling
+
+The AOP class implements comprehensive error handling:
+
+```python
+try:
+    aop.add_agent(agent=my_agent)
+except ValueError as e:
+    print(f"Configuration error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+    if aop.traceback_enabled:
+        import traceback
+        traceback.print_exc()
+```
+
+## Performance Tuning
+
+```python
+# High-throughput configuration
+aop = AOP(
+    max_workers_per_agent=5,
+    max_queue_size_per_agent=1000,
+    processing_timeout=300,
+    retry_delay=0.5,
+    queue_enabled=True
+)
+
+# Low-latency configuration
+aop = AOP(
+    max_workers_per_agent=1,
+    processing_timeout=10,
+    retry_delay=0.1,
+    queue_enabled=True
+)
+
+# High-reliability configuration  
+aop = AOP(
+    persistence=True,
+    max_restart_attempts=10,
+    network_monitoring=True,
+    max_network_retries=10,
+    traceback_enabled=True
+)
+```

@@ -1,0 +1,427 @@
+---
+title: AutoSwarmBuilder
+description: Automatically builds and manages swarms of AI agents with intelligent task decomposition
+---
+
+## Overview
+
+The `AutoSwarmBuilder` class automatically builds and manages swarms of AI agents by intelligently decomposing tasks and creating specialized agents as needed. It uses a sophisticated boss agent system to delegate work, design agent architectures, and orchestrate multi-agent collaboration.
+
+## Class Definition
+
+```python
+from swarms.structs.auto_swarm_builder import AutoSwarmBuilder
+```
+
+## Parameters
+
+<ParamField path="name" type="str" default="auto-swarm-builder">
+  The name of the swarm builder instance
+</ParamField>
+
+<ParamField path="description" type="str" default="Auto Swarm Builder">
+  A description of the swarm builder's purpose
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+  Whether to output detailed logs during execution
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of execution loops. Must be greater than 0
+</ParamField>
+
+<ParamField path="model_name" type="str" default="gpt-4.1">
+  The LLM model to use for the boss agent that designs the swarm architecture
+</ParamField>
+
+<ParamField path="generate_router_config" type="bool" default="False">
+  Whether to generate SwarmRouter configuration (legacy parameter)
+</ParamField>
+
+<ParamField path="interactive" type="bool" default="False">
+  Whether to enable interactive mode
+</ParamField>
+
+<ParamField path="max_tokens" type="int" default="8000">
+  Maximum tokens for the LLM responses from the boss agent
+</ParamField>
+
+<ParamField path="execution_type" type="str" default="return-agents">
+  Type of execution to perform. Options: "return-agents", "return-swarm-router-config", "return-agents-objects"
+</ParamField>
+
+<ParamField path="system_prompt" type="str" default="BOSS_SYSTEM_PROMPT">
+  System prompt for the boss agent that designs swarm architectures. Defaults to comprehensive agent design prompt
+</ParamField>
+
+<ParamField path="additional_llm_args" type="dict" default="{}">
+  Additional arguments to pass to the LiteLLM wrapper
+</ParamField>
+
+## Execution Types
+
+### return-agents
+Returns agent specifications as a dictionary:
+```python
+{
+    "agents": [
+        {
+            "agent_name": "Research-Agent",
+            "description": "Expert in research",
+            "system_prompt": "...",
+            "model_name": "gpt-4.1",
+            ...
+        },
+        ...
+    ]
+}
+```
+
+### return-swarm-router-config
+Returns complete SwarmRouter configuration:
+```python
+{
+    "name": "Research-Team",
+    "description": "...",
+    "agents": [...],
+    "swarm_type": "SequentialWorkflow",
+    "rearrange_flow": "...",
+    "rules": "...",
+    "task": "..."
+}
+```
+
+### return-agents-objects
+Returns instantiated Agent objects ready for use:
+```python
+[Agent(...), Agent(...), Agent(...)]
+```
+
+## Methods
+
+### `run()`
+
+```python
+def run(self, task: str, *args, **kwargs) -> Any
+```
+
+Runs the swarm builder on a given task, creating agents based on execution type.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to execute. The boss agent will analyze this task and design an appropriate swarm architecture
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="Any">
+  The result depends on execution_type:
+  - "return-agents": Dictionary with agent specifications
+  - "return-swarm-router-config": SwarmRouter configuration dictionary
+  - "return-agents-objects": List of instantiated Agent objects
+</ResponseField>
+
+**Raises:**
+- `ValueError`: If execution_type is invalid
+- `Exception`: If there's an error during swarm execution
+
+---
+
+### `create_agents()`
+
+```python
+def create_agents(self, task: str) -> dict
+```
+
+Creates agent specifications for a given task using the boss agent.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to create agents for
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="agents_dict" type="dict">
+  Dictionary containing agent specifications with comprehensive system prompts and configurations
+</ResponseField>
+
+**Raises:**
+- `Exception`: If there's an error during agent creation
+
+---
+
+### `create_agents_from_specs()`
+
+```python
+def create_agents_from_specs(
+    self,
+    agents_dictionary: Any
+) -> List[Agent]
+```
+
+Creates Agent objects from agent specifications.
+
+**Parameters:**
+
+<ParamField path="agents_dictionary" type="Any" required>
+  Dictionary or Pydantic model containing agent specifications
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="agents" type="List[Agent]">
+  List of instantiated Agent objects ready for use
+</ResponseField>
+
+**Note:** Automatically handles parameter name mapping (e.g., 'description' → 'agent_description')
+
+---
+
+### `create_router_config()`
+
+```python
+def create_router_config(self, task: str) -> dict
+```
+
+Creates a SwarmRouter configuration for a given task.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to create router configuration for
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="config" type="dict">
+  Complete SwarmRouter configuration including agents, swarm type, and execution parameters
+</ResponseField>
+
+**Raises:**
+- `Exception`: If there's an error during router config creation
+
+---
+
+### `batch_run()`
+
+```python
+def batch_run(self, tasks: List[str]) -> List[Any]
+```
+
+Runs the swarm builder on a list of tasks sequentially.
+
+**Parameters:**
+
+<ParamField path="tasks" type="List[str]" required>
+  List of tasks to execute
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="results" type="List[Any]">
+  List of results from each task execution
+</ResponseField>
+
+---
+
+### `reliability_check()`
+
+```python
+def reliability_check(self) -> None
+```
+
+Performs reliability checks on the AutoSwarmBuilder configuration.
+
+**Raises:**
+- `ValueError`: If max_loops is set to 0
+
+---
+
+### `list_types()`
+
+```python
+def list_types(self) -> List[str]
+```
+
+Lists all available execution types.
+
+**Returns:**
+
+<ResponseField name="types" type="List[str]">
+  List of available execution types
+</ResponseField>
+
+## Data Models
+
+### AgentSpec
+
+```python
+class AgentSpec(BaseModel):
+    agent_name: Optional[str]              # Agent's unique name
+    description: Optional[str]             # Detailed agent description
+    system_prompt: Optional[str]           # Complete system prompt
+    model_name: Optional[str] = "gpt-4.1" # LLM model name
+    auto_generate_prompt: Optional[bool] = False
+    max_tokens: Optional[int] = 8192
+    temperature: Optional[float] = 0.5
+    role: Optional[str] = "worker"
+    max_loops: Optional[int] = 1
+    goal: Optional[str]                    # Agent's primary objective
+```
+
+### SwarmRouterConfig
+
+```python
+class SwarmRouterConfig(BaseModel):
+    name: str                              # Team name
+    description: str                       # Team description
+    agents: List[AgentSpec]                # Agent configurations
+    swarm_type: SwarmType                  # Multi-agent structure type
+    rearrange_flow: Optional[str]          # Flow configuration
+    rules: Optional[str]                   # Rules for all agents
+    multi_agent_collab_prompt: Optional[str]
+    task: str                              # Task to execute
+```
+
+## Boss Agent Design Principles
+
+The AutoSwarmBuilder uses a sophisticated boss agent with expertise in:
+
+1. **Comprehensive Task Analysis**: Deconstructing tasks into components and sub-tasks
+2. **Agent Design Excellence**: Creating agents with clear purposes and complementary personalities
+3. **System Prompt Engineering**: Crafting detailed prompts with role, capabilities, and protocols
+4. **Multi-Agent Coordination**: Designing communication channels and task handoff procedures
+5. **Quality Assurance**: Establishing success criteria and validation procedures
+
+## Usage Examples
+
+### Basic Agent Creation
+
+```python
+from swarms.structs.auto_swarm_builder import AutoSwarmBuilder
+
+# Create swarm builder
+builder = AutoSwarmBuilder(
+    name="intelligent-swarm-builder",
+    model_name="gpt-4o",
+    execution_type="return-agents",
+    verbose=True
+)
+
+# Generate agent specifications
+agent_specs = builder.run(
+    task="Create a team to analyze financial reports and generate investment recommendations"
+)
+
+print(agent_specs)
+```
+
+### Create Agent Objects
+
+```python
+builder = AutoSwarmBuilder(
+    name="agent-factory",
+    execution_type="return-agents-objects",
+    model_name="gpt-4o"
+)
+
+# Get ready-to-use Agent objects
+agents = builder.run(
+    task="Build a content creation team with research, writing, and editing capabilities"
+)
+
+# Use the agents
+for agent in agents:
+    result = agent.run("Write an article about AI trends")
+    print(f"{agent.agent_name}: {result}")
+```
+
+### Generate SwarmRouter Config
+
+```python
+builder = AutoSwarmBuilder(
+    name="swarm-architect",
+    execution_type="return-swarm-router-config",
+    model_name="gpt-4o"
+)
+
+config = builder.run(
+    task="Design a hierarchical swarm for comprehensive market research and analysis"
+)
+
+print(f"Swarm Type: {config['swarm_type']}")
+print(f"Number of Agents: {len(config['agents'])}")
+```
+
+### Batch Processing
+
+```python
+builder = AutoSwarmBuilder(
+    execution_type="return-agents-objects"
+)
+
+tasks = [
+    "Create a customer service team",
+    "Build a data analysis team",
+    "Design a creative writing team"
+]
+
+results = builder.batch_run(tasks)
+
+for i, agents in enumerate(results):
+    print(f"Team {i+1}: {len(agents)} agents created")
+```
+
+## Advanced Features
+
+### Custom System Prompt
+
+```python
+custom_prompt = """
+You are an expert swarm architect specializing in financial analysis teams.
+Design agents with deep expertise in financial modeling, risk assessment,
+and investment strategy.
+"""
+
+builder = AutoSwarmBuilder(
+    system_prompt=custom_prompt,
+    model_name="gpt-4o"
+)
+
+agents = builder.run("Create a financial analysis team")
+```
+
+### Additional LLM Arguments
+
+```python
+builder = AutoSwarmBuilder(
+    model_name="gpt-4o",
+    additional_llm_args={
+        "api_base": "https://custom-endpoint.com",
+        "api_key": "custom-key",
+        "timeout": 60
+    }
+)
+```
+
+## Multi-Agent Architecture Types
+
+The boss agent can design swarms using various architectures:
+
+- **AgentRearrange**: Dynamic task reallocation
+- **MixtureOfAgents**: Parallel specialized processing
+- **SequentialWorkflow**: Linear task progression
+- **ConcurrentWorkflow**: Parallel execution
+- **GroupChat**: Collaborative discussion
+- **HierarchicalSwarm**: Layered decision-making
+- **HeavySwarm**: High-capacity specialized processing
+- **MajorityVoting**: Democratic decision-making
+- **And more...**
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/auto_swarm_builder.py)

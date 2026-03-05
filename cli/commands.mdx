@@ -1,0 +1,449 @@
+---
+title: "CLI Commands"
+description: "Complete reference for all Swarms CLI commands with examples and parameters"
+icon: "terminal"
+---
+
+# CLI Commands Reference
+
+This page provides detailed documentation for all Swarms CLI commands, including their parameters, usage examples, and common use cases.
+
+## Setup & Configuration Commands
+
+### onboarding
+
+Run a comprehensive environment setup check to verify your Swarms installation.
+
+**Usage:**
+```bash
+swarms onboarding [--verbose]
+```
+
+**Parameters:**
+- `--verbose` (optional) - Show detailed diagnostics and version detection steps
+
+**Example:**
+```bash
+swarms onboarding --verbose
+```
+
+**Checks performed:**
+- Python version (requires 3.10+)
+- Swarms version
+- API key configuration
+- Required dependencies (torch, transformers, litellm, rich)
+- Environment file (.env)
+- Workspace directory (WORKSPACE_DIR)
+
+---
+
+### setup-check
+
+Identical to `onboarding`. Runs comprehensive environment setup checks.
+
+**Usage:**
+```bash
+swarms setup-check [--verbose]
+```
+
+**Parameters:**
+- `--verbose` (optional) - Enable detailed output
+
+**Example:**
+```bash
+swarms setup-check --verbose
+```
+
+---
+
+### get-api-key
+
+Open your browser to retrieve API keys from the Swarms platform.
+
+**Usage:**
+```bash
+swarms get-api-key
+```
+
+**Parameters:** None
+
+**Example:**
+```bash
+swarms get-api-key
+```
+
+This opens `https://swarms.world/platform/api-keys` in your default browser.
+
+---
+
+### check-login
+
+Verify authentication status and initialize the authentication cache.
+
+**Usage:**
+```bash
+swarms check-login
+```
+
+**Parameters:** None
+
+**Example:**
+```bash
+swarms check-login
+```
+
+---
+
+## Agent Creation & Execution Commands
+
+### agent
+
+Create and run a custom agent with specified parameters. The task parameter is optional - if not provided, the agent runs in interactive mode by default.
+
+**Usage:**
+```bash
+swarms agent \
+  --name <agent_name> \
+  --description <description> \
+  --system-prompt <prompt> \
+  [--task <task>] \
+  [OPTIONS]
+```
+
+**Required Parameters:**
+- `--name` - Name of the agent
+- `--description` - Description of the agent's purpose
+- `--system-prompt` - System prompt defining agent behavior (can use `--marketplace-prompt-id` instead)
+
+**Optional Parameters:**
+- `--task` - Task to execute (if omitted, runs in interactive mode)
+- `--model-name` - LLM model to use (default: "gpt-4")
+- `--temperature` - Temperature setting (0.0-2.0)
+- `--max-loops` - Maximum loops (integer or "auto" for autonomous)
+- `--interactive` - Enable interactive mode (default: True)
+- `--no-interactive` - Disable interactive mode
+- `--verbose` - Enable verbose output
+- `--streaming-on` - Enable streaming mode
+- `--context-length` - Context window size
+- `--retry-attempts` - Number of retry attempts
+- `--return-step-meta` - Return step metadata
+- `--dashboard` - Enable dashboard
+- `--autosave` - Enable autosave
+- `--saved-state-path` - Path for saving agent state
+- `--user-name` - Username for the agent
+- `--mcp-url` - MCP URL for the agent
+- `--marketplace-prompt-id` - Fetch system prompt from marketplace
+- `--auto-generate-prompt` - Enable auto-generation of prompts
+- `--dynamic-temperature-enabled` - Enable dynamic temperature adjustment
+- `--dynamic-context-window` - Enable dynamic context window
+- `--output-type` - Output type (e.g., "str", "json")
+
+**Examples:**
+
+Create an agent with a task:
+```bash
+swarms agent \
+  --name "Trading Agent" \
+  --description "Advanced trading analysis agent" \
+  --system-prompt "You are an expert trader with deep knowledge of financial markets" \
+  --task "Analyze the current market trends for tech stocks" \
+  --model-name "gpt-4" \
+  --temperature 0.1
+```
+
+Create an agent in interactive mode (no task):
+```bash
+swarms agent \
+  --name "Assistant" \
+  --description "General purpose assistant" \
+  --system-prompt "You are a helpful assistant"
+```
+
+With autonomous loops:
+```bash
+swarms agent \
+  --name "Research Agent" \
+  --description "Autonomous research agent" \
+  --system-prompt "You are a research expert" \
+  --task "Research the latest AI developments" \
+  --max-loops "auto" \
+  --verbose
+```
+
+---
+
+### chat
+
+Start an interactive chat agent with optimized defaults for conversation. Uses autonomous loops (`max_loops="auto"`) by default.
+
+**Usage:**
+```bash
+swarms chat [OPTIONS]
+```
+
+**Optional Parameters:**
+- `--name` - Agent name (default: "Swarms Agent")
+- `--description` - Agent description (default: "A Swarms agent that can chat with the user")
+- `--system-prompt` - Custom system prompt
+- `--task` - Initial task/message to start the conversation
+
+**Examples:**
+
+Start a basic chat:
+```bash
+swarms chat
+```
+
+With custom configuration:
+```bash
+swarms chat \
+  --name "ChatBot" \
+  --system-prompt "You are a friendly and helpful assistant" \
+  --task "Hello, I need help with Python programming"
+```
+
+---
+
+### run-agents
+
+Execute agents from a YAML configuration file.
+
+**Usage:**
+```bash
+swarms run-agents [--yaml-file <path>]
+```
+
+**Parameters:**
+- `--yaml-file` - Path to YAML configuration file (default: "agents.yaml")
+
+**Example:**
+```bash
+swarms run-agents --yaml-file my_agents.yaml
+```
+
+See the [Configuration](/cli/configuration) page for YAML file format.
+
+---
+
+### load-markdown
+
+Load agents from markdown files with YAML frontmatter.
+
+**Usage:**
+```bash
+swarms load-markdown --markdown-path <path> [--concurrent]
+```
+
+**Required Parameters:**
+- `--markdown-path` - Path to markdown file or directory
+
+**Optional Parameters:**
+- `--concurrent` - Enable concurrent processing (default: True)
+
+**Examples:**
+
+Load from a single file:
+```bash
+swarms load-markdown --markdown-path ./agent.md
+```
+
+Load from a directory:
+```bash
+swarms load-markdown --markdown-path ./agents/
+```
+
+**Markdown Format:**
+```markdown
+---
+name: Agent Name
+description: Agent Description
+model_name: gpt-4
+temperature: 0.1
+---
+Your system prompt content here...
+```
+
+---
+
+## Swarm Operations Commands
+
+### autoswarm
+
+Generate and execute an autonomous swarm configuration based on a task.
+
+**Usage:**
+```bash
+swarms autoswarm --task <task> --model <model>
+```
+
+**Required Parameters:**
+- `--task` - Task description for the swarm
+- `--model` - Model name for swarm generation (e.g., "gpt-4")
+
+**Example:**
+```bash
+swarms autoswarm \
+  --task "Analyze customer feedback and generate insights" \
+  --model "gpt-4"
+```
+
+---
+
+### heavy-swarm
+
+Run HeavySwarm with specialized agents for complex task analysis. HeavySwarm breaks down tasks into questions and uses worker agents to process them.
+
+**Usage:**
+```bash
+swarms heavy-swarm --task <task> [OPTIONS]
+```
+
+**Required Parameters:**
+- `--task` - Task for HeavySwarm to process
+
+**Optional Parameters:**
+- `--loops-per-agent` - Number of execution loops per agent (default: 1)
+- `--question-agent-model-name` - Model for question generation (default: "gpt-4o-mini")
+- `--worker-model-name` - Model for worker agents (default: "gpt-4o-mini")
+- `--random-loops-per-agent` - Enable random loops (1-10 range)
+- `--verbose` - Enable verbose output
+
+**Examples:**
+
+Basic usage:
+```bash
+swarms heavy-swarm \
+  --task "Analyze the current market trends in renewable energy"
+```
+
+With custom configuration:
+```bash
+swarms heavy-swarm \
+  --task "Analyze market trends" \
+  --loops-per-agent 3 \
+  --question-agent-model-name "gpt-4" \
+  --worker-model-name "gpt-4" \
+  --verbose
+```
+
+---
+
+### llm-council
+
+Run the LLM Council where multiple agents collaborate on a task, providing different perspectives and evaluating responses.
+
+**Usage:**
+```bash
+swarms llm-council --task <task> [--verbose]
+```
+
+**Required Parameters:**
+- `--task` - Task or question for the council to process
+
+**Optional Parameters:**
+- `--verbose` - Show verbose output (default: True)
+
+**Examples:**
+
+Basic usage:
+```bash
+swarms llm-council \
+  --task "What is the best approach to implementing a microservices architecture?"
+```
+
+With verbose output:
+```bash
+swarms llm-council \
+  --task "Analyze the pros and cons of different database solutions" \
+  --verbose
+```
+
+---
+
+## Utility Commands
+
+### help
+
+Display comprehensive help message with all commands and parameters.
+
+**Usage:**
+```bash
+swarms help
+```
+
+**Parameters:** None
+
+**Example:**
+```bash
+swarms help
+```
+
+---
+
+### features
+
+Display all available features and actions in a comprehensive table.
+
+**Usage:**
+```bash
+swarms features
+```
+
+**Parameters:** None
+
+**Example:**
+```bash
+swarms features
+```
+
+---
+
+### upgrade
+
+Update Swarms to the latest version.
+
+**Usage:**
+```bash
+swarms upgrade
+```
+
+**Parameters:** None
+
+**Example:**
+```bash
+swarms upgrade
+```
+
+This executes: `pip install --upgrade swarms`
+
+---
+
+## Command Categories
+
+| Category | Commands |
+|----------|----------|
+| Setup | `onboarding`, `setup-check`, `get-api-key`, `check-login` |
+| Agent Operations | `agent`, `chat`, `run-agents`, `load-markdown` |
+| Swarm Operations | `autoswarm`, `heavy-swarm`, `llm-council` |
+| Utilities | `help`, `features`, `upgrade` |
+
+## Common Flags
+
+Many commands support these common flags:
+
+- `--verbose` - Enable detailed output
+- `--task` - Specify a task to execute
+- `--model-name` - Specify the LLM model
+- `--temperature` - Control randomness (0.0-2.0)
+- `--max-loops` - Set iteration limits
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/cli/configuration">
+    Learn how to configure agents using YAML files
+  </Card>
+  <Card title="CLI Overview" icon="terminal" href="/cli/overview">
+    Return to CLI overview and quick start guide
+  </Card>
+</CardGroup>

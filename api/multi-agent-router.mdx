@@ -1,0 +1,245 @@
+---
+title: "MultiAgentRouter"
+description: "Routes tasks to specialized agents based on their capabilities using an intelligent boss agent"
+icon: "route"
+---
+
+## Overview
+
+The `MultiAgentRouter` uses a boss agent powered by LLMs to intelligently route tasks to the most appropriate specialized agent(s). The boss agent analyzes task requirements and agent capabilities to make routing decisions, supporting both single and multiple agent assignments.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Attributes
+
+<ParamField path="name" type="str" default="swarm-router">
+  The name of the router
+</ParamField>
+
+<ParamField path="description" type="str" default="Routes tasks to specialized agents based on their capabilities">
+  A description of the router's purpose
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" default="None">
+  A list of agents to be managed by the router
+</ParamField>
+
+<ParamField path="model" type="str" default="gpt-4o-mini">
+  The model to use for the boss agent
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.1">
+  The temperature for the boss agent's model
+</ParamField>
+
+<ParamField path="shared_memory_system" type="callable" default="None">
+  A shared memory system for agents to query
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict">
+  The type of output expected from the agents
+</ParamField>
+
+<ParamField path="print_on" type="bool" default="True">
+  Whether to print the boss agent's decision
+</ParamField>
+
+<ParamField path="system_prompt" type="str" default="None">
+  Custom system prompt for the router
+</ParamField>
+
+<ParamField path="skip_null_tasks" type="bool" default="True">
+  Whether to skip executing agents when their assigned task is null or None
+</ParamField>
+
+## Methods
+
+### route_task()
+
+Routes a task to the appropriate agent(s) and returns their response.
+
+```python
+def route_task(self, task: str) -> dict
+```
+
+**Parameters:**
+- `task` (str): The task to be routed
+
+**Returns:** Dictionary containing the routing result, including selected agent(s), reasoning, and response
+
+### run()
+
+Alias for route_task().
+
+```python
+def run(self, task: str) -> dict
+```
+
+### batch_run()
+
+Batch route tasks to the appropriate agents sequentially.
+
+```python
+def batch_run(self, tasks: List[str] = []) -> list
+```
+
+**Parameters:**
+- `tasks` (List[str]): List of tasks to route
+
+**Returns:** List of routing results
+
+### concurrent_batch_run()
+
+Concurrently route tasks to the appropriate agents.
+
+```python
+def concurrent_batch_run(self, tasks: List[str] = []) -> list
+```
+
+**Parameters:**
+- `tasks` (List[str]): List of tasks to route
+
+**Returns:** List of routing results from concurrent execution
+
+## Usage Examples
+
+### Basic Routing
+
+```python
+from swarms import Agent, MultiAgentRouter
+
+# Define specialized agents
+agents = [
+    Agent(
+        agent_name="ResearchAgent",
+        description="Specializes in researching topics and providing detailed, factual information",
+        system_prompt="You are a research specialist. Provide detailed, well-researched information.",
+        model_name="openai/gpt-4o",
+    ),
+    Agent(
+        agent_name="CodeExpertAgent",
+        description="Expert in writing, reviewing, and explaining code",
+        system_prompt="You are a coding expert. Write and review code with best practices.",
+        model_name="openai/gpt-4o",
+    ),
+    Agent(
+        agent_name="WritingAgent",
+        description="Skilled in creative and technical writing",
+        system_prompt="You are a writing specialist. Create and edit content.",
+        model_name="openai/gpt-4o",
+    ),
+]
+
+# Initialize router
+router = MultiAgentRouter(agents=agents)
+
+# Route a task
+task = "Write a Python function to calculate fibonacci numbers"
+result = router.route_task(task)
+
+print(result)
+```
+
+### Custom System Prompt
+
+```python
+router = MultiAgentRouter(
+    name="custom-router",
+    agents=agents,
+    system_prompt="You are an expert task router. Always select the most qualified agent.",
+    model="gpt-4o",
+    temperature=0.2
+)
+
+result = router.run("Explain quantum computing")
+```
+
+### Batch Processing
+
+```python
+tasks = [
+    "Research the latest AI developments",
+    "Write a function to sort an array",
+    "Create a blog post about technology trends"
+]
+
+# Sequential batch processing
+results = router.batch_run(tasks)
+
+# Concurrent batch processing
+results_concurrent = router.concurrent_batch_run(tasks)
+```
+
+### Multiple Agent Assignment
+
+```python
+# The router can assign complex tasks to multiple agents
+task = "Research quantum computing and write a tutorial with code examples"
+
+# The boss agent will intelligently split this across multiple agents:
+# - ResearchAgent for the research
+# - CodeExpertAgent for the code examples  
+# - WritingAgent for the tutorial writing
+
+result = router.route_task(task)
+```
+
+### Skip Null Tasks
+
+```python
+router = MultiAgentRouter(
+    agents=agents,
+    skip_null_tasks=True  # Skip agents with null/None tasks
+)
+
+# If boss agent assigns null task to an agent, it will be skipped
+result = router.route_task("Simple task")
+```
+
+## Response Format
+
+The boss agent returns routing decisions in this JSON format:
+
+```json
+{
+  "handoffs": [
+    {
+      "reasoning": "This agent is best suited because...",
+      "agent_name": "ResearchAgent",
+      "task": "Research the latest AI developments in detail"
+    }
+  ]
+}
+```
+
+For multiple agents:
+
+```json
+{
+  "handoffs": [
+    {
+      "reasoning": "Research capabilities needed for background",
+      "agent_name": "ResearchAgent",
+      "task": "Research quantum computing fundamentals"
+    },
+    {
+      "reasoning": "Code expertise for implementation examples",
+      "agent_name": "CodeExpertAgent",
+      "task": "Create code examples demonstrating quantum algorithms"
+    }
+  ]
+}
+```
+
+## Features
+
+- **Intelligent Routing**: Boss agent analyzes task requirements and agent capabilities
+- **Single or Multiple Agents**: Automatically determines if task requires one or multiple agents
+- **Custom Routing Logic**: Override system prompt to customize routing behavior
+- **Batch Processing**: Process multiple tasks sequentially or concurrently
+- **Flexible Output**: Support for various output formats (dict, string, json, etc.)
+- **Null Task Handling**: Option to skip agents with null/empty task assignments

@@ -1,0 +1,688 @@
+---
+title: Frequently Asked Questions
+description: Common questions and troubleshooting for the Swarms framework
+icon: "circle-question"
+---
+
+## General Questions
+
+<AccordionGroup>
+  <Accordion title="What is Swarms?">
+    Swarms is an enterprise-grade, production-ready multi-agent orchestration framework focused on making it simple to orchestrate agents to automate real-world activities. It provides powerful tools for building, deploying, and managing multi-agent AI systems at scale.
+
+    Key features include:
+    - Multiple orchestration patterns (Sequential, Concurrent, Hierarchical, etc.)
+    - Support for all major LLM providers
+    - Production-ready infrastructure
+    - Comprehensive tooling and integrations
+    - Active community and support
+  </Accordion>
+
+  <Accordion title="Who should use Swarms?">
+    Swarms is designed for:
+    - **Developers** building multi-agent AI applications
+    - **Enterprises** needing production-grade agent orchestration
+    - **Researchers** exploring multi-agent systems
+    - **Startups** building agent-based products
+    - **AI Engineers** automating complex workflows
+
+    Whether you're building a simple chatbot or a complex multi-agent system, Swarms provides the infrastructure you need.
+  </Accordion>
+
+  <Accordion title="What are the system requirements?">
+    Minimum requirements:
+    - Python 3.10 or higher
+    - 4GB RAM (8GB+ recommended for complex swarms)
+    - Operating Systems: macOS, Linux, or Windows
+    - Internet connection for API-based models
+
+    For production deployments:
+    - Python 3.11+ recommended
+    - 16GB+ RAM for large-scale swarms
+    - SSD storage for faster I/O
+    - Container runtime (Docker) for deployment
+  </Accordion>
+
+  <Accordion title="Is Swarms free to use?">
+    Yes! Swarms is open-source software licensed under the Apache License 2.0. You can:
+    - Use it for free in personal and commercial projects
+    - Modify the source code
+    - Distribute your modifications
+    - Contribute back to the project
+
+    Note: While Swarms itself is free, you'll need API keys from LLM providers (OpenAI, Anthropic, etc.), which may have associated costs.
+  </Accordion>
+</AccordionGroup>
+
+## Installation and Setup
+
+<AccordionGroup>
+  <Accordion title="How do I install Swarms?">
+    Install via pip (simplest method):
+    ```bash
+    pip3 install -U swarms
+    ```
+
+    Or using uv (recommended for speed):
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    uv pip install swarms
+    ```
+
+    For development:
+    ```bash
+    git clone https://github.com/kyegomez/swarms.git
+    cd swarms
+    pip install -e .
+    ```
+
+    See the [Development Setup Guide](/community/development-setup) for detailed instructions.
+  </Accordion>
+
+  <Accordion title="What API keys do I need?">
+    You'll need API keys depending on which models you want to use:
+
+    **Common providers:**
+    - OpenAI: [Get API Key](https://platform.openai.com/api-keys)
+    - Anthropic (Claude): [Get API Key](https://console.anthropic.com/)
+    - Groq: [Get API Key](https://console.groq.com/)
+
+    **Optional providers:**
+    - Cohere: [Get API Key](https://dashboard.cohere.com/)
+    - DeepSeek: [Get API Key](https://platform.deepseek.com/)
+    - XAI: [Get API Key](https://x.ai/)
+
+    Create a `.env` file in your project root:
+    ```bash
+    OPENAI_API_KEY="your-key-here"
+    ANTHROPIC_API_KEY="your-key-here"
+    GROQ_API_KEY="your-key-here"
+    ```
+
+    Learn more in the [Environment Configuration Guide](https://docs.swarms.world/en/latest/swarms/install/env/).
+  </Accordion>
+
+  <Accordion title="I'm getting import errors. What should I do?">
+    Common solutions:
+
+    1. **Ensure Swarms is installed:**
+       ```bash
+       pip install -U swarms
+       ```
+
+    2. **Check your Python version:**
+       ```bash
+       python --version  # Should be 3.10+
+       ```
+
+    3. **Verify installation:**
+       ```python
+       import swarms
+       print(swarms.__version__)
+       ```
+
+    4. **Check for virtual environment conflicts:**
+       - Make sure you're in the correct virtual environment
+       - Try creating a fresh virtual environment
+
+    5. **Reinstall dependencies:**
+       ```bash
+       pip install -r requirements.txt
+       ```
+
+    If issues persist, ask for help on [Discord](https://discord.gg/EamjgSaEQf).
+  </Accordion>
+
+  <Accordion title="How do I configure environment variables?">
+    Create a `.env` file in your project directory:
+
+    ```bash
+    # Required API keys
+    OPENAI_API_KEY="sk-..."
+    ANTHROPIC_API_KEY="sk-ant-..."
+
+    # Optional configuration
+    WORKSPACE_DIR="agent_workspace"
+    GROQ_API_KEY="gsk_..."
+    
+    # Model preferences
+    DEFAULT_MODEL="gpt-4o-mini"
+    ```
+
+    Then use them in your code:
+    ```python
+    from swarms import Agent
+    import os
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    agent = Agent(
+        agent_name="MyAgent",
+        model_name=os.getenv("DEFAULT_MODEL", "gpt-4o-mini")
+    )
+    ```
+
+    See the [Environment Configuration Guide](https://docs.swarms.world/en/latest/swarms/install/env/).
+  </Accordion>
+</AccordionGroup>
+
+## Using Swarms
+
+<AccordionGroup>
+  <Accordion title="How do I create my first agent?">
+    Here's a simple example:
+
+    ```python
+    from swarms import Agent
+
+    # Create an agent
+    agent = Agent(
+        agent_name="ResearchAgent",
+        system_prompt="You are a helpful research assistant.",
+        model_name="gpt-4o-mini",
+        max_loops=1,
+        verbose=True
+    )
+
+    # Run the agent
+    result = agent.run("What are the benefits of multi-agent systems?")
+    print(result)
+    ```
+
+    Check out the [Agent documentation](https://docs.swarms.world/en/latest/swarms/structs/agent/) for more details.
+  </Accordion>
+
+  <Accordion title="What swarm architectures are available?">
+    Swarms provides multiple orchestration patterns:
+
+    - **SequentialWorkflow**: Agents execute in sequence
+    - **ConcurrentWorkflow**: Agents run in parallel
+    - **HierarchicalSwarm**: Director-worker pattern with feedback loops
+    - **AgentRearrange**: Dynamic agent relationships
+    - **MixtureOfAgents**: Expert agents with aggregation
+    - **GroupChat**: Conversational multi-agent collaboration
+    - **GraphWorkflow**: DAG-based orchestration
+    - **SwarmRouter**: Universal orchestrator for all patterns
+    - **HeavySwarm**: 5-phase comprehensive analysis
+
+    See the [Multi-Agent Architectures guide](https://docs.swarms.world/en/latest/swarms/concept/swarms/) for examples.
+  </Accordion>
+
+  <Accordion title="How do I choose which swarm architecture to use?">
+    Choose based on your use case:
+
+    | Use Case | Recommended Architecture |
+    |----------|-------------------------|
+    | Step-by-step processing | SequentialWorkflow |
+    | Parallel batch processing | ConcurrentWorkflow |
+    | Complex project management | HierarchicalSwarm |
+    | Multiple perspectives needed | MixtureOfAgents |
+    | Conversational collaboration | GroupChat |
+    | Complex dependencies | GraphWorkflow |
+    | Comprehensive analysis | HeavySwarm |
+    | Flexible/experimental | AgentRearrange |
+    | Switching between patterns | SwarmRouter |
+
+    Not sure? Start with SequentialWorkflow for simplicity, then explore others as needed.
+  </Accordion>
+
+  <Accordion title="Can I use local models instead of API-based ones?">
+    Yes! Swarms supports local models through Ollama:
+
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="LocalAgent",
+        model_name="ollama/llama3.1",  # Use Ollama prefix
+        max_loops=1
+    )
+
+    result = agent.run("Hello, local model!")
+    ```
+
+    First, install and run Ollama:
+    ```bash
+    # Install Ollama
+    curl -fsSL https://ollama.ai/install.sh | sh
+
+    # Pull a model
+    ollama pull llama3.1
+
+    # Ollama will run automatically
+    ```
+
+    See the [Ollama examples](https://docs.swarms.world/en/latest/swarms/examples/ollama/).
+  </Accordion>
+
+  <Accordion title="How do I add tools to my agents?">
+    Create tools as Python functions and add them to agents:
+
+    ```python
+    from swarms import Agent
+
+    # Define a tool
+    def search_web(query: str) -> str:
+        """Search the web for information."""
+        # Your search implementation
+        return f"Search results for: {query}"
+
+    # Create agent with tools
+    agent = Agent(
+        agent_name="ToolAgent",
+        model_name="gpt-4o-mini",
+        tools=[search_web],
+        max_loops=3
+    )
+
+    result = agent.run("Search for latest AI news")
+    ```
+
+    See [Agent with Tools examples](https://docs.swarms.world/en/latest/swarms/examples/agent_with_tools/).
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="My agent isn't producing good results. What can I do?">
+    Try these improvements:
+
+    1. **Improve the system prompt:**
+       ```python
+       agent = Agent(
+           agent_name="BetterAgent",
+           system_prompt="""
+           You are an expert research analyst with 10 years of experience.
+           Your task is to provide detailed, well-researched answers.
+           Always cite your sources and provide specific examples.
+           """,
+           model_name="gpt-4o-mini"
+       )
+       ```
+
+    2. **Use a more capable model:**
+       ```python
+       agent = Agent(
+           agent_name="AdvancedAgent",
+           model_name="gpt-4o",  # More capable than gpt-4o-mini
+       )
+       ```
+
+    3. **Increase max_loops for complex tasks:**
+       ```python
+       agent = Agent(
+           agent_name="PersistentAgent",
+           max_loops=5,  # Allow more iterations
+       )
+       ```
+
+    4. **Add relevant tools:**
+       - Web search for current information
+       - Calculators for math tasks
+       - Database connections for data queries
+
+    5. **Use structured outputs:**
+       ```python
+       from pydantic import BaseModel
+
+       class Response(BaseModel):
+           answer: str
+           confidence: float
+           sources: list[str]
+
+       agent = Agent(
+           agent_name="StructuredAgent",
+           output_type=Response
+       )
+       ```
+  </Accordion>
+
+  <Accordion title="I'm getting rate limit errors. How do I handle this?">
+    Solutions for rate limiting:
+
+    1. **Add retry logic:**
+       ```python
+       agent = Agent(
+           agent_name="RobustAgent",
+           retry_attempts=3,
+           retry_interval=2  # Wait 2 seconds between retries
+       )
+       ```
+
+    2. **Use different model providers:**
+       ```python
+       # Spread load across providers
+       agent1 = Agent(model_name="gpt-4o-mini")  # OpenAI
+       agent2 = Agent(model_name="claude-sonnet-4")  # Anthropic
+       agent3 = Agent(model_name="groq/llama3-8b")  # Groq
+       ```
+
+    3. **Implement exponential backoff:**
+       ```python
+       import time
+       from tenacity import retry, wait_exponential
+
+       @retry(wait=wait_exponential(min=1, max=60))
+       def run_agent(task):
+           return agent.run(task)
+       ```
+
+    4. **Upgrade your API plan** for higher rate limits
+
+    5. **Use local models** with Ollama for unlimited requests
+  </Accordion>
+
+  <Accordion title="My swarm is running slowly. How can I optimize performance?">
+    Performance optimization tips:
+
+    1. **Use ConcurrentWorkflow for parallel tasks:**
+       ```python
+       from swarms import ConcurrentWorkflow
+
+       workflow = ConcurrentWorkflow(
+           agents=[agent1, agent2, agent3]
+       )
+       ```
+
+    2. **Choose faster models:**
+       ```python
+       # Fast models
+       agent = Agent(model_name="gpt-4o-mini")  # Faster than gpt-4o
+       agent = Agent(model_name="groq/llama3-8b")  # Very fast
+       ```
+
+    3. **Reduce max_loops:**
+       ```python
+       agent = Agent(max_loops=1)  # Single iteration
+       ```
+
+    4. **Use streaming for faster perceived response:**
+       ```python
+       agent = Agent(stream=True)
+       ```
+
+    5. **Optimize prompts** to be more concise
+
+    6. **Use caching** for repeated queries:
+       ```python
+       from functools import lru_cache
+
+       @lru_cache(maxsize=100)
+       def cached_run(task):
+           return agent.run(task)
+       ```
+  </Accordion>
+
+  <Accordion title="How do I debug agent behavior?">
+    Debugging strategies:
+
+    1. **Enable verbose mode:**
+       ```python
+       agent = Agent(
+           agent_name="DebugAgent",
+           verbose=True  # Shows detailed execution logs
+       )
+       ```
+
+    2. **Use interactive mode:**
+       ```python
+       agent = Agent(
+           interactive=True  # Pause for user input
+       )
+       ```
+
+    3. **Check agent state:**
+       ```python
+       print(agent.agent_name)
+       print(agent.system_prompt)
+       print(agent.short_memory)  # Recent interactions
+       ```
+
+    4. **Log outputs to file:**
+       ```python
+       result = agent.run("Task")
+       with open("agent_output.txt", "w") as f:
+           f.write(result)
+       ```
+
+    5. **Use step-by-step execution:**
+       ```python
+       # For workflows
+       workflow = SequentialWorkflow(
+           agents=[agent1, agent2],
+           verbose=True
+       )
+       ```
+
+    6. **Check the workspace directory** for saved outputs
+  </Accordion>
+</AccordionGroup>
+
+## Community and Support
+
+<AccordionGroup>
+  <Accordion title="Where can I get help?">
+    Multiple support channels:
+
+    1. **Discord** (fastest for real-time help):
+       - [Join Discord](https://discord.gg/EamjgSaEQf)
+       - Active community and maintainers
+       - #help and #troubleshooting channels
+
+    2. **GitHub Issues** (for bugs and features):
+       - [Report a bug](https://github.com/kyegomez/swarms/issues/new?template=bug_report.md)
+       - [Request a feature](https://github.com/kyegomez/swarms/issues/new?template=feature_request.md)
+
+    3. **Documentation**:
+       - [Official Docs](https://docs.swarms.world)
+       - [Examples](https://docs.swarms.world/en/latest/examples/)
+
+    4. **Onboarding Session**:
+       - [Book with Kye Gomez](https://cal.com/swarms/swarms-onboarding-session)
+       - Personal guidance from the creator
+
+    5. **Social Media**:
+       - [Twitter](https://twitter.com/swarms_corp)
+       - [LinkedIn](https://www.linkedin.com/company/the-swarm-corporation)
+  </Accordion>
+
+  <Accordion title="How can I contribute to Swarms?">
+    We welcome contributions! Here's how:
+
+    1. **Start with Good First Issues:**
+       - [Good First Issues](https://github.com/kyegomez/swarms/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
+       - Perfect for newcomers
+
+    2. **Report Bugs:**
+       - [File a bug report](https://github.com/kyegomez/swarms/issues/new?template=bug_report.md)
+
+    3. **Improve Documentation:**
+       - Fix typos
+       - Add examples
+       - Clarify explanations
+
+    4. **Add Features:**
+       - New swarm architectures
+       - Tool integrations
+       - Performance improvements
+
+    5. **Write Tests:**
+       - Increase code coverage
+       - Add edge case tests
+
+    See the [Contributing Guide](/community/contributing) for detailed instructions.
+  </Accordion>
+
+  <Accordion title="Are there community events or workshops?">
+    Yes! We regularly host:
+
+    1. **Community Calls:**
+       - Discuss roadmap and features
+       - Share projects
+       - Q&A with maintainers
+
+    2. **Hackathons:**
+       - Build innovative applications
+       - Win prizes
+       - Collaborate with others
+
+    3. **Workshops and Tutorials:**
+       - Live coding sessions
+       - Advanced techniques
+       - Hands-on learning
+
+    4. **Onboarding Sessions:**
+       - Personal guidance
+       - Custom use case help
+
+    Check:
+    - [Events Calendar](https://lu.ma/swarms_calendar)
+    - #events channel on [Discord](https://discord.gg/EamjgSaEQf)
+    - [YouTube Channel](https://www.youtube.com/channel/UC9yXyitkbU_WSy7bd_41SqQ)
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Topics
+
+<AccordionGroup>
+  <Accordion title="Can I deploy Swarms in production?">
+    Yes! Swarms is production-ready. Deployment options:
+
+    1. **Docker Containers:**
+       ```dockerfile
+       FROM python:3.11-slim
+       WORKDIR /app
+       COPY requirements.txt .
+       RUN pip install -r requirements.txt
+       COPY . .
+       CMD ["python", "main.py"]
+       ```
+
+    2. **Kubernetes:**
+       - Scale horizontally
+       - Load balancing
+       - High availability
+
+    3. **Agent Orchestration Protocol (AOP):**
+       ```python
+       from swarms.structs.aop import AOP
+
+       deployer = AOP(
+           server_name="ProductionSwarm",
+           port=8000
+       )
+       deployer.add_agent(agent)
+       deployer.run()
+       ```
+
+    4. **Cloud Platforms:**
+       - AWS Lambda
+       - Google Cloud Run
+       - Azure Functions
+
+    See the [AOP documentation](https://docs.swarms.world/en/latest/swarms/structs/aop/).
+  </Accordion>
+
+  <Accordion title="How do I monitor and observe my agents in production?">
+    Monitoring strategies:
+
+    1. **Built-in Logging:**
+       ```python
+       agent = Agent(
+           verbose=True,
+           save_state=True
+       )
+       ```
+
+    2. **Custom Callbacks:**
+       ```python
+       def on_agent_complete(result):
+           # Log to your monitoring system
+           logger.info(f"Agent completed: {result}")
+
+       agent = Agent(
+           on_complete=on_agent_complete
+       )
+       ```
+
+    3. **Metrics Collection:**
+       - Track execution time
+       - Monitor token usage
+       - Count errors and retries
+
+    4. **Integration with Observability Tools:**
+       - Datadog
+       - New Relic
+       - Prometheus + Grafana
+
+    5. **Dashboard:**
+       ```python
+       from swarms import HeavySwarm
+
+       swarm = HeavySwarm(
+           show_dashboard=True  # Real-time visualization
+       )
+       ```
+  </Accordion>
+
+  <Accordion title="How do I handle errors and failures?">
+    Error handling best practices:
+
+    1. **Enable Retry Logic:**
+       ```python
+       agent = Agent(
+           retry_attempts=3,
+           retry_interval=2
+       )
+       ```
+
+    2. **Use Try-Except Blocks:**
+       ```python
+       try:
+           result = agent.run("Task")
+       except Exception as e:
+           logger.error(f"Agent failed: {e}")
+           # Fallback logic
+       ```
+
+    3. **Implement Fallbacks:**
+       ```python
+       def run_with_fallback(task):
+           try:
+               return primary_agent.run(task)
+           except Exception:
+               return fallback_agent.run(task)
+       ```
+
+    4. **Validate Inputs:**
+       ```python
+       from pydantic import BaseModel
+
+       class TaskInput(BaseModel):
+           query: str
+           max_tokens: int = 1000
+
+       # Use validated inputs
+       ```
+
+    5. **Monitor and Alert:**
+       - Set up alerts for failures
+       - Track error rates
+       - Implement circuit breakers
+  </Accordion>
+</AccordionGroup>
+
+## Still Have Questions?
+
+If you couldn't find the answer you're looking for:
+
+- Ask on [Discord](https://discord.gg/EamjgSaEQf) for real-time help
+- Search or create an [issue on GitHub](https://github.com/kyegomez/swarms/issues)
+- Check the [full documentation](https://docs.swarms.world)
+- Book an [onboarding session](https://cal.com/swarms/swarms-onboarding-session)
+
+<Card title="Need More Help?" icon="life-ring">
+  Join our [Discord community](https://discord.gg/EamjgSaEQf) for real-time support from maintainers and fellow developers!
+</Card>

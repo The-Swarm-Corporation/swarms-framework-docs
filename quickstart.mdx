@@ -1,0 +1,283 @@
+---
+title: Quickstart Guide
+description: Create your first agent and swarm in minutes
+---
+
+## Get Started in Minutes
+
+This guide will walk you through creating your first autonomous agent and multi-agent swarm using Swarms. By the end of this tutorial, you'll have a working agent and understand how to orchestrate multiple agents to work together.
+
+<Note>
+  Before you begin, make sure you've [installed Swarms](/getting-started/installation) and [configured your environment](/getting-started/environment-setup).
+</Note>
+
+## Your First Agent
+
+An **Agent** is the fundamental building block of a swarm—an autonomous entity powered by an LLM + Tools + Memory.
+
+<Steps>
+  <Step title="Import the Agent class">
+    Start by importing the `Agent` class from the swarms package:
+    
+    ```python
+    from swarms import Agent
+    ```
+  </Step>
+
+  <Step title="Initialize your agent">
+    Create a new agent with basic configuration:
+    
+    ```python
+    # Initialize a new agent
+    agent = Agent(
+        model_name="gpt-4o-mini",  # Specify the LLM
+        max_loops="auto",          # Set the number of interactions
+        interactive=True,          # Enable interactive mode for real-time feedback
+    )
+    ```
+    
+    **Key Parameters:**
+    - `model_name`: The language model to use (e.g., "gpt-4o-mini", "claude-sonnet-4-5")
+    - `max_loops`: Number of reasoning iterations ("auto" for automatic determination)
+    - `interactive`: Enable real-time feedback and conversation
+  </Step>
+
+  <Step title="Run your agent">
+    Execute a task with your agent:
+    
+    ```python
+    # Run the agent with a task
+    response = agent.run(
+        "What are the key benefits of using a multi-agent system?"
+    )
+    print(response)
+    ```
+  </Step>
+</Steps>
+
+<Accordion title="Complete code example">
+  ```python
+  from swarms import Agent
+
+  # Initialize a new agent
+  agent = Agent(
+      model_name="gpt-4o-mini",  # Specify the LLM
+      max_loops="auto",          # Set the number of interactions
+      interactive=True,          # Enable interactive mode for real-time feedback
+  )
+
+  # Run the agent with a task
+  response = agent.run(
+      "What are the key benefits of using a multi-agent system?"
+  )
+  print(response)
+  ```
+</Accordion>
+
+## Your First Swarm: Multi-Agent Collaboration
+
+A **Swarm** consists of multiple agents working together. Let's create a two-agent workflow for researching and writing a blog post.
+
+<Steps>
+  <Step title="Import required classes">
+    Import both `Agent` and `SequentialWorkflow`:
+    
+    ```python
+    from swarms import Agent, SequentialWorkflow
+    ```
+  </Step>
+
+  <Step title="Create specialized agents">
+    Define two agents with specific roles:
+    
+    ```python
+    # Agent 1: The Researcher
+    researcher = Agent(
+        agent_name="Researcher",
+        system_prompt="Your job is to research the provided topic and provide a detailed summary.",
+        model_name="gpt-4o-mini",
+    )
+
+    # Agent 2: The Writer
+    writer = Agent(
+        agent_name="Writer",
+        system_prompt="Your job is to take the research summary and write a beautiful, engaging blog post about it.",
+        model_name="gpt-4o-mini",
+    )
+    ```
+    
+    <Note>
+      The `system_prompt` defines each agent's role and responsibilities. Be specific about what you want each agent to do.
+    </Note>
+  </Step>
+
+  <Step title="Create a sequential workflow">
+    Connect the agents in a pipeline where the researcher's output feeds into the writer's input:
+    
+    ```python
+    # Create a sequential workflow where the researcher's output feeds into the writer's input
+    workflow = SequentialWorkflow(agents=[researcher, writer])
+    ```
+  </Step>
+
+  <Step title="Run the workflow">
+    Execute the workflow with a task:
+    
+    ```python
+    # Run the workflow on a task
+    final_post = workflow.run(
+        "The history and future of artificial intelligence"
+    )
+    print(final_post)
+    ```
+    
+    The workflow will:
+    1. Send the task to the Researcher agent
+    2. The Researcher analyzes the topic and provides a summary
+    3. The Writer receives the research and creates a blog post
+    4. The final blog post is returned
+  </Step>
+</Steps>
+
+<Accordion title="Complete swarm example">
+  ```python
+  from swarms import Agent, SequentialWorkflow
+
+  # Agent 1: The Researcher
+  researcher = Agent(
+      agent_name="Researcher",
+      system_prompt="Your job is to research the provided topic and provide a detailed summary.",
+      model_name="gpt-4o-mini",
+  )
+
+  # Agent 2: The Writer
+  writer = Agent(
+      agent_name="Writer",
+      system_prompt="Your job is to take the research summary and write a beautiful, engaging blog post about it.",
+      model_name="gpt-4o-mini",
+  )
+
+  # Create a sequential workflow where the researcher's output feeds into the writer's input
+  workflow = SequentialWorkflow(agents=[researcher, writer])
+
+  # Run the workflow on a task
+  final_post = workflow.run(
+      "The history and future of artificial intelligence"
+  )
+  print(final_post)
+  ```
+</Accordion>
+
+## Understanding the Workflow
+
+The `SequentialWorkflow` executes agents in order, creating a pipeline where each agent builds upon the work of the previous one. This is ideal for:
+
+- **Research → Analysis → Writing** workflows
+- **Data Collection → Processing → Reporting** pipelines
+- **Planning → Execution → Review** processes
+- Any task with clear sequential dependencies
+
+<Info>
+  Want to run agents in parallel instead? Check out [ConcurrentWorkflow](https://docs.swarms.world/en/latest/swarms/structs/concurrent_workflow/) for simultaneous execution.
+</Info>
+
+## What You Can Do Next
+
+<CardGroup cols={2}>
+  <Card title="Add Tools to Your Agent" icon="wrench" href="https://docs.swarms.world/en/latest/swarms/examples/agent_with_tools/">
+    Extend your agent's capabilities with external tools and APIs
+  </Card>
+  
+  <Card title="Explore Multi-Agent Architectures" icon="diagram-project">
+    Learn about HierarchicalSwarm, ConcurrentWorkflow, MixtureOfAgents, and more
+  </Card>
+  
+  <Card title="Use Different Model Providers" icon="microchip" href="https://docs.swarms.world/en/latest/swarms/examples/model_providers/">
+    Connect to OpenAI, Anthropic, Groq, Cohere, and other LLM providers
+  </Card>
+  
+  <Card title="Build Production Applications" icon="rocket" href="https://docs.swarms.world/en/latest/swarms/structs/aop/">
+    Deploy agents as distributed services with Agent Orchestration Protocol
+  </Card>
+</CardGroup>
+
+## Common Use Cases
+
+### Single Agent Examples
+
+```python
+# Customer Support Agent
+customer_support = Agent(
+    agent_name="Customer-Support",
+    system_prompt="You are a helpful customer support agent. Respond professionally and empathetically to customer inquiries.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+response = customer_support.run(
+    "I haven't received my order yet. What should I do?"
+)
+```
+
+### Multi-Agent Examples
+
+```python
+# Financial Analysis Swarm
+from swarms import Agent, ConcurrentWorkflow
+
+market_analyst = Agent(
+    agent_name="Market-Analyst",
+    system_prompt="Analyze market trends and provide insights.",
+    model_name="gpt-4o-mini",
+)
+
+financial_analyst = Agent(
+    agent_name="Financial-Analyst",
+    system_prompt="Provide financial analysis and recommendations.",
+    model_name="gpt-4o-mini",
+)
+
+risk_analyst = Agent(
+    agent_name="Risk-Analyst",
+    system_prompt="Assess risks and provide risk management strategies.",
+    model_name="gpt-4o-mini",
+)
+
+# Run all analysts concurrently
+concurrent_workflow = ConcurrentWorkflow(
+    agents=[market_analyst, financial_analyst, risk_analyst]
+)
+
+results = concurrent_workflow.run(
+    "Analyze the potential impact of AI technology on the healthcare industry"
+)
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Agent not responding">
+    Make sure your API keys are properly configured in your `.env` file. Check the [environment setup guide](/getting-started/environment-setup) for details.
+  </Accordion>
+  
+  <Accordion title="Model not found error">
+    Verify that you're using a valid model name. See the [Model Providers documentation](https://docs.swarms.world/en/latest/swarms/examples/model_providers/) for supported models.
+  </Accordion>
+  
+  <Accordion title="Rate limit errors">
+    Consider using `max_loops=1` to reduce API calls, or implement retry logic with exponential backoff.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that you've created your first agent and swarm, you're ready to:
+
+1. **Customize your agents** with specific system prompts and configurations
+2. **Add tools** to extend agent capabilities
+3. **Explore different workflows** like HierarchicalSwarm and MixtureOfAgents
+4. **Build production applications** with advanced features
+
+<Info>
+  Join our [Discord community](https://discord.gg/EamjgSaEQf) to get help, share your projects, and connect with other Swarms developers!
+</Info>

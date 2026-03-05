@@ -1,0 +1,236 @@
+---
+title: "SpreadSheetSwarm"
+description: "A swarm that processes tasks concurrently using multiple agents and saves metadata to CSV files"
+icon: "table"
+---
+
+## Overview
+
+The `SpreadSheetSwarm` processes tasks concurrently across multiple agents and automatically saves execution metadata to CSV files. It supports loading agent configurations from CSV files and running tasks either from configuration or on-demand.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Attributes
+
+<ParamField path="name" type="str" default="Spreadsheet-Swarm">
+  The name of the swarm
+</ParamField>
+
+<ParamField path="description" type="str" default="A swarm that processes tasks concurrently...">
+  The description of the swarm
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" default="None">
+  The agents participating in the swarm. If None, agents will be loaded from load_path
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="True">
+  Whether to enable autosave of swarm metadata
+</ParamField>
+
+<ParamField path="save_file_path" type="str" default="None">
+  The file path to save the swarm metadata as a CSV file (auto-generated if None)
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  The number of times to repeat the swarm tasks
+</ParamField>
+
+<ParamField path="load_path" type="str" default="None">
+  Path to CSV file containing agent configurations. Required if agents is None
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Enable verbose logging
+</ParamField>
+
+## Methods
+
+### run()
+
+Run the swarm with the specified task.
+
+```python
+def run(self, task: str = None, *args, **kwargs) -> dict
+```
+
+**Parameters:**
+- `task` (str): The task to be executed by the swarm. If None, uses tasks from config
+
+**Returns:** Dictionary containing run summary with outputs and metadata
+
+### run_from_config()
+
+Run all agents with their configured tasks concurrently.
+
+```python
+def run_from_config(self) -> dict
+```
+
+**Returns:** Dictionary containing execution summary
+
+### load_from_csv()
+
+Load agent configurations from a CSV file.
+
+```python
+def load_from_csv(self)
+```
+
+Expected CSV format:
+```
+agent_name,description,system_prompt,task,model_name,max_loops
+```
+
+### export_to_json()
+
+Export the swarm outputs to JSON.
+
+```python
+def export_to_json(self) -> str
+```
+
+**Returns:** JSON string representation of swarm outputs
+
+## Usage Examples
+
+### Basic Usage with Agents
+
+```python
+from swarms import Agent, SpreadSheetSwarm
+
+# Create agents
+agents = [
+    Agent(
+        agent_name="Research-Agent",
+        system_prompt="You are a research agent.",
+        model_name="openai/gpt-4o",
+    ),
+    Agent(
+        agent_name="Analysis-Agent",
+        system_prompt="You are an analysis agent.",
+        model_name="openai/gpt-4o",
+    ),
+]
+
+# Create swarm
+swarm = SpreadSheetSwarm(
+    name="My-Swarm",
+    agents=agents,
+    max_loops=1,
+    autosave=True
+)
+
+# Run with a task
+result = swarm.run("Analyze the latest AI trends")
+
+print(result)
+```
+
+### Load from CSV Configuration
+
+Create a CSV file (`agents_config.csv`):
+```csv
+agent_name,description,system_prompt,task,model_name,max_loops
+Research-Agent,Research specialist,You are a research agent,Research quantum computing,openai/gpt-4o,1
+Analysis-Agent,Data analyst,You are an analysis agent,Analyze the research findings,openai/gpt-4o,1
+```
+
+Then load and run:
+```python
+swarm = SpreadSheetSwarm(
+    name="CSV-Swarm",
+    load_path="agents_config.csv",
+    max_loops=1
+)
+
+# Run agents with their configured tasks
+result = swarm.run_from_config()
+```
+
+### Multiple Loops
+
+```python
+# Run each agent multiple times
+swarm = SpreadSheetSwarm(
+    agents=agents,
+    max_loops=3  # Each agent runs 3 times
+)
+
+result = swarm.run("Process this task multiple times")
+```
+
+### Custom Save Path
+
+```python
+swarm = SpreadSheetSwarm(
+    name="Custom-Swarm",
+    agents=agents,
+    save_file_path="./results/swarm_outputs.csv",
+    autosave=True
+)
+
+result = swarm.run("Custom task")
+```
+
+### Export Results
+
+```python
+# Run swarm
+result = swarm.run("Some task")
+
+# Export to JSON
+json_output = swarm.export_to_json()
+print(json_output)
+
+# Results are automatically saved to CSV if autosave=True
+```
+
+## Output Format
+
+The `run()` method returns a dictionary:
+
+```python
+{
+    "run_id": "spreadsheet_swarm_run_abc123",
+    "name": "My-Swarm",
+    "description": "A swarm that processes tasks...",
+    "start_time": "2024-01-01T12:00:00",
+    "end_time": "2024-01-01T12:05:00",
+    "tasks_completed": 6,
+    "number_of_agents": 3,
+    "outputs": [
+        {
+            "agent_name": "Research-Agent",
+            "task": "Analyze the latest AI trends",
+            "result": "...",
+            "timestamp": "2024-01-01T12:01:00"
+        },
+        # ... more outputs
+    ]
+}
+```
+
+## CSV Output Format
+
+Results are automatically saved to CSV with these columns:
+
+```csv
+Run ID,Agent Name,Task,Result,Timestamp
+abc-123,Research-Agent,Analyze trends,...,2024-01-01T12:00:00
+abc-123,Analysis-Agent,Analyze trends,...,2024-01-01T12:00:05
+```
+
+## Features
+
+- **Concurrent Execution**: All agents run tasks in parallel for maximum performance
+- **Automatic CSV Logging**: All executions are logged to CSV files automatically
+- **CSV Configuration**: Load agent configurations from CSV files
+- **Multiple Loops**: Run each agent multiple times with `max_loops`
+- **Workspace Integration**: Automatically uses workspace directory from environment
+- **JSON Export**: Export results to JSON format
+- **Metadata Tracking**: Tracks timestamps, run IDs, and execution metadata

@@ -1,0 +1,266 @@
+---
+title: "LLMCouncil"
+description: "A collaborative council of LLM agents that independently answer queries, review each other's responses, and synthesize the best elements into a final answer"
+icon: "users"
+---
+
+## Overview
+
+The `LLMCouncil` creates a council of specialized LLM agents that collaborate through independent responses, peer review, and synthesis. Inspired by Andrej Karpathy's llm-council, it demonstrates how different models evaluate and rank each other's work.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Workflow
+
+1. **Dispatch**: Query sent to all council members in parallel
+2. **Respond**: Each member independently answers the query
+3. **Evaluate**: All members review and rank anonymized responses
+4. **Synthesize**: Chairman creates final answer based on responses and rankings
+
+## Attributes
+
+<ParamField path="name" type="str" default="LLM Council">
+  Name of the council
+</ParamField>
+
+<ParamField path="description" type="str" default="A collaborative council of LLM agents...">
+  Description of the council's purpose
+</ParamField>
+
+<ParamField path="council_members" type="Optional[List[Agent]]" default="None">
+  List of Agent instances representing council members. If None, creates default council with GPT-5.1, Gemini 3 Pro, Claude Sonnet 4.5, and Grok-4
+</ParamField>
+
+<ParamField path="chairman_model" type="str" default="gpt-5.1">
+  Model name for the Chairman agent that synthesizes responses
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+  Whether to print progress and intermediate results
+</ParamField>
+
+<ParamField path="output_type" type="HistoryOutputType" default="dict-all-except-first">
+  Format for the output ("list", "dict", "string", "final", "json", "yaml", etc.)
+</ParamField>
+
+## Methods
+
+### run()
+
+Execute the full LLM Council workflow.
+
+```python
+def run(self, task: str = None, query: str = None)
+```
+
+**Parameters:**
+- `task` (str): The user's task/query to process (preferred parameter)
+- `query` (str): Alias for task (kept for backwards compatibility)
+
+**Returns:** Formatted output containing conversation history with all responses, evaluations, and synthesis
+
+### batched_run()
+
+Run the LLM Council workflow for a batch of tasks.
+
+```python
+def batched_run(self, tasks: List[str]) -> list
+```
+
+**Parameters:**
+- `tasks` (List[str]): List of tasks to process
+
+**Returns:** List of formatted outputs
+
+## Usage Examples
+
+### Basic Usage with Default Council
+
+```python
+from swarms import LLMCouncil
+
+# Create council with default members
+council = LLMCouncil(
+    verbose=True,
+    output_type="final"
+)
+
+# Process a query
+result = council.run(
+    task="What are the key considerations for building a production AI system?"
+)
+
+print(result)
+```
+
+### Custom Council Members
+
+```python
+from swarms import Agent, LLMCouncil
+
+# Define custom council members
+council_members = [
+    Agent(
+        agent_name="Security-Expert",
+        agent_description="Security and privacy specialist",
+        system_prompt="You are a security expert. Focus on security implications.",
+        model_name="openai/gpt-4o",
+        max_loops=1,
+    ),
+    Agent(
+        agent_name="Performance-Expert",
+        agent_description="Performance and scalability specialist",
+        system_prompt="You are a performance expert. Focus on scalability.",
+        model_name="anthropic/claude-sonnet-4-5",
+        max_loops=1,
+    ),
+    Agent(
+        agent_name="UX-Expert",
+        agent_description="User experience specialist",
+        system_prompt="You are a UX expert. Focus on user experience.",
+        model_name="gemini/gemini-2.5-flash",
+        max_loops=1,
+    ),
+]
+
+council = LLMCouncil(
+    council_members=council_members,
+    chairman_model="gpt-4o",
+    verbose=True
+)
+
+result = council.run(task="Design a mobile app for health tracking")
+```
+
+### Batch Processing
+
+```python
+tasks = [
+    "Explain quantum computing in simple terms",
+    "What are best practices for API design?",
+    "How to optimize database queries?"
+]
+
+results = council.batched_run(tasks)
+
+for i, result in enumerate(results):
+    print(f"\nTask {i+1} Result:")
+    print(result)
+```
+
+### Different Output Formats
+
+```python
+# Get only final synthesized answer
+council_final = LLMCouncil(output_type="final")
+final_answer = council_final.run(task="Explain machine learning")
+
+# Get full conversation history as dict
+council_dict = LLMCouncil(output_type="dict")
+full_conversation = council_dict.run(task="Explain machine learning")
+
+# Get as JSON
+council_json = LLMCouncil(output_type="json")
+json_output = council_json.run(task="Explain machine learning")
+```
+
+### Non-Verbose Mode
+
+```python
+# Run without printing progress
+council = LLMCouncil(verbose=False)
+result = council.run(task="Some query")
+```
+
+## Default Council Members
+
+When no custom members are provided, the default council includes:
+
+1. **GPT-5.1 Councilor**
+   - Specialization: Analytical and comprehensive responses
+   - Focus: Deep analysis, thorough exploration
+
+2. **Gemini 3 Pro Councilor**
+   - Specialization: Concise and well-structured responses
+   - Focus: Clear structure, efficient information processing
+
+3. **Claude Sonnet 4.5 Councilor**
+   - Specialization: Thoughtful and balanced responses
+   - Focus: Nuanced reasoning, ethical considerations
+
+4. **Grok-4 Councilor**
+   - Specialization: Creative and innovative responses
+   - Focus: Unique perspectives, creative problem-solving
+
+## Evaluation Process
+
+Each council member evaluates all responses (anonymized) and provides:
+
+1. **Rankings**: Ordered list from best to worst response
+2. **Reasoning**: Explanation for each ranking
+3. **Observations**: Additional insights about strengths/weaknesses
+
+Example evaluation format:
+```
+RANKINGS:
+1. Response B: Clear structure and comprehensive coverage
+2. Response A: Good depth but could be more organized
+3. Response D: Creative but lacks some technical details
+4. Response C: Too verbose, missing key points
+
+ADDITIONAL OBSERVATIONS:
+Common strength: All responses addressed the core question
+Area for improvement: More concrete examples needed
+```
+
+## Synthesis Process
+
+The Chairman agent:
+
+1. Reviews all original responses
+2. Considers all evaluations and rankings
+3. Identifies strongest elements from each response
+4. Creates cohesive final answer incorporating best aspects
+5. Acknowledges which perspectives influenced the synthesis
+
+## Output Structure
+
+The conversation history includes:
+
+```python
+[
+    {"role": "User", "content": "Original query"},
+    {"role": "GPT-5.1-Councilor", "content": "Response..."},
+    {"role": "Gemini-3-Pro-Councilor", "content": "Response..."},
+    {"role": "Claude-Sonnet-4.5-Councilor", "content": "Response..."},
+    {"role": "Grok-4-Councilor", "content": "Response..."},
+    {"role": "GPT-5.1-Councilor-Evaluation", "content": "Evaluation..."},
+    {"role": "Gemini-3-Pro-Councilor-Evaluation", "content": "Evaluation..."},
+    {"role": "Claude-Sonnet-4.5-Councilor-Evaluation", "content": "Evaluation..."},
+    {"role": "Grok-4-Councilor-Evaluation", "content": "Evaluation..."},
+    {"role": "Chairman", "content": "Final synthesized answer"}
+]
+```
+
+## Features
+
+- **Parallel Execution**: All council members respond simultaneously
+- **Anonymous Evaluation**: Responses are anonymized during peer review
+- **Multi-Model Diversity**: Leverages different LLM strengths
+- **Peer Review**: Each member evaluates all responses objectively
+- **Intelligent Synthesis**: Chairman creates cohesive final answer
+- **Transparent Process**: Full conversation history available
+- **Flexible Output**: Multiple output format options
+- **Batch Processing**: Handle multiple queries efficiently
+
+## Best Practices
+
+1. **Council Composition**: Include agents with complementary strengths
+2. **Clear Queries**: Provide well-defined questions for best results
+3. **Output Type**: Use "final" for end-user answers, "dict" for analysis
+4. **Custom Members**: Tailor council to your domain/use case
+5. **Verbose Mode**: Enable for understanding the decision process

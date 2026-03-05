@@ -1,0 +1,476 @@
+---
+title: "CLI Configuration"
+description: "Configure agents and swarms using YAML files and environment variables"
+icon: "gear"
+---
+
+# CLI Configuration
+
+This guide covers how to configure agents and swarms using YAML configuration files and environment variables.
+
+## YAML Configuration
+
+The Swarms CLI supports loading agent configurations from YAML files, allowing you to define complex agent setups and swarm architectures declaratively.
+
+### Basic YAML Structure
+
+A Swarms YAML configuration file has two main sections:
+
+1. `agents` - List of agent configurations
+2. `swarm_architecture` (optional) - Swarm configuration
+
+### Agent Configuration
+
+#### Single Agent Example
+
+```yaml
+agents:
+  - agent_name: "Research-Agent"
+    model:
+      model_name: "gpt-4"
+      temperature: 0.1
+      max_tokens: 2000
+    system_prompt: "You are an expert research analyst specializing in technology trends."
+    max_loops: 1
+    autosave: true
+    dashboard: false
+    verbose: true
+    dynamic_temperature_enabled: true
+    saved_state_path: "research_agent.json"
+    user_name: "researcher"
+    retry_attempts: 3
+    context_length: 4000
+    return_step_meta: false
+    output_type: "str"
+    task: "Analyze the latest developments in quantum computing"
+```
+
+#### Multiple Agents Example
+
+```yaml
+agents:
+  - agent_name: "Financial-Analysis-Agent"
+    model:
+      model_name: "gpt-4"
+      temperature: 0.1
+      max_tokens: 2000
+    system_prompt: "You are a financial analyst expert."
+    max_loops: 1
+    autosave: true
+    dashboard: false
+    verbose: true
+    dynamic_temperature_enabled: true
+    saved_state_path: "finance_agent.json"
+    user_name: "swarms_corp"
+    retry_attempts: 1
+    context_length: 4000
+    return_step_meta: false
+    output_type: "str"
+    task: "How can I establish a ROTH IRA to buy stocks and get a tax break?"
+
+  - agent_name: "Stock-Analysis-Agent"
+    model:
+      model_name: "gpt-4"
+      temperature: 0.2
+      max_tokens: 1500
+    system_prompt: "You are a stock market analysis expert."
+    max_loops: 2
+    autosave: true
+    dashboard: false
+    verbose: true
+    dynamic_temperature_enabled: false
+    saved_state_path: "stock_agent.json"
+    user_name: "stock_user"
+    retry_attempts: 3
+    context_length: 4000
+    return_step_meta: true
+    output_type: "json"
+    task: "What is the best strategy for long-term stock investment?"
+```
+
+### Swarm Architecture Configuration
+
+You can define how agents work together using the `swarm_architecture` section:
+
+```yaml
+agents:
+  - agent_name: "Financial-Analysis-Agent"
+    # ... agent config ...
+
+  - agent_name: "Stock-Analysis-Agent"
+    # ... agent config ...
+
+swarm_architecture:
+  name: "Financial-Advisory-Swarm"
+  description: "A swarm of agents working together to provide comprehensive financial advice"
+  swarm_type: "SequentialWorkflow"
+  max_loops: 2
+  task: "Analyze ROTH IRA setup requirements and provide a comprehensive long-term investment strategy"
+  autosave: true
+  return_json: false
+  rules: |
+    1. Financial-Analysis-Agent first explains ROTH IRA setup process and requirements
+    2. Stock-Analysis-Agent then provides specific investment strategies suitable for ROTH IRA
+    3. Both agents should ensure advice is tax-aware and compliant with retirement account regulations
+    4. Focus on practical, actionable steps the user can take
+```
+
+### Agent Configuration Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `agent_name` | string | Yes | - | Unique name for the agent |
+| `system_prompt` | string | Yes | - | System prompt defining agent behavior |
+| `model_name` | string | No | "gpt-4" | LLM model to use |
+| `max_loops` | integer | No | 1 | Maximum number of execution loops |
+| `autosave` | boolean | No | true | Enable automatic state saving |
+| `dashboard` | boolean | No | false | Enable agent dashboard |
+| `verbose` | boolean | No | false | Enable verbose logging |
+| `dynamic_temperature_enabled` | boolean | No | false | Enable dynamic temperature adjustment |
+| `saved_state_path` | string | No | null | Path to save agent state |
+| `user_name` | string | No | "default_user" | Username associated with agent |
+| `retry_attempts` | integer | No | 3 | Number of retry attempts on failure |
+| `context_length` | integer | No | 100000 | Maximum context length |
+| `return_step_meta` | boolean | No | false | Return metadata for each step |
+| `output_type` | string | No | "str" | Output format ("str" or "json") |
+| `task` | string | No | null | Task for the agent to execute |
+| `auto_generate_prompt` | boolean | No | false | Auto-generate system prompts |
+| `artifacts_on` | boolean | No | false | Enable artifact generation |
+| `artifacts_file_extension` | string | No | ".md" | File extension for artifacts |
+| `artifacts_output_path` | string | No | "" | Output path for artifacts |
+
+### Model Configuration
+
+Within each agent, you can specify model parameters:
+
+```yaml
+model:
+  model_name: "gpt-4"           # Model identifier
+  temperature: 0.1               # Randomness (0.0-2.0)
+  max_tokens: 2000              # Maximum tokens per response
+```
+
+### Swarm Architecture Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Name of the swarm |
+| `description` | string | Yes | Description of swarm purpose |
+| `swarm_type` | string | Yes | Type of swarm (e.g., "SequentialWorkflow") |
+| `max_loops` | integer | No | Maximum loops for swarm execution |
+| `task` | string | No | Overall task for the swarm |
+| `flow` | object | No | Flow configuration for agent routing |
+| `autosave` | boolean | No | Enable swarm state autosave |
+| `return_json` | boolean | No | Return results in JSON format |
+| `rules` | string | No | Rules governing swarm behavior |
+
+### Running YAML Configurations
+
+To execute agents from a YAML file:
+
+```bash
+swarms run-agents --yaml-file agents.yaml
+```
+
+With a custom file path:
+
+```bash
+swarms run-agents --yaml-file /path/to/my-config.yaml
+```
+
+## Environment Variables
+
+The Swarms CLI uses environment variables for API keys and configuration.
+
+### Required Environment Variables
+
+At least one API key is required:
+
+```bash
+# OpenAI (most common)
+export OPENAI_API_KEY="sk-..."
+
+# Anthropic
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Google
+export GOOGLE_API_KEY="AIza..."
+
+# Cohere
+export COHERE_API_KEY="..."
+```
+
+### Optional Environment Variables
+
+```bash
+# Workspace directory for agent outputs
+export WORKSPACE_DIR="./agent_workspace"
+
+# Wandb (for tracking)
+export WANDB_API_KEY="..."
+export WANDB_SILENT="true"
+
+# TensorFlow logging level
+export TF_CPP_MIN_LOG_LEVEL="3"
+```
+
+### Using .env Files
+
+Create a `.env` file in your project root:
+
+```bash
+# .env file
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+WORKSPACE_DIR=./agent_workspace
+WANDB_SILENT=true
+```
+
+The Swarms CLI automatically loads `.env` files from the current directory.
+
+### Environment Variable Priority
+
+The CLI checks for API keys in this order:
+
+1. Environment variables set in the current shell
+2. Variables from `.env` file in current directory
+3. System-wide environment variables
+
+### Workspace Directory
+
+The `WORKSPACE_DIR` environment variable determines where agents store their outputs:
+
+```bash
+export WORKSPACE_DIR="/path/to/workspace"
+```
+
+**Default behavior:**
+- If not set, some swarm operations will create a default workspace
+- Agents will autosave state files to this directory
+- Artifacts and outputs are stored here
+
+**Directory structure example:**
+```
+agent_workspace/
+├── finance_agent.json
+├── stock_agent.json
+├── logs/
+└── artifacts/
+```
+
+## Markdown Agent Configuration
+
+You can also define agents using Markdown files with YAML frontmatter.
+
+### Markdown Format
+
+```markdown
+---
+name: Research Agent
+description: Expert research analyst
+model_name: gpt-4
+temperature: 0.1
+max_loops: 1
+autosave: true
+verbose: true
+---
+
+You are an expert research analyst with deep knowledge of:
+- Scientific literature review
+- Data analysis and interpretation
+- Trend identification
+- Report generation
+
+Provide thorough, well-researched responses backed by evidence.
+```
+
+### Loading Markdown Agents
+
+Load a single agent:
+
+```bash
+swarms load-markdown --markdown-path ./agent.md
+```
+
+Load all agents from a directory:
+
+```bash
+swarms load-markdown --markdown-path ./agents/
+```
+
+With concurrent processing:
+
+```bash
+swarms load-markdown --markdown-path ./agents/ --concurrent
+```
+
+## Configuration Best Practices
+
+### 1. API Key Management
+
+- **Never commit API keys** to version control
+- Use `.env` files (add to `.gitignore`)
+- Rotate keys regularly
+- Use different keys for development and production
+
+### 2. Agent Configuration
+
+- **Start with low temperature** (0.1-0.3) for consistent outputs
+- **Use appropriate context lengths** based on your use case
+- **Enable autosave** for long-running agents
+- **Set retry attempts** for production reliability
+
+### 3. Swarm Configuration
+
+- **Define clear rules** for agent collaboration
+- **Use descriptive names** for agents and swarms
+- **Test with max_loops=1** before increasing
+- **Enable verbose mode** during development
+
+### 4. File Organization
+
+```
+project/
+├── .env                    # API keys (gitignored)
+├── .gitignore             # Ignore .env and workspace
+├── agents/
+│   ├── research.yaml      # Agent configs
+│   └── analysis.yaml
+├── swarms/
+│   └── financial.yaml     # Swarm configs
+└── agent_workspace/       # Outputs (gitignored)
+```
+
+## Validation
+
+### Check Your Configuration
+
+Verify your environment setup:
+
+```bash
+swarms setup-check --verbose
+```
+
+This checks:
+- ✓ Python version (3.10+)
+- ✓ Swarms installation
+- ✓ API keys
+- ✓ Dependencies
+- ✓ .env file
+- ✓ WORKSPACE_DIR
+
+### Test Agent Configuration
+
+Test a YAML configuration:
+
+```bash
+swarms run-agents --yaml-file test-config.yaml
+```
+
+## Example Configurations
+
+### Minimal Agent Config
+
+```yaml
+agents:
+  - agent_name: "Simple-Agent"
+    system_prompt: "You are a helpful assistant"
+    task: "Hello, world!"
+```
+
+### Production Agent Config
+
+```yaml
+agents:
+  - agent_name: "Production-Agent"
+    model:
+      model_name: "gpt-4"
+      temperature: 0.2
+      max_tokens: 4000
+    system_prompt: "You are a production-ready agent with error handling."
+    max_loops: 3
+    autosave: true
+    dashboard: true
+    verbose: true
+    retry_attempts: 5
+    context_length: 8000
+    saved_state_path: "prod_agent.json"
+    user_name: "production"
+    output_type: "json"
+    task: "Process production workload"
+```
+
+### Multi-Agent Swarm
+
+```yaml
+agents:
+  - agent_name: "Researcher"
+    system_prompt: "You gather and analyze information."
+    task: "Research the topic"
+    
+  - agent_name: "Writer"
+    system_prompt: "You write clear, engaging content."
+    task: "Write a report"
+    
+  - agent_name: "Editor"
+    system_prompt: "You review and improve content."
+    task: "Edit the final report"
+
+swarm_architecture:
+  name: "Content-Creation-Swarm"
+  description: "Research, write, and edit content"
+  swarm_type: "SequentialWorkflow"
+  max_loops: 1
+  rules: |
+    1. Researcher gathers information
+    2. Writer creates content from research
+    3. Editor polishes the final output
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue: "No API keys found"**
+```bash
+# Solution: Set API key in .env
+echo "OPENAI_API_KEY=sk-..." > .env
+swarms setup-check
+```
+
+**Issue: "YAML file not found"**
+```bash
+# Solution: Check file path
+ls agents.yaml
+swarms run-agents --yaml-file ./path/to/agents.yaml
+```
+
+**Issue: "WORKSPACE_DIR not set"**
+```bash
+# Solution: Set workspace directory
+export WORKSPACE_DIR="./agent_workspace"
+mkdir -p $WORKSPACE_DIR
+```
+
+**Issue: "Invalid YAML format"**
+```bash
+# Solution: Validate YAML syntax
+python -c "import yaml; yaml.safe_load(open('agents.yaml'))"
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="CLI Overview" icon="terminal" href="/cli/overview">
+    Return to CLI overview and quick start
+  </Card>
+  <Card title="Commands Reference" icon="list" href="/cli/commands">
+    Explore all available CLI commands
+  </Card>
+</CardGroup>
+
+## Resources
+
+- [YAML Specification](https://yaml.org/spec/)
+- [Environment Variables Guide](https://12factor.net/config)
+- [Swarms Documentation](https://docs.swarms.world)

@@ -1,0 +1,616 @@
+---
+title: "AgentRearrange"
+description: "A sophisticated multi-agent system for dynamic task orchestration with custom flow patterns"
+icon: "shuffle"
+---
+
+## Overview
+
+The `AgentRearrange` class enables complex workflows where multiple agents can work sequentially or concurrently based on a defined flow pattern. It supports both sequential execution (using `->`) and concurrent execution (using `,`) within the same workflow, providing maximum flexibility for agent orchestration.
+
+## Key Features
+
+- **Flexible Flow Syntax**: Define sequential (`->`) and concurrent (`,`) agent execution in one flow
+- **Custom Flow Patterns**: Mix sequential and concurrent execution patterns
+- **Team Awareness**: Agents can be aware of their position in the workflow
+- **Human-in-the-Loop**: Integrate human review at any point in the workflow (using `H`)
+- **Memory System Support**: Optional persistent memory across agent interactions
+- **Batch Processing**: Process multiple tasks with the same flow
+- **Concurrent Execution**: Run multiple tasks in parallel
+- **Async Support**: Asynchronous execution for non-blocking operations
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Class Definition
+
+```python
+class AgentRearrange:
+    def __init__(
+        self,
+        id: str = swarm_id(),
+        name: str = "AgentRearrange",
+        description: str = "A swarm of agents for rearranging tasks.",
+        agents: List[Union[Agent, Callable]] = None,
+        flow: str = None,
+        max_loops: int = 1,
+        verbose: bool = True,
+        memory_system: Any = None,
+        human_in_the_loop: bool = False,
+        custom_human_in_the_loop: Optional[Callable[[str], str]] = None,
+        output_type: OutputType = "all",
+        autosave: bool = True,
+        rules: str = None,
+        team_awareness: bool = False,
+        time_enabled: bool = False,
+        message_id_on: bool = False,
+    )
+```
+
+## Parameters
+
+<ParamField path="id" type="str" default="auto-generated">
+  Unique identifier for the agent rearrange system. Auto-generated if not provided.
+</ParamField>
+
+<ParamField path="name" type="str" default="AgentRearrange">
+  Human-readable name for the system
+</ParamField>
+
+<ParamField path="description" type="str" default="A swarm of agents for rearranging tasks.">
+  Description of the system's purpose
+</ParamField>
+
+<ParamField path="agents" type="List[Union[Agent, Callable]]" required>
+  List of agents to include in the system. Can be Agent objects or callable functions.
+</ParamField>
+
+<ParamField path="flow" type="str" required>
+  Flow pattern defining agent execution order. Uses `->` for sequential and `,` for concurrent execution.
+  Example: `"agent1 -> agent2, agent3 -> agent4"`
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of execution loops. Must be greater than 0.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+  Whether to enable verbose logging
+</ParamField>
+
+<ParamField path="memory_system" type="Any" default="None">
+  Optional memory system for persistence across interactions
+</ParamField>
+
+<ParamField path="human_in_the_loop" type="bool" default="False">
+  Whether to enable human interaction points in the workflow
+</ParamField>
+
+<ParamField path="custom_human_in_the_loop" type="Optional[Callable[[str], str]]" default="None">
+  Custom function for handling human interaction. Takes input string, returns response.
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="all">
+  Format for output results. Options: "all", "final", "list", "dict"
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="True">
+  Whether to automatically save execution data
+</ParamField>
+
+<ParamField path="rules" type="str" default="None">
+  System rules and constraints to add to conversation
+</ParamField>
+
+<ParamField path="team_awareness" type="bool" default="False">
+  Whether agents should be aware of team structure and sequential flow
+</ParamField>
+
+<ParamField path="time_enabled" type="bool" default="False">
+  Whether to track timestamps in conversations
+</ParamField>
+
+<ParamField path="message_id_on" type="bool" default="False">
+  Whether to include message IDs in conversations
+</ParamField>
+
+## Flow Syntax
+
+The flow pattern defines how agents execute:
+
+- **Sequential**: `agent1 -> agent2 -> agent3` (agents run one after another)
+- **Concurrent**: `agent1, agent2, agent3` (agents run simultaneously)
+- **Mixed**: `agent1 -> agent2, agent3 -> agent4` (agent1 first, then agent2 and agent3 concurrently, then agent4)
+- **Human-in-Loop**: `agent1 -> H -> agent2` (agent1, then human input, then agent2)
+
+## Methods
+
+### `run(task, img=None, *args, **kwargs)`
+
+Execute the agent rearrangement task.
+
+<ParamField path="task" type="str" required>
+  The task to execute through the agent workflow
+</ParamField>
+
+<ParamField path="img" type="Optional[str]" default="None">
+  Path to input image if required by any agents
+</ParamField>
+
+<ResponseField name="result" type="Union[str, List[str], Dict[str, str]]">
+  The processed output in the format specified by output_type
+</ResponseField>
+
+### `batch_run(tasks, img=None, batch_size=10, *args, **kwargs)`
+
+Process multiple tasks in batches.
+
+<ParamField path="tasks" type="List[str]" required>
+  List of tasks to process through the agent workflow
+</ParamField>
+
+<ParamField path="img" type="Optional[List[str]]" default="None">
+  Optional list of images corresponding to tasks
+</ParamField>
+
+<ParamField path="batch_size" type="int" default="10">
+  Number of tasks to process simultaneously in each batch
+</ParamField>
+
+<ResponseField name="results" type="List[str]">
+  List of results corresponding to input tasks
+</ResponseField>
+
+### `concurrent_run(tasks, img=None, max_workers=None, *args, **kwargs)`
+
+Process multiple tasks concurrently using ThreadPoolExecutor.
+
+<ParamField path="tasks" type="List[str]" required>
+  List of tasks to process through the agent workflow
+</ParamField>
+
+<ParamField path="img" type="Optional[List[str]]" default="None">
+  Optional list of images corresponding to tasks
+</ParamField>
+
+<ParamField path="max_workers" type="Optional[int]" default="None">
+  Maximum number of worker threads. Uses default ThreadPoolExecutor behavior if None.
+</ParamField>
+
+<ResponseField name="results" type="List[str]">
+  List of results corresponding to input tasks
+</ResponseField>
+
+### `run_async(task, img=None, *args, **kwargs)`
+
+Asynchronously execute a task.
+
+<ParamField path="task" type="str" required>
+  The task to be executed through the agent workflow
+</ParamField>
+
+<ParamField path="img" type="Optional[str]" default="None">
+  Optional image input for the task
+</ParamField>
+
+<ResponseField name="result" type="Any">
+  The result of the task execution
+</ResponseField>
+
+### `set_custom_flow(flow)`
+
+Set a custom flow pattern for agent execution.
+
+<ParamField path="flow" type="str" required>
+  The new flow pattern to use for agent execution
+</ParamField>
+
+### `add_agent(agent)`
+
+Add an agent to the swarm.
+
+<ParamField path="agent" type="Agent" required>
+  The agent to be added
+</ParamField>
+
+### `remove_agent(agent_name)`
+
+Remove an agent from the swarm.
+
+<ParamField path="agent_name" type="str" required>
+  The name of the agent to be removed
+</ParamField>
+
+### `validate_flow()`
+
+Validate the flow pattern.
+
+<ResponseField name="is_valid" type="bool">
+  True if the flow pattern is valid
+</ResponseField>
+
+**Raises:**
+- `ValueError`: If the flow pattern is incorrectly formatted or contains unregistered agents
+
+### `to_dict()`
+
+Convert all attributes to a dictionary for serialization.
+
+<ResponseField name="dict_representation" type="Dict[str, Any]">
+  Dictionary representation of all class attributes
+</ResponseField>
+
+## Attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | str | Unique identifier for the system |
+| `name` | str | Human-readable name |
+| `description` | str | Description of the system's purpose |
+| `agents` | Dict[str, Agent] | Dictionary mapping agent names to Agent objects |
+| `flow` | str | Flow pattern defining agent execution order |
+| `conversation` | Conversation | Conversation history management |
+
+## Usage Examples
+
+### Sequential Flow
+
+```python
+from swarms import Agent, AgentRearrange
+from swarms.models import OpenAIChat
+
+# Initialize LLM
+llm = OpenAIChat(model_name="gpt-4o")
+
+# Create agents
+researcher = Agent(
+    agent_name="researcher",
+    llm=llm,
+    system_prompt="You are a research specialist."
+)
+
+writer = Agent(
+    agent_name="writer",
+    llm=llm,
+    system_prompt="You are a content writer."
+)
+
+editor = Agent(
+    agent_name="editor",
+    llm=llm,
+    system_prompt="You are an editor."
+)
+
+# Define sequential flow
+flow = "researcher -> writer -> editor"
+
+# Create rearrange system
+system = AgentRearrange(
+    agents=[researcher, writer, editor],
+    flow=flow,
+    max_loops=1
+)
+
+# Execute task
+result = system.run("Write a blog post about AI")
+print(result)
+```
+
+### Concurrent Flow
+
+```python
+# Define concurrent flow - all agents run simultaneously
+flow = "researcher, writer, editor"
+
+system = AgentRearrange(
+    agents=[researcher, writer, editor],
+    flow=flow
+)
+
+result = system.run("Analyze this topic from different angles")
+```
+
+### Mixed Sequential and Concurrent Flow
+
+```python
+# Create more agents
+data_collector = Agent(
+    agent_name="data_collector",
+    llm=llm,
+    system_prompt="You collect and organize data."
+)
+
+technical_analyst = Agent(
+    agent_name="technical_analyst",
+    llm=llm,
+    system_prompt="You analyze technical aspects."
+)
+
+business_analyst = Agent(
+    agent_name="business_analyst",
+    llm=llm,
+    system_prompt="You analyze business aspects."
+)
+
+synthesizer = Agent(
+    agent_name="synthesizer",
+    llm=llm,
+    system_prompt="You synthesize multiple perspectives."
+)
+
+# Mixed flow: collect data, then analyze concurrently, then synthesize
+flow = "data_collector -> technical_analyst, business_analyst -> synthesizer"
+
+system = AgentRearrange(
+    agents=[data_collector, technical_analyst, business_analyst, synthesizer],
+    flow=flow,
+    team_awareness=True  # Agents know about each other
+)
+
+result = system.run("Analyze the market opportunity for AI assistants")
+```
+
+### Human-in-the-Loop
+
+```python
+# Include human review in the flow
+flow = "researcher -> writer -> H -> editor"
+
+system = AgentRearrange(
+    agents=[researcher, writer, editor],
+    flow=flow,
+    human_in_the_loop=True
+)
+
+result = system.run("Create a marketing campaign")
+# System will pause for human input after the writer and before the editor
+```
+
+### Custom Human-in-the-Loop Handler
+
+```python
+def custom_human_handler(agent_output: str) -> str:
+    """Custom function to handle human interaction"""
+    print(f"Agent output: {agent_output}")
+    feedback = input("Your feedback: ")
+    return feedback
+
+flow = "agent1 -> H -> agent2"
+
+system = AgentRearrange(
+    agents=[agent1, agent2],
+    flow=flow,
+    human_in_the_loop=True,
+    custom_human_in_the_loop=custom_human_handler
+)
+```
+
+### Batch Processing
+
+```python
+# Process multiple tasks through the same flow
+tasks = [
+    "Analyze healthcare AI trends",
+    "Analyze education AI trends",
+    "Analyze finance AI trends"
+]
+
+system = AgentRearrange(
+    agents=[researcher, writer, editor],
+    flow="researcher -> writer -> editor"
+)
+
+results = system.batch_run(tasks, batch_size=2)
+
+for task, result in zip(tasks, results):
+    print(f"Task: {task}")
+    print(f"Result: {result}")
+    print("-" * 80)
+```
+
+### Concurrent Task Execution
+
+```python
+tasks = [
+    "Research AI in healthcare",
+    "Research AI in education",
+    "Research AI in finance"
+]
+
+# Run all tasks in parallel
+results = system.concurrent_run(tasks, max_workers=3)
+print(f"Processed {len(results)} tasks concurrently")
+```
+
+### Async Execution
+
+```python
+import asyncio
+
+async def process_async():
+    result = await system.run_async("Analyze quantum computing trends")
+    return result
+
+result = asyncio.run(process_async())
+```
+
+### Dynamic Flow Modification
+
+```python
+# Create system with initial flow
+system = AgentRearrange(
+    agents=[researcher, writer, editor],
+    flow="researcher -> writer -> editor"
+)
+
+# Run with initial flow
+result1 = system.run("Task 1")
+
+# Change flow dynamically
+system.set_custom_flow("researcher -> editor -> writer")
+
+# Run with new flow
+result2 = system.run("Task 2")
+```
+
+### With Memory System
+
+```python
+from swarms.memory import ChromaDB
+
+# Create memory system
+memory = ChromaDB(
+    output_dir="./agent_memory",
+    n_results=5
+)
+
+system = AgentRearrange(
+    agents=[researcher, writer],
+    flow="researcher -> writer",
+    memory_system=memory  # Persist conversation across runs
+)
+
+result = system.run("Analyze AI trends")
+```
+
+### With Team Awareness
+
+```python
+# Agents will know about their position in the workflow
+system = AgentRearrange(
+    agents=[researcher, writer, editor],
+    flow="researcher -> writer -> editor",
+    team_awareness=True,  # Enable team awareness
+    verbose=True
+)
+
+result = system.run("Create comprehensive analysis")
+# Each agent will receive information about agents ahead and behind
+```
+
+### With Rules
+
+```python
+rules = """
+All agents must:
+1. Cite sources
+2. Be objective
+3. Flag uncertainties
+4. Respect data privacy
+"""
+
+system = AgentRearrange(
+    agents=[researcher, writer, editor],
+    flow="researcher -> writer -> editor",
+    rules=rules  # Add system-wide rules
+)
+```
+
+### Different Output Types
+
+```python
+# Return all outputs
+system_all = AgentRearrange(
+    agents=[researcher, writer],
+    flow="researcher -> writer",
+    output_type="all"  # Return all agent outputs
+)
+
+# Return only final output
+system_final = AgentRearrange(
+    agents=[researcher, writer],
+    flow="researcher -> writer",
+    output_type="final"  # Return only last agent's output
+)
+
+# Return as list
+system_list = AgentRearrange(
+    agents=[researcher, writer],
+    flow="researcher -> writer",
+    output_type="list"  # Return list of outputs
+)
+
+# Return as dict
+system_dict = AgentRearrange(
+    agents=[researcher, writer],
+    flow="researcher -> writer",
+    output_type="dict"  # Return dict mapping agent names to outputs
+)
+```
+
+## Convenience Function
+
+The `rearrange()` function provides a quick way to create and execute:
+
+```python
+from swarms import rearrange
+
+result = rearrange(
+    name="Quick Analysis",
+    agents=[researcher, writer, editor],
+    flow="researcher -> writer -> editor",
+    task="Analyze AI trends in 2024"
+)
+```
+
+## Error Handling
+
+```python
+try:
+    system = AgentRearrange(
+        agents=[researcher, writer],
+        flow="researcher -> writer"
+    )
+    result = system.run("Process this task")
+except ValueError as e:
+    print(f"Configuration error: {e}")
+except Exception as e:
+    print(f"Execution error: {e}")
+```
+
+## Best Practices
+
+1. **Flow Design**: Carefully design your flow to match your task requirements
+2. **Team Awareness**: Enable for complex flows where context matters
+3. **Human Review**: Add `H` at critical decision points
+4. **Error Handling**: Always wrap execution in try-except blocks
+5. **Logging**: Enable verbose mode during development
+6. **Memory Systems**: Use for tasks requiring persistent context
+7. **Flow Validation**: Always validate flows before production use
+8. **Agent Naming**: Use clear, descriptive agent names in flows
+
+## Common Flow Patterns
+
+### Fan-Out Pattern
+```python
+# One agent feeds multiple agents
+flow = "collector -> analyst1, analyst2, analyst3 -> synthesizer"
+```
+
+### Pipeline Pattern
+```python
+# Linear processing chain
+flow = "stage1 -> stage2 -> stage3 -> stage4"
+```
+
+### Review Pattern
+```python
+# Create, review, revise
+flow = "creator -> reviewer -> H -> reviser"
+```
+
+### Ensemble Pattern
+```python
+# Multiple independent analyses
+flow = "agent1, agent2, agent3, agent4 -> aggregator"
+```
+
+## Related Classes
+
+- [SequentialWorkflow](/api/sequential-workflow): For simple sequential execution
+- [ConcurrentWorkflow](/api/concurrent-workflow): For parallel agent execution
+- [GraphWorkflow](/api/graph-workflow): For complex DAG-based workflows
+- [Agent](/api/agent): The base agent class used in workflows

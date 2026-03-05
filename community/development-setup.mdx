@@ -1,0 +1,314 @@
+---
+title: Development Setup
+description: Set up your local development environment for contributing to Swarms
+icon: "laptop-code"
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Python 3.10+**: Swarms requires Python 3.10 or higher
+- **Git**: For version control
+- **pip**, **uv**, or **poetry**: For package management
+
+## Installation Methods
+
+### Using pip
+
+The simplest way to install Swarms for development:
+
+```bash
+pip3 install -U swarms
+```
+
+### Using uv (Recommended)
+
+[uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver, written in Rust.
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install swarms using uv
+uv pip install swarms
+```
+
+### Using poetry
+
+```bash
+# Install poetry if you haven't already
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Add swarms to your project
+poetry add swarms
+```
+
+### From Source (For Contributors)
+
+If you're planning to contribute to Swarms, you should install from source:
+
+```bash
+# Clone the repository
+git clone https://github.com/kyegomez/swarms.git
+cd swarms
+
+# Install with pip in editable mode
+pip install -e .
+
+# Or install dependencies directly
+pip install -r requirements.txt
+```
+
+## Environment Configuration
+
+Create a `.env` file in your project root with the necessary API keys and configuration:
+
+```bash
+OPENAI_API_KEY="your-openai-api-key"
+WORKSPACE_DIR="agent_workspace"
+ANTHROPIC_API_KEY="your-anthropic-api-key"
+GROQ_API_KEY="your-groq-api-key"
+```
+
+<Note>
+  Learn more about environment configuration in the [Environment Configuration Guide](https://docs.swarms.world/en/latest/swarms/install/env/).
+</Note>
+
+### API Keys
+
+You'll need API keys from various providers depending on which models you plan to use:
+
+- **OpenAI**: [Get API Key](https://platform.openai.com/api-keys)
+- **Anthropic (Claude)**: [Get API Key](https://console.anthropic.com/)
+- **Groq**: [Get API Key](https://console.groq.com/)
+
+## Project Structure
+
+Understanding the project structure will help you navigate and contribute effectively:
+
+- **`swarms/`**: Contains all the source code for the library
+  - **`agents/`**: Agent implementations and base classes
+  - **`structs/`**: Swarm orchestration structures (SequentialWorkflow, AgentRearrange, etc.)
+  - **`tools/`**: Tool implementations and base classes
+  - **`prompts/`**: System prompts and prompt templates
+  - **`utils/`**: Utility functions and helpers
+- **`examples/`**: Includes example scripts and notebooks demonstrating how to use the library
+- **`tests/`**: Unit tests for the library
+- **`docs/`**: Documentation files and guides
+
+## Development Workflow
+
+### 1. Fork and Clone
+
+First, fork the repository on GitHub and clone your fork:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/swarms.git
+cd swarms
+```
+
+### 2. Create a Branch
+
+Create a new branch for your feature or bug fix:
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+### 3. Make Changes
+
+Make your changes to the codebase. Ensure you follow the [coding standards](/community/contributing#coding-standards).
+
+### 4. Run Tests
+
+Before submitting your changes, run the test suite to ensure everything works:
+
+```bash
+# Run all tests
+pytest tests/
+
+# Run specific test file
+pytest tests/test_agent.py
+
+# Run with coverage
+pytest --cov=swarms tests/
+```
+
+### 5. Lint Your Code
+
+Ensure your code follows PEP 8 standards:
+
+```bash
+# Using flake8
+flake8 swarms/
+
+# Using black (auto-formatter)
+black swarms/
+
+# Using pylint
+pylint swarms/
+```
+
+### 6. Commit Your Changes
+
+Write clear and descriptive commit messages:
+
+```bash
+git add .
+git commit -m "Add feature: descriptive message about your changes"
+```
+
+### 7. Push to Your Fork
+
+```bash
+git push origin feature/your-feature-name
+```
+
+### 8. Create a Pull Request
+
+Go to the original repository on GitHub and create a pull request from your fork.
+
+## Testing Guidelines
+
+### Writing Tests
+
+All new features and bug fixes must include appropriate tests:
+
+```python
+import pytest
+from swarms import Agent
+
+def test_agent_creation():
+    """Test that an agent can be created successfully."""
+    agent = Agent(
+        agent_name="TestAgent",
+        model_name="gpt-4o-mini",
+        max_loops=1
+    )
+    assert agent.agent_name == "TestAgent"
+    assert agent.model_name == "gpt-4o-mini"
+
+def test_agent_run():
+    """Test that an agent can run a simple task."""
+    agent = Agent(
+        agent_name="TestAgent",
+        model_name="gpt-4o-mini",
+        max_loops=1
+    )
+    result = agent.run("Say hello")
+    assert result is not None
+    assert len(result) > 0
+```
+
+### Test Organization
+
+- Place tests in the `tests/` directory
+- Mirror the structure of the `swarms/` directory
+- Use descriptive test names that explain what is being tested
+- Group related tests in the same file
+
+### Running Specific Tests
+
+```bash
+# Run tests for a specific module
+pytest tests/test_agent.py
+
+# Run tests matching a pattern
+pytest -k "test_agent"
+
+# Run with verbose output
+pytest -v tests/
+
+# Run with coverage report
+pytest --cov=swarms --cov-report=html tests/
+```
+
+## Documentation
+
+### Building Documentation Locally
+
+If you're contributing to documentation:
+
+```bash
+# Install documentation dependencies
+pip install mkdocs mkdocs-material
+
+# Serve documentation locally
+mkdocs serve
+
+# Build documentation
+mkdocs build
+```
+
+### Writing Documentation
+
+When adding new features, always update the documentation:
+
+- Add docstrings to all public classes and functions
+- Update relevant documentation pages in `docs/`
+- Add examples demonstrating the new feature
+- Update the API reference if necessary
+
+## Debugging Tips
+
+### Enable Verbose Logging
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="DebugAgent",
+    model_name="gpt-4o-mini",
+    verbose=True  # Enable verbose output
+)
+```
+
+### Use Interactive Mode
+
+```python
+agent = Agent(
+    agent_name="InteractiveAgent",
+    model_name="gpt-4o-mini",
+    interactive=True  # Enable interactive mode
+)
+```
+
+### Check Logs
+
+Swarms provides comprehensive logging. Check the logs in your workspace directory for debugging information.
+
+## Common Issues and Solutions
+
+### Import Errors
+
+If you encounter import errors, ensure you've installed all dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### API Key Errors
+
+Make sure your `.env` file is properly configured with valid API keys.
+
+### Test Failures
+
+If tests fail:
+
+1. Check that you have the latest version of dependencies
+2. Ensure your environment variables are set correctly
+3. Run tests in verbose mode for more details: `pytest -v`
+
+## Getting Help
+
+If you encounter any issues during development:
+
+- Check the [FAQ](/community/faq)
+- Search existing [GitHub issues](https://github.com/kyegomez/swarms/issues)
+- Ask on [Discord](https://discord.gg/EamjgSaEQf)
+- Schedule an [onboarding session](https://cal.com/swarms/swarms-onboarding-session)
+
+<Card title="Ready to Contribute?" icon="rocket">
+  Now that you have your development environment set up, check out the [Contributing Guide](/community/contributing) to learn how to make your first contribution!
+</Card>

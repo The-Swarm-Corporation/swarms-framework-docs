@@ -1,0 +1,588 @@
+---
+title: 'Agent Tools'
+description: 'Add tools and function calling capabilities to agents'
+icon: 'wrench'
+---
+
+# Agent Tools
+
+Tools extend agent capabilities by allowing them to call external functions, APIs, and services. Swarms supports OpenAI-style function calling with automatic schema generation.
+
+## Basic Tool Usage
+
+### Define a Simple Tool
+
+Tools are Python functions with type hints and docstrings:
+
+```python
+from swarms import Agent
+
+def get_weather(location: str, units: str = "celsius") -> str:
+    """
+    Get the current weather for a location.
+    
+    Args:
+        location: The city and country, e.g., 'San Francisco, CA'
+        units: Temperature units ('celsius' or 'fahrenheit')
+    
+    Returns:
+        Weather information as a string
+    """
+    # Your weather API logic here
+    return f"Weather in {location}: 72°{units[0].upper()}, sunny"
+
+# Create agent with tool
+agent = Agent(
+    agent_name="Weather-Assistant",
+    model_name="gpt-4o",
+    max_loops=1,
+    tools=[get_weather],  # Add tools as a list
+)
+
+# Agent can now call the tool
+response = agent.run("What's the weather in New York?")
+print(response)
+```
+
+## Tool Requirements
+
+### Type Hints and Docstrings
+
+For reliable tool execution, functions must have:
+
+1. **Type hints** for all parameters and return value
+2. **Docstring** describing the function's purpose
+3. **Parameter descriptions** in the docstring
+
+```python
+# Good - Complete type hints and docstring
+def search_web(query: str, max_results: int = 10) -> str:
+    """
+    Search the web and return results.
+    
+    Args:
+        query: The search query string
+        max_results: Maximum number of results to return
+    
+    Returns:
+        Search results as formatted text
+    """
+    # Implementation
+    return f"Results for: {query}"
+
+# Bad - Missing type hints
+def search_web(query, max_results=10):  # ❌ No type hints
+    return f"Results for: {query}"
+
+# Bad - Missing docstring  
+def search_web(query: str) -> str:  # ❌ No docstring
+    return f"Results for: {query}"
+```
+
+## Multiple Tools
+
+### Add Multiple Tools to an Agent
+
+```python
+def calculate(expression: str) -> float:
+    """
+    Calculate a mathematical expression.
+    
+    Args:
+        expression: A mathematical expression like '2 + 2'
+    
+    Returns:
+        The result of the calculation
+    """
+    return eval(expression)  # Use a safe evaluator in production
+
+def get_time(timezone: str = "UTC") -> str:
+    """
+    Get the current time in a timezone.
+    
+    Args:
+        timezone: The timezone name (e.g., 'UTC', 'America/New_York')
+    
+    Returns:
+        Current time as a string
+    """
+    from datetime import datetime
+    import pytz
+    
+    tz = pytz.timezone(timezone)
+    return datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S %Z")
+
+def search_database(query: str) -> str:
+    """
+    Search the internal database.
+    
+    Args:
+        query: SQL query to execute
+    
+    Returns:
+        Query results
+    """
+    # Database logic here
+    return "Query results..."
+
+# Agent with multiple tools
+agent = Agent(
+    agent_name="Multi-Tool-Agent",
+    model_name="gpt-4o",
+    max_loops=2,
+    tools=[calculate, get_time, search_database],
+    verbose=True,
+)
+
+response = agent.run(
+    "What time is it in Tokyo and what's 123 * 456?"
+)
+```
+
+## Real-World Tool Examples
+
+### Web Search Tool
+
+```python
+import requests
+
+def web_search(query: str, num_results: int = 5) -> str:
+    """
+    Search the web using a search API.
+    
+    Args:
+        query: The search query
+        num_results: Number of results to return (1-10)
+    
+    Returns:
+        Formatted search results
+    """
+    # Example using a hypothetical search API
+    response = requests.get(
+        "https://api.searchengine.com/search",
+        params={"q": query, "limit": num_results}
+    )
+    results = response.json().get("results", [])
+    
+    formatted = []
+    for i, result in enumerate(results, 1):
+        formatted.append(
+            f"{i}. {result['title']}\n   {result['snippet']}\n   {result['url']}"
+        )
+    
+    return "\n\n".join(formatted)
+
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="gpt-4o",
+    tools=[web_search],
+)
+```
+
+### Database Query Tool
+
+```python
+import sqlite3
+from typing import List, Dict, Any
+
+def query_database(sql: str) -> List[Dict[str, Any]]:
+    """
+    Execute a SQL query on the database.
+    
+    Args:
+        sql: SQL query to execute (SELECT statements only)
+    
+    Returns:
+        Query results as a list of dictionaries
+    """
+    # Validate it's a SELECT query
+    if not sql.strip().upper().startswith("SELECT"):
+        return [{"error": "Only SELECT queries are allowed"}]
+    
+    conn = sqlite3.connect("data.db")
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(sql)
+        columns = [desc[0] for desc in cursor.description]
+        results = [
+            dict(zip(columns, row))
+            for row in cursor.fetchall()
+        ]
+        return results
+    except Exception as e:
+        return [{"error": str(e)}]
+    finally:
+        conn.close()
+
+agent = Agent(
+    agent_name="Data-Analyst",
+    model_name="gpt-4o",
+    tools=[query_database],
+)
+```
+
+### File Operations Tool
+
+```python
+import os
+from pathlib import Path
+
+def read_file(filepath: str) -> str:
+    """
+    Read the contents of a file.
+    
+    Args:
+        filepath: Path to the file to read
+    
+    Returns:
+        File contents as a string
+    """
+    try:
+        with open(filepath, "r") as f:
+            return f.read()
+    except Exception as e:
+        return f"Error reading file: {e}"
+
+def write_file(filepath: str, content: str) -> str:
+    """
+    Write content to a file.
+    
+    Args:
+        filepath: Path to the file to write
+        content: Content to write to the file
+    
+    Returns:
+        Success or error message
+    """
+    try:
+        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+        with open(filepath, "w") as f:
+            f.write(content)
+        return f"Successfully wrote to {filepath}"
+    except Exception as e:
+        return f"Error writing file: {e}"
+
+def list_directory(path: str = ".") -> str:
+    """
+    List files and directories in a path.
+    
+    Args:
+        path: Directory path to list (default: current directory)
+    
+    Returns:
+        List of files and directories
+    """
+    try:
+        items = os.listdir(path)
+        return "\n".join(items)
+    except Exception as e:
+        return f"Error listing directory: {e}"
+
+agent = Agent(
+    agent_name="File-Manager",
+    model_name="gpt-4o",
+    tools=[read_file, write_file, list_directory],
+    max_loops=3,
+)
+```
+
+## Tool Configuration
+
+### Tool Schema Control
+
+<ParamField path="tools" type="List[Callable]" default="None">
+  List of tool functions to make available to the agent.
+  
+  ```python
+  agent = Agent(
+      tools=[tool1, tool2, tool3],
+      model_name="gpt-4o"
+  )
+  ```
+</ParamField>
+
+<ParamField path="tool_choice" type="str" default="auto">
+  Control when tools are used. Options: "auto", "required", "none".
+  
+  ```python
+  # Auto - Model decides when to use tools
+  agent = Agent(tools=[my_tool], tool_choice="auto")
+  
+  # Required - Model must use a tool
+  agent = Agent(tools=[my_tool], tool_choice="required")
+  
+  # None - Disable tool usage
+  agent = Agent(tools=[my_tool], tool_choice="none")
+  ```
+</ParamField>
+
+<ParamField path="show_tool_execution_output" type="bool" default="True">
+  Display tool execution results.
+  
+  ```python
+  agent = Agent(
+      tools=[my_tool],
+      show_tool_execution_output=True
+  )
+  ```
+</ParamField>
+
+<ParamField path="tool_retry_attempts" type="int" default="3">
+  Number of retry attempts for failed tool executions.
+  
+  ```python
+  agent = Agent(
+      tools=[my_tool],
+      tool_retry_attempts=5
+  )
+  ```
+</ParamField>
+
+## Advanced Tool Patterns
+
+### Tool with State
+
+```python
+class DatabaseTool:
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self.connection = None
+    
+    def connect(self) -> str:
+        """
+        Connect to the database.
+        
+        Returns:
+            Connection status message
+        """
+        import sqlite3
+        self.connection = sqlite3.connect(self.db_path)
+        return "Connected to database"
+    
+    def query(self, sql: str) -> str:
+        """
+        Execute a SQL query.
+        
+        Args:
+            sql: SQL query to execute
+        
+        Returns:
+            Query results
+        """
+        if not self.connection:
+            return "Not connected to database"
+        
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        return str(results)
+
+# Create instance and use methods as tools
+db_tool = DatabaseTool("data.db")
+
+agent = Agent(
+    agent_name="DB-Agent",
+    model_name="gpt-4o",
+    tools=[db_tool.connect, db_tool.query],
+)
+```
+
+### Async Tools
+
+```python
+import asyncio
+import aiohttp
+
+async def fetch_url_async(url: str) -> str:
+    """
+    Fetch content from a URL asynchronously.
+    
+    Args:
+        url: The URL to fetch
+    
+    Returns:
+        Response content
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return await response.text()
+
+# Wrap async function for synchronous agent
+def fetch_url(url: str) -> str:
+    """
+    Fetch content from a URL.
+    
+    Args:
+        url: The URL to fetch
+    
+    Returns:
+        Response content
+    """
+    return asyncio.run(fetch_url_async(url))
+
+agent = Agent(
+    model_name="gpt-4o",
+    tools=[fetch_url],
+)
+```
+
+## BaseTool API
+
+Swarms uses the `BaseTool` class internally to manage tools:
+
+```python
+from swarms.tools.base_tool import BaseTool
+
+# Tools are automatically converted to OpenAI function schemas
+tool_manager = BaseTool(
+    tools=[my_function],
+    verbose=True,
+)
+
+# Get function schema
+schema = tool_manager.convert_tool_into_openai_schema()
+print(schema)
+
+# Execute a tool
+result = tool_manager.execute_tool(
+    response='{"name": "my_function", "parameters": {...}}'
+)
+```
+
+## MCP Tools
+
+Model Context Protocol (MCP) enables connecting to external tool servers:
+
+```python
+from swarms.schemas.mcp_schemas import MCPConnection
+
+# Connect to MCP server
+mcp_config = MCPConnection(
+    name="weather-server",
+    command="node",
+    args=["/path/to/weather-server/index.js"],
+)
+
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="gpt-4o",
+    mcp_config=mcp_config,  # Tools auto-loaded from MCP server
+)
+
+# Agent can now use all tools from the MCP server
+response = agent.run("What's the weather in Paris?")
+```
+
+## Best Practices
+
+### 1. Always Include Type Hints
+
+```python
+# Good
+def search(query: str, limit: int = 10) -> list[dict]:
+    """Search with proper types"""
+    pass
+
+# Bad
+def search(query, limit=10):  # ❌ No type hints
+    pass
+```
+
+### 2. Write Descriptive Docstrings
+
+```python
+# Good
+def analyze_data(data: str, method: str = "statistical") -> dict:
+    """
+    Analyze data using specified method.
+    
+    Args:
+        data: JSON string containing data to analyze
+        method: Analysis method ('statistical', 'ml', 'deep_learning')
+    
+    Returns:
+        Dictionary with analysis results including metrics and insights
+    """
+    pass
+
+# Bad
+def analyze_data(data: str) -> dict:
+    """Analyze data"""  # ❌ Not descriptive enough
+    pass
+```
+
+### 3. Handle Errors Gracefully
+
+```python
+def api_call(endpoint: str) -> str:
+    """
+    Make an API call.
+    
+    Args:
+        endpoint: API endpoint to call
+    
+    Returns:
+        API response or error message
+    """
+    try:
+        response = requests.get(f"https://api.example.com/{endpoint}")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        return f"API call failed: {str(e)}"
+```
+
+### 4. Use Specific Parameter Names
+
+```python
+# Good - Clear parameter names
+def send_email(to_address: str, subject: str, body: str) -> str:
+    """Send an email"""
+    pass
+
+# Bad - Vague parameter names
+def send_email(to: str, s: str, b: str) -> str:  # ❌ Unclear
+    pass
+```
+
+### 5. Return Structured Data When Possible
+
+```python
+from typing import Dict, Any
+import json
+
+def get_user_info(user_id: str) -> str:
+    """
+    Get user information.
+    
+    Args:
+        user_id: The user's ID
+    
+    Returns:
+        JSON string with user information
+    """
+    user_data = {
+        "id": user_id,
+        "name": "John Doe",
+        "email": "john@example.com"
+    }
+    return json.dumps(user_data, indent=2)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Skills" icon="graduation-cap" href="/agents/agent-skills">
+    Learn about the Agent Skills system
+  </Card>
+  <Card title="Structured Outputs" icon="code" href="/agents/structured-outputs">
+    Get structured responses from agents
+  </Card>
+</CardGroup>
+
+## Reference
+
+- Tool handling: `swarms/structs/agent.py:972-1059`
+- BaseTool class: `swarms/tools/base_tool.py:69`
+- Function schema generation: `swarms/tools/py_func_to_openai_func_str.py`

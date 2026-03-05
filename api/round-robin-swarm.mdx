@@ -1,0 +1,231 @@
+---
+title: "RoundRobinSwarm"
+description: "A swarm that executes tasks in a randomized round-robin fashion with AutoGen-style agent communication"
+icon: "rotate"
+---
+
+## Overview
+
+The `RoundRobinSwarm` implements an AutoGen-style communication pattern where agents are shuffled randomly each loop for varied interaction patterns. Each agent receives the full conversation context and builds upon others' responses collaboratively.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Attributes
+
+<ParamField path="name" type="str" default="RoundRobinSwarm">
+  Name of the swarm
+</ParamField>
+
+<ParamField path="description" type="str" default="A swarm implementation that executes tasks in a round-robin fashion">
+  Description of the swarm's purpose
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" required>
+  List of agents in the swarm
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Flag to enable verbose mode
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of loops to run
+</ParamField>
+
+<ParamField path="callback" type="callable" default="None">
+  Callback function to be called after each loop
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Maximum number of retries for agent execution
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="final">
+  Type of output format ("final", "list", "dict", etc.)
+</ParamField>
+
+## Methods
+
+### run()
+
+Executes the given task on the agents in a randomized round-robin fashion.
+
+```python
+def run(self, task: str, *args, **kwargs) -> Union[str, dict, list]
+```
+
+**Parameters:**
+- `task` (str): The task to be executed
+
+**Returns:** The result of the task execution in the specified output format
+
+### run_batch()
+
+Execute multiple tasks sequentially through the round-robin swarm.
+
+```python
+def run_batch(self, tasks: List[str]) -> List[Union[str, dict, list]]
+```
+
+**Parameters:**
+- `tasks` (List[str]): A list of task strings to be executed
+
+**Returns:** List of results, one for each task
+
+## Usage Examples
+
+### Basic Round-Robin Execution
+
+```python
+from swarms import Agent, RoundRobinSwarm
+
+# Create specialized agents
+agents = [
+    Agent(
+        agent_name="Analyst",
+        system_prompt="You are a data analyst. Analyze information critically.",
+        model_name="openai/gpt-4o",
+    ),
+    Agent(
+        agent_name="Strategist",
+        system_prompt="You are a strategist. Think about long-term implications.",
+        model_name="openai/gpt-4o",
+    ),
+    Agent(
+        agent_name="Implementer",
+        system_prompt="You are an implementer. Focus on practical execution.",
+        model_name="openai/gpt-4o",
+    ),
+]
+
+# Create swarm
+swarm = RoundRobinSwarm(
+    agents=agents,
+    max_loops=1,
+    verbose=True
+)
+
+# Run a task
+result = swarm.run("How should we approach building a new AI product?")
+print(result)
+```
+
+### Multiple Loops with Callback
+
+```python
+def loop_callback(loop_num, result):
+    print(f"Completed loop {loop_num + 1}")
+    print(f"Last result: {result[:100]}...")
+
+swarm = RoundRobinSwarm(
+    agents=agents,
+    max_loops=3,  # Each agent participates 3 times
+    callback=loop_callback,
+    verbose=True
+)
+
+result = swarm.run("Develop a comprehensive marketing strategy")
+```
+
+### Batch Processing
+
+```python
+tasks = [
+    "Analyze market trends in AI",
+    "Develop a product roadmap",
+    "Create a risk assessment"
+]
+
+results = swarm.run_batch(tasks)
+
+for i, result in enumerate(results):
+    print(f"\nTask {i+1} Results:")
+    print(result)
+```
+
+### Different Output Types
+
+```python
+# Get final message only
+swarm_final = RoundRobinSwarm(
+    agents=agents,
+    output_type="final"
+)
+final_result = swarm_final.run("Analyze this problem")
+
+# Get full conversation as dict
+swarm_dict = RoundRobinSwarm(
+    agents=agents,
+    output_type="dict"
+)
+dict_result = swarm_dict.run("Analyze this problem")
+
+# Get conversation as list
+swarm_list = RoundRobinSwarm(
+    agents=agents,
+    output_type="list"
+)
+list_result = swarm_list.run("Analyze this problem")
+```
+
+### Custom Agent Configuration
+
+```python
+# Agents with different loop counts (set automatically)
+swarm = RoundRobinSwarm(
+    agents=agents,
+    max_loops=2
+)
+
+# Each agent's max_loops is randomly set between 1-5 internally
+result = swarm.run("Complex collaborative task")
+```
+
+## How It Works
+
+1. **Initial Task**: User provides a task to the swarm
+2. **Random Shuffling**: Agents are randomly shuffled each loop for varied interactions
+3. **Context Building**: Each agent receives the full conversation history
+4. **Collaborative Prompting**: Agents are prompted to acknowledge and build upon previous responses
+5. **Multiple Loops**: Process repeats for `max_loops` iterations
+6. **Final Output**: Returns formatted output based on `output_type`
+
+## Collaborative Prompt Format
+
+Each agent receives a prompt like:
+
+```
+[Previous conversation history]
+
+As Analyst, you are agent 1 of 3 in this collaborative session. 
+The other agents participating are: Strategist, Implementer.
+
+Please review the conversation history above carefully and build upon 
+the insights shared by other agents. Acknowledge their contributions 
+where relevant and provide your unique perspective and expertise.
+
+Your response:
+```
+
+## Features
+
+- **Randomized Order**: Agents are shuffled each loop for dynamic interactions
+- **Full Context**: Each agent sees the complete conversation history
+- **Collaborative**: Agents are prompted to acknowledge and build on others' work
+- **Retry Logic**: Automatic retries with exponential backoff on failures
+- **Flexible Output**: Multiple output format options
+- **Batch Processing**: Process multiple tasks efficiently
+- **Callback Support**: Execute custom logic after each loop
+- **Error Handling**: Comprehensive error handling and logging
+
+## Best Practices
+
+1. **Agent Diversity**: Use agents with complementary skills and perspectives
+2. **Clear Prompts**: Give agents specific roles in their system prompts
+3. **Loop Count**: Start with 1-2 loops; increase if deeper collaboration needed
+4. **Output Type**: Use "final" for simple tasks, "dict" for analysis of full conversation
+5. **Verbose Mode**: Enable for debugging and understanding agent interactions

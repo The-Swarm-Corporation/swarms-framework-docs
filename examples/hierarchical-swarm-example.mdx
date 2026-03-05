@@ -1,0 +1,477 @@
+---
+title: Hierarchical Swarm Example
+description: Learn how to use a director-worker pattern for complex project management and team coordination
+---
+
+# Hierarchical Swarm Example
+
+`HierarchicalSwarm` implements a director-worker pattern where a central director agent creates comprehensive plans and distributes specific tasks to specialized worker agents. The director evaluates results and can issue new orders in feedback loops, making it ideal for complex project management and team coordination scenarios.
+
+## How Hierarchical Swarm Works
+
+The hierarchical pattern follows a command-and-control structure:
+
+1. **Planning Phase**: Director analyzes the task and creates a comprehensive plan
+2. **Task Distribution**: Director assigns specific subtasks to appropriate worker agents
+3. **Worker Execution**: Specialized workers complete their assigned tasks independently
+4. **Evaluation Phase**: Director reviews all worker outputs
+5. **Feedback Loop**: Director can issue refinements or new tasks based on results
+
+### Key Characteristics
+
+- **Centralized Coordination**: Single director ensures cohesive strategy
+- **Specialized Workers**: Each agent focuses on their area of expertise
+- **Adaptive Planning**: Director adjusts based on worker outputs
+- **Quality Control**: Director validates and refines results
+- **Scalable Structure**: Easy to add new specialized workers
+
+## Basic Example: Marketing Team
+
+This example demonstrates a marketing team coordinated by a director:
+
+```python
+from swarms import Agent, HierarchicalSwarm
+
+# Define specialized worker agents
+content_strategist = Agent(
+    agent_name="Content-Strategist",
+    system_prompt="You are a senior content strategist. Develop comprehensive content strategies, editorial calendars, and content roadmaps.",
+    model_name="gpt-4o-mini"
+)
+
+creative_director = Agent(
+    agent_name="Creative-Director", 
+    system_prompt="You are a creative director. Develop compelling advertising concepts, visual directions, and campaign creativity.",
+    model_name="gpt-4o-mini"
+)
+
+seo_specialist = Agent(
+    agent_name="SEO-Specialist",
+    system_prompt="You are an SEO expert. Conduct keyword research, optimize content, and develop organic growth strategies.",
+    model_name="gpt-4o-mini"
+)
+
+brand_strategist = Agent(
+    agent_name="Brand-Strategist",
+    system_prompt="You are a brand strategist. Develop brand positioning, identity systems, and market differentiation strategies.",
+    model_name="gpt-4o-mini"
+)
+
+# Create the hierarchical swarm with a director
+marketing_swarm = HierarchicalSwarm(
+    name="Marketing-Team-Swarm",
+    description="A comprehensive marketing team with specialized agents coordinated by a director",
+    agents=[content_strategist, creative_director, seo_specialist, brand_strategist],
+    max_loops=2,  # Allow for feedback and refinement
+    verbose=True
+)
+
+# Run the swarm on a complex marketing challenge
+result = marketing_swarm.run(
+    "Develop a comprehensive marketing strategy for a new SaaS product launch. "
+    "The product is a project management tool targeting small to medium businesses. "
+    "Coordinate the team to create content strategy, creative campaigns, SEO optimization, "
+    "and brand positioning that work together cohesively."
+)
+
+print(result)
+```
+
+## How This Example Works
+
+1. **Task Reception**: Director receives the complex marketing challenge
+2. **Strategic Planning**: Director analyzes requirements and creates a master plan:
+   - Content strategy needs
+   - Creative campaign requirements  
+   - SEO optimization goals
+   - Brand positioning objectives
+3. **Task Assignment**: Director assigns specific tasks to each specialist:
+   - Content Strategist: "Develop 3-month content calendar for product launch"
+   - Creative Director: "Create campaign concepts for SMB audience"
+   - SEO Specialist: "Research keywords for project management tools"
+   - Brand Strategist: "Define positioning against Asana and Monday.com"
+4. **Execution**: All workers complete their tasks in parallel
+5. **Review & Coordination**: Director reviews outputs and ensures alignment
+6. **Refinement Loop** (max_loops=2): Director may ask for adjustments:
+   - "Align content calendar with campaign launch dates"
+   - "Incorporate top SEO keywords into brand messaging"
+7. **Final Synthesis**: Director combines all work into cohesive strategy
+
+## The Director-Worker Pattern
+
+The hierarchical pattern excels at:
+
+### Centralized Vision
+The director ensures all workers contribute to a unified goal, preventing fragmented or conflicting outputs.
+
+### Efficient Delegation
+Director identifies what needs to be done and assigns to the most qualified worker.
+
+### Quality Assurance
+Director reviews outputs and can request improvements or corrections.
+
+### Adaptive Coordination
+Based on initial results, director can adjust the plan and issue new directives.
+
+## Real-World Examples
+
+### Software Development Team
+
+Coordinate developers, designers, and testers:
+
+```python
+from swarms import Agent, HierarchicalSwarm
+
+# Define development team workers
+backend_engineer = Agent(
+    agent_name="Backend-Engineer",
+    system_prompt="You are a senior backend engineer. Design APIs, database schemas, and server architecture.",
+    model_name="gpt-4o-mini"
+)
+
+frontend_engineer = Agent(
+    agent_name="Frontend-Engineer",
+    system_prompt="You are a senior frontend engineer. Design user interfaces, components, and client-side logic.",
+    model_name="gpt-4o-mini"
+)
+
+qa_engineer = Agent(
+    agent_name="QA-Engineer",
+    system_prompt="You are a QA engineer. Develop test strategies, test cases, and quality assurance plans.",
+    model_name="gpt-4o-mini"
+)
+
+devops_engineer = Agent(
+    agent_name="DevOps-Engineer",
+    system_prompt="You are a DevOps engineer. Design deployment pipelines, infrastructure, and monitoring.",
+    model_name="gpt-4o-mini"
+)
+
+# Create development swarm
+dev_team = HierarchicalSwarm(
+    name="Development-Team",
+    description="Software development team with specialized engineers",
+    agents=[backend_engineer, frontend_engineer, qa_engineer, devops_engineer],
+    max_loops=3,  # Multiple feedback cycles
+    verbose=True
+)
+
+# Build a feature
+feature = dev_team.run(
+    "Build a user authentication system with OAuth2, JWT tokens, and social login. "
+    "Include comprehensive testing and deployment strategy."
+)
+
+print(feature)
+```
+
+### Research Team
+
+Coordinate researchers across different specialties:
+
+```python
+from swarms import Agent, HierarchicalSwarm
+
+# Define research team workers
+literature_researcher = Agent(
+    agent_name="Literature-Researcher",
+    system_prompt="You are a literature review specialist. Search and synthesize existing research on topics.",
+    model_name="gpt-4o-mini"
+)
+
+data_scientist = Agent(
+    agent_name="Data-Scientist",
+    system_prompt="You are a data scientist. Design experiments, analyze data, and develop statistical models.",
+    model_name="gpt-4o-mini"
+)
+
+methodologist = Agent(
+    agent_name="Methodologist",
+    system_prompt="You are a research methodologist. Design rigorous experimental protocols and methodologies.",
+    model_name="gpt-4o-mini"
+)
+
+writer = Agent(
+    agent_name="Academic-Writer",
+    system_prompt="You are an academic writer. Write clear, rigorous research papers and publications.",
+    model_name="gpt-4o-mini"
+)
+
+# Create research swarm
+research_team = HierarchicalSwarm(
+    name="Research-Team",
+    description="Academic research team for conducting studies",
+    agents=[literature_researcher, data_scientist, methodologist, writer],
+    max_loops=2,
+    verbose=True
+)
+
+# Conduct research project
+paper = research_team.run(
+    "Conduct a research study on the impact of remote work on employee productivity. "
+    "Include literature review, methodology design, data analysis plan, and draft paper."
+)
+
+print(paper)
+```
+
+### Event Planning Team
+
+Coordinate event specialists:
+
+```python
+from swarms import Agent, HierarchicalSwarm
+
+# Define event planning team
+venue_coordinator = Agent(
+    agent_name="Venue-Coordinator",
+    system_prompt="You are a venue coordinator. Find and evaluate event spaces, negotiate contracts, manage logistics.",
+    model_name="gpt-4o-mini"
+)
+
+catering_specialist = Agent(
+    agent_name="Catering-Specialist",
+    system_prompt="You are a catering specialist. Plan menus, coordinate food service, manage dietary requirements.",
+    model_name="gpt-4o-mini"
+)
+
+marketing_coordinator = Agent(
+    agent_name="Marketing-Coordinator",
+    system_prompt="You are an event marketing coordinator. Promote events, manage registrations, handle communications.",
+    model_name="gpt-4o-mini"
+)
+
+technical_producer = Agent(
+    agent_name="Technical-Producer",
+    system_prompt="You are a technical producer. Manage AV equipment, streaming, presentations, and technical requirements.",
+    model_name="gpt-4o-mini"
+)
+
+# Create event planning swarm
+event_team = HierarchicalSwarm(
+    name="Event-Planning-Team",
+    description="Professional event planning and coordination team",
+    agents=[venue_coordinator, catering_specialist, marketing_coordinator, technical_producer],
+    max_loops=2,
+    verbose=True
+)
+
+# Plan conference
+conference_plan = event_team.run(
+    "Plan a 2-day AI conference for 500 attendees. Include venue selection, "
+    "catering for all meals, marketing strategy to fill seats, and technical "
+    "requirements for presentations and live streaming."
+)
+
+print(conference_plan)
+```
+
+### Customer Service Team
+
+Coordinate support specialists:
+
+```python
+from swarms import Agent, HierarchicalSwarm
+
+# Define customer service team
+technical_support = Agent(
+    agent_name="Technical-Support",
+    system_prompt="You are a technical support specialist. Troubleshoot technical issues and provide solutions.",
+    model_name="gpt-4o-mini"
+)
+
+billing_specialist = Agent(
+    agent_name="Billing-Specialist",
+    system_prompt="You are a billing specialist. Handle payment issues, refunds, and account billing questions.",
+    model_name="gpt-4o-mini"
+)
+
+product_specialist = Agent(
+    agent_name="Product-Specialist",
+    system_prompt="You are a product specialist. Explain features, guide usage, and provide product training.",
+    model_name="gpt-4o-mini"
+)
+
+escalation_manager = Agent(
+    agent_name="Escalation-Manager",
+    system_prompt="You are an escalation manager. Handle complex cases, customer complaints, and special requests.",
+    model_name="gpt-4o-mini"
+)
+
+# Create support swarm
+support_team = HierarchicalSwarm(
+    name="Customer-Support-Team",
+    description="Customer service team handling diverse support needs",
+    agents=[technical_support, billing_specialist, product_specialist, escalation_manager],
+    max_loops=2,
+    verbose=True
+)
+
+# Handle complex customer case
+resolution = support_team.run(
+    "Customer reports login issues, billing discrepancy, and confusion about new features. "
+    "They're frustrated and considering cancellation. Resolve all issues comprehensively."
+)
+
+print(resolution)
+```
+
+## Feedback Loop Examples
+
+The `max_loops` parameter enables iterative refinement:
+
+### Single Loop (max_loops=1)
+```python
+# Director plans → Workers execute → Director synthesizes → Done
+swarm = HierarchicalSwarm(
+    agents=[agent1, agent2, agent3],
+    max_loops=1,  # One-pass execution
+)
+```
+
+### Multiple Loops (max_loops=2+)
+```python
+# Loop 1: Director plans → Workers execute → Director reviews
+# Loop 2: Director requests refinements → Workers improve → Director finalizes
+swarm = HierarchicalSwarm(
+    agents=[agent1, agent2, agent3],
+    max_loops=3,  # Multiple refinement cycles
+)
+```
+
+### Real Feedback Example
+
+```python
+from swarms import Agent, HierarchicalSwarm
+
+# Create agents
+designer = Agent(
+    agent_name="Designer",
+    system_prompt="Design user interfaces and visual elements.",
+    model_name="gpt-4o-mini"
+)
+
+developer = Agent(
+    agent_name="Developer",
+    system_prompt="Implement designs and build functionality.",
+    model_name="gpt-4o-mini"
+)
+
+# Create swarm with feedback loops
+swarm = HierarchicalSwarm(
+    name="Design-Dev-Team",
+    agents=[designer, developer],
+    max_loops=3,  # Allow for iteration
+    verbose=True
+)
+
+result = swarm.run("Build a user-friendly dashboard for analytics")
+
+# Behind the scenes:
+# Loop 1:
+#   Director: "Designer, create dashboard mockup. Developer, review technical feasibility."
+#   Workers execute
+#   Director: "Design looks good but developer flagged performance concerns"
+#
+# Loop 2:
+#   Director: "Designer, simplify complex charts. Developer, optimize data loading."
+#   Workers execute
+#   Director: "Better, but need mobile responsiveness"
+#
+# Loop 3:
+#   Director: "Designer, add mobile layouts. Developer, implement responsive design."
+#   Workers execute
+#   Director: "Perfect, all requirements met" → Final output
+```
+
+## Benefits of Hierarchical Swarm
+
+1. **Complex Project Management**: Handles multi-faceted projects requiring coordination
+2. **Team Coordination**: Ensures all agents work toward unified goals
+3. **Quality Control**: Director provides oversight and validation
+4. **Adaptive Planning**: Can adjust strategy based on initial results
+5. **Scalable Teams**: Easy to add new specialists without restructuring
+6. **Clear Accountability**: Director responsible for overall success
+
+## Best Practices
+
+### 1. Define Clear Worker Specializations
+```python
+# Good: Specific expertise
+worker = Agent(
+    agent_name="SEO-Specialist",
+    system_prompt="You are an SEO expert specializing in technical SEO, keyword research, and organic growth.",
+    model_name="gpt-4o-mini"
+)
+
+# Avoid: Too broad
+worker = Agent(
+    agent_name="Marketer",
+    system_prompt="You do marketing.",
+    model_name="gpt-4o-mini"
+)
+```
+
+### 2. Use Appropriate Loop Counts
+- **max_loops=1**: Simple tasks, quick execution
+- **max_loops=2**: Standard quality control and refinement
+- **max_loops=3+**: Complex projects needing multiple iterations
+
+### 3. Provide Comprehensive Context
+```python
+result = swarm.run(
+    """Launch a mobile app for fitness tracking.
+    
+    Requirements:
+    - iOS and Android support
+    - Integration with wearables
+    - Social features for challenges
+    - Freemium pricing model
+    
+    Constraints:
+    - 3-month timeline
+    - Budget: $200k
+    - Team of 5 developers
+    
+    Deliverables:
+    - Technical architecture
+    - Development roadmap
+    - Marketing strategy
+    - Launch plan
+    """
+)
+```
+
+### 4. Balance Team Size
+- **Too few workers (1-2)**: Underutilizes hierarchical pattern
+- **Optimal (3-6)**: Good balance of specialization and coordination
+- **Too many (8+)**: Director becomes overwhelmed coordinating
+
+## When to Use Hierarchical Swarm
+
+Ideal for:
+
+- **Complex Projects**: Multi-faceted initiatives requiring coordination
+- **Team Coordination**: When specialized workers need unified direction
+- **Quality-Critical Work**: When oversight and validation are important
+- **Iterative Refinement**: When feedback loops improve results
+- **Scalable Operations**: When team may grow with new specialists
+
+## When NOT to Use Hierarchical Swarm
+
+- **Simple Tasks**: Overhead not justified for straightforward work
+- **Independent Analyses**: When diverse perspectives don't need coordination (use MoA)
+- **Speed Critical**: Additional director layer adds latency
+- **Linear Pipelines**: When sequential processing suffices (use SequentialWorkflow)
+
+## Related Architectures
+
+- **[MixtureOfAgents](/examples/mixture-of-agents-example)**: Parallel experts with aggregation, no hierarchical control
+- **[SequentialWorkflow](/examples/sequential-workflow-example)**: Linear pipeline without director
+- **[GroupChat](/examples/group-chat-example)**: Collaborative discussion without hierarchy
+
+## Learn More
+
+- [HierarchicalSwarm API Reference](https://docs.swarms.world/en/latest/swarms/structs/hiearchical_swarm/)
+- [HierarchicalSwarm Examples](https://docs.swarms.world/en/latest/swarms/examples/hierarchical_swarm_example/)
+- [Multi-Agent Architectures Overview](https://docs.swarms.world/en/latest/swarms/concept/swarm_architectures/)

@@ -1,0 +1,365 @@
+---
+title: Installation
+description: Install Swarms using pip, uv, poetry, or from source
+---
+
+## Installation Options
+
+Swarms can be installed in multiple ways depending on your preferences and development environment. Choose the method that best fits your workflow.
+
+<CardGroup cols={2}>
+  <Card title="pip" icon="python">
+    Standard Python package installation
+  </Card>
+  <Card title="uv" icon="bolt">
+    Fast Rust-based installer (Recommended)
+  </Card>
+  <Card title="poetry" icon="book">
+    Modern dependency management
+  </Card>
+  <Card title="From Source" icon="code">
+    Development and contribution
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before installing Swarms, ensure you have:
+
+- **Python 3.10 or higher** installed on your system
+- **pip** package manager (usually comes with Python)
+- An active internet connection
+
+<Note>
+  You can check your Python version by running `python --version` or `python3 --version` in your terminal.
+</Note>
+
+## Installation Methods
+
+<CodeGroup>
+
+```bash pip
+# Install the latest version of Swarms
+pip3 install -U swarms
+```
+
+```bash uv (Recommended)
+# Install uv if you haven't already
+pip install uv
+
+# Install Swarms using uv
+uv pip install swarms
+```
+
+```bash poetry
+# Add Swarms to your poetry project
+poetry add swarms
+```
+
+```bash From Source
+# Clone the repository
+git clone https://github.com/kyegomez/swarms.git
+
+# Navigate to the directory
+cd swarms
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+</CodeGroup>
+
+## Why Use uv? (Recommended)
+
+[uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver, written in Rust. It offers significant performance improvements over traditional pip:
+
+<CardGroup cols={3}>
+  <Card title="10-100x Faster" icon="gauge-high">
+    Dramatically faster installation times compared to pip
+  </Card>
+  <Card title="Better Dependency Resolution" icon="puzzle-piece">
+    More reliable dependency resolution and conflict detection
+  </Card>
+  <Card title="Drop-in Replacement" icon="rotate">
+    Works as a direct replacement for pip commands
+  </Card>
+</CardGroup>
+
+## Verify Installation
+
+After installation, verify that Swarms is correctly installed:
+
+```python
+import swarms
+
+print(f"Swarms version: {swarms.__version__}")
+print("Swarms is ready!")
+```
+
+You can also run this as a one-liner:
+
+```bash
+python -c "import swarms; print('Swarms is ready!')"
+```
+
+## Installing Specific Versions
+
+If you need a specific version of Swarms:
+
+<CodeGroup>
+
+```bash pip
+# Install a specific version
+pip3 install swarms==1.0.0
+
+# Install the latest pre-release
+pip3 install --pre swarms
+```
+
+```bash uv
+# Install a specific version
+uv pip install swarms==1.0.0
+```
+
+```bash poetry
+# Add a specific version
+poetry add swarms@1.0.0
+```
+
+</CodeGroup>
+
+## Development Installation
+
+If you're planning to contribute to Swarms or need the latest development features:
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/kyegomez/swarms.git
+    cd swarms
+    ```
+  </Step>
+
+  <Step title="Install in editable mode">
+    ```bash
+    # Using pip
+    pip install -e .
+
+    # Or using uv
+    uv pip install -e .
+    ```
+  </Step>
+
+  <Step title="Install development dependencies">
+    ```bash
+    pip install -r requirements.txt
+    ```
+  </Step>
+
+  <Step title="Verify the installation">
+    ```bash
+    python -c "import swarms; print('Development installation successful!')"
+    ```
+  </Step>
+</Steps>
+
+<Info>
+  Installing in editable mode (`-e` flag) allows you to modify the source code and see changes immediately without reinstalling.
+</Info>
+
+## Optional Dependencies
+
+Swarms has optional dependencies for specific features:
+
+```bash
+# Install with all optional dependencies
+pip3 install swarms[all]
+
+# Install with specific extras
+pip3 install swarms[tools]      # Additional tool integrations
+pip3 install swarms[ui]         # Web UI components
+pip3 install swarms[dev]        # Development tools
+```
+
+## Virtual Environments (Recommended)
+
+It's recommended to install Swarms in a virtual environment to avoid conflicts with other packages:
+
+<Tabs>
+  <Tab title="venv">
+    ```bash
+    # Create a virtual environment
+    python -m venv swarms-env
+
+    # Activate the environment
+    # On Linux/Mac:
+    source swarms-env/bin/activate
+    # On Windows:
+    swarms-env\Scripts\activate
+
+    # Install Swarms
+    pip install swarms
+    ```
+  </Tab>
+
+  <Tab title="conda">
+    ```bash
+    # Create a conda environment
+    conda create -n swarms-env python=3.10
+
+    # Activate the environment
+    conda activate swarms-env
+
+    # Install Swarms
+    pip install swarms
+    ```
+  </Tab>
+
+  <Tab title="poetry">
+    ```bash
+    # Initialize a new project
+    poetry init
+
+    # Add Swarms
+    poetry add swarms
+
+    # Activate the virtual environment
+    poetry shell
+    ```
+  </Tab>
+</Tabs>
+
+## Platform-Specific Notes
+
+<AccordionGroup>
+  <Accordion title="macOS">
+    On macOS, you might need to install command-line tools:
+    
+    ```bash
+    xcode-select --install
+    ```
+    
+    If you're using Apple Silicon (M1/M2), ensure you're using a compatible Python version.
+  </Accordion>
+
+  <Accordion title="Windows">
+    On Windows, you might need to install Microsoft C++ Build Tools:
+    
+    1. Download from [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+    2. Install "Desktop development with C++" workload
+    
+    Also, use `python` instead of `python3` in commands.
+  </Accordion>
+
+  <Accordion title="Linux">
+    On Linux, you might need to install additional system dependencies:
+    
+    ```bash
+    # Ubuntu/Debian
+    sudo apt-get update
+    sudo apt-get install python3-dev build-essential
+    
+    # Fedora/RHEL
+    sudo dnf install python3-devel gcc
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Upgrading Swarms
+
+To upgrade to the latest version:
+
+<CodeGroup>
+
+```bash pip
+pip3 install -U swarms
+```
+
+```bash uv
+uv pip install --upgrade swarms
+```
+
+```bash poetry
+poetry update swarms
+```
+
+</CodeGroup>
+
+## Uninstalling Swarms
+
+If you need to uninstall Swarms:
+
+<CodeGroup>
+
+```bash pip
+pip3 uninstall swarms
+```
+
+```bash uv
+uv pip uninstall swarms
+```
+
+```bash poetry
+poetry remove swarms
+```
+
+</CodeGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Permission denied errors">
+    If you encounter permission errors, try:
+    
+    ```bash
+    # Add --user flag (not recommended with virtual environments)
+    pip3 install --user swarms
+    
+    # Or use sudo (not recommended)
+    sudo pip3 install swarms
+    ```
+    
+    **Better solution:** Use a virtual environment to avoid permission issues.
+  </Accordion>
+
+  <Accordion title="SSL certificate errors">
+    If you encounter SSL errors:
+    
+    ```bash
+    pip3 install --trusted-host pypi.org --trusted-host files.pythonhosted.org swarms
+    ```
+  </Accordion>
+
+  <Accordion title="Package conflicts">
+    If you have dependency conflicts:
+    
+    1. Create a fresh virtual environment
+    2. Install Swarms first before other packages
+    3. Use `uv` for better dependency resolution
+  </Accordion>
+
+  <Accordion title="ImportError after installation">
+    If you can install but can't import:
+    
+    1. Check you're using the correct Python interpreter
+    2. Verify the virtual environment is activated
+    3. Try reinstalling: `pip uninstall swarms && pip install swarms`
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that you've installed Swarms, proceed to:
+
+<CardGroup cols={2}>
+  <Card title="Environment Setup" icon="gear" href="/getting-started/environment-setup">
+    Configure your API keys and workspace
+  </Card>
+  <Card title="Quickstart Guide" icon="rocket" href="/getting-started/quickstart">
+    Create your first agent in minutes
+  </Card>
+</CardGroup>
+
+<Info>
+  Need help with installation? Join our [Discord community](https://discord.gg/EamjgSaEQf) for support!
+</Info>

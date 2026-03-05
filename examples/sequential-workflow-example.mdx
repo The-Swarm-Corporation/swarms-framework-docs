@@ -1,0 +1,210 @@
+---
+title: Sequential Workflow Example
+description: Learn how to build sequential agent workflows where agents execute tasks in a linear chain
+---
+
+# Sequential Workflow Example
+
+A `SequentialWorkflow` executes tasks in a strict order, forming a pipeline where each agent builds upon the work of the previous one. This architecture is ideal for processes that have clear, ordered steps and ensures that tasks with dependencies are handled correctly.
+
+## How Sequential Workflow Works
+
+In a sequential workflow:
+
+1. **Linear Execution**: Agents execute tasks one after another in a defined order
+2. **Output Chaining**: The output of one agent becomes the input for the next agent
+3. **Dependency Management**: Ensures tasks with dependencies are handled correctly
+4. **Sequential Processing**: Each agent must complete before the next one starts
+
+## Basic Example: Researcher to Writer Pipeline
+
+This example demonstrates a two-agent workflow for researching and writing a blog post:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+# Agent 1: The Researcher
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="Your job is to research the provided topic and provide a detailed summary.",
+    model_name="gpt-4o-mini",
+)
+
+# Agent 2: The Writer
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="Your job is to take the research summary and write a beautiful, engaging blog post about it.",
+    model_name="gpt-4o-mini",
+)
+
+# Create a sequential workflow where the researcher's output feeds into the writer's input
+workflow = SequentialWorkflow(agents=[researcher, writer])
+
+# Run the workflow on a task
+final_post = workflow.run("The history and future of artificial intelligence")
+print(final_post)
+```
+
+## How This Example Works
+
+1. **Task Assignment**: The initial task "The history and future of artificial intelligence" is sent to the first agent (Researcher)
+2. **Research Phase**: The Researcher agent processes the task and produces a detailed summary
+3. **Handoff**: The Researcher's output automatically becomes the input for the Writer agent
+4. **Writing Phase**: The Writer agent takes the research summary and creates an engaging blog post
+5. **Final Output**: The workflow returns the final blog post from the Writer agent
+
+## Common Use Cases
+
+SequentialWorkflow is ideal for:
+
+- **Content Creation Pipelines**: Research → Writing → Editing → Publishing
+- **Data Processing**: Collection → Cleaning → Analysis → Reporting
+- **Software Development**: Design → Implementation → Testing → Deployment
+- **Document Processing**: Extraction → Transformation → Validation → Storage
+- **Report Generation**: Data gathering → Analysis → Visualization → Summary
+
+## Variations
+
+### Three-Stage Content Pipeline
+
+Add an editor to review and polish the content:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+# Define three agents for a complete content pipeline
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="Research the topic thoroughly and provide comprehensive findings.",
+    model_name="gpt-4o-mini",
+)
+
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="Transform research into an engaging, well-structured article.",
+    model_name="gpt-4o-mini",
+)
+
+editor = Agent(
+    agent_name="Editor",
+    system_prompt="Review the article for clarity, grammar, and style. Polish the final content.",
+    model_name="gpt-4o-mini",
+)
+
+# Create sequential workflow with three stages
+workflow = SequentialWorkflow(agents=[researcher, writer, editor])
+
+# Run the complete pipeline
+polished_article = workflow.run("The impact of quantum computing on cybersecurity")
+print(polished_article)
+```
+
+### Multi-Step Data Processing
+
+Process data through multiple transformation stages:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+# Define agents for data processing pipeline
+data_collector = Agent(
+    agent_name="DataCollector",
+    system_prompt="Gather and collect data from various sources on the given topic.",
+    model_name="gpt-4o-mini",
+)
+
+data_cleaner = Agent(
+    agent_name="DataCleaner",
+    system_prompt="Clean and normalize the collected data, removing inconsistencies.",
+    model_name="gpt-4o-mini",
+)
+
+data_analyzer = Agent(
+    agent_name="DataAnalyzer",
+    system_prompt="Analyze the cleaned data and extract meaningful insights.",
+    model_name="gpt-4o-mini",
+)
+
+report_generator = Agent(
+    agent_name="ReportGenerator",
+    system_prompt="Generate a comprehensive report based on the analysis.",
+    model_name="gpt-4o-mini",
+)
+
+# Create the data processing workflow
+workflow = SequentialWorkflow(
+    agents=[data_collector, data_cleaner, data_analyzer, report_generator]
+)
+
+# Process data through the pipeline
+final_report = workflow.run("Analyze customer feedback trends from Q1 2024")
+print(final_report)
+```
+
+### Code Development Pipeline
+
+Build a complete software development workflow:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+# Define agents for software development
+designer = Agent(
+    agent_name="Designer",
+    system_prompt="Design the architecture and structure for the requested feature.",
+    model_name="gpt-4o-mini",
+)
+
+developer = Agent(
+    agent_name="Developer",
+    system_prompt="Implement the feature based on the design specifications.",
+    model_name="gpt-4o-mini",
+)
+
+tester = Agent(
+    agent_name="Tester",
+    system_prompt="Test the implementation and identify any bugs or issues.",
+    model_name="gpt-4o-mini",
+)
+
+deployer = Agent(
+    agent_name="Deployer",
+    system_prompt="Create deployment instructions and documentation for the feature.",
+    model_name="gpt-4o-mini",
+)
+
+# Create the development workflow
+workflow = SequentialWorkflow(agents=[designer, developer, tester, deployer])
+
+# Run the development pipeline
+deployment_package = workflow.run("Create a user authentication system with JWT tokens")
+print(deployment_package)
+```
+
+## Best Practices
+
+1. **Clear Agent Roles**: Define specific, focused responsibilities for each agent
+2. **Appropriate Ordering**: Arrange agents in logical sequence based on task dependencies
+3. **Detailed System Prompts**: Provide clear instructions about input expectations and output format
+4. **Error Handling**: Consider what happens if an intermediate agent fails
+5. **Pipeline Length**: Keep workflows manageable; very long pipelines may benefit from breaking into sub-workflows
+
+## Key Benefits
+
+- **Maintainability**: Easy to understand and modify the workflow sequence
+- **Reliability**: Deterministic execution order ensures consistent results
+- **Debugging**: Simple to identify and fix issues at specific stages
+- **Reusability**: Individual agents can be reused in different workflows
+- **Scalability**: Easy to add or remove stages from the pipeline
+
+## Related Architectures
+
+- **[ConcurrentWorkflow](/examples/concurrent-workflow-example)**: Run agents in parallel instead of sequence
+- **[HierarchicalSwarm](/examples/hierarchical-swarm-example)**: Use a director to coordinate multiple workers
+- **[AgentRearrange](https://docs.swarms.world/en/latest/swarms/structs/agent_rearrange/)**: Define complex agent relationships
+
+## Learn More
+
+- [SequentialWorkflow API Reference](https://docs.swarms.world/en/latest/swarms/structs/sequential_workflow/)
+- [Agent Configuration Guide](https://docs.swarms.world/en/latest/swarms/structs/agent/)
+- [Multi-Agent Architectures Overview](https://docs.swarms.world/en/latest/swarms/concept/swarm_architectures/)

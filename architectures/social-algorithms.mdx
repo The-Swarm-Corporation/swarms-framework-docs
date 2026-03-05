@@ -1,0 +1,533 @@
+---
+title: Social Algorithms
+description: Define and execute custom communication patterns between agents with arbitrary social algorithms
+---
+
+# Social Algorithms
+
+The `SocialAlgorithms` framework provides complete flexibility for defining custom communication patterns between agents. Upload any arbitrary social algorithm as a callable that defines exactly how agents interact and communicate.
+
+## When to Use
+
+- **Custom communication patterns**: Unique agent interaction requirements
+- **Research implementations**: Test novel multi-agent algorithms
+- **Specialized workflows**: Domain-specific communication protocols
+- **Flexible orchestration**: Full control over agent interactions
+- **Algorithm experimentation**: Compare different social patterns
+
+## Key Features
+
+- Accept any callable as social algorithm
+- Communication history tracking (optional)
+- Execution timeout management
+- Multiple output formats
+- Agent lifecycle management
+- Async execution support
+- Parallel execution options
+- Detailed logging and monitoring
+
+## Basic Example
+
+```python
+from swarms import Agent, SocialAlgorithms
+
+# Define custom social algorithm
+def research_analysis_synthesis(agents, task, **kwargs):
+    """
+    Custom pattern: Research -> Analysis -> Synthesis
+    """
+    # Agent 0: Research the topic
+    research_result = agents[0].run(f"Research: {task}")
+    
+    # Agent 1: Analyze the research
+    analysis = agents[1].run(f"Analyze this research: {research_result}")
+    
+    # Agent 2: Synthesize findings
+    synthesis = agents[2].run(f"Synthesize: {research_result} + {analysis}")
+    
+    return {
+        "research": research_result,
+        "analysis": analysis,
+        "synthesis": synthesis
+    }
+
+# Create agents
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="Expert in research and information gathering.",
+    model_name="gpt-4o-mini",
+)
+
+analyst = Agent(
+    agent_name="Analyst",
+    system_prompt="Specialist in analyzing and interpreting data.",
+    model_name="gpt-4o-mini",
+)
+
+synthesizer = Agent(
+    agent_name="Synthesizer",
+    system_prompt="Expert in synthesizing insights.",
+    model_name="gpt-4o-mini",
+)
+
+# Create social algorithm
+social_alg = SocialAlgorithms(
+    name="Research-Analysis-Synthesis",
+    agents=[researcher, analyst, synthesizer],
+    social_algorithm=research_analysis_synthesis,
+    verbose=True,
+)
+
+# Execute
+result = social_alg.run("Impact of AI on healthcare")
+print(result.final_outputs)
+```
+
+## Custom Algorithm Patterns
+
+### Debate Algorithm
+
+```python
+def debate_algorithm(agents, task, rounds=3, **kwargs):
+    """
+    Two agents debate with a judge evaluating.
+    """
+    pro_agent, con_agent, judge = agents[0], agents[1], agents[2]
+    
+    debate_history = []
+    
+    for round in range(rounds):
+        # Pro argument
+        pro_arg = pro_agent.run(f"Round {round+1} - Argue for: {task}")
+        debate_history.append({"round": round+1, "pro": pro_arg})
+        
+        # Con argument
+        con_arg = con_agent.run(f"Round {round+1} - Argue against: {task}. Pro said: {pro_arg}")
+        debate_history.append({"round": round+1, "con": con_arg})
+    
+    # Judge evaluation
+    judgment = judge.run(f"Evaluate debate: {debate_history}")
+    
+    return {
+        "debate_history": debate_history,
+        "judgment": judgment
+    }
+
+social_alg = SocialAlgorithms(
+    name="Debate-System",
+    agents=[pro_agent, con_agent, judge],
+    social_algorithm=debate_algorithm,
+)
+```
+
+### Hierarchical Review
+
+```python
+def hierarchical_review_algorithm(agents, task, **kwargs):
+    """
+    Draft -> Peer Review -> Senior Review -> Approval
+    """
+    drafter, peer, senior, approver = agents
+    
+    # Initial draft
+    draft = drafter.run(f"Create draft: {task}")
+    
+    # Peer review
+    peer_review = peer.run(f"Review this draft: {draft}")
+    
+    # Revision based on peer review
+    revision = drafter.run(f"Revise draft based on: {peer_review}")
+    
+    # Senior review
+    senior_review = senior.run(f"Senior review of: {revision}")
+    
+    # Final approval
+    approval = approver.run(f"Approve or reject: {senior_review}")
+    
+    return {
+        "draft": draft,
+        "peer_review": peer_review,
+        "revision": revision,
+        "senior_review": senior_review,
+        "approval": approval
+    }
+```
+
+### Consensus Building
+
+```python
+def consensus_algorithm(agents, task, threshold=0.7, **kwargs):
+    """
+    Agents vote and iterate until consensus reached.
+    """
+    max_iterations = 5
+    proposals = {}
+    
+    for iteration in range(max_iterations):
+        # Each agent makes a proposal
+        for agent in agents:
+            context = f"Previous proposals: {proposals}" if proposals else ""
+            proposal = agent.run(f"{task}. {context}")
+            proposals[agent.agent_name] = proposal
+        
+        # Check for consensus (simplified)
+        # In real implementation, measure similarity
+        if iteration >= 2:  # At least 3 rounds
+            break
+    
+    # Final synthesis
+    synthesizer = agents[0]
+    final = synthesizer.run(f"Synthesize consensus from: {proposals}")
+    
+    return {
+        "proposals": proposals,
+        "consensus": final
+    }
+```
+
+## Key Parameters
+
+<ParamField path="name" type="str" default="SocialAlgorithm">
+  Name for the algorithm instance
+</ParamField>
+
+<ParamField path="description" type="str">
+  Description of the algorithm's purpose
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" required>
+  List of agents that will participate
+</ParamField>
+
+<ParamField path="social_algorithm" type="Callable" required>
+  Function defining the communication pattern (agents, task, **kwargs) -> Any
+</ParamField>
+
+<ParamField path="max_execution_time" type="float" default={300.0}>
+  Maximum execution time in seconds
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict">
+  Format for output (dict, list, str)
+</ParamField>
+
+<ParamField path="enable_communication_logging" type="bool" default={false}>
+  Log all agent communications
+</ParamField>
+
+<ParamField path="parallel_execution" type="bool" default={false}>
+  Enable parallel execution where possible
+</ParamField>
+
+<ParamField path="verbose" type="bool" default={false}>
+  Enable detailed logging
+</ParamField>
+
+## Methods
+
+### run()
+
+Execute the social algorithm.
+
+```python
+result = social_alg.run(
+    task="Analyze market trends",
+    algorithm_args={"rounds": 3, "threshold": 0.8},  # Custom args
+)
+
+# Result is SocialAlgorithmResult object
+print(result.final_outputs)
+print(result.execution_time)
+print(result.successful_steps)
+```
+
+### run_async()
+
+Asynchronous execution.
+
+```python
+import asyncio
+
+result = social_alg.run_async(
+    task="Task description",
+    algorithm_args={"custom_param": "value"},
+)
+```
+
+### add_agent() / remove_agent()
+
+Dynamic agent management.
+
+```python
+# Add new agent
+new_agent = Agent(agent_name="NewExpert", ...)
+social_alg.add_agent(new_agent)
+
+# Remove agent
+social_alg.remove_agent("OldAgent")
+```
+
+### get_communication_history()
+
+Retrieve communication logs (if enabled).
+
+```python
+social_alg = SocialAlgorithms(
+    agents=agents,
+    social_algorithm=algorithm,
+    enable_communication_logging=True,
+)
+
+result = social_alg.run("Task")
+history = social_alg.get_communication_history()
+
+# Each step: CommunicationStep(
+#   sender_agent, receiver_agent, message, timestamp
+# )
+```
+
+## SocialAlgorithmResult
+
+Detailed execution results:
+
+```python
+class SocialAlgorithmResult:
+    algorithm_id: str
+    execution_time: float
+    total_steps: int
+    successful_steps: int
+    failed_steps: int
+    communication_history: List[CommunicationStep]
+    final_outputs: Dict[str, Any]
+    metadata: Optional[Dict[str, Any]]
+
+# Access results
+result = social_alg.run("Task")
+print(f"Execution took {result.execution_time:.2f}s")
+print(f"Successful steps: {result.successful_steps}")
+print(f"Output: {result.final_outputs}")
+```
+
+## Use Cases
+
+### Multi-Stage Pipeline
+
+```python
+def pipeline_algorithm(agents, task, **kwargs):
+    collector, cleaner, analyzer, reporter = agents
+    
+    # Stage 1: Data collection
+    data = collector.run(f"Collect data for: {task}")
+    
+    # Stage 2: Data cleaning
+    clean_data = cleaner.run(f"Clean this data: {data}")
+    
+    # Stage 3: Analysis
+    analysis = analyzer.run(f"Analyze: {clean_data}")
+    
+    # Stage 4: Report generation
+    report = reporter.run(f"Create report from: {analysis}")
+    
+    return {"report": report, "analysis": analysis}
+
+pipeline = SocialAlgorithms(
+    name="Data-Pipeline",
+    agents=[collector, cleaner, analyzer, reporter],
+    social_algorithm=pipeline_algorithm,
+)
+```
+
+### Collaborative Writing
+
+```python
+def collaborative_writing_algorithm(agents, task, **kwargs):
+    outline_agent, section_agents, editor = agents[0], agents[1:-1], agents[-1]
+    
+    # Create outline
+    outline = outline_agent.run(f"Create outline for: {task}")
+    
+    # Each agent writes a section
+    sections = []
+    for i, agent in enumerate(section_agents):
+        section = agent.run(f"Write section {i+1} based on outline: {outline}")
+        sections.append(section)
+    
+    # Editor combines and polishes
+    final = editor.run(f"Combine and edit sections: {sections}")
+    
+    return {"outline": outline, "sections": sections, "final": final}
+
+writing_team = SocialAlgorithms(
+    agents=[outliner, writer1, writer2, writer3, editor],
+    social_algorithm=collaborative_writing_algorithm,
+)
+```
+
+### Expert Panel
+
+```python
+def expert_panel_algorithm(agents, task, **kwargs):
+    """
+    All experts analyze, then discuss findings.
+    """
+    # Phase 1: Individual analysis
+    individual_analyses = []
+    for expert in agents:
+        analysis = expert.run(f"Analyze: {task}")
+        individual_analyses.append({
+            "expert": expert.agent_name,
+            "analysis": analysis
+        })
+    
+    # Phase 2: Discussion
+    discussion = []
+    for expert in agents:
+        context = f"Other experts said: {individual_analyses}"
+        response = expert.run(f"Discuss and respond: {context}")
+        discussion.append({"expert": expert.agent_name, "response": response})
+    
+    return {
+        "individual_analyses": individual_analyses,
+        "discussion": discussion
+    }
+
+expert_panel = SocialAlgorithms(
+    agents=[expert1, expert2, expert3, expert4],
+    social_algorithm=expert_panel_algorithm,
+)
+```
+
+## Communication Logging
+
+Track all agent interactions:
+
+```python
+social_alg = SocialAlgorithms(
+    agents=agents,
+    social_algorithm=algorithm,
+    enable_communication_logging=True,
+    verbose=True,
+)
+
+result = social_alg.run("Task")
+
+# Access communication history
+for step in result.communication_history:
+    print(f"{step.sender_agent} -> {step.receiver_agent}")
+    print(f"Message: {step.message[:100]}...")
+    print(f"Timestamp: {step.timestamp}")
+```
+
+## Execution Timeout
+
+```python
+social_alg = SocialAlgorithms(
+    agents=agents,
+    social_algorithm=long_running_algorithm,
+    max_execution_time=300.0,  # 5 minutes
+)
+
+try:
+    result = social_alg.run("Complex task")
+except TimeoutError:
+    print("Algorithm execution exceeded timeout")
+```
+
+## Output Formatting
+
+```python
+# Dictionary output (default)
+social_alg_dict = SocialAlgorithms(
+    agents=agents,
+    social_algorithm=algorithm,
+    output_type="dict",
+)
+
+# List output
+social_alg_list = SocialAlgorithms(
+    agents=agents,
+    social_algorithm=algorithm,
+    output_type="list",
+)
+
+# String output
+social_alg_str = SocialAlgorithms(
+    agents=agents,
+    social_algorithm=algorithm,
+    output_type="str",
+)
+```
+
+## Algorithm Requirements
+
+Your social algorithm must:
+
+1. **Accept agents and task**: `def algorithm(agents, task, **kwargs)`
+2. **Return results**: Any structure (dict, list, str, object)
+3. **Handle errors**: Exceptions will be caught and logged
+
+```python
+def valid_algorithm(agents, task, **kwargs):
+    # Your logic here
+    result = agents[0].run(task)
+    return {"result": result}
+
+def invalid_algorithm(wrong_params):
+    # Missing agents and task parameters
+    pass
+```
+
+## Best Practices
+
+<Note>
+  **Algorithm Design**: Keep algorithms focused on communication patterns, not complex logic
+</Note>
+
+1. **Clear Signatures**: Always accept (agents, task, **kwargs)
+2. **Error Handling**: Handle agent failures gracefully
+3. **Timeout Awareness**: Set appropriate max_execution_time
+4. **Communication Logging**: Enable for debugging and analysis
+5. **Documentation**: Document your algorithm's communication pattern
+
+<Warning>
+  Social algorithms have full control over agent execution - ensure proper error handling and timeout limits
+</Warning>
+
+## Error Handling
+
+```python
+try:
+    result = social_alg.run("Task")
+except InvalidAlgorithmError:
+    print("Social algorithm is not callable")
+except TimeoutError:
+    print("Execution exceeded max_execution_time")
+except Exception as e:
+    print(f"Algorithm execution failed: {e}")
+```
+
+## Agent Management
+
+```python
+# Get agent names
+names = social_alg.get_agent_names()
+
+# Get algorithm info
+info = social_alg.get_algorithm_info()
+print(info)
+# {
+#   "algorithm_id": "...",
+#   "name": "...",
+#   "agent_count": 3,
+#   "has_algorithm": True,
+#   "max_execution_time": 300.0,
+#   ...
+# }
+```
+
+## Related Architectures
+
+- [Agent Rearrange](/architectures/agent-rearrange) - Predefined flow patterns
+- [Graph Workflow](/architectures/graph-workflow) - DAG-based workflows
+- [Group Chat](/architectures/group-chat) - Conversational patterns
+- [Hierarchical Swarm](/architectures/hierarchical-swarm) - Director-worker pattern

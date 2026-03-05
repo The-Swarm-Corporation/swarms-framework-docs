@@ -1,0 +1,362 @@
+---
+title: GroupChat
+description: Collaborative conversations among multiple agents with flexible speaker selection strategies
+---
+
+## Overview
+
+The `GroupChat` class enables collaborative conversations among multiple agents (or callables) with flexible speaker selection strategies, conversation history management, and interactive terminal sessions. Agents can @mention each other to request input or delegate tasks.
+
+## Class Definition
+
+```python
+from swarms.structs.groupchat import GroupChat
+```
+
+## Parameters
+
+<ParamField path="id" type="str" default="generate_api_key(prefix='swarms-')">
+  Unique identifier for the group chat
+</ParamField>
+
+<ParamField path="name" type="str" default="GroupChat">
+  Name of the group chat
+</ParamField>
+
+<ParamField path="description" type="str" default="A group chat for multiple agents">
+  Description of the group chat's purpose
+</ParamField>
+
+<ParamField path="agents" type="List[Union[Agent, Callable]]" default="[]">
+  List of agent objects or callables that will participate in the conversation
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of conversation loops per run
+</ParamField>
+
+<ParamField path="output_type" type="str" default="dict">
+  Output format for conversation history. Options: "dict", "str", "list", "json"
+</ParamField>
+
+<ParamField path="interactive" type="bool" default="False">
+  If True, enables interactive terminal REPL session for human-in-the-loop conversations
+</ParamField>
+
+<ParamField path="speaker_function" type="Optional[Union[str, Callable]]" optional>
+  Speaker selection strategy. Options: "round-robin-speaker", "random-speaker", "priority-speaker", "random-dynamic-speaker", or custom callable
+</ParamField>
+
+<ParamField path="speaker_state" type="Optional[dict]" optional>
+  State/configuration for the speaker function (e.g., priorities for priority-speaker)
+</ParamField>
+
+<ParamField path="rules" type="str" default="">
+  Rules for the conversation that will be added to conversation history
+</ParamField>
+
+<ParamField path="time_enabled" type="bool" default="True">
+  Whether to enable timestamps in conversation messages
+</ParamField>
+
+## Speaker Functions
+
+### Built-in Speaker Functions
+
+#### round-robin-speaker
+Cycles through agents in order, ensuring each agent gets a turn sequentially.
+
+```python
+group_chat = GroupChat(
+    agents=[agent1, agent2, agent3],
+    speaker_function="round-robin-speaker"
+)
+```
+
+#### random-speaker
+Randomly selects exactly one agent to respond to each user query.
+
+```python
+group_chat = GroupChat(
+    agents=[agent1, agent2, agent3],
+    speaker_function="random-speaker"
+)
+```
+
+#### priority-speaker
+Selects agents based on priority weights. Requires priority configuration in speaker_state.
+
+```python
+group_chat = GroupChat(
+    agents=[agent1, agent2, agent3],
+    speaker_function="priority-speaker",
+    speaker_state={
+        "priorities": {
+            "agent1": 10,
+            "agent2": 5,
+            "agent3": 1
+        }
+    }
+)
+```
+
+#### random-dynamic-speaker
+Randomly selects the first agent, then follows @mentions in responses for subsequent speakers. Supports both sequential and parallel execution strategies.
+
+```python
+group_chat = GroupChat(
+    agents=[agent1, agent2, agent3],
+    speaker_function="random-dynamic-speaker",
+    speaker_state={"strategy": "sequential"}  # or "parallel"
+)
+```
+
+### Custom Speaker Functions
+
+You can provide custom speaker selection logic:
+
+```python
+def custom_speaker(agents: List[str], **kwargs) -> str:
+    # Your custom logic
+    return selected_agent_name
+
+group_chat = GroupChat(
+    agents=[agent1, agent2],
+    speaker_function=custom_speaker
+)
+```
+
+## Methods
+
+### `run()`
+
+```python
+def run(
+    self,
+    task: str,
+    img: Optional[str] = None,
+    imgs: Optional[List[str]] = None,
+) -> str
+```
+
+Processes a task and gets responses from agents based on speaker function.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The user input or task to process. Can include @mentions to target specific agents
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input for the agents
+</ParamField>
+
+<ParamField path="imgs" type="List[str]" optional>
+  Optional list of images for the agents
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="str">
+  The formatted conversation history (format depends on output_type)
+</ResponseField>
+
+**Raises:**
+- `GroupChatError`: If an unexpected error occurs
+- `AgentNotFoundError`: If a mentioned agent is not found
+
+---
+
+### `start_interactive_session()`
+
+```python
+def start_interactive_session(self) -> None
+```
+
+Starts an interactive terminal REPL session for chatting with agents.
+
+**Features:**
+- Chat with agents using @mentions (optional)
+- See available agents and descriptions
+- Change speaker function mid-conversation
+- Exit using 'exit' or 'quit'
+- Get help using 'help' or '?'
+
+**Raises:**
+- `GroupChatError`: If interactive mode is not enabled
+
+**Example:**
+```python
+group_chat = GroupChat(
+    name="AI Team",
+    agents=[agent1, agent2],
+    interactive=True
+)
+
+group_chat.start_interactive_session()
+# Welcome to AI Team!
+# You: @agent1 what do you think about this?
+# agent1: [response]
+```
+
+---
+
+### `set_speaker_function()`
+
+```python
+def set_speaker_function(
+    self,
+    speaker_function: Union[str, Callable],
+    speaker_state: Optional[dict] = None,
+) -> None
+```
+
+Sets or changes the speaker function.
+
+**Parameters:**
+
+<ParamField path="speaker_function" type="Union[str, Callable]" required>
+  Either a string name of predefined function or custom callable
+</ParamField>
+
+<ParamField path="speaker_state" type="dict" optional>
+  Optional state for the speaker function
+</ParamField>
+
+**Raises:**
+- `InvalidSpeakerFunctionError`: If the speaker function is invalid
+
+---
+
+### `get_available_speaker_functions()`
+
+```python
+def get_available_speaker_functions(self) -> List[str]
+```
+
+Returns a list of all available built-in speaker function names.
+
+**Returns:**
+
+<ResponseField name="functions" type="List[str]">
+  List of available speaker function names
+</ResponseField>
+
+---
+
+### `get_current_speaker_function()`
+
+```python
+def get_current_speaker_function(self) -> str
+```
+
+Returns the name of the current speaker function.
+
+**Returns:**
+
+<ResponseField name="function_name" type="str">
+  Name of current speaker function, or "custom" if it's a custom function
+</ResponseField>
+
+## Collaboration Features
+
+### @Mentions
+Agents can mention other agents using @agent_name syntax:
+
+```python
+# Agent response example:
+"I think @analyst should review this data, and @writer can help document it"
+```
+
+### Automatic Prompt Augmentation
+GroupChat automatically adds collaboration instructions to each agent's system prompt:
+- How to use @mentions
+- Collaboration guidelines
+- Task completion protocols
+- Response structure recommendations
+
+### Conversation Context
+Each agent receives the complete conversation history, enabling:
+- Context-aware responses
+- Building upon others' contributions
+- Acknowledging previous agents' work
+
+## Usage Examples
+
+### Basic GroupChat
+
+```python
+from swarms.structs.agent import Agent
+from swarms.structs.groupchat import GroupChat
+
+# Create agents
+researcher = Agent(
+    agent_name="researcher",
+    system_prompt="You are a research specialist",
+    model_name="gpt-4o"
+)
+
+analyst = Agent(
+    agent_name="analyst",
+    system_prompt="You are a data analyst",
+    model_name="gpt-4o"
+)
+
+# Create group chat
+group_chat = GroupChat(
+    name="Research Team",
+    description="A collaborative research team",
+    agents=[researcher, analyst],
+    speaker_function="round-robin-speaker",
+    output_type="dict"
+)
+
+# Run a task
+result = group_chat.run(
+    task="Analyze the latest trends in renewable energy"
+)
+```
+
+### Interactive Session
+
+```python
+group_chat = GroupChat(
+    name="AI Advisors",
+    agents=[advisor1, advisor2, advisor3],
+    interactive=True,
+    speaker_function="random-dynamic-speaker"
+)
+
+# Start interactive REPL
+group_chat.start_interactive_session()
+```
+
+### Priority-Based Selection
+
+```python
+group_chat = GroupChat(
+    name="Expert Panel",
+    agents=[senior_expert, mid_expert, junior_expert],
+    speaker_function="priority-speaker",
+    speaker_state={
+        "priorities": {
+            "senior_expert": 10,
+            "mid_expert": 5,
+            "junior_expert": 1
+        }
+    }
+)
+
+result = group_chat.run("What's the best approach to this problem?")
+```
+
+## Exception Classes
+
+- `GroupChatError`: Base exception for GroupChat errors
+- `AgentNotFoundError`: Raised when a mentioned agent is not found
+- `InvalidTaskFormatError`: Raised when task format is invalid
+- `InvalidSpeakerFunctionError`: Raised when invalid speaker function is provided
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/groupchat.py)

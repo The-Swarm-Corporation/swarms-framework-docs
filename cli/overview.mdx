@@ -1,0 +1,151 @@
+---
+title: "CLI Overview"
+description: "Introduction to the Swarms Command-Line Interface for managing agents and swarms"
+icon: "terminal"
+---
+
+# Swarms CLI Overview
+
+The Swarms CLI is a powerful command-line interface that provides comprehensive tools for creating, managing, and executing AI agents and swarms. It offers an intuitive way to interact with the Swarms framework directly from your terminal.
+
+## Installation
+
+The Swarms CLI is included with the main Swarms package:
+
+```bash
+pip install -U swarms
+```
+
+To verify the installation:
+
+```bash
+swarms help
+```
+
+## Quick Start
+
+Get started with these common commands:
+
+### Environment Setup
+
+Check your environment configuration:
+
+```bash
+swarms setup-check
+```
+
+For detailed diagnostics:
+
+```bash
+swarms setup-check --verbose
+```
+
+### Interactive Chat Agent
+
+Start a chat session with an AI agent:
+
+```bash
+swarms chat
+```
+
+With a custom name and initial task:
+
+```bash
+swarms chat --name "Assistant" --task "Hello, how can you help me?"
+```
+
+### Create a Custom Agent
+
+Create and run a custom agent (interactive mode by default):
+
+```bash
+swarms agent \
+  --name "Research Agent" \
+  --description "Analyzes research papers" \
+  --system-prompt "You are an expert research analyst" \
+  --task "Summarize the latest AI trends"
+```
+
+## Available Commands
+
+The Swarms CLI provides the following command categories:
+
+### Setup & Configuration
+
+- `onboarding` - Run environment setup check
+- `setup-check` - Comprehensive environment diagnostics
+- `get-api-key` - Retrieve API keys from the platform
+- `check-login` - Verify authentication status
+
+### Agent Operations
+
+- `agent` - Create and run custom agents
+- `chat` - Interactive chat agent with optimized defaults
+- `run-agents` - Execute agents from YAML configuration
+- `load-markdown` - Load agents from markdown files
+
+### Swarm Operations
+
+- `autoswarm` - Generate and execute autonomous swarms
+- `heavy-swarm` - Run HeavySwarm for complex task analysis
+- `llm-council` - Run LLM Council with collaborative agents
+
+### Utilities
+
+- `help` - Display comprehensive command reference
+- `features` - Show all available features
+- `upgrade` - Update Swarms to the latest version
+
+## Getting Help
+
+For detailed information about any command:
+
+```bash
+swarms <command> --help
+```
+
+View all available features:
+
+```bash
+swarms features
+```
+
+Access the complete command reference:
+
+```bash
+swarms help
+```
+
+## Environment Variables
+
+The CLI uses several environment variables for configuration:
+
+- `OPENAI_API_KEY` - OpenAI API key
+- `ANTHROPIC_API_KEY` - Anthropic API key
+- `GOOGLE_API_KEY` - Google API key
+- `COHERE_API_KEY` - Cohere API key
+- `WORKSPACE_DIR` - Directory for agent workspaces and outputs
+
+Set these in your `.env` file or export them directly:
+
+```bash
+export OPENAI_API_KEY="your-api-key-here"
+export WORKSPACE_DIR="./agent_workspace"
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Commands Reference" icon="list" href="/cli/commands">
+    Explore all available CLI commands in detail
+  </Card>
+  <Card title="Configuration" icon="gear" href="/cli/configuration">
+    Learn how to configure agents using YAML and environment variables
+  </Card>
+</CardGroup>
+
+## Resources
+
+- [Full CLI Documentation](https://docs.swarms.world/en/latest/swarms/cli/cli_reference/)
+- [GitHub Issues](https://github.com/kyegomez/swarms/issues)
+- [Community Discord](https://discord.gg/EamjgSaEQf)

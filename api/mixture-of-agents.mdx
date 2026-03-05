@@ -1,0 +1,239 @@
+---
+title: MixtureOfAgents
+description: A multi-agent system that runs agents in parallel layers and aggregates their responses
+---
+
+## Overview
+
+The `MixtureOfAgents` class manages and executes multiple agents in parallel layers, aggregating their responses through a specialized aggregator agent. This architecture enables sophisticated multi-perspective analysis by running agents concurrently and synthesizing their outputs.
+
+## Class Definition
+
+```python
+from swarms.structs.mixture_of_agents import MixtureOfAgents
+```
+
+## Parameters
+
+<ParamField path="id" type="str" default="uuid.uuid4()">
+  Unique identifier for the mixture of agents instance
+</ParamField>
+
+<ParamField path="name" type="str" default="MixtureOfAgents">
+  The name of the mixture of agents
+</ParamField>
+
+<ParamField path="description" type="str" default="A class to run a mixture of agents and aggregate their responses.">
+  A description of the mixture of agents purpose and functionality
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" default="None">
+  A list of reference agents to be used in the mixture. These agents will be executed in parallel layers
+</ParamField>
+
+<ParamField path="aggregator_agent" type="Agent" default="None">
+  The aggregator agent to be used for synthesizing responses from all agents. If None, a default aggregator agent will be created
+</ParamField>
+
+<ParamField path="aggregator_system_prompt" type="str" default="AGGREGATOR_SYSTEM_PROMPT_MAIN">
+  The system prompt for the aggregator agent that guides how responses are synthesized
+</ParamField>
+
+<ParamField path="layers" type="int" default="3">
+  The number of processing layers to execute. Each layer runs all agents and passes context forward
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of execution loops for the aggregator agent
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="final">
+  Output format type. Options: "final", "all", "list", etc.
+</ParamField>
+
+<ParamField path="aggregator_model_name" type="str" default="claude-sonnet-4-20250514">
+  The model name for the aggregator agent
+</ParamField>
+
+## Methods
+
+### `reliability_check()`
+
+```python
+def reliability_check(self) -> None
+```
+
+Performs a reliability check on the Mixture of Agents class configuration.
+
+**Raises:**
+- `ValueError`: If no agents are provided
+- `ValueError`: If no aggregator system prompt is provided
+- `ValueError`: If no layers are specified
+
+---
+
+### `step()`
+
+```python
+def step(
+    self,
+    task: str,
+    img: Optional[str] = None,
+) -> Dict[str, str]
+```
+
+Executes a single step by running all agents concurrently with the given task.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to be executed by all agents
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input for the task
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="agent_outputs" type="Dict[str, str]">
+  Dictionary mapping agent names to their output responses
+</ResponseField>
+
+---
+
+### `run()`
+
+```python
+def run(
+    self,
+    task: str,
+    img: Optional[str] = None,
+) -> str
+```
+
+Executes the complete mixture of agents workflow with multiple layers and aggregation.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to be executed by the mixture of agents
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input for the task
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="str">
+  The aggregated response from all agents after processing through all layers
+</ResponseField>
+
+**Workflow:**
+1. Adds initial task to conversation history
+2. For each layer:
+   - Runs all agents concurrently with full context
+   - Adds each agent's output to conversation
+   - Updates context with latest conversation history
+3. Runs aggregator agent on complete conversation
+4. Returns formatted output based on output_type
+
+---
+
+### `run_batched()`
+
+```python
+def run_batched(self, tasks: List[str]) -> List[str]
+```
+
+Runs the mixture of agents for a batch of tasks sequentially.
+
+**Parameters:**
+
+<ParamField path="tasks" type="List[str]" required>
+  A list of tasks to be executed by the mixture of agents
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="results" type="List[str]">
+  A list of aggregated responses from the mixture of agents, one for each task
+</ResponseField>
+
+---
+
+### `run_concurrently()`
+
+```python
+def run_concurrently(self, tasks: List[str]) -> List[str]
+```
+
+Runs the mixture of agents for a batch of tasks concurrently using ThreadPoolExecutor.
+
+**Parameters:**
+
+<ParamField path="tasks" type="List[str]" required>
+  A list of tasks to be executed concurrently
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="results" type="List[str]">
+  A list of aggregated responses from the mixture of agents
+</ResponseField>
+
+## Usage Example
+
+```python
+from swarms.structs.agent import Agent
+from swarms.structs.mixture_of_agents import MixtureOfAgents
+
+# Create specialized agents
+research_agent = Agent(
+    agent_name="Research-Agent",
+    system_prompt="You are a research expert...",
+    model_name="gpt-4o"
+)
+
+analysis_agent = Agent(
+    agent_name="Analysis-Agent",
+    system_prompt="You are an analysis expert...",
+    model_name="gpt-4o"
+)
+
+writing_agent = Agent(
+    agent_name="Writing-Agent",
+    system_prompt="You are a writing expert...",
+    model_name="gpt-4o"
+)
+
+# Create mixture of agents
+mixture = MixtureOfAgents(
+    name="Research-Analysis-Writing-Team",
+    description="A team that researches, analyzes, and writes reports",
+    agents=[research_agent, analysis_agent, writing_agent],
+    layers=3,
+    output_type="final"
+)
+
+# Run a task
+result = mixture.run(
+    task="Analyze the impact of AI on healthcare and write a comprehensive report"
+)
+
+print(result)
+```
+
+## Architecture
+
+The MixtureOfAgents architecture works as follows:
+
+1. **Layer Processing**: Each layer runs all agents concurrently with the full conversation context
+2. **Context Accumulation**: Agent outputs are added to the conversation history after each layer
+3. **Iterative Refinement**: Subsequent layers build upon previous outputs, enabling deeper analysis
+4. **Final Aggregation**: An aggregator agent synthesizes all responses into a coherent final output
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/mixture_of_agents.py)

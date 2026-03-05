@@ -1,0 +1,485 @@
+---
+title: Hierarchical Swarm
+description: Director-worker pattern where a central director coordinates specialized agents with feedback loops
+---
+
+# Hierarchical Swarm
+
+The `HierarchicalSwarm` implements a sophisticated director-worker pattern where a central director agent creates plans and distributes tasks to specialized worker agents. The director can provide feedback and iterate through multiple loops for quality refinement.
+
+## When to Use
+
+- **Complex project management**: Multi-stage projects with specialized roles
+- **Team coordination**: Coordinating diverse specialist agents
+- **Quality control**: Iterative refinement through feedback loops
+- **Hierarchical decisions**: Tasks requiring oversight and delegation
+- **Strategic planning**: Break down complex goals into specialized subtasks
+
+## Key Features
+
+- Automatic director agent creation
+- Structured output with SwarmSpec schema
+- Multi-loop feedback and refinement
+- Team awareness for workers
+- Optional planning phase
+- Interactive dashboard mode
+- Conversation history tracking
+- Autosave functionality
+
+## Basic Example
+
+```python
+from swarms import Agent, HierarchicalSwarm
+
+# Define specialized worker agents
+content_strategist = Agent(
+    agent_name="Content-Strategist",
+    system_prompt="Develop content strategies and editorial calendars.",
+    model_name="gpt-4o-mini",
+)
+
+creative_director = Agent(
+    agent_name="Creative-Director",
+    system_prompt="Create compelling advertising concepts and visual direction.",
+    model_name="gpt-4o-mini",
+)
+
+seo_specialist = Agent(
+    agent_name="SEO-Specialist",
+    system_prompt="Conduct keyword research and optimize content for search.",
+    model_name="gpt-4o-mini",
+)
+
+# Create hierarchical swarm (director auto-created)
+swarm = HierarchicalSwarm(
+    name="Marketing-Team",
+    description="Comprehensive marketing team for product launches",
+    agents=[content_strategist, creative_director, seo_specialist],
+    max_loops=2,  # Allow feedback and refinement
+)
+
+# Execute
+result = swarm.run(
+    "Develop a marketing strategy for a new SaaS project management tool"
+)
+print(result)
+```
+
+## Architecture Flow
+
+```
+1. User Task → Director Agent
+2. Director creates SwarmSpec:
+   - plan: Overall strategy
+   - orders: List of [agent_name, task] pairs
+3. Director distributes orders to workers
+4. Workers execute tasks in parallel/sequence
+5. Workers report results to director
+6. [Optional] Director provides feedback → Loop to step 2
+7. Final synthesis and output
+```
+
+## SwarmSpec Structure
+
+The director outputs a structured plan:
+
+```python
+from pydantic import BaseModel
+
+class HierarchicalOrder(BaseModel):
+    agent_name: str  # Worker agent to execute
+    task: str        # Specific task for that agent
+
+class SwarmSpec(BaseModel):
+    plan: str                           # Overall strategy
+    orders: List[HierarchicalOrder]     # Task assignments
+```
+
+Example output:
+```json
+{
+    "plan": "Create comprehensive marketing strategy with content, creative, and SEO components",
+    "orders": [
+        {"agent_name": "Content-Strategist", "task": "Develop 90-day content calendar"},
+        {"agent_name": "Creative-Director", "task": "Create brand visual identity"},
+        {"agent_name": "SEO-Specialist", "task": "Research keywords for SaaS project management"}
+    ]
+}
+```
+
+## Key Parameters
+
+<ParamField path="name" type="str" default="HierarchicalAgentSwarm">
+  Name for the swarm instance
+</ParamField>
+
+<ParamField path="description" type="str">
+  Description of the swarm's purpose
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" required>
+  List of specialized worker agents
+</ParamField>
+
+<ParamField path="director" type="Agent">
+  Custom director agent (auto-created if not provided)
+</ParamField>
+
+<ParamField path="max_loops" type="int" default={1}>
+  Maximum feedback/refinement loops
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict-all-except-first">
+  Format for output
+</ParamField>
+
+<ParamField path="director_model_name" type="str" default="gpt-4o-mini">
+  Model for director agent
+</ParamField>
+
+<ParamField path="add_collaboration_prompt" type="bool" default={true}>
+  Add collaboration context to agents
+</ParamField>
+
+<ParamField path="director_feedback_on" type="bool" default={true}>
+  Enable director feedback on worker outputs
+</ParamField>
+
+<ParamField path="planning_enabled" type="bool" default={true}>
+  Enable separate planning phase
+</ParamField>
+
+<ParamField path="interactive" type="bool" default={false}>
+  Enable interactive dashboard
+</ParamField>
+
+<ParamField path="autosave" type="bool" default={true}>
+  Save conversation history
+</ParamField>
+
+## Methods
+
+### run()
+
+Execute the hierarchical swarm.
+
+```python
+result = swarm.run(
+    task="Develop product launch strategy",
+    img=None,  # Optional image input
+)
+```
+
+### display_hierarchy()
+
+Visualize the swarm structure.
+
+```python
+swarm.display_hierarchy()
+# Output:
+# Hierarchical Swarm: Marketing-Team
+# Director: Director (gpt-4o-mini)
+# ├─ Content-Strategist
+# ├─ Creative-Director
+# └─ SEO-Specialist
+```
+
+## Advanced Configuration
+
+### Custom Director
+
+```python
+custom_director = Agent(
+    agent_name="Chief-Strategy-Officer",
+    system_prompt="You are a senior executive coordinating teams.",
+    model_name="claude-sonnet-4-20250514",
+)
+
+swarm = HierarchicalSwarm(
+    name="Executive-Team",
+    agents=workers,
+    director=custom_director,  # Use custom director
+)
+```
+
+### With Planning Phase
+
+```python
+swarm = HierarchicalSwarm(
+    name="Research-Team",
+    agents=researchers,
+    planning_enabled=True,  # Separate planning phase
+    max_loops=3,  # Multiple refinement rounds
+)
+```
+
+With planning enabled:
+1. Director creates high-level plan first
+2. Plan added to conversation context
+3. Director then creates detailed orders
+4. Workers execute with plan context
+
+### Interactive Dashboard
+
+```python
+swarm = HierarchicalSwarm(
+    name="Development-Team",
+    agents=developers,
+    interactive=True,  # Enable dashboard
+    verbose=True,
+)
+
+result = swarm.run("Build authentication system")
+```
+
+Dashboard shows:
+- Swarm information
+- Director status and operations
+- Agent status matrix with loop tracking
+- Real-time progress updates
+
+## Use Cases
+
+### Software Development Team
+
+```python
+architect = Agent(agent_name="Architect", ...)
+frontend_dev = Agent(agent_name="Frontend-Dev", ...)
+backend_dev = Agent(agent_name="Backend-Dev", ...)
+tester = Agent(agent_name="QA-Tester", ...)
+
+dev_swarm = HierarchicalSwarm(
+    name="Development-Team",
+    agents=[architect, frontend_dev, backend_dev, tester],
+    max_loops=2,  # Design → Implementation → Review
+)
+
+code = dev_swarm.run("Build user authentication with OAuth")
+```
+
+### Research Team
+
+```python
+literature_researcher = Agent(agent_name="Literature-Researcher", ...)
+data_analyst = Agent(agent_name="Data-Analyst", ...)
+statistician = Agent(agent_name="Statistician", ...)
+writer = Agent(agent_name="Research-Writer", ...)
+
+research_swarm = HierarchicalSwarm(
+    name="Research-Team",
+    description="Academic research team",
+    agents=[literature_researcher, data_analyst, statistician, writer],
+    max_loops=3,
+)
+
+paper = research_swarm.run("Research the impact of AI on job markets")
+```
+
+### Marketing Campaign
+
+```python
+brand_strategist = Agent(agent_name="Brand-Strategist", ...)
+copywriter = Agent(agent_name="Copywriter", ...)
+designer = Agent(agent_name="Designer", ...)
+media_buyer = Agent(agent_name="Media-Buyer", ...)
+
+marketing_swarm = HierarchicalSwarm(
+    name="Campaign-Team",
+    agents=[brand_strategist, copywriter, designer, media_buyer],
+    director_model_name="claude-sonnet-4-20250514",
+    max_loops=2,
+)
+
+campaign = marketing_swarm.run("Launch campaign for eco-friendly water bottle")
+```
+
+## Multi-Loop Refinement
+
+With `max_loops > 1`, the director can refine outputs:
+
+```python
+swarm = HierarchicalSwarm(
+    agents=workers,
+    max_loops=3,
+    director_feedback_on=True,
+)
+
+# Loop 1: Initial planning and execution
+# Loop 2: Director reviews, provides feedback, issues new orders
+# Loop 3: Final refinement based on feedback
+```
+
+Each loop:
+1. Director creates new plan based on previous results
+2. Director issues orders (can be different agents/tasks)
+3. Workers execute
+4. Results added to conversation history
+5. Next loop sees complete context
+
+## Director System Prompt
+
+Default director prompt focuses on:
+- Analyzing the task
+- Identifying required expertise
+- Creating comprehensive plans
+- Distributing work appropriately
+- Evaluating results
+- Providing constructive feedback
+
+Custom prompt:
+```python
+custom_prompt = """
+You are a senior project director coordinating a team of specialists.
+
+Your responsibilities:
+1. Analyze complex tasks and break them down
+2. Assign work to appropriate specialists
+3. Ensure team coordination and communication
+4. Review outputs and provide feedback
+5. Synthesize results into cohesive outcomes
+
+Always consider dependencies and optimal sequencing.
+"""
+
+swarm = HierarchicalSwarm(
+    agents=workers,
+    director_system_prompt=custom_prompt,
+)
+```
+
+## Team Awareness
+
+Workers receive context about:
+- Other team members
+- Their roles and capabilities
+- The overall swarm structure
+- Sequential flow if applicable
+
+```python
+swarm = HierarchicalSwarm(
+    agents=workers,
+    add_collaboration_prompt=True,  # Enable team awareness
+)
+```
+
+## Order Execution
+
+### Sequential Execution
+
+Orders with single agent execute sequentially:
+
+```python
+# Director creates:
+orders = [
+    {"agent_name": "Agent1", "task": "Task 1"},
+    {"agent_name": "Agent2", "task": "Task 2"},
+]
+# Executed: Agent1 → Agent2
+```
+
+### Concurrent Execution
+
+Orders to multiple agents run in parallel:
+
+```python
+# Director creates:
+orders = [
+    {"agent_name": "Agent1", "task": "Analyze data"},
+    {"agent_name": "Agent2", "task": "Research market"},
+    {"agent_name": "Agent3", "task": "Review competitors"},
+]
+# All three execute simultaneously
+```
+
+## Dashboard Features
+
+The interactive dashboard provides:
+
+**Operations Status Panel:**
+- Swarm name and description
+- Director information
+- Current loop / total loops
+- Agent count
+- Runtime and progress
+
+**Director Operations Panel:**
+- Current plan
+- Active orders
+- Status (INITIALIZING, PLANNING, EXECUTING, etc.)
+
+**Agent Monitoring Matrix:**
+- Agent name
+- Loop number
+- Status (PENDING, RUNNING, COMPLETED, ERROR)
+- Assigned task
+- Output (with full history)
+
+## Best Practices
+
+<Note>
+  **Loop Count**: Use 1 loop for simple coordination, 2-3 for quality refinement, avoid excessive loops
+</Note>
+
+1. **Specialized Workers**: Each agent should have clear expertise
+2. **Director Model**: Use stronger model for director (GPT-4, Claude Sonnet)
+3. **Loop Balance**: More loops = higher quality but more cost/time
+4. **Planning Phase**: Enable for complex tasks requiring strategy
+5. **Dashboard**: Use for debugging and demonstration
+
+<Warning>
+  Each loop involves full director reasoning + all worker executions - costs multiply with loops
+</Warning>
+
+## Error Handling
+
+```python
+try:
+    result = swarm.run("Task")
+except ValueError as e:
+    print(f"Configuration error: {e}")
+    # Invalid agents, max_loops, etc.
+except Exception as e:
+    print(f"Execution error: {e}")
+    # Runtime errors during execution
+```
+
+The swarm performs reliability checks:
+- At least one agent required
+- max_loops > 0
+- Director agent created/validated
+
+## Performance Considerations
+
+### Parallel Order Execution
+
+When director assigns multiple orders, they execute in parallel:
+
+```python
+# Uses run_agents_concurrently for parallel execution
+results = run_agents_concurrently(
+    agents=agents_to_run,
+    task=conversation.get_str(),
+)
+```
+
+### Conversation Context
+
+Complete history flows through loops:
+
+```python
+# Director sees full context including:
+# - Original task
+# - Previous plans
+# - All worker outputs
+# - Previous feedback
+output = self.run_director(
+    task=f"History: {self.conversation.get_str()} \n\n Task: {task}"
+)
+```
+
+## Related Architectures
+
+- [Agent Rearrange](/architectures/agent-rearrange) - Custom flows without director
+- [Mixture of Agents](/architectures/mixture-of-agents) - Parallel with aggregation
+- [Heavy Swarm](/architectures/heavy-swarm) - Multi-phase analysis
+- [Sequential Workflow](/architectures/sequential-workflow) - Simple linear flows

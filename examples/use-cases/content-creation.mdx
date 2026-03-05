@@ -1,0 +1,361 @@
+---
+title: "Content Creation Pipeline"
+description: "Build an automated content creation pipeline with ideation, writing, editing, and review stages"
+icon: "pen-nib"
+---
+
+## Overview
+
+This example demonstrates how to build a complete content creation pipeline that takes a topic and produces polished, publication-ready content. The pipeline uses specialized agents for ideation, writing, editing, and quality review.
+
+## Business Value
+
+- **Content Velocity**: Produce high-quality content 5-10x faster
+- **Consistency**: Maintain brand voice and quality standards
+- **Scalability**: Generate multiple content pieces simultaneously
+- **Cost Reduction**: Reduce content creation costs by 60-70%
+- **SEO Optimization**: Built-in optimization for search visibility
+
+## Architecture Choice
+
+We use **SequentialWorkflow** because:
+- Content creation is inherently sequential (ideate → write → edit → review)
+- Each stage requires the complete output of the previous stage
+- Linear flow ensures quality at each checkpoint
+- Clear handoffs between specialized roles
+
+## Complete Implementation
+
+```python
+from swarms import Agent, SequentialWorkflow
+import os
+
+# Configure your LLM
+api_key = os.getenv("OPENAI_API_KEY")
+
+# Define content creation agents
+ideation_agent = Agent(
+    agent_name="Content-Strategist",
+    system_prompt="""
+    You are a content strategist specializing in ideation and planning.
+    Your role is to:
+    - Analyze the target topic and audience
+    - Generate compelling angles and hooks
+    - Outline key points and structure
+    - Identify SEO keywords and search intent
+    - Define success metrics for the content
+    
+    Create detailed content briefs that writers can execute.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+writer_agent = Agent(
+    agent_name="Content-Writer",
+    system_prompt="""
+    You are an expert content writer who creates engaging, informative content.
+    Your role is to:
+    - Transform content briefs into full drafts
+    - Write in clear, engaging language
+    - Incorporate storytelling and examples
+    - Optimize for readability (short paragraphs, subheadings)
+    - Include relevant data and citations
+    
+    Produce draft content that captures attention and provides value.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+editor_agent = Agent(
+    agent_name="Content-Editor",
+    system_prompt="""
+    You are a professional editor who refines and polishes content.
+    Your role is to:
+    - Fix grammar, spelling, and punctuation errors
+    - Improve sentence structure and flow
+    - Ensure consistent tone and voice
+    - Strengthen weak sections and cut fluff
+    - Verify factual accuracy
+    
+    Transform good drafts into excellent, polished content.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+seo_optimizer = Agent(
+    agent_name="SEO-Specialist",
+    system_prompt="""
+    You are an SEO specialist who optimizes content for search engines.
+    Your role is to:
+    - Optimize title tags and meta descriptions
+    - Ensure proper keyword placement and density
+    - Improve header hierarchy (H1, H2, H3)
+    - Add internal linking suggestions
+    - Optimize for featured snippets
+    
+    Make content rank higher without sacrificing quality.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+quality_reviewer = Agent(
+    agent_name="Quality-Reviewer",
+    system_prompt="""
+    You are a quality assurance specialist for content.
+    Your role is to:
+    - Verify content meets brand guidelines
+    - Check for plagiarism or duplicate content issues
+    - Assess overall readability and engagement
+    - Provide final recommendations
+    - Approve for publication or request revisions
+    
+    Ensure only high-quality content reaches publication.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+    dynamic_temperature_enabled=True,
+)
+
+# Create the sequential content pipeline
+content_pipeline = SequentialWorkflow(
+    name="Content-Creation-Pipeline",
+    description="End-to-end content creation from ideation to publication",
+    agents=[ideation_agent, writer_agent, editor_agent, seo_optimizer, quality_reviewer],
+    max_loops=1,
+)
+
+# Execute content creation
+if __name__ == "__main__":
+    content_request = """
+    Create a comprehensive blog post on:
+    Topic: "How to Build AI Agents for Business Automation"
+    
+    Target Audience: CTOs and technical decision-makers at mid-size companies
+    Tone: Professional but accessible, focus on practical value
+    Length: 1500-2000 words
+    SEO Keywords: AI agents, business automation, intelligent automation
+    Goal: Generate qualified leads for our AI consulting services
+    """
+    
+    # Run the pipeline
+    final_content = content_pipeline.run(content_request)
+    
+    # Save the final content
+    with open("blog_post_final.md", "w") as f:
+        f.write(final_content)
+    
+    print("Content created and saved to blog_post_final.md")
+```
+
+## How It Works
+
+1. **Content Strategist** creates a detailed brief with angles and structure
+2. **Content Writer** transforms the brief into a full draft
+3. **Content Editor** polishes the draft for clarity and impact
+4. **SEO Specialist** optimizes for search engines
+5. **Quality Reviewer** performs final QA and approves for publication
+
+Each agent builds on the work of the previous agent, creating a refinement pipeline.
+
+## Customization Tips
+
+### Add Brand Voice Compliance
+
+```python
+brand_agent = Agent(
+    agent_name="Brand-Guardian",
+    system_prompt="""
+    You ensure content matches our brand voice:
+    - Tone: Professional, innovative, customer-focused
+    - Avoid: Jargon, hype, overpromising
+    - Include: Data-driven insights, practical examples
+    - Voice: Confident but humble, expert but accessible
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+
+# Insert after editor_agent
+content_pipeline = SequentialWorkflow(
+    agents=[ideation_agent, writer_agent, editor_agent, brand_agent, seo_optimizer, quality_reviewer],
+)
+```
+
+### Add Visual Content Planning
+
+```python
+visual_planner = Agent(
+    agent_name="Visual-Content-Planner",
+    system_prompt="""
+    You plan visual elements to complement written content:
+    - Suggest image placements and types
+    - Recommend infographics and data visualizations
+    - Design custom graphic briefs
+    - Optimize images for web performance
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+```
+
+### Configure for Different Content Types
+
+```python
+# For social media content
+social_writer = Agent(
+    agent_name="Social-Media-Writer",
+    system_prompt="""
+    You create engaging social media content:
+    - Keep posts concise and punchy
+    - Use platform-specific best practices
+    - Include hashtag recommendations
+    - Optimize for engagement (likes, shares, comments)
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+
+# For technical documentation
+tech_writer = Agent(
+    agent_name="Technical-Writer",
+    system_prompt="""
+    You create precise technical documentation:
+    - Use clear, unambiguous language
+    - Include code examples and commands
+    - Structure with logical hierarchy
+    - Focus on completeness and accuracy
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+```
+
+### Add Iterative Refinement
+
+For content that needs multiple rounds of editing:
+
+```python
+writer_agent = Agent(
+    agent_name="Content-Writer",
+    # ... system prompt
+    max_loops=2,  # Allow rewrites based on feedback
+    stopping_condition="content meets quality standards",
+)
+```
+
+### Multi-Format Output
+
+```python
+repurpose_agent = Agent(
+    agent_name="Content-Repurposer",
+    system_prompt="""
+    You adapt content for multiple formats:
+    - Long-form blog → Twitter thread
+    - Article → LinkedIn post
+    - Blog post → Email newsletter
+    - Technical doc → FAQ
+    
+    Maintain core message while optimizing for each platform.
+    """,
+    model_name="gpt-4o",
+    max_loops=1,
+)
+
+# Add at the end of pipeline
+content_pipeline = SequentialWorkflow(
+    agents=[
+        ideation_agent,
+        writer_agent,
+        editor_agent,
+        seo_optimizer,
+        quality_reviewer,
+        repurpose_agent,  # Generate multi-format versions
+    ],
+)
+```
+
+## Real-World Applications
+
+- **Blog Publishing**: Automated blog post creation at scale
+- **Marketing Campaigns**: Generate campaign content across channels
+- **Product Documentation**: Create user guides and technical docs
+- **Social Media**: Multi-platform content calendars
+- **Email Marketing**: Newsletter and drip campaign content
+- **White Papers**: Long-form thought leadership content
+
+## Performance Optimization
+
+### Parallel Content Creation
+
+Create multiple pieces simultaneously:
+
+```python
+from swarms import ConcurrentWorkflow
+
+topics = [
+    "AI Agents for Customer Service",
+    "AI Agents for Sales Automation",
+    "AI Agents for Data Analysis",
+]
+
+# Create multiple pipelines in parallel
+for topic in topics:
+    # Each runs in parallel
+    content = content_pipeline.run(f"Create blog post about: {topic}")
+```
+
+### Template-Based Content
+
+```python
+ideation_agent = Agent(
+    agent_name="Content-Strategist",
+    system_prompt="""
+    Use this template for blog posts:
+    
+    1. Hook (problem statement)
+    2. Context (why it matters)
+    3. Solution (our approach)
+    4. Evidence (data and examples)
+    5. Action (clear next steps)
+    
+    Adapt template to specific topic.
+    """,
+    # ... other params
+)
+```
+
+## Quality Metrics
+
+Track content performance:
+
+```python
+# Add metadata to track quality
+quality_reviewer = Agent(
+    agent_name="Quality-Reviewer",
+    system_prompt="""
+    Provide a quality scorecard:
+    - Readability Score: (0-100)
+    - SEO Optimization: (0-100)
+    - Brand Alignment: (0-100)
+    - Engagement Potential: (Low/Medium/High)
+    - Recommendations: (list)
+    
+    Only approve content scoring 80+ in all categories.
+    """,
+    # ... other params
+)
+```
+
+## Next Steps
+
+- See [Research Team Swarm](/examples/use-cases/research-team) for research-heavy content
+- Explore [Swarm Architectures](/core-concepts/swarms) for alternative pipeline designs
+- Review [Agent Memory](/guides/memory) for maintaining brand consistency

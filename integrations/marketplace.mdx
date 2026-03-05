@@ -1,0 +1,527 @@
+---
+title: Swarms Marketplace
+description: Discover, share, and monetize production-ready prompts and agents through the Swarms Marketplace
+---
+
+The Swarms Marketplace is a platform for discovering and sharing production-ready prompts, agent configurations, and tools. Load prompts in a single line of code or publish your own creations to the community.
+
+## What is the Swarms Marketplace?
+
+The Swarms Marketplace provides:
+
+- **One-Line Prompt Loading**: Load prompts instantly using a UUID
+- **Community Sharing**: Discover prompts created by other developers
+- **Monetization**: Publish paid prompts and earn from your expertise
+- **Version Control**: Track and manage prompt versions
+- **Rich Metadata**: Comprehensive descriptions, use cases, and tags
+- **Direct Integration**: Seamless integration with Swarms agents
+
+## Quick Start
+
+### Loading a Marketplace Prompt
+
+Load a prompt from the marketplace in one line:
+
+```python
+from swarms import Agent
+
+# Create agent with marketplace prompt
+agent = Agent(
+    agent_name="Marketplace-Agent",
+    model_name="gpt-4o",
+    marketplace_prompt_id="550e8400-e29b-41d4-a716-446655440000",
+    max_loops=1,
+)
+
+# The system prompt is automatically loaded from the marketplace
+result = agent.run("Execute the task")
+```
+
+<Info>
+When you provide a `marketplace_prompt_id`, the agent automatically fetches the prompt from the marketplace and sets it as the system prompt.
+</Info>
+
+## Fetching Prompts Programmatically
+
+### Fetch by Prompt ID
+
+Fetch a prompt using its unique UUID:
+
+```python
+from swarms.utils.fetch_prompts_marketplace import (
+    fetch_prompts_from_marketplace
+)
+
+# Fetch prompt details
+name, description, prompt = fetch_prompts_from_marketplace(
+    prompt_id="550e8400-e29b-41d4-a716-446655440000",
+)
+
+print(f"Prompt Name: {name}")
+print(f"Description: {description}")
+print(f"Prompt Content: {prompt}")
+```
+
+### Fetch by Prompt Name
+
+Fetch a prompt using its name:
+
+```python
+from swarms.utils.fetch_prompts_marketplace import (
+    fetch_prompts_from_marketplace
+)
+
+# Fetch by name (automatically URL-encoded)
+name, description, prompt = fetch_prompts_from_marketplace(
+    name="financial-analysis-agent",
+)
+
+print(f"Loaded: {name}")
+```
+
+### Get Full Response
+
+Retrieve the complete prompt data:
+
+```python
+from swarms.utils.fetch_prompts_marketplace import (
+    fetch_prompts_from_marketplace
+)
+
+# Get full JSON response
+response = fetch_prompts_from_marketplace(
+    prompt_id="550e8400-e29b-41d4-a716-446655440000",
+    return_params_on=False,
+)
+
+print(response)
+# {
+#     "id": "550e8400-e29b-41d4-a716-446655440000",
+#     "name": "Financial Analyst",
+#     "description": "Expert financial analysis agent",
+#     "prompt": "You are a financial analyst...",
+#     "use_cases": [...],
+#     "tags": "finance,analysis,trading",
+#     "created_at": "2024-01-15T10:30:00Z",
+#     "updated_at": "2024-01-15T10:30:00Z"
+# }
+```
+
+## Publishing to the Marketplace
+
+### Publishing a Prompt
+
+Share your prompts with the community:
+
+```python
+from swarms.utils.swarms_marketplace_utils import (
+    add_prompt_to_marketplace
+)
+
+# Define use cases
+use_cases = [
+    {
+        "title": "Financial Report Analysis",
+        "description": "Analyze quarterly financial reports and extract key metrics"
+    },
+    {
+        "title": "Investment Research",
+        "description": "Research investment opportunities and provide recommendations"
+    },
+    {
+        "title": "Risk Assessment",
+        "description": "Evaluate financial risks in portfolio holdings"
+    },
+]
+
+# Add prompt to marketplace
+response = add_prompt_to_marketplace(
+    name="financial-analyst-pro",
+    prompt="""You are an expert financial analyst with deep expertise in:
+    - Financial statement analysis
+    - Investment research and valuation
+    - Risk assessment and portfolio management
+    - Market trend analysis
+    - Regulatory compliance
+    
+    Provide detailed, data-driven analysis with clear reasoning.
+    Always cite sources and explain your methodology.
+    """,
+    description="Professional-grade financial analysis agent for investment research and risk assessment",
+    use_cases=use_cases,
+    tags="finance,investing,analysis,research,risk-management",
+    is_free=True,
+    category="finance",
+)
+
+print(f"Prompt published: {response}")
+```
+
+### Publishing from an Agent
+
+Automatically publish an agent's configuration:
+
+```python
+from swarms import Agent
+
+# Create agent with auto-publish enabled
+agent = Agent(
+    agent_name="Medical-Diagnosis-Agent",
+    model_name="gpt-4o",
+    system_prompt="""You are an expert medical diagnostician specializing in:
+    - Differential diagnosis
+    - Medical imaging interpretation
+    - Treatment planning
+    - Patient case analysis
+    
+    Provide evidence-based recommendations following medical best practices.
+    """,
+    description="Expert medical diagnosis and treatment planning agent",
+    use_cases=[
+        {
+            "title": "Differential Diagnosis",
+            "description": "Analyze symptoms to generate differential diagnoses"
+        },
+        {
+            "title": "Medical Imaging",
+            "description": "Interpret X-rays, CT scans, and MRI results"
+        },
+    ],
+    tags="medical,healthcare,diagnosis,treatment",
+    category="healthcare",
+    publish_to_marketplace=True,  # Auto-publish on initialization
+)
+
+# Agent is automatically published to marketplace
+```
+
+<Warning>
+Make sure to set the `SWARMS_API_KEY` environment variable before publishing. Get your API key at [swarms.world/platform/api-keys](https://swarms.world/platform/api-keys)
+</Warning>
+
+## API Configuration
+
+### Setting Up Your API Key
+
+```bash
+# Set environment variable
+export SWARMS_API_KEY="your-api-key-here"
+
+# Or add to .env file
+echo "SWARMS_API_KEY=your-api-key-here" >> .env
+```
+
+### API Key Validation
+
+```python
+from swarms.utils.swarms_marketplace_utils import (
+    check_swarms_api_key
+)
+
+try:
+    api_key = check_swarms_api_key()
+    print(f"API key configured (length: {len(api_key)})")
+except ValueError as e:
+    print(f"API key not set: {e}")
+```
+
+## Advanced Usage
+
+### Custom Timeout Configuration
+
+```python
+from swarms.utils.fetch_prompts_marketplace import (
+    fetch_prompts_from_marketplace
+)
+
+# Fetch with custom timeout
+name, description, prompt = fetch_prompts_from_marketplace(
+    prompt_id="550e8400-e29b-41d4-a716-446655440000",
+    timeout=60.0,  # 60 second timeout
+)
+```
+
+### Error Handling
+
+```python
+from swarms.utils.fetch_prompts_marketplace import (
+    fetch_prompts_from_marketplace
+)
+import httpx
+
+try:
+    result = fetch_prompts_from_marketplace(
+        name="non-existent-prompt",
+    )
+    
+    if result is None:
+        print("Prompt not found")
+    else:
+        name, description, prompt = result
+        print(f"Loaded: {name}")
+        
+except httpx.HTTPStatusError as e:
+    print(f"HTTP error: {e}")
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+### Publishing Paid Prompts
+
+Monetize your expertise with paid prompts:
+
+```python
+from swarms.utils.swarms_marketplace_utils import (
+    add_prompt_to_marketplace
+)
+
+response = add_prompt_to_marketplace(
+    name="premium-trading-agent",
+    prompt="""Advanced trading strategy agent...""",
+    description="Premium algorithmic trading agent with proprietary strategies",
+    use_cases=[
+        {
+            "title": "Algorithmic Trading",
+            "description": "Execute complex trading strategies"
+        },
+    ],
+    tags="trading,finance,algorithms,premium",
+    is_free=False,
+    price_usd=49.99,  # Price in USD
+    category="finance",
+)
+```
+
+## Real-World Examples
+
+### Example 1: Quantitative Trading Agent
+
+Load a sophisticated trading agent from the marketplace:
+
+```python
+from swarms import Agent
+
+# Real marketplace prompt for quantitative trading
+trading_agent = Agent(
+    agent_name="Quant-Trader",
+    model_name="gpt-4o",
+    marketplace_prompt_id="6d165e47-1827-4abe-9a84-b25005d8e3b4",
+    max_loops=1,
+    verbose=True,
+)
+
+result = trading_agent.run(
+    "Analyze the current market conditions for tech stocks and suggest a trading strategy"
+)
+
+print(result)
+```
+
+### Example 2: Medical AI Assistant
+
+```python
+from swarms import Agent
+
+# Medical AI agent from marketplace
+medical_agent = Agent(
+    agent_name="Medical-Assistant",
+    model_name="gpt-4o",
+    marketplace_prompt_id="75fc0d28-b0d0-4372-bc04-824aa388b7d2",
+    max_loops=1,
+)
+
+result = medical_agent.run(
+    "Provide a differential diagnosis for a patient with fever and chest pain"
+)
+```
+
+### Example 3: Publishing a Research Agent
+
+```python
+from swarms.utils.swarms_marketplace_utils import (
+    add_prompt_to_marketplace
+)
+
+research_prompt = """
+You are an expert research assistant specializing in:
+- Academic paper analysis
+- Literature review synthesis
+- Research methodology design
+- Data interpretation
+- Citation management
+
+Provide comprehensive, well-cited research support.
+Always verify sources and maintain academic integrity.
+"""
+
+use_cases = [
+    {
+        "title": "Literature Review",
+        "description": "Synthesize findings from multiple research papers"
+    },
+    {
+        "title": "Research Design",
+        "description": "Design robust research methodologies"
+    },
+    {
+        "title": "Data Analysis",
+        "description": "Interpret research data and statistics"
+    },
+]
+
+response = add_prompt_to_marketplace(
+    name="academic-research-assistant",
+    prompt=research_prompt,
+    description="Comprehensive research assistant for academic and scientific work",
+    use_cases=use_cases,
+    tags="research,academic,science,literature-review,methodology",
+    is_free=True,
+    category="research",
+)
+
+print(f"Research agent published: {response}")
+```
+
+## Marketplace Categories
+
+Organize your prompts by category:
+
+- `research` - Research and analysis
+- `content` - Content creation and writing
+- `coding` - Software development and programming
+- `finance` - Financial analysis and trading
+- `healthcare` - Medical and health applications
+- `marketing` - Marketing and advertising
+- `education` - Educational and training
+- `legal` - Legal analysis and documentation
+- `customer-service` - Customer support
+- `data-science` - Data analysis and ML
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Clear Descriptions" icon="file-lines">
+    Write comprehensive descriptions explaining what your prompt does
+  </Card>
+  <Card title="Detailed Use Cases" icon="list-check">
+    Provide specific use cases with clear titles and descriptions
+  </Card>
+  <Card title="Relevant Tags" icon="tags">
+    Use descriptive tags to make your prompt discoverable
+  </Card>
+  <Card title="Test Thoroughly" icon="flask">
+    Test prompts extensively before publishing to ensure quality
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### API Key Issues
+
+```python
+# Check if API key is set
+import os
+
+api_key = os.getenv("SWARMS_API_KEY")
+if not api_key:
+    print("Set your API key: export SWARMS_API_KEY='your-key'")
+    print("Get your key at: https://swarms.world/platform/api-keys")
+```
+
+### Prompt Not Found
+
+```python
+from swarms.utils.fetch_prompts_marketplace import (
+    fetch_prompts_from_marketplace
+)
+
+result = fetch_prompts_from_marketplace(
+    prompt_id="invalid-id",
+)
+
+if result is None:
+    print("Prompt not found. Check the prompt ID or name.")
+else:
+    print("Prompt loaded successfully")
+```
+
+### Authentication Errors
+
+```python
+try:
+    add_prompt_to_marketplace(
+        name="test-prompt",
+        prompt="Test",
+        description="Test",
+        use_cases=[{"title": "Test", "description": "Test"}],
+    )
+except Exception as e:
+    if "401" in str(e) or "authentication" in str(e).lower():
+        print("Authentication failed. Check your API key at:")
+        print("https://swarms.world/platform/api-keys")
+    else:
+        print(f"Error: {e}")
+```
+
+## API Reference
+
+### fetch_prompts_from_marketplace
+
+```python
+fetch_prompts_from_marketplace(
+    prompt_id: Optional[str] = None,
+    name: Optional[str] = None,
+    timeout: float = 30.0,
+    return_params_on: bool = True,
+) -> Optional[Union[Dict, Tuple[str, str, str]]]
+```
+
+**Parameters:**
+- `prompt_id`: UUID of the prompt to fetch
+- `name`: Name of the prompt (alternative to prompt_id)
+- `timeout`: Request timeout in seconds
+- `return_params_on`: If True, returns (name, description, prompt) tuple; if False, returns full dict
+
+### add_prompt_to_marketplace
+
+```python
+add_prompt_to_marketplace(
+    name: str,
+    prompt: str,
+    description: str,
+    use_cases: List[Dict[str, str]],
+    tags: str = None,
+    is_free: bool = True,
+    price_usd: float = 0.0,
+    category: str = "research",
+    timeout: float = 30.0,
+) -> Dict[str, Any]
+```
+
+**Parameters:**
+- `name`: Unique name for the prompt
+- `prompt`: The prompt content/template
+- `description`: Description of what the prompt does
+- `use_cases`: List of dicts with 'title' and 'description' keys
+- `tags`: Comma-separated tags
+- `is_free`: Whether the prompt is free or paid
+- `price_usd`: Price in USD (for paid prompts)
+- `category`: Category for organization
+- `timeout`: Request timeout in seconds
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Browse Marketplace" icon="store" href="https://swarms.world">
+    Explore available prompts on the marketplace
+  </Card>
+  <Card title="Get API Key" icon="key" href="https://swarms.world/platform/api-keys">
+    Get your API key to publish prompts
+  </Card>
+  <Card title="Model Providers" icon="brain" href="/integrations/model-providers">
+    Configure LLM providers for your agents
+  </Card>
+  <Card title="Tools" icon="wrench" href="/integrations/tools">
+    Add custom tools to enhance agents
+  </Card>
+</CardGroup>

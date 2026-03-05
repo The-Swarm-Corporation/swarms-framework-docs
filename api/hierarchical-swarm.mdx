@@ -1,0 +1,299 @@
+---
+title: HierarchicalSwarm
+description: A hierarchical multi-agent orchestrator that coordinates agents through a director
+---
+
+## Overview
+
+The `HierarchicalSwarm` class implements a hierarchical architecture where a director agent creates plans and distributes tasks to worker agents. The director can provide feedback and iterate on results through multiple loops to achieve desired outcomes while maintaining conversation history throughout the process.
+
+## Class Definition
+
+```python
+from swarms.structs.hiearchical_swarm import HierarchicalSwarm
+```
+
+## Parameters
+
+<ParamField path="name" type="str" default="HierarchicalAgentSwarm">
+  The name identifier for this swarm instance
+</ParamField>
+
+<ParamField path="description" type="str" default="Distributed task swarm">
+  A description of the swarm's purpose and capabilities
+</ParamField>
+
+<ParamField path="director" type="Optional[Union[Agent, Callable, Any]]" default="None">
+  The director agent that coordinates the swarm. If None, a default director will be created
+</ParamField>
+
+<ParamField path="agents" type="AgentListType" default="None">
+  List of worker agents available for task execution. Must not be empty
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of feedback loops the swarm can perform (must be > 0)
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict-all-except-first">
+  Format for the final output of the swarm
+</ParamField>
+
+<ParamField path="feedback_director_model_name" type="str" default="gpt-4o-mini">
+  Model name for the feedback director
+</ParamField>
+
+<ParamField path="director_name" type="str" default="Director">
+  Name identifier for the director agent
+</ParamField>
+
+<ParamField path="director_model_name" type="str" default="gpt-4o-mini">
+  Model name for the main director agent
+</ParamField>
+
+<ParamField path="add_collaboration_prompt" type="bool" default="True">
+  Whether to add collaboration prompts to agents
+</ParamField>
+
+<ParamField path="director_feedback_on" type="bool" default="True">
+  Whether director feedback is enabled
+</ParamField>
+
+<ParamField path="interactive" type="bool" default="False">
+  Enable interactive dashboard with real-time monitoring
+</ParamField>
+
+<ParamField path="director_system_prompt" type="str" default="HIEARCHICAL_SWARM_SYSTEM_PROMPT">
+  Custom system prompt for the director agent
+</ParamField>
+
+<ParamField path="multi_agent_prompt_improvements" type="bool" default="False">
+  Enable enhanced multi-agent collaboration prompts for worker agents
+</ParamField>
+
+<ParamField path="director_temperature" type="float" default="0.7">
+  Temperature parameter for director agent's LLM
+</ParamField>
+
+<ParamField path="director_top_p" type="float" default="0.9">
+  Top-p parameter for director agent's LLM
+</ParamField>
+
+<ParamField path="planning_enabled" type="bool" default="True">
+  Whether to enable the planning phase before order distribution
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="True">
+  Whether to enable autosaving of conversation history to workspace directory
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Enable verbose logging output
+</ParamField>
+
+## Methods
+
+### `run()`
+
+```python
+def run(
+    self,
+    task: Optional[str] = None,
+    img: Optional[str] = None,
+    streaming_callback: Optional[Callable[[str, str, bool], None]] = None,
+    *args,
+    **kwargs,
+) -> Any
+```
+
+Executes the hierarchical swarm for the specified number of feedback loops.
+
+**Parameters:**
+
+<ParamField path="task" type="str" optional>
+  The initial task to be processed by the swarm. If None and interactive mode is enabled, will prompt for input
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input for the agents
+</ParamField>
+
+<ParamField path="streaming_callback" type="Callable[[str, str, bool], None]" optional>
+  Callback function for streaming agent outputs. Parameters are (agent_name, chunk, is_final)
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="Any">
+  The formatted conversation history as output, formatted according to output_type configuration
+</ResponseField>
+
+**Workflow:**
+1. Director creates a plan and distributes orders to agents
+2. Agents execute tasks and report back to director
+3. Director evaluates results and issues new orders if needed (up to max_loops)
+4. All context and conversation history is preserved throughout
+5. Returns final output formatted per output_type
+
+---
+
+### `step()`
+
+```python
+def step(
+    self,
+    task: str,
+    img: str = None,
+    streaming_callback: Optional[Callable[[str, str, bool], None]] = None,
+    *args,
+    **kwargs,
+) -> Any
+```
+
+Executes a single step of the hierarchical swarm workflow.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to be processed in this step
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input for the task
+</ParamField>
+
+<ParamField path="streaming_callback" type="Callable" optional>
+  Callback for streaming outputs
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="feedback" type="Any">
+  The results from this step, either agent outputs or director feedback
+</ResponseField>
+
+**Process:**
+1. Director runs to create plan and orders
+2. Orders are parsed and distributed
+3. Agents execute assigned tasks
+4. Optional director feedback on results
+
+---
+
+### `display_hierarchy()`
+
+```python
+def display_hierarchy(self) -> None
+```
+
+Displays the hierarchical structure of the swarm using Rich Tree visualization.
+
+Shows the Director at the top level and all worker agents as children branches with their configurations.
+
+---
+
+### `reliability_checks()`
+
+```python
+def reliability_checks(self) -> None
+```
+
+Performs validation checks to ensure the swarm is properly configured.
+
+**Validates:**
+- At least one agent is provided
+- max_loops is greater than 0
+- Director is available (creates default if needed)
+
+**Raises:**
+- `ValueError`: If swarm configuration is invalid
+
+## Data Models
+
+### HierarchicalOrder
+
+```python
+class HierarchicalOrder(BaseModel):
+    agent_name: str  # Name of agent assigned to execute task
+    task: str        # Specific task to be executed
+```
+
+### SwarmSpec
+
+```python
+class SwarmSpec(BaseModel):
+    plan: str                           # Director's overall plan
+    orders: List[HierarchicalOrder]     # Task assignments to agents
+```
+
+## Interactive Dashboard
+
+When `interactive=True`, the HierarchicalSwarm displays a real-time dashboard with:
+
+- **Operations Status**: Swarm name, description, current loop, agent count
+- **Director Operations**: Current plan and active orders
+- **Agent Monitoring Matrix**: Real-time agent status, tasks, and outputs
+- **Progress Tracking**: Loop completion and runtime metrics
+
+The dashboard uses Swarms Corporation styling with red/black color scheme and provides professional monitoring of swarm operations.
+
+## Usage Example
+
+```python
+from swarms.structs.agent import Agent
+from swarms.structs.hiearchical_swarm import HierarchicalSwarm
+
+# Create worker agents
+research_agent = Agent(
+    agent_name="Research-Specialist",
+    system_prompt="Expert in research and data gathering",
+    model_name="gpt-4o"
+)
+
+analysis_agent = Agent(
+    agent_name="Analysis-Specialist",
+    system_prompt="Expert in data analysis",
+    model_name="gpt-4o"
+)
+
+writing_agent = Agent(
+    agent_name="Writing-Specialist",
+    system_prompt="Expert in writing and communication",
+    model_name="gpt-4o"
+)
+
+# Create hierarchical swarm
+swarm = HierarchicalSwarm(
+    name="Research-Analysis-Team",
+    description="A hierarchical team for research and analysis",
+    agents=[research_agent, analysis_agent, writing_agent],
+    max_loops=2,
+    director_model_name="gpt-4o",
+    interactive=True,
+    verbose=True
+)
+
+# Display the hierarchy
+swarm.display_hierarchy()
+
+# Execute a task
+result = swarm.run(
+    task="Analyze the impact of AI on healthcare and create a comprehensive report"
+)
+
+print(result)
+```
+
+## Conversation Autosave
+
+When `autosave=True`, conversation history is automatically saved to:
+`workspace_dir/swarms/HierarchicalSwarm/{swarm-name}-{timestamp}/conversation_history.json`
+
+This enables:
+- Post-execution analysis
+- Debugging and monitoring
+- Historical tracking of swarm operations
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/hiearchical_swarm.py)

@@ -1,0 +1,248 @@
+---
+title: 'Basic Agent'
+description: 'Create your first autonomous agent with Swarms'
+icon: 'robot'
+---
+
+# Basic Agent Example
+
+Learn how to create and run your first autonomous agent using the Swarms framework. An **Agent** is the fundamental building block of a swarm—an autonomous entity powered by an LLM + Tools + Memory.
+
+## Quick Start
+
+Here's the simplest way to create and run an agent:
+
+```python
+from swarms import Agent
+
+# Initialize a new agent
+agent = Agent(
+    model_name="gpt-4o-mini",  # Specify the LLM
+    max_loops="auto",           # Set the number of interactions
+    interactive=True,           # Enable interactive mode for real-time feedback
+)
+
+# Run the agent with a task
+response = agent.run("What are the key benefits of using a multi-agent system?")
+print(response)
+```
+
+## Understanding the Code
+
+Let's break down each component:
+
+### 1. Import the Agent Class
+
+```python
+from swarms import Agent
+```
+
+The `Agent` class is the core building block for creating autonomous agents in Swarms.
+
+### 2. Initialize the Agent
+
+```python
+agent = Agent(
+    model_name="gpt-4o-mini",  # The language model to use
+    max_loops="auto",           # How many times to iterate on the task
+    interactive=True,           # Enable real-time feedback
+)
+```
+
+**Key Parameters:**
+
+- **`model_name`**: The LLM to power your agent. Swarms supports OpenAI, Anthropic, Groq, Ollama, and more.
+- **`max_loops`**: Controls iteration behavior:
+  - `"auto"`: Agent decides when to stop based on task completion
+  - Integer (e.g., `1`, `5`): Fixed number of iterations
+- **`interactive`**: When `True`, provides real-time feedback during execution
+
+### 3. Run the Agent
+
+```python
+response = agent.run("What are the key benefits of using a multi-agent system?")
+print(response)
+```
+
+The `run()` method executes the agent with your task and returns the response.
+
+## Example Output
+
+When you run this agent, you'll see output similar to:
+
+```
+🤖 Agent: Agent
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Multi-agent systems offer several key benefits:
+
+1. **Parallel Processing**: Multiple agents can work on different aspects of a problem simultaneously, significantly reducing overall execution time.
+
+2. **Specialization**: Each agent can be optimized for specific tasks, leading to higher quality outputs than a single generalist agent.
+
+3. **Scalability**: Add more agents to handle increased workload without redesigning the entire system.
+
+4. **Resilience**: If one agent fails, others can continue working, making the system more fault-tolerant.
+
+5. **Modularity**: Agents can be developed, tested, and deployed independently, simplifying maintenance and updates.
+
+6. **Complex Problem Solving**: Different agents can approach problems from different angles, leading to more comprehensive solutions.
+```
+
+## Customizing Your Agent
+
+Here's a more customized example with additional configuration:
+
+```python
+from swarms import Agent
+
+# Create a specialized research agent
+research_agent = Agent(
+    agent_name="Research-Agent",
+    agent_description="An expert research agent specializing in technical analysis",
+    system_prompt="You are a research expert. Provide detailed, well-sourced analysis on any topic.",
+    model_name="gpt-4o-mini",
+    max_loops=3,
+    interactive=True,
+    verbose=True,  # Show detailed logging
+    output_type="str",  # Return as string
+)
+
+# Run the agent
+response = research_agent.run(
+    "Explain the concept of attention mechanisms in transformers"
+)
+
+print(response)
+```
+
+### Additional Configuration Options
+
+- **`agent_name`**: A unique identifier for your agent
+- **`agent_description`**: Describes the agent's purpose and capabilities
+- **`system_prompt`**: Instructions that define the agent's behavior and personality
+- **`verbose`**: When `True`, shows detailed execution logs
+- **`output_type`**: Controls the format of the response (`"str"`, `"json"`, `"dict"`, etc.)
+
+## Working with Different Models
+
+Swarms supports multiple LLM providers:
+
+```python
+# OpenAI
+agent_openai = Agent(model_name="gpt-4o")
+
+# Anthropic Claude
+agent_claude = Agent(model_name="claude-sonnet-4-5")
+
+# Groq
+agent_groq = Agent(model_name="groq/llama-3.3-70b-versatile")
+
+# Local with Ollama
+agent_ollama = Agent(model_name="ollama/llama3.2")
+```
+
+## Environment Setup
+
+Make sure you have the required API keys set in your environment:
+
+```bash
+export OPENAI_API_KEY="your-openai-key"
+export ANTHROPIC_API_KEY="your-anthropic-key"
+export GROQ_API_KEY="your-groq-key"
+```
+
+Or create a `.env` file:
+
+```env
+OPENAI_API_KEY="your-openai-key"
+ANTHROPIC_API_KEY="your-anthropic-key"
+WORKSPACE_DIR="agent_workspace"
+```
+
+## Next Steps
+
+Now that you've created your first agent, explore these advanced topics:
+
+- [Agent with Tools](/examples/agent-with-tools) - Enhance agents with external tools
+- [Vision Agent](/examples/vision-agent) - Process images and multimodal content
+- [Streaming Responses](/examples/streaming) - Stream agent outputs in real-time
+- [Multi-Agent Workflows](/swarms/structs/sequential_workflow) - Coordinate multiple agents
+
+## Common Patterns
+
+### Task-Specific Agent
+
+```python
+# Create an agent specialized for code review
+code_reviewer = Agent(
+    agent_name="Code-Reviewer",
+    system_prompt="You are an expert code reviewer. Analyze code for bugs, performance issues, and best practices.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+review = code_reviewer.run("""
+Review this Python function:
+
+def calculate_total(items):
+    total = 0
+    for item in items:
+        total = total + item['price']
+    return total
+""")
+```
+
+### Autonomous Agent with Auto Loops
+
+```python
+# Agent that iterates until task is complete
+autonomous_agent = Agent(
+    agent_name="Autonomous-Researcher",
+    model_name="gpt-4o-mini",
+    max_loops="auto",  # Will iterate until completion
+    system_prompt="Research thoroughly and provide comprehensive analysis.",
+)
+
+result = autonomous_agent.run(
+    "Research the latest developments in quantum computing and summarize the key findings"
+)
+```
+
+## Tips and Best Practices
+
+1. **Start Simple**: Begin with basic configurations and add complexity as needed
+2. **Use Descriptive Names**: Clear agent names and descriptions improve debugging
+3. **Set Appropriate Loop Limits**: Use `max_loops=1` for simple tasks, higher values or `"auto"` for complex ones
+4. **Monitor Costs**: Be mindful of API costs when using `max_loops="auto"`
+5. **Test Incrementally**: Test your agent with simple tasks before moving to complex ones
+
+## Troubleshooting
+
+### Agent Not Responding
+
+```python
+# Enable verbose mode to see detailed logs
+agent = Agent(
+    model_name="gpt-4o-mini",
+    verbose=True,  # This will show what's happening
+)
+```
+
+### API Key Errors
+
+```python
+import os
+
+# Verify your API key is set
+if not os.getenv("OPENAI_API_KEY"):
+    raise ValueError("Please set OPENAI_API_KEY environment variable")
+
+agent = Agent(model_name="gpt-4o-mini")
+```
+
+## Learn More
+
+- [Agent API Reference](/swarms/structs/agent)
+- [Model Providers Guide](/swarms/examples/model_providers)
+- [Advanced Agent Configuration](/swarms/examples/agent_output_types)

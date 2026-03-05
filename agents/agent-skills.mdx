@@ -1,0 +1,498 @@
+---
+title: 'Agent Skills'
+description: 'Learn about the markdown-based Agent Skills system for modular agent capabilities'
+icon: 'graduation-cap'
+---
+
+# Agent Skills
+
+Agent Skills is a lightweight, markdown-based framework introduced by Anthropic for defining modular, reusable agent capabilities. Skills enable you to specialize agents without modifying code by loading skill definitions from simple `SKILL.md` files.
+
+## What are Agent Skills?
+
+Agent Skills are:
+
+- **Markdown-based**: Written in simple Markdown format with YAML frontmatter
+- **Modular**: Each skill is a self-contained capability
+- **Reusable**: Skills can be shared across agents and projects
+- **Context-aware**: Automatically loaded based on task similarity
+- **Code-free**: No code changes needed to add new capabilities
+
+## Skills Directory Structure
+
+```
+skills/
+├── financial-analysis/
+│   └── SKILL.md
+├── code-review/
+│   └── SKILL.md
+├── data-visualization/
+│   └── SKILL.md
+└── technical-writing/
+    └── SKILL.md
+```
+
+## SKILL.md Format
+
+### Basic Structure
+
+Each `SKILL.md` file has two parts:
+
+1. **YAML Frontmatter**: Metadata about the skill
+2. **Markdown Content**: Instructions and methodology
+
+```markdown
+---
+name: skill-name
+description: Brief description of the skill's purpose and capabilities
+---
+
+# Skill Title
+
+Detailed instructions for the skill...
+
+## Methodology
+
+Step-by-step instructions...
+
+## Guidelines
+
+Best practices and rules...
+
+## Examples
+
+Usage examples...
+```
+
+### Example: Financial Analysis Skill
+
+```markdown
+---
+name: financial-analysis
+description: Perform comprehensive financial analysis including DCF modeling, ratio analysis, and financial statement evaluation for companies and investment opportunities
+---
+
+# Financial Analysis Skill
+
+When performing financial analysis, follow these systematic steps to ensure thorough and accurate evaluation:
+
+## Core Methodology
+
+### 1. Data Collection and Verification
+- Gather historical financial statements (income statement, balance sheet, cash flow)
+- Verify data sources for accuracy and completeness
+- Identify any anomalies or missing data points
+
+### 2. Financial Ratio Analysis
+Calculate and analyze key financial ratios:
+- **Profitability**: EBITDA margin, net profit margin, ROE, ROA
+- **Liquidity**: Current ratio, quick ratio, cash ratio
+- **Leverage**: Debt-to-equity, interest coverage ratio
+- **Efficiency**: Asset turnover, inventory turnover
+
+### 3. Valuation Models
+Build appropriate valuation models:
+- **DCF Analysis**: Project free cash flows, determine WACC, calculate terminal value
+- **Comparable Company Analysis**: Identify peers, analyze multiples (P/E, EV/EBITDA)
+- **Precedent Transactions**: Review similar deals for valuation benchmarks
+
+## Guidelines
+
+- Always use conservative assumptions when uncertain
+- Cross-validate findings with multiple valuation methods
+- Clearly document all assumptions and their rationale
+- Present results with appropriate caveats and risk factors
+
+## Key Outputs
+
+Your analysis should produce:
+1. Executive summary of findings
+2. Detailed financial model with assumptions
+3. Valuation range with sensitivity analysis
+4. Investment recommendation with risk assessment
+```
+
+## Using Agent Skills
+
+### Static Loading (Load All Skills)
+
+Load all skills from a directory when creating the agent:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Financial-Analyst",
+    model_name="gpt-4o",
+    skills_dir="./skills",  # Load all skills from directory
+    max_loops=1,
+)
+
+# All skills are now available to the agent
+response = agent.run("Perform a DCF valuation of Tesla")
+```
+
+### Dynamic Loading (Task-Based)
+
+Dynamically load only relevant skills based on task similarity:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Versatile-Agent",
+    model_name="gpt-4o",
+    skills_dir="./skills",
+    max_loops=1,
+)
+
+# Only relevant skills are loaded based on the task
+response = agent.run(
+    "Analyze the financial statements and create a visualization of the revenue trends"
+)
+# Loads: financial-analysis and data-visualization skills
+```
+
+## Creating Custom Skills
+
+### Step 1: Create Directory
+
+```bash
+mkdir -p skills/my-skill
+```
+
+### Step 2: Write SKILL.md
+
+```markdown
+---
+name: code-review
+description: Perform thorough code reviews focusing on security, performance, maintainability, and best practices
+---
+
+# Code Review Skill
+
+When reviewing code, follow this systematic approach:
+
+## Review Checklist
+
+### 1. Security
+- [ ] No hardcoded credentials or API keys
+- [ ] Input validation for all user inputs
+- [ ] Proper authentication and authorization
+- [ ] SQL injection prevention
+- [ ] XSS protection
+
+### 2. Performance
+- [ ] Efficient algorithms and data structures
+- [ ] No unnecessary database queries
+- [ ] Proper caching where appropriate
+- [ ] Optimized loops and iterations
+
+### 3. Code Quality
+- [ ] Follows language conventions and style guide
+- [ ] Clear and descriptive variable names
+- [ ] Functions are single-purpose and small
+- [ ] Proper error handling
+- [ ] Adequate comments for complex logic
+
+### 4. Testing
+- [ ] Unit tests for all functions
+- [ ] Edge cases covered
+- [ ] Integration tests where needed
+- [ ] Test coverage > 80%
+
+## Review Format
+
+Provide feedback in this structure:
+1. Summary of findings (high-level overview)
+2. Critical issues (must fix)
+3. Important suggestions (should fix)
+4. Minor improvements (nice to have)
+5. Positive observations (what's done well)
+
+## Communication Guidelines
+
+- Be constructive and specific
+- Provide examples and alternatives
+- Explain the "why" behind suggestions
+- Acknowledge good code when you see it
+```
+
+### Step 3: Use the Skill
+
+```python
+agent = Agent(
+    agent_name="Code-Reviewer",
+    model_name="gpt-4o",
+    skills_dir="./skills",
+)
+
+code = """
+def login(username, password):
+    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
+    return db.execute(query)
+"""
+
+review = agent.run(f"Review this code:\n{code}")
+print(review)
+```
+
+## Skill Examples
+
+### Data Visualization Skill
+
+```markdown
+---
+name: data-visualization
+description: Create effective data visualizations and charts using best practices for data communication
+---
+
+# Data Visualization Skill
+
+## Visualization Selection
+
+### Choose the right chart type:
+- **Comparison**: Bar charts, grouped bar charts
+- **Trend over time**: Line charts, area charts
+- **Distribution**: Histograms, box plots
+- **Relationship**: Scatter plots, bubble charts
+- **Composition**: Pie charts (use sparingly), stacked bar charts
+- **Geographic**: Maps, choropleth maps
+
+## Design Principles
+
+1. **Clarity**: Make the message immediately clear
+2. **Simplicity**: Remove chart junk and unnecessary elements
+3. **Accuracy**: Don't mislead with scale or perspective
+4. **Accessibility**: Use colorblind-friendly palettes
+
+## Best Practices
+
+- Start y-axis at zero for bar charts
+- Use clear, descriptive labels
+- Include data sources
+- Provide context with annotations
+- Choose appropriate color schemes
+- Ensure text is readable
+
+## Code Template
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Set style
+sns.set_style("whitegrid")
+plt.figure(figsize=(12, 6))
+
+# Create visualization
+# ... your code ...
+
+# Add labels and title
+plt.xlabel("X Label", fontsize=12)
+plt.ylabel("Y Label", fontsize=12)
+plt.title("Descriptive Title", fontsize=14)
+
+# Show plot
+plt.tight_layout()
+plt.show()
+```
+```
+
+### Technical Writing Skill
+
+```markdown
+---
+name: technical-writing
+description: Write clear, accurate technical documentation including API docs, tutorials, and guides
+---
+
+# Technical Writing Skill
+
+## Documentation Structure
+
+### 1. Introduction
+- What is it?
+- Why should I use it?
+- Quick example
+
+### 2. Getting Started
+- Prerequisites
+- Installation
+- Basic setup
+- "Hello World" example
+
+### 3. Core Concepts
+- Key terminology
+- Architecture overview
+- Main features
+
+### 4. How-To Guides
+- Task-oriented instructions
+- Step-by-step procedures
+- Real-world examples
+
+### 5. API Reference
+- Complete API documentation
+- Parameters and return values
+- Code examples
+
+## Writing Guidelines
+
+- Use active voice
+- Be concise and direct
+- Use consistent terminology
+- Include code examples
+- Explain the "why" not just the "how"
+- Test all code samples
+- Use headings and structure
+- Include diagrams where helpful
+
+## Code Documentation Format
+
+```python
+def function_name(param1: type1, param2: type2) -> return_type:
+    """
+    Brief description of what the function does.
+    
+    More detailed explanation if needed, including:
+    - When to use this function
+    - Important considerations
+    - Edge cases
+    
+    Args:
+        param1: Description of param1
+        param2: Description of param2
+    
+    Returns:
+        Description of return value
+    
+    Raises:
+        ErrorType: When and why this error occurs
+    
+    Examples:
+        >>> function_name("value1", "value2")
+        "expected output"
+    """
+    pass
+```
+```
+
+## Skill Loading Internals
+
+### How Skills are Loaded
+
+```python
+# Skills are loaded during agent initialization
+agent = Agent(
+    skills_dir="./skills",  # Path to skills directory
+    model_name="gpt-4o",
+)
+
+# Skills metadata is loaded from SKILL.md frontmatter
+# Skills content is added to system prompt
+# Agent can now use all skills
+```
+
+### Dynamic Skills Loader
+
+```python
+from swarms.structs.dynamic_skills_loader import DynamicSkillsLoader
+
+# Manual skill loading
+loader = DynamicSkillsLoader(skills_dir="./skills")
+
+# Load skills relevant to a task
+relevant_skills = loader.load_relevant_skills(
+    "Perform financial analysis and create visualizations"
+)
+
+print(f"Loaded {len(relevant_skills)} relevant skills")
+```
+
+## Best Practices
+
+### 1. Keep Skills Focused
+
+```markdown
+# Good - Single, focused skill
+---
+name: api-design
+description: Design RESTful APIs following best practices
+---
+
+# Bad - Too broad
+---
+name: software-engineering
+description: All software engineering best practices
+---
+```
+
+### 2. Include Examples
+
+Always provide concrete examples in your skills:
+
+```markdown
+## Example Use Cases
+
+- **Public Company Valuation**: "Analyze Tesla's financials and provide a DCF valuation"
+- **Private Investment**: "Evaluate this startup's unit economics and runway"
+- **M&A Analysis**: "Assess the financial implications of this acquisition"
+```
+
+### 3. Use Clear Instructions
+
+```markdown
+## Core Methodology
+
+### 1. Data Collection
+- Gather historical financial statements
+- Verify data sources
+- Identify anomalies
+
+### 2. Analysis
+- Calculate key ratios
+- Build valuation models
+- Perform sensitivity analysis
+```
+
+### 4. Provide Guidelines
+
+```markdown
+## Guidelines
+
+- Always use conservative assumptions when uncertain
+- Cross-validate findings with multiple methods
+- Clearly document all assumptions
+- Present results with appropriate caveats
+```
+
+## Sharing Skills
+
+Skills can be easily shared across projects and teams:
+
+```bash
+# Copy skills to another project
+cp -r skills/financial-analysis ../other-project/skills/
+
+# Or create a skills library repository
+git clone https://github.com/myorg/agent-skills-library.git skills
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Structured Outputs" icon="code" href="/agents/structured-outputs">
+    Get structured responses from agents
+  </Card>
+  <Card title="Creating Agents" icon="robot" href="/agents/creating-agents">
+    Learn how to create agents
+  </Card>
+</CardGroup>
+
+## Reference
+
+- Skills handling: `swarms/structs/agent.py:705-783`
+- Dynamic skills loader: `swarms/structs/dynamic_skills_loader.py`
+- Example skills: `examples/single_agent/agent_skill_examples/`
+- Anthropic Agent Skills: [Agent Skills Documentation](https://docs.swarms.world/en/latest/swarms/agents/agent_skills/)

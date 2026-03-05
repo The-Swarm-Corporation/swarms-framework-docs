@@ -1,0 +1,478 @@
+---
+title: Heavy Swarm
+description: Sophisticated 5-phase analysis workflow with specialized agents for comprehensive research and insights
+---
+
+# Heavy Swarm
+
+The `HeavySwarm` implements a sophisticated 5-phase workflow inspired by X.AI's Grok heavy implementation. It uses intelligent question generation and specialized agents (Research, Analysis, Alternatives, Verification) to provide comprehensive task analysis through multiple perspectives.
+
+## When to Use
+
+- **Complex research tasks**: In-depth investigation and analysis
+- **Financial analysis**: Investment decisions requiring multiple viewpoints
+- **Strategic planning**: Comprehensive evaluation of options
+- **Due diligence**: Thorough verification and risk assessment
+- **Multi-faceted problems**: Issues requiring research, analysis, and synthesis
+
+## Key Features
+
+- Intelligent question generation for specialized roles
+- 4 specialized expert agents
+- True parallel execution
+- Synthesis agent for integration
+- Optional real-time dashboard
+- Multi-loop iterative refinement
+- Configurable agent loops
+- Tool integration support
+
+## Architecture Phases
+
+```
+1. Question Generation
+   - Analyze task
+   - Generate specialized questions for each agent role
+   
+2. Parallel Expert Execution
+   - Research Agent: Gather comprehensive information
+   - Analysis Agent: Analyze patterns and data
+   - Alternatives Agent: Explore different approaches
+   - Verification Agent: Validate and assess feasibility
+   
+3. Synthesis
+   - Synthesis Agent: Integrate all expert outputs
+   - Generate comprehensive final report
+```
+
+## Basic Example
+
+```python
+from swarms import HeavySwarm
+
+# Create HeavySwarm
+swarm = HeavySwarm(
+    name="Investment-Research-Team",
+    description="Comprehensive investment analysis",
+    question_agent_model_name="gpt-4o-mini",
+    worker_model_name="gpt-4o-mini",
+    show_dashboard=True,
+    max_loops=1,
+)
+
+# Execute comprehensive analysis
+result = swarm.run(
+    "Should we invest in NVIDIA stock? Provide detailed analysis."
+)
+print(result)
+```
+
+## With Tools Integration
+
+```python
+from swarms import HeavySwarm
+from swarms_tools import exa_search  # Web search tool
+
+swarm = HeavySwarm(
+    name="Market-Research-Team",
+    description="Research team with web search capabilities",
+    question_agent_model_name="gpt-4o-mini",
+    worker_model_name="claude-sonnet-4-20250514",
+    worker_tools=[exa_search],  # Add tools to all workers
+    show_dashboard=True,
+    max_loops=2,  # Multiple refinement loops
+)
+
+result = swarm.run(
+    "Find the best 3 gold ETFs with current data from the web"
+)
+```
+
+## Specialized Agents
+
+### Research Agent
+
+Expert in:
+- Comprehensive information gathering
+- Data collection and validation
+- Source verification
+- Literature review
+- Statistical data interpretation
+
+### Analysis Agent
+
+Expert in:
+- Pattern recognition
+- Statistical analysis
+- Predictive modeling
+- Data interpretation
+- Performance metrics
+
+### Alternatives Agent
+
+Expert in:
+- Strategic thinking
+- Creative problem-solving
+- Option generation
+- Trade-off evaluation
+- Scenario planning
+
+### Verification Agent
+
+Expert in:
+- Fact-checking
+- Feasibility assessment
+- Risk analysis
+- Compliance verification
+- Quality assurance
+
+### Synthesis Agent
+
+Expert in:
+- Multi-perspective integration
+- Comprehensive analysis
+- Executive summary creation
+- Strategic alignment
+- Actionable recommendations
+
+## Key Parameters
+
+<ParamField path="name" type="str" default="HeavySwarm">
+  Name for the swarm instance
+</ParamField>
+
+<ParamField path="description" type="str">
+  Description of the swarm's purpose
+</ParamField>
+
+<ParamField path="question_agent_model_name" type="str" default="gpt-4o-mini">
+  Model for question generation agent
+</ParamField>
+
+<ParamField path="worker_model_name" type="str" default="gpt-4o-mini">
+  Model for all specialized worker agents
+</ParamField>
+
+<ParamField path="loops_per_agent" type="int" default={1}>
+  Number of loops each worker agent executes
+</ParamField>
+
+<ParamField path="show_dashboard" type="bool" default={false}>
+  Enable real-time progress dashboard
+</ParamField>
+
+<ParamField path="agent_prints_on" type="bool" default={false}>
+  Enable individual agent output printing
+</ParamField>
+
+<ParamField path="worker_tools" type="List[Callable]">
+  Tools available to worker agents
+</ParamField>
+
+<ParamField path="max_loops" type="int" default={1}>
+  Maximum swarm execution loops for iterative refinement
+</ParamField>
+
+<ParamField path="random_loops_per_agent" type="bool" default={false}>
+  Randomize loops per agent (1-10 range)
+</ParamField>
+
+<ParamField path="output_type" type="str" default="dict-all-except-first">
+  Output format type
+</ParamField>
+
+## Methods
+
+### run()
+
+Execute the complete 5-phase workflow.
+
+```python
+result = swarm.run(
+    task="Analyze cryptocurrency market trends",
+    img=None,  # Optional image input
+)
+```
+
+## Question Generation
+
+The question agent generates specialized questions:
+
+```python
+# Internal schema for question generation
+{
+    "thinking": "Reasoning for how to break down task",
+    "research_question": "Question for Research Agent",
+    "analysis_question": "Question for Analysis Agent",
+    "alternatives_question": "Question for Alternatives Agent",
+    "verification_question": "Question for Verification Agent"
+}
+```
+
+Example generated questions for "Invest in NVIDIA?":
+
+```json
+{
+    "thinking": "Need to evaluate financials, market position, alternatives, and risks",
+    "research_question": "Research NVIDIA's financial performance, product pipeline, and market position in AI chips",
+    "analysis_question": "Analyze NVIDIA's revenue growth, profit margins, and competitive advantages in the AI accelerator market",
+    "alternatives_question": "What are alternative semiconductor investments with similar growth potential?",
+    "verification_question": "Verify NVIDIA's claimed AI leadership and assess risks to their market dominance"
+}
+```
+
+## Multi-Loop Refinement
+
+With `max_loops > 1`, the swarm iterates for deeper analysis:
+
+```python
+swarm = HeavySwarm(
+    name="Deep-Analysis-Team",
+    worker_model_name="claude-sonnet-4-20250514",
+    max_loops=3,  # Three rounds of analysis
+)
+
+result = swarm.run("Complex strategic decision")
+```
+
+Each loop:
+1. Loop 1: Initial analysis with original task
+2. Loop 2: Refine based on Loop 1 results + original task
+3. Loop 3: Final refinement with complete context
+
+## Dashboard Features
+
+When `show_dashboard=True`:
+
+**Configuration Panel:**
+- Swarm name and description
+- Model configurations
+- Timeout and loop settings
+- Worker count
+
+**Reliability Check Phase:**
+- Animated progress bars
+- Validation status for each component
+- System ready confirmation
+
+**Question Generation Phase:**
+- Real-time generation progress
+- Success confirmation
+
+**Agent Execution Phase:**
+- Individual progress bars per agent
+- Status updates (INITIALIZING, PROCESSING, GENERATING, COMPLETE)
+- Animated indicators
+- Error detection
+
+**Synthesis Phase:**
+- Integration progress
+- Final report generation
+- Completion confirmation
+
+## Use Cases
+
+### Investment Analysis
+
+```python
+swarm = HeavySwarm(
+    name="Investment-Committee",
+    description="Comprehensive investment evaluation team",
+    worker_model_name="claude-sonnet-4-20250514",
+    show_dashboard=True,
+)
+
+analysis = swarm.run(
+    "Evaluate Tesla as a long-term investment. Consider financials, "
+    "market position, competition, risks, and alternatives."
+)
+```
+
+### Market Research
+
+```python
+from swarms_tools import exa_search
+
+swarm = HeavySwarm(
+    name="Market-Intel-Team",
+    worker_model_name="gpt-4o-mini",
+    worker_tools=[exa_search],
+    loops_per_agent=2,
+)
+
+research = swarm.run(
+    "Research the enterprise AI market: size, growth, key players, "
+    "trends, and opportunities. Use current web data."
+)
+```
+
+### Strategic Planning
+
+```python
+swarm = HeavySwarm(
+    name="Strategy-Team",
+    description="Strategic planning and analysis",
+    worker_model_name="claude-sonnet-4-20250514",
+    max_loops=2,
+    show_dashboard=True,
+)
+
+strategy = swarm.run(
+    "Should our company enter the AI agent services market? "
+    "Analyze market, competition, requirements, risks, and alternatives."
+)
+```
+
+### Due Diligence
+
+```python
+swarm = HeavySwarm(
+    name="Due-Diligence-Team",
+    worker_model_name="gpt-4o-mini",
+    loops_per_agent=3,  # Thorough investigation
+)
+
+report = swarm.run(
+    "Conduct due diligence on acquiring Company X: "
+    "financials, legal, operations, technology, culture fit."
+)
+```
+
+## Performance Optimization
+
+### Parallel Execution
+
+All 4 expert agents execute simultaneously:
+
+```python
+# Uses ThreadPoolExecutor for true parallel execution
+with concurrent.futures.ThreadPoolExecutor(
+    max_workers=max_workers
+) as executor:
+    futures = [executor.submit(execute_agent, task) for task in agent_tasks]
+```
+
+### Agent Loop Configuration
+
+```python
+# Fixed loops per agent
+swarm = HeavySwarm(loops_per_agent=3)
+
+# Random loops (1-10) per agent
+swarm = HeavySwarm(random_loops_per_agent=True)
+```
+
+## Advanced Configuration
+
+### Custom Aggregation
+
+```python
+swarm = HeavySwarm(
+    aggregation_strategy="synthesis",  # Default
+    # Future: "voting", "consensus", "weighted"
+)
+```
+
+### Timeout Management
+
+```python
+swarm = HeavySwarm(
+    timeout=300,  # 5 minutes per agent
+)
+```
+
+### Verbose Logging
+
+```python
+swarm = HeavySwarm(
+    verbose=True,  # Detailed execution logs
+    agent_prints_on=True,  # Individual agent outputs
+)
+```
+
+## Output Structure
+
+The swarm returns formatted conversation history:
+
+```python
+# With output_type="dict-all-except-first"
+{
+    "Question Generator Agent": "<generated questions>",
+    "Research-Agent": "<research findings>",
+    "Analysis-Agent": "<analysis insights>",
+    "Alternatives-Agent": "<alternative options>",
+    "Verification-Agent": "<verification results>",
+    "Synthesis-Agent": "<comprehensive synthesis>"
+}
+```
+
+## Best Practices
+
+<Note>
+  **Model Selection**: Use stronger models (Claude Sonnet, GPT-4) for worker agents on complex tasks
+</Note>
+
+1. **Question Quality**: Stronger model for question generation = better agent coordination
+2. **Worker Models**: Balance cost vs quality for worker agents
+3. **Loop Count**: Start with 1, add more only for complex tasks
+4. **Dashboard**: Enable for demos and debugging, disable for production
+5. **Tools**: Provide tools when real-time data is needed
+
+<Warning>
+  HeavySwarm is resource-intensive: 4 agents + synthesis + question generation per loop
+</Warning>
+
+## Reliability Checks
+
+The swarm validates configuration:
+
+```python
+# Automatic validation:
+# - loops_per_agent > 0
+# - worker_model_name is set
+# - question_agent_model_name is set
+
+try:
+    swarm = HeavySwarm(loops_per_agent=0)
+except ValueError as e:
+    print(e)
+    # "loops_per_agent must be greater than 0"
+```
+
+## Conversation History
+
+Access complete analysis history:
+
+```python
+result = swarm.run("Task")
+
+# Access conversation
+history = swarm.conversation.conversation_history
+
+# Format:
+# [{"role": "User", "content": "Task"},
+#  {"role": "Question Generator Agent", "content": {...}},
+#  {"role": "Research-Agent", "content": "..."},
+#  {"role": "Analysis-Agent", "content": "..."},
+#  {"role": "Alternatives-Agent", "content": "..."},
+#  {"role": "Verification-Agent", "content": "..."},
+#  {"role": "Synthesis-Agent", "content": "..."}]
+```
+
+## Error Handling
+
+```python
+try:
+    result = swarm.run("Task")
+except TimeoutError:
+    print("Agent execution exceeded timeout")
+except Exception as e:
+    print(f"Swarm execution failed: {e}")
+    # Individual agent errors are logged but don't stop other agents
+```
+
+## Related Architectures
+
+- [Mixture of Agents](/architectures/mixture-of-agents) - Similar parallel expert pattern
+- [Hierarchical Swarm](/architectures/hierarchical-swarm) - Director-worker coordination
+- [Concurrent Workflow](/architectures/concurrent-workflow) - Simple parallel execution
+- [Agent Rearrange](/architectures/agent-rearrange) - Custom flow patterns

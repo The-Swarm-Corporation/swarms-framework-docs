@@ -1,0 +1,353 @@
+---
+title: Model Providers
+description: Integrate Swarms with multiple LLM providers including OpenAI, Anthropic, Groq, and more
+---
+
+Swarms supports a wide range of LLM providers, giving you the flexibility to choose the best model for your use case. The framework provides a unified interface that works seamlessly across all supported providers.
+
+## Supported Providers
+
+Swarms integrates with all major LLM providers through a consistent API:
+
+- **OpenAI** - GPT-4, GPT-4 Turbo, GPT-3.5
+- **Anthropic** - Claude 3 Opus, Sonnet, Haiku
+- **Groq** - Ultra-fast inference with Llama, Mixtral
+- **DeepSeek** - DeepSeek models
+- **Cohere** - Command models
+- **Ollama** - Local model deployment
+- **OpenRouter** - Access to multiple providers
+- **XAI** - Grok models
+- **Azure OpenAI** - Enterprise OpenAI deployment
+
+## Configuration
+
+### Environment Setup
+
+Configure your API keys in environment variables:
+
+```bash
+# OpenAI
+OPENAI_API_KEY="sk-..."
+
+# Anthropic
+ANTHROPIC_API_KEY="sk-ant-..."
+
+# Groq
+GROQ_API_KEY="gsk_..."
+
+# Workspace directory (optional)
+WORKSPACE_DIR="agent_workspace"
+```
+
+<Tip>
+Store your API keys in a `.env` file and use `python-dotenv` to load them. Never commit API keys to version control.
+</Tip>
+
+## Usage Examples
+
+### OpenAI Models
+
+Use OpenAI's GPT models by specifying the model name:
+
+```python
+from swarms import Agent
+
+# GPT-4
+agent = Agent(
+    agent_name="GPT4-Agent",
+    model_name="gpt-4",
+    max_loops=1,
+)
+
+# GPT-4 Turbo
+agent = Agent(
+    agent_name="GPT4-Turbo-Agent",
+    model_name="gpt-4-turbo",
+    max_loops=1,
+)
+
+# GPT-4o (Optimized)
+agent = Agent(
+    agent_name="GPT4o-Agent",
+    model_name="gpt-4o",
+    max_loops=1,
+)
+
+# GPT-4o Mini (Cost-effective)
+agent = Agent(
+    agent_name="GPT4o-Mini-Agent",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+```
+
+### Anthropic Claude
+
+Claude models excel at long-form content and analysis:
+
+```python
+from swarms import Agent
+
+# Claude 3 Opus (Most capable)
+agent = Agent(
+    agent_name="Claude-Opus-Agent",
+    model_name="claude-3-opus-20240229",
+    max_loops=1,
+)
+
+# Claude 3 Sonnet (Balanced)
+agent = Agent(
+    agent_name="Claude-Sonnet-Agent",
+    model_name="claude-3-sonnet-20240229",
+    max_loops=1,
+)
+
+# Claude 3 Haiku (Fast)
+agent = Agent(
+    agent_name="Claude-Haiku-Agent",
+    model_name="claude-3-haiku-20240307",
+    max_loops=1,
+)
+
+# Claude 3.5 Sonnet (Latest)
+agent = Agent(
+    agent_name="Claude-3.5-Sonnet-Agent",
+    model_name="claude-sonnet-3-5-20240620",
+    max_loops=1,
+)
+```
+
+### Groq (Ultra-Fast Inference)
+
+Groq provides extremely fast inference speeds:
+
+```python
+from swarms import Agent
+
+# Llama 3 on Groq
+agent = Agent(
+    agent_name="Llama3-Groq-Agent",
+    model_name="groq/llama-3.1-70b-versatile",
+    max_loops=1,
+)
+
+# Mixtral on Groq
+agent = Agent(
+    agent_name="Mixtral-Groq-Agent",
+    model_name="groq/mixtral-8x7b-32768",
+    max_loops=1,
+)
+```
+
+### DeepSeek
+
+DeepSeek models for coding and reasoning:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="DeepSeek-Agent",
+    model_name="deepseek/deepseek-chat",
+    max_loops=1,
+)
+```
+
+### Ollama (Local Models)
+
+Run models locally with Ollama:
+
+```python
+from swarms import Agent
+
+# Requires Ollama running locally
+agent = Agent(
+    agent_name="Llama-Local-Agent",
+    model_name="ollama/llama2",
+    max_loops=1,
+)
+```
+
+### OpenRouter (Multi-Provider Access)
+
+Access multiple providers through OpenRouter:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="OpenRouter-Agent",
+    model_name="openrouter/anthropic/claude-3-opus",
+    max_loops=1,
+)
+```
+
+### Cohere
+
+Cohere Command models:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Cohere-Agent",
+    model_name="cohere/command-r-plus",
+    max_loops=1,
+)
+```
+
+## Model Naming Convention
+
+Swarms uses the following naming pattern for models:
+
+- **Direct provider models**: `"gpt-4"`, `"claude-3-opus-20240229"`
+- **Provider prefix**: `"groq/llama-3.1-70b-versatile"`, `"ollama/llama2"`
+- **OpenRouter**: `"openrouter/provider/model-name"`
+
+## Advanced Configuration
+
+### Custom Model Parameters
+
+Configure model-specific parameters:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Custom-Agent",
+    model_name="gpt-4o",
+    max_loops=1,
+    temperature=0.7,        # Creativity (0.0-1.0)
+    context_length=8192,    # Context window size
+    max_tokens=2000,        # Max output tokens
+)
+```
+
+### Dynamic Model Selection
+
+Switch models dynamically based on task requirements:
+
+```python
+from swarms import Agent
+
+def get_agent_for_task(task_type: str) -> Agent:
+    """Select the best model for the task type."""
+    
+    if task_type == "coding":
+        # Use Claude for coding tasks
+        return Agent(
+            agent_name="Coding-Agent",
+            model_name="claude-3-opus-20240229",
+            max_loops=1,
+        )
+    elif task_type == "analysis":
+        # Use GPT-4 for analysis
+        return Agent(
+            agent_name="Analysis-Agent",
+            model_name="gpt-4",
+            max_loops=1,
+        )
+    elif task_type == "fast":
+        # Use Groq for speed
+        return Agent(
+            agent_name="Fast-Agent",
+            model_name="groq/llama-3.1-70b-versatile",
+            max_loops=1,
+        )
+    else:
+        # Default to GPT-4o Mini
+        return Agent(
+            agent_name="Default-Agent",
+            model_name="gpt-4o-mini",
+            max_loops=1,
+        )
+
+# Use the appropriate agent
+agent = get_agent_for_task("coding")
+result = agent.run("Write a Python function to sort a list")
+```
+
+## Multi-Provider Workflows
+
+Combine different providers in a single workflow:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+# Research with Claude (good at analysis)
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="claude-3-opus-20240229",
+    system_prompt="Research the topic thoroughly.",
+)
+
+# Write with GPT-4 (good at creative writing)
+writer = Agent(
+    agent_name="Writer",
+    model_name="gpt-4",
+    system_prompt="Write an engaging article.",
+)
+
+# Fast review with Groq
+reviewer = Agent(
+    agent_name="Reviewer",
+    model_name="groq/llama-3.1-70b-versatile",
+    system_prompt="Review and provide feedback.",
+)
+
+workflow = SequentialWorkflow(
+    agents=[researcher, writer, reviewer]
+)
+
+result = workflow.run("The future of AI")
+```
+
+## Cost Optimization
+
+Optimize costs by using the right model for each task:
+
+```python
+from swarms import Agent
+
+# Use cheaper models for simple tasks
+simple_agent = Agent(
+    agent_name="Simple-Task-Agent",
+    model_name="gpt-4o-mini",  # Most cost-effective
+    max_loops=1,
+)
+
+# Use premium models only when needed
+complex_agent = Agent(
+    agent_name="Complex-Task-Agent",
+    model_name="claude-3-opus-20240229",  # Most capable
+    max_loops=1,
+)
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Choose the Right Model" icon="brain">
+    Select models based on your specific use case - speed, cost, or capability
+  </Card>
+  <Card title="Monitor Usage" icon="chart-line">
+    Track API usage and costs across different providers
+  </Card>
+  <Card title="Test Thoroughly" icon="flask">
+    Test with multiple providers to find the best fit for your application
+  </Card>
+  <Card title="Fallback Strategy" icon="shield">
+    Implement fallback to alternative providers for reliability
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MCP Integration" icon="plug" href="/integrations/mcp">
+    Connect to MCP servers for extended capabilities
+  </Card>
+  <Card title="Tools" icon="wrench" href="/integrations/tools">
+    Add custom tools to your agents
+  </Card>
+</CardGroup>

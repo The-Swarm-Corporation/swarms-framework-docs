@@ -1,0 +1,278 @@
+---
+title: HeavySwarm
+description: A sophisticated multi-agent system that decomposes tasks into specialized questions and executes them with synthesis
+---
+
+## Overview
+
+The `HeavySwarm` class is a sophisticated multi-agent orchestration system that decomposes complex tasks into specialized questions and executes them using four specialized agents: Research, Analysis, Alternatives, and Verification. Results are then synthesized into a comprehensive response with optional iterative refinement through multiple loops.
+
+## Class Definition
+
+```python
+from swarms.structs.heavy_swarm import HeavySwarm
+```
+
+## Parameters
+
+<ParamField path="name" type="str" default="HeavySwarm">
+  Name identifier for the swarm instance
+</ParamField>
+
+<ParamField path="description" type="str" default="A swarm of agents that can analyze a task and generate specialized questions for each agent role">
+  Description of the swarm's purpose and capabilities
+</ParamField>
+
+<ParamField path="timeout" type="int" default="300">
+  Maximum execution time per agent in seconds
+</ParamField>
+
+<ParamField path="aggregation_strategy" type="str" default="synthesis">
+  Strategy for result aggregation. Currently only 'synthesis' is supported
+</ParamField>
+
+<ParamField path="loops_per_agent" type="int" default="1">
+  Number of execution loops each agent should perform. Must be greater than 0
+</ParamField>
+
+<ParamField path="question_agent_model_name" type="str" default="gpt-4o-mini">
+  Language model for question generation
+</ParamField>
+
+<ParamField path="worker_model_name" type="str" default="gpt-4o-mini">
+  Language model for specialized worker agents
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Enable detailed logging and debug output
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="int(os.cpu_count() * 0.9)">
+  Maximum concurrent workers for parallel execution. Defaults to 90% of CPU count
+</ParamField>
+
+<ParamField path="show_dashboard" type="bool" default="False">
+  Enable rich dashboard with progress visualization
+</ParamField>
+
+<ParamField path="agent_prints_on" type="bool" default="False">
+  Enable individual agent output printing
+</ParamField>
+
+<ParamField path="output_type" type="str" default="dict-all-except-first">
+  Output format type for conversation history
+</ParamField>
+
+<ParamField path="worker_tools" type="tool_type" optional>
+  Tools available to worker agents for enhanced functionality
+</ParamField>
+
+<ParamField path="random_loops_per_agent" type="bool" default="False">
+  Enable random number of loops per agent (1-10 range)
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of execution loops for the entire swarm. Each loop builds upon previous results for iterative refinement
+</ParamField>
+
+## Specialized Agents
+
+The HeavySwarm creates and manages 5 specialized agents:
+
+### Research Agent
+Expert in comprehensive information gathering, data collection, market research, and source verification. Specializes in systematic literature reviews, competitive intelligence, and statistical data interpretation.
+
+**System Prompt Focus:**
+- Comprehensive task analysis
+- Evidence-based research
+- Source credibility assessment
+- Reproducible methodologies
+
+### Analysis Agent
+Expert in advanced statistical analysis, pattern recognition, predictive modeling, and causal relationship identification. Specializes in regression analysis, forecasting, and performance metrics development.
+
+**System Prompt Focus:**
+- Data quality assessment
+- Statistical rigor
+- Quantified uncertainty
+- Practical interpretation
+
+### Alternatives Agent
+Expert in strategic thinking, creative problem-solving, innovation ideation, and strategic option evaluation. Specializes in design thinking, scenario planning, and exploring diverse solutions.
+
+**System Prompt Focus:**
+- Diverse option generation
+- Trade-off analysis
+- Risk assessment
+- Implementation planning
+
+### Verification Agent
+Expert in validation, feasibility assessment, fact-checking, and quality assurance. Specializes in risk assessment, compliance verification, and implementation barrier analysis.
+
+**System Prompt Focus:**
+- Fact-checking protocols
+- Feasibility validation
+- Risk identification
+- Evidence triangulation
+
+### Synthesis Agent
+Expert in multi-perspective integration, comprehensive analysis, and executive summary creation. Specializes in strategic alignment, conflict resolution, and holistic solution development.
+
+**System Prompt Focus:**
+- Multi-input integration
+- Consensus building
+- Prioritized recommendations
+- Stakeholder communication
+
+## Methods
+
+### `run()`
+
+```python
+def run(self, task: str, img: Optional[str] = None) -> str
+```
+
+Executes the complete HeavySwarm orchestration flow with multi-loop functionality.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The main task to analyze and iterate upon
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Image input if needed for visual analysis tasks
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="str">
+  Comprehensive final answer from synthesis agent after all loops complete
+</ResponseField>
+
+**Workflow:**
+1. For first loop: Execute original task with full orchestration
+2. For subsequent loops: Combine previous results with original task as context
+3. Question generation: Generate specialized questions for each agent role
+4. Parallel execution: Run all 4 specialized agents concurrently
+5. Synthesis: Integrate all agent results into comprehensive response
+6. Iteration: Repeat for max_loops, building upon previous results
+
+---
+
+### `reliability_check()`
+
+```python
+def reliability_check(self) -> None
+```
+
+Performs comprehensive reliability and configuration validation checks.
+
+**Validates:**
+- loops_per_agent is greater than 0
+- worker_model_name is set
+- question_agent_model_name is set
+
+**Raises:**
+- `ValueError`: If any configuration parameter is invalid
+
+---
+
+### `show_swarm_info()`
+
+```python
+def show_swarm_info(self) -> None
+```
+
+Displays comprehensive swarm configuration information in rich dashboard format.
+
+Shows:
+- Swarm identification (name, description)
+- Execution parameters (timeout, loops per agent)
+- Model configurations (question and worker models)
+- Performance settings (max workers, aggregation strategy)
+
+## Question Generation Schema
+
+The HeavySwarm uses structured question generation with the following schema:
+
+```python
+{
+    "thinking": str,              # Reasoning process for question breakdown
+    "research_question": str,     # Question for Research Agent
+    "analysis_question": str,     # Question for Analysis Agent
+    "alternatives_question": str, # Question for Alternatives Agent
+    "verification_question": str  # Question for Verification Agent
+}
+```
+
+## Usage Example
+
+```python
+from swarms.structs.heavy_swarm import HeavySwarm
+
+# Create HeavySwarm with dashboard enabled
+swarm = HeavySwarm(
+    name="Market-Analysis-Swarm",
+    description="Comprehensive market analysis swarm",
+    question_agent_model_name="gpt-4o",
+    worker_model_name="gpt-4o",
+    show_dashboard=True,
+    max_loops=3,
+    verbose=True
+)
+
+# Execute a complex task
+result = swarm.run(
+    task="Analyze the current cryptocurrency market trends, evaluate investment alternatives, and provide verified recommendations"
+)
+
+print(result)
+```
+
+## Multi-Loop Execution
+
+The `max_loops` parameter enables iterative refinement:
+
+- **Loop 1**: Initial analysis of the task
+- **Loop 2+**: Refinement based on previous results
+- Each loop builds upon context from previous iterations
+- Enables deeper analysis and progressive refinement
+
+**Example with 3 loops:**
+```python
+swarm = HeavySwarm(
+    name="DeepAnalysis",
+    max_loops=3,
+    show_dashboard=True
+)
+
+result = swarm.run("Analyze AI impact on healthcare")
+# Loop 1: Initial analysis
+# Loop 2: Refinement based on Loop 1 insights
+# Loop 3: Final comprehensive synthesis
+```
+
+## Dashboard Features
+
+When `show_dashboard=True`, the HeavySwarm displays:
+
+1. **Configuration Panel**: Swarm parameters and settings
+2. **Reliability Checks**: Animated validation with progress tracking
+3. **Question Generation**: Real-time progress for specialized questions
+4. **Agent Execution**: Individual progress bars for each of 4 agents
+5. **Synthesis Phase**: Integration and final report generation
+6. **Completion Summary**: Mission accomplished with professional styling
+
+All dashboard elements use Swarms-inspired red/black styling with professional formatting.
+
+## Performance Optimization
+
+- **Parallel Execution**: All 4 specialized agents run concurrently
+- **Thread Pool**: Configurable max_workers for optimal CPU utilization
+- **Timeout Management**: Per-agent timeout controls
+- **LRU Caching**: Agent instances are cached for reuse
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/heavy_swarm.py)

@@ -1,0 +1,568 @@
+---
+title: 'Vision Agent'
+description: 'Create agents that process images and multimodal content'
+icon: 'eye'
+---
+
+# Vision Agent
+
+Learn how to create agents that can analyze images, process visual content, and combine vision with language capabilities for powerful multimodal applications.
+
+## Overview
+
+Vision agents can:
+
+- Analyze and describe images
+- Extract information from visual content
+- Answer questions about images
+- Combine visual analysis with tools
+- Process multiple images simultaneously
+- Generate insights from charts and diagrams
+
+## Basic Vision Agent
+
+Here's how to create a simple vision agent:
+
+```python
+from swarms import Agent
+
+# Create a vision-enabled agent
+vision_agent = Agent(
+    agent_name="Vision-Analyst",
+    agent_description="An agent that analyzes images and provides detailed descriptions",
+    model_name="gpt-4o",  # Vision-capable model
+    multi_modal=True,  # Enable multimodal processing
+    max_loops=1,
+)
+
+# Analyze an image
+response = vision_agent.run(
+    task="Describe what you see in this image in detail",
+    img="path/to/image.jpg",  # Path to image file
+)
+
+print(response)
+```
+
+## Image Input Formats
+
+Vision agents support multiple image input formats:
+
+### 1. File Path
+
+```python
+response = agent.run(
+    task="Analyze this image",
+    img="/home/user/images/photo.jpg",
+)
+```
+
+### 2. URL
+
+```python
+response = agent.run(
+    task="What's in this image?",
+    img="https://example.com/image.jpg",
+)
+```
+
+### 3. Base64 Encoded String
+
+```python
+import base64
+
+# Read and encode image
+with open("image.jpg", "rb") as f:
+    img_base64 = base64.b64encode(f.read()).decode("utf-8")
+
+response = agent.run(
+    task="Analyze this image",
+    img=img_base64,
+)
+```
+
+### 4. Data URI
+
+```python
+response = agent.run(
+    task="Describe the image",
+    img="data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+)
+```
+
+## Real-World Example: Quality Control Agent
+
+Here's a production-ready example for factory quality control:
+
+```python
+import logging
+from swarms import Agent
+from swarms.prompts.logistics import Quality_Control_Agent_Prompt
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+
+def security_analysis(danger_level: str) -> str:
+    """
+    Analyzes security danger level and returns appropriate response.
+    
+    Args:
+        danger_level (str): The level of danger ("low", "medium", "high")
+        
+    Returns:
+        str: Detailed security analysis based on danger level
+    """
+    if danger_level == "low":
+        return """SECURITY ANALYSIS - LOW DANGER LEVEL:
+        ✅ Environment appears safe and well-controlled
+        ✅ Standard security measures are adequate
+        ✅ Low risk of accidents or security breaches
+        ✅ Normal operational protocols can continue
+        
+        Recommendations: Maintain current security standards."""
+    
+    elif danger_level == "medium":
+        return """SECURITY ANALYSIS - MEDIUM DANGER LEVEL:
+        ⚠️  Moderate security concerns identified
+        ⚠️  Enhanced monitoring recommended
+        ⚠️  Some security measures may need strengthening
+        
+        Recommendations: Implement additional safety protocols."""
+    
+    elif danger_level == "high":
+        return """SECURITY ANALYSIS - HIGH DANGER LEVEL:
+        🚨 CRITICAL SECURITY CONCERNS DETECTED
+        🚨 Immediate action required
+        🚨 High risk of accidents or security breaches
+        
+        Recommendations: Immediate intervention required, evacuate if necessary."""
+    
+    return f"ERROR: Invalid danger level '{danger_level}'"
+
+# Custom system prompt
+custom_system_prompt = f"""
+{Quality_Control_Agent_Prompt}
+
+You have access to tools that can help with your analysis. When you need to
+perform a security analysis, use the security_analysis function with an
+appropriate danger level (low, medium, or high) based on your observations.
+"""
+
+# Quality control agent with vision and tools
+quality_control_agent = Agent(
+    agent_name="Quality-Control-Agent",
+    agent_description="Analyzes images and provides detailed quality control reports",
+    model_name="gpt-4.1",
+    system_prompt=custom_system_prompt,
+    multi_modal=True,  # Enable vision
+    max_loops=1,
+    output_type="str-all-except-first",
+    tools=[security_analysis],  # Combine vision with tools
+)
+
+response = quality_control_agent.run(
+    task="Analyze the image and perform a security analysis. Determine the danger level and call the security_analysis function.",
+    img="factory_image.png",
+)
+
+print(response)
+```
+
+## Vision with Multiple Images
+
+Process multiple images in a single request:
+
+```python
+from swarms import Agent
+
+# Create vision agent
+agent = Agent(
+    agent_name="Multi-Image-Analyst",
+    model_name="gpt-4o",
+    multi_modal=True,
+    max_loops=1,
+)
+
+# Process batch of images
+images = [
+    "image1.jpg",
+    "image2.jpg",
+    "image3.jpg",
+]
+
+for idx, img in enumerate(images, 1):
+    response = agent.run(
+        task=f"Analyze image {idx} and describe key features",
+        img=img,
+    )
+    print(f"\n=== Image {idx} Analysis ===")
+    print(response)
+```
+
+## Advanced Vision Patterns
+
+### Document Analysis
+
+```python
+from swarms import Agent
+
+# Create document analysis agent
+doc_agent = Agent(
+    agent_name="Document-Analyzer",
+    system_prompt="""You are an expert at analyzing documents, invoices,
+    and forms. Extract all relevant information accurately.""",
+    model_name="gpt-4o",
+    multi_modal=True,
+    max_loops=1,
+)
+
+response = doc_agent.run(
+    task="""Extract the following information from this invoice:
+    - Invoice number
+    - Date
+    - Total amount
+    - Line items with quantities and prices
+    - Vendor name and address
+    """,
+    img="invoice.pdf",
+)
+
+print(response)
+```
+
+### Chart and Graph Analysis
+
+```python
+# Create data visualization analyst
+chart_agent = Agent(
+    agent_name="Chart-Analyst",
+    system_prompt="""You are an expert at analyzing charts, graphs, and
+    data visualizations. Provide insights about trends and patterns.""",
+    model_name="gpt-4o",
+    multi_modal=True,
+    max_loops=1,
+)
+
+response = chart_agent.run(
+    task="""Analyze this chart and provide:
+    1. Key trends and patterns
+    2. Notable data points
+    3. Statistical insights
+    4. Recommendations based on the data
+    """,
+    img="sales_chart.png",
+)
+```
+
+### Medical Image Analysis
+
+```python
+from swarms import Agent
+
+# Create medical imaging agent
+medical_agent = Agent(
+    agent_name="Medical-Imaging-Analyst",
+    system_prompt="""You are a medical imaging analyst assistant.
+    Provide detailed observations about medical images. Note: This is for
+    educational purposes only and not a substitute for professional diagnosis.""",
+    model_name="gpt-4o",
+    multi_modal=True,
+    max_loops=1,
+)
+
+response = medical_agent.run(
+    task="""Analyze this X-ray image and describe:
+    1. What anatomical structures are visible
+    2. Any notable features or anomalies
+    3. Image quality and clarity
+    """,
+    img="xray.jpg",
+)
+```
+
+## Vision + Tools Integration
+
+Combine vision capabilities with external tools:
+
+```python
+from swarms import Agent
+import httpx
+import json
+
+def search_product_database(product_name: str) -> str:
+    """
+    Search product database for information
+    
+    Args:
+        product_name (str): Name or description of product
+        
+    Returns:
+        str: Product information from database
+    """
+    # Implementation
+    return f"Product info for {product_name}"
+
+def check_inventory(product_id: str) -> str:
+    """
+    Check inventory levels for a product
+    
+    Args:
+        product_id (str): Product ID or SKU
+        
+    Returns:
+        str: Current inventory status
+    """
+    # Implementation
+    return f"Inventory status for {product_id}"
+
+# Create agent with vision and tools
+product_agent = Agent(
+    agent_name="Product-Recognition-Agent",
+    system_prompt="""You analyze product images, identify products,
+    and use tools to look up information about them.""",
+    model_name="gpt-4o",
+    multi_modal=True,
+    max_loops=2,
+    tools=[search_product_database, check_inventory],
+)
+
+response = product_agent.run(
+    task="""Identify the products in this image, search the database
+    for each product, and check inventory levels.""",
+    img="warehouse_shelf.jpg",
+)
+```
+
+## Supported Vision Models
+
+Swarms supports multiple vision-capable models:
+
+```python
+# OpenAI GPT-4 Vision
+agent_gpt4v = Agent(
+    model_name="gpt-4o",
+    multi_modal=True,
+)
+
+# OpenAI GPT-4o mini (cost-effective)
+agent_gpt4o_mini = Agent(
+    model_name="gpt-4o-mini",
+    multi_modal=True,
+)
+
+# Anthropic Claude with vision
+agent_claude = Agent(
+    model_name="claude-sonnet-4-5",
+    multi_modal=True,
+)
+
+# Groq with LLaVA
+agent_groq = Agent(
+    model_name="groq/llava-v1.5-7b-4096-preview",
+    multi_modal=True,
+)
+```
+
+## Best Practices
+
+### 1. Specific Task Instructions
+
+```python
+# Bad: Vague instruction
+response = agent.run(task="Look at this image", img="photo.jpg")
+
+# Good: Specific instruction
+response = agent.run(
+    task="""Identify all vehicles in this image, count them by type
+    (cars, trucks, motorcycles), and describe their colors and positions.""",
+    img="traffic.jpg",
+)
+```
+
+### 2. Image Quality
+
+```python
+# Ensure images are:
+# - Clear and well-lit
+# - High enough resolution (min 512x512 recommended)
+# - In supported formats (JPEG, PNG, WebP)
+# - Not too large (under 20MB)
+
+import os
+from PIL import Image
+
+def validate_image(image_path: str) -> bool:
+    """Validate image before processing"""
+    if not os.path.exists(image_path):
+        return False
+    
+    try:
+        img = Image.open(image_path)
+        width, height = img.size
+        
+        # Check minimum resolution
+        if width < 512 or height < 512:
+            print("Warning: Image resolution is low")
+        
+        # Check file size
+        file_size = os.path.getsize(image_path) / (1024 * 1024)  # MB
+        if file_size > 20:
+            print("Warning: Image file is large")
+        
+        return True
+    except Exception as e:
+        print(f"Image validation failed: {e}")
+        return False
+```
+
+### 3. Structured Output
+
+```python
+from pydantic import BaseModel, Field
+from typing import List
+
+class ImageAnalysis(BaseModel):
+    description: str = Field(..., description="Overall image description")
+    objects_detected: List[str] = Field(..., description="List of detected objects")
+    dominant_colors: List[str] = Field(..., description="Main colors in image")
+    scene_type: str = Field(..., description="Type of scene (indoor, outdoor, etc)")
+
+agent = Agent(
+    model_name="gpt-4o",
+    multi_modal=True,
+    output_type="json",
+)
+
+response = agent.run(
+    task=f"""Analyze this image and return a JSON response matching this schema:
+    {ImageAnalysis.model_json_schema()}""",
+    img="scene.jpg",
+)
+
+result = ImageAnalysis.model_validate_json(response)
+print(result)
+```
+
+### 4. Error Handling
+
+```python
+def process_image_safely(agent: Agent, task: str, img_path: str) -> str:
+    """Process image with error handling"""
+    try:
+        # Validate image exists
+        if not os.path.exists(img_path):
+            return f"Error: Image not found at {img_path}"
+        
+        # Process image
+        response = agent.run(task=task, img=img_path)
+        return response
+        
+    except Exception as e:
+        logger.error(f"Image processing failed: {e}")
+        return f"Image processing error: {str(e)}"
+
+result = process_image_safely(
+    agent=vision_agent,
+    task="Analyze this image",
+    img_path="photo.jpg",
+)
+```
+
+## Output Examples
+
+Typical vision agent output:
+
+```
+🤖 Agent: Vision-Analyst
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📸 Image Analysis:
+
+This image shows a modern factory floor with the following elements:
+
+1. **Equipment**: 
+   - 3 robotic arms in the center
+   - Conveyor belt system running left to right
+   - Control panels on the far wall
+
+2. **Safety Features**:
+   - Yellow safety barriers around robotic area
+   - Emergency stop buttons visible
+   - Proper lighting throughout
+
+3. **Personnel**:
+   - 2 workers wearing safety vests and hard hats
+   - Both maintaining safe distance from robotic area
+
+4. **Overall Assessment**:
+   - Clean and organized workspace
+   - Safety protocols appear to be followed
+   - No visible hazards or concerns
+```
+
+## Common Use Cases
+
+### Retail and E-commerce
+
+```python
+# Product catalog generation
+product_agent = Agent(
+    agent_name="Product-Cataloger",
+    system_prompt="Generate product descriptions from images",
+    model_name="gpt-4o",
+    multi_modal=True,
+)
+
+description = product_agent.run(
+    task="Create a detailed product description for an e-commerce listing",
+    img="product_photo.jpg",
+)
+```
+
+### Manufacturing and QA
+
+```python
+# Defect detection
+qa_agent = Agent(
+    agent_name="QA-Inspector",
+    system_prompt="Inspect products for defects and quality issues",
+    model_name="gpt-4o",
+    multi_modal=True,
+)
+
+inspection = qa_agent.run(
+    task="Inspect this product for defects, scratches, or quality issues",
+    img="product_inspection.jpg",
+)
+```
+
+### Healthcare
+
+```python
+# Medical documentation
+med_doc_agent = Agent(
+    agent_name="Medical-Documentation",
+    system_prompt="Extract information from medical documents and forms",
+    model_name="gpt-4o",
+    multi_modal=True,
+)
+
+extracted_data = med_doc_agent.run(
+    task="Extract patient information and medical data from this form",
+    img="patient_form.jpg",
+)
+```
+
+## Next Steps
+
+- [Streaming](/examples/streaming) - Stream vision analysis in real-time
+- [Multi-Agent Vision](/swarms/structs/sequential_workflow) - Coordinate vision agents
+- [Agent Output Types](/swarms/examples/agent_output_types) - Structure vision outputs
+- [Model Providers](/swarms/examples/model_providers) - Explore vision-capable models
+
+## Learn More
+
+- [Vision Processing Examples](/swarms/examples/vision_processing)
+- [Multiple Images Tutorial](/swarms/examples/multiple_images)
+- [Vision + Tools Examples](/swarms/examples/vision_tools)
+- [Agent API Reference](/swarms/structs/agent)

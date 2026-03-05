@@ -1,0 +1,434 @@
+---
+title: Mixture of Agents (MoA) Example
+description: Learn how to use multiple expert agents in parallel and synthesize their outputs for state-of-the-art results
+---
+
+# Mixture of Agents (MoA) Example
+
+The `MixtureOfAgents` (MoA) architecture processes tasks by feeding them to multiple "expert" agents in parallel. Their diverse outputs are then synthesized by an aggregator agent to produce a final, high-quality result. This pattern achieves state-of-the-art performance by leveraging the collective expertise of multiple specialized agents.
+
+## How Mixture of Agents Works
+
+The MoA pattern follows a two-phase approach:
+
+1. **Parallel Expert Phase**: Multiple specialized agents process the task independently and simultaneously
+2. **Aggregation Phase**: A dedicated aggregator agent synthesizes all expert outputs into a coherent final result
+
+### Key Characteristics
+
+- **Expert Diversity**: Each agent brings unique perspective and expertise
+- **Parallel Processing**: All experts work simultaneously for efficiency
+- **Intelligent Synthesis**: Aggregator combines insights rather than simple concatenation
+- **Enhanced Quality**: Multiple perspectives lead to more comprehensive results
+
+## Basic Example: Investment Analysis
+
+This example demonstrates how to combine financial, market, and risk analysis:
+
+```python
+from swarms import Agent, MixtureOfAgents
+
+# Define expert agents
+financial_analyst = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt="Analyze financial data.",
+    model_name="gpt-4o-mini"
+)
+
+market_analyst = Agent(
+    agent_name="MarketAnalyst",
+    system_prompt="Analyze market trends.",
+    model_name="gpt-4o-mini"
+)
+
+risk_analyst = Agent(
+    agent_name="RiskAnalyst",
+    system_prompt="Analyze investment risks.",
+    model_name="gpt-4o-mini"
+)
+
+# Define the aggregator agent
+aggregator = Agent(
+    agent_name="InvestmentAdvisor",
+    system_prompt="Synthesize the financial, market, and risk analyses to provide a final investment recommendation.",
+    model_name="gpt-4o-mini"
+)
+
+# Create the MoA swarm
+moa_swarm = MixtureOfAgents(
+    agents=[financial_analyst, market_analyst, risk_analyst],
+    aggregator_agent=aggregator,
+)
+
+# Run the swarm
+recommendation = moa_swarm.run("Should we invest in NVIDIA stock right now?")
+print(recommendation)
+```
+
+## How This Example Works
+
+1. **Task Distribution**: The question "Should we invest in NVIDIA stock right now?" is sent to all three expert agents simultaneously
+2. **Expert Analysis**: Each agent analyzes from their domain:
+   - Financial Analyst examines financial metrics, earnings, valuation
+   - Market Analyst reviews market trends, sector performance, momentum
+   - Risk Analyst assesses volatility, market risks, downside scenarios
+3. **Collection**: All three expert analyses are gathered
+4. **Synthesis**: The Investment Advisor aggregator receives all analyses and synthesizes them into a unified recommendation
+5. **Final Output**: A comprehensive recommendation that considers all perspectives
+
+## The MoA Pattern
+
+The Mixture of Agents pattern is particularly powerful because:
+
+### Diverse Expertise
+Each agent can be specialized in a specific domain, providing depth that a single generalist agent cannot match.
+
+### Parallel Efficiency
+All experts work simultaneously, maintaining the speed of concurrent processing while adding intelligent synthesis.
+
+### Quality Enhancement
+The aggregator can:
+- Identify consensus among experts
+- Highlight disagreements and explain trade-offs
+- Weigh different perspectives based on relevance
+- Produce more nuanced and comprehensive outputs
+
+### Scalability
+Easy to add new expert agents without redesigning the entire system.
+
+## Real-World Examples
+
+### Content Creation Team
+
+Combine writing experts with an editor aggregator:
+
+```python
+from swarms import Agent, MixtureOfAgents
+
+# Define expert writers
+storyteller = Agent(
+    agent_name="Storyteller",
+    system_prompt="Create compelling narratives with emotional resonance and engaging story arcs.",
+    model_name="gpt-4o-mini"
+)
+
+technical_expert = Agent(
+    agent_name="TechnicalExpert",
+    system_prompt="Provide accurate technical details, data, and factual information.",
+    model_name="gpt-4o-mini"
+)
+
+seo_specialist = Agent(
+    agent_name="SEOSpecialist",
+    system_prompt="Optimize content for search engines with keywords and structure.",
+    model_name="gpt-4o-mini"
+)
+
+# Define editor aggregator
+editor = Agent(
+    agent_name="Editor",
+    system_prompt="Combine the narrative, technical accuracy, and SEO elements into a polished, publication-ready article.",
+    model_name="gpt-4o-mini"
+)
+
+# Create MoA for content creation
+content_team = MixtureOfAgents(
+    agents=[storyteller, technical_expert, seo_specialist],
+    aggregator_agent=editor,
+)
+
+# Generate comprehensive article
+article = content_team.run(
+    "Write an article about the future of electric vehicles in urban transportation"
+)
+print(article)
+```
+
+### Medical Diagnosis System
+
+Combine specialist doctors with a general practitioner:
+
+```python
+from swarms import Agent, MixtureOfAgents
+
+# Define medical specialists
+cardiologist = Agent(
+    agent_name="Cardiologist",
+    system_prompt="Analyze symptoms from a cardiovascular perspective. Identify heart-related conditions.",
+    model_name="gpt-4o-mini"
+)
+
+neurologist = Agent(
+    agent_name="Neurologist",
+    system_prompt="Analyze symptoms from a neurological perspective. Identify nervous system conditions.",
+    model_name="gpt-4o-mini"
+)
+
+internal_medicine = Agent(
+    agent_name="InternalMedicine",
+    system_prompt="Analyze symptoms from a general internal medicine perspective. Consider systemic conditions.",
+    model_name="gpt-4o-mini"
+)
+
+# Define general practitioner aggregator
+gp = Agent(
+    agent_name="GeneralPractitioner",
+    system_prompt="Synthesize all specialist opinions into a differential diagnosis and recommended course of action.",
+    model_name="gpt-4o-mini"
+)
+
+# Create medical MoA
+medical_team = MixtureOfAgents(
+    agents=[cardiologist, neurologist, internal_medicine],
+    aggregator_agent=gp,
+)
+
+# Analyze patient symptoms
+diagnosis = medical_team.run(
+    "Patient presents with: persistent headaches, dizziness, elevated blood pressure, and occasional chest discomfort"
+)
+print(diagnosis)
+```
+
+### Product Strategy Team
+
+Combine different business perspectives:
+
+```python
+from swarms import Agent, MixtureOfAgents
+
+# Define strategy experts
+engineering_lead = Agent(
+    agent_name="EngineeringLead",
+    system_prompt="Evaluate technical feasibility, architecture requirements, and development complexity.",
+    model_name="gpt-4o-mini"
+)
+
+product_manager = Agent(
+    agent_name="ProductManager",
+    system_prompt="Assess user needs, market fit, and product-market alignment.",
+    model_name="gpt-4o-mini"
+)
+
+business_analyst = Agent(
+    agent_name="BusinessAnalyst",
+    system_prompt="Analyze business impact, revenue potential, and resource requirements.",
+    model_name="gpt-4o-mini"
+)
+
+ux_designer = Agent(
+    agent_name="UXDesigner",
+    system_prompt="Evaluate user experience, design implications, and usability considerations.",
+    model_name="gpt-4o-mini"
+)
+
+# Define CEO aggregator
+ceo = Agent(
+    agent_name="CEO",
+    system_prompt="Synthesize engineering, product, business, and UX perspectives to make a strategic decision.",
+    model_name="gpt-4o-mini"
+)
+
+# Create strategy MoA
+strategy_team = MixtureOfAgents(
+    agents=[engineering_lead, product_manager, business_analyst, ux_designer],
+    aggregator_agent=ceo,
+)
+
+# Make strategic decision
+decision = strategy_team.run(
+    "Should we build a mobile app version of our platform or focus on improving the web experience?"
+)
+print(decision)
+```
+
+### Research Paper Review
+
+Combine academic reviewers with a meta-reviewer:
+
+```python
+from swarms import Agent, MixtureOfAgents
+
+# Define reviewer experts
+methodology_reviewer = Agent(
+    agent_name="MethodologyReviewer",
+    system_prompt="Review research methodology, experimental design, and statistical rigor.",
+    model_name="gpt-4o-mini"
+)
+
+literature_reviewer = Agent(
+    agent_name="LiteratureReviewer",
+    system_prompt="Evaluate literature review, citations, and positioning within existing research.",
+    model_name="gpt-4o-mini"
+)
+
+results_reviewer = Agent(
+    agent_name="ResultsReviewer",
+    system_prompt="Analyze results, data analysis, and validity of conclusions.",
+    model_name="gpt-4o-mini"
+)
+
+# Define meta-reviewer aggregator
+meta_reviewer = Agent(
+    agent_name="MetaReviewer",
+    system_prompt="Synthesize all reviews into a comprehensive assessment and publication recommendation.",
+    model_name="gpt-4o-mini"
+)
+
+# Create review MoA
+review_team = MixtureOfAgents(
+    agents=[methodology_reviewer, literature_reviewer, results_reviewer],
+    aggregator_agent=meta_reviewer,
+)
+
+# Review paper
+review = review_team.run(
+    "Review this research paper on machine learning applications in climate modeling"
+)
+print(review)
+```
+
+## Using with SwarmRouter
+
+You can also use MoA through the SwarmRouter for flexible orchestration:
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter, SwarmType
+
+# Define agents
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="You are a creative writer.",
+    model_name="gpt-4o-mini"
+)
+
+editor = Agent(
+    agent_name="Editor",
+    system_prompt="You are an expert editor for stories.",
+    model_name="gpt-4o-mini"
+)
+
+reviewer = Agent(
+    agent_name="Reviewer",
+    system_prompt="You are a final reviewer who gives a score.",
+    model_name="gpt-4o-mini"
+)
+
+# Define aggregator
+aggregator = Agent(
+    agent_name="Aggregator",
+    system_prompt="Combine the story, edits, and review into a final document.",
+    model_name="gpt-4o-mini"
+)
+
+# Use SwarmRouter for MoA
+moa_router = SwarmRouter(
+    swarm_type=SwarmType.MixtureOfAgents,
+    agents=[writer, editor, reviewer],
+    aggregator_agent=aggregator,
+)
+
+aggregated_output = moa_router.run(
+    "Write a short story about a robot who discovers music."
+)
+print(aggregated_output)
+```
+
+## Best Practices
+
+### 1. Specialized Experts
+Ensure each expert agent has a clearly defined specialty:
+
+```python
+# Good: Specific expertise
+cardiologist = Agent(
+    agent_name="Cardiologist",
+    system_prompt="You are a cardiologist specializing in heart disease diagnosis.",
+    model_name="gpt-4o-mini"
+)
+
+# Avoid: Too general
+general_doctor = Agent(
+    agent_name="Doctor",
+    system_prompt="You are a doctor.",
+    model_name="gpt-4o-mini"
+)
+```
+
+### 2. Comprehensive Aggregator
+The aggregator should understand how to synthesize diverse inputs:
+
+```python
+aggregator = Agent(
+    agent_name="Synthesizer",
+    system_prompt="""You will receive analyses from multiple experts.
+    Your job is to:
+    1. Identify areas of agreement and disagreement
+    2. Weigh the importance of each perspective
+    3. Synthesize insights into a coherent recommendation
+    4. Highlight any uncertainties or trade-offs
+    Provide a balanced, comprehensive final output.""",
+    model_name="gpt-4o-mini"
+)
+```
+
+### 3. Optimal Number of Experts
+- **Too few (1-2)**: Loses the benefit of diverse perspectives
+- **Optimal (3-5)**: Provides diversity without overwhelming the aggregator
+- **Too many (7+)**: Can create noise and make synthesis difficult
+
+### 4. Complementary Perspectives
+Choose experts that provide different but complementary viewpoints:
+
+```python
+# Good: Complementary perspectives
+experts = [
+    technical_feasibility_expert,  # Can we build it?
+    market_demand_expert,          # Do people want it?
+    financial_viability_expert,    # Will it be profitable?
+]
+
+# Avoid: Redundant perspectives
+experts = [
+    frontend_developer,
+    backend_developer,
+    fullstack_developer,  # Too similar to above two
+]
+```
+
+## Advantages of MoA
+
+1. **Higher Quality**: Multiple perspectives lead to more comprehensive outputs
+2. **Reduced Bias**: Different viewpoints help identify and mitigate individual biases
+3. **Better Coverage**: Experts ensure all aspects of complex problems are addressed
+4. **Flexible Scaling**: Easy to add or remove experts without major restructuring
+5. **State-of-the-Art Results**: Research shows MoA achieves superior performance
+
+## When to Use MoA
+
+Mixture of Agents is ideal for:
+
+- **Complex Decision Making**: Requires multiple perspectives (investment, hiring, strategy)
+- **Multi-Disciplinary Tasks**: Needs expertise from different domains (product development, research)
+- **Quality-Critical Output**: When accuracy and comprehensiveness matter more than speed
+- **Expert Synthesis**: When combining specialized knowledge adds value
+
+## When NOT to Use MoA
+
+- **Simple Tasks**: Overhead not justified for straightforward problems
+- **Speed Critical**: The aggregation step adds latency
+- **Limited Resources**: Running multiple agents + aggregator is resource-intensive
+- **Sequential Dependencies**: When steps must happen in order (use SequentialWorkflow)
+
+## Related Architectures
+
+- **[ConcurrentWorkflow](/examples/concurrent-workflow-example)**: Similar parallel execution without aggregation
+- **[HierarchicalSwarm](/examples/hierarchical-swarm-example)**: Director coordinates workers with feedback loops
+- **[SwarmRouter](https://docs.swarms.world/en/latest/swarms/examples/swarm_router/)**: Switch between MoA and other patterns
+
+## Learn More
+
+- [MixtureOfAgents API Reference](https://docs.swarms.world/en/latest/swarms/structs/moa/)
+- [Research Paper: Mixture of Agents](https://arxiv.org/abs/2406.04692)
+- [Multi-Agent Architectures Overview](https://docs.swarms.world/en/latest/swarms/concept/swarm_architectures/)

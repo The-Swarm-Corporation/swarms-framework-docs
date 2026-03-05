@@ -1,0 +1,386 @@
+---
+title: Agent Rearrange
+description: Define complex multi-agent workflows with custom flow patterns using arrow and comma syntax
+---
+
+# Agent Rearrange
+
+The `AgentRearrange` system enables sophisticated multi-agent orchestration through custom flow patterns. Define how agents communicate using simple syntax: `->` for sequential execution and `,` for concurrent execution.
+
+## When to Use
+
+- **Flexible workflows**: Mix sequential and parallel execution
+- **Dynamic routing**: Tasks need different paths through agents
+- **Complex coordination**: Multiple agents with custom relationships
+- **Adaptive workflows**: Flow changes based on task requirements
+- **Team awareness**: Agents need context about team structure
+
+## Flow Syntax
+
+- `agent1 -> agent2`: Sequential execution (agent2 runs after agent1)
+- `agent1, agent2`: Concurrent execution (both run simultaneously)
+- `agent1 -> agent2, agent3`: Combined (agent1 first, then agent2 and agent3 in parallel)
+- `H`: Human-in-the-loop (pause for human input)
+
+## Basic Example
+
+```python
+from swarms import Agent, AgentRearrange
+
+# Define specialized agents
+researcher = Agent(
+    agent_name="researcher",
+    system_prompt="Research topics and gather information.",
+    model_name="gpt-4o-mini",
+)
+
+writer = Agent(
+    agent_name="writer",
+    system_prompt="Write engaging content based on research.",
+    model_name="gpt-4o-mini",
+)
+
+reviewer = Agent(
+    agent_name="reviewer",
+    system_prompt="Review and provide feedback on content.",
+    model_name="gpt-4o-mini",
+)
+
+# Define flow: researcher first, then writer and reviewer in parallel
+flow = "researcher -> writer, reviewer"
+
+# Create the system
+rearrange = AgentRearrange(
+    agents=[researcher, writer, reviewer],
+    flow=flow,
+    max_loops=1,
+)
+
+# Execute
+result = rearrange.run("Analyze quantum computing trends")
+print(result)
+```
+
+## Complex Flow Patterns
+
+### Fan-Out Pattern
+
+One agent distributes to multiple agents:
+
+```python
+# Data collector sends to three analysts simultaneously
+flow = "data_collector -> technical_analyst, fundamental_analyst, sentiment_analyst"
+
+rearrange = AgentRearrange(
+    agents=[data_collector, technical_analyst, fundamental_analyst, sentiment_analyst],
+    flow=flow,
+)
+```
+
+### Fan-In Pattern
+
+Multiple agents converge to one:
+
+```python
+# Multiple researchers feed into synthesizer
+flow = "researcher1, researcher2, researcher3 -> synthesizer"
+
+rearrange = AgentRearrange(
+    agents=[researcher1, researcher2, researcher3, synthesizer],
+    flow=flow,
+)
+```
+
+### Multi-Stage Pipeline
+
+```python
+# Research → parallel analysis → synthesis
+flow = "researcher -> analyst1, analyst2, analyst3 -> synthesizer"
+
+rearrange = AgentRearrange(
+    agents=[researcher, analyst1, analyst2, analyst3, synthesizer],
+    flow=flow,
+)
+```
+
+## Key Parameters
+
+<ParamField path="name" type="str" default="AgentRearrange">
+  Name for the agent rearrange system
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" required>
+  List of agents to orchestrate
+</ParamField>
+
+<ParamField path="flow" type="str" required>
+  Flow pattern defining agent execution (e.g., "agent1 -> agent2, agent3")
+</ParamField>
+
+<ParamField path="max_loops" type="int" default={1}>
+  Maximum number of execution loops
+</ParamField>
+
+<ParamField path="team_awareness" type="bool" default={false}>
+  Enable agents to know their position in workflow
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="all">
+  Output format (all, final, list, dict)
+</ParamField>
+
+<ParamField path="memory_system" type="Any" default={null}>
+  Optional memory system for persistence
+</ParamField>
+
+<ParamField path="human_in_the_loop" type="bool" default={false}>
+  Enable human interaction points
+</ParamField>
+
+## Methods
+
+### run()
+
+Execute the defined flow with a task.
+
+```python
+result = rearrange.run(
+    task="Analyze market trends",
+    img=None,  # Optional image input
+)
+```
+
+### batch_run()
+
+Process multiple tasks in batches.
+
+```python
+tasks = ["Task 1", "Task 2", "Task 3"]
+results = rearrange.batch_run(
+    tasks=tasks,
+    batch_size=10,
+)
+```
+
+### concurrent_run()
+
+Run multiple tasks concurrently.
+
+```python
+tasks = ["Task 1", "Task 2", "Task 3"]
+results = rearrange.concurrent_run(
+    tasks=tasks,
+    max_workers=5,
+)
+```
+
+### run_async()
+
+Asynchronous task execution.
+
+```python
+import asyncio
+
+async def main():
+    result = await rearrange.run_async("Task description")
+    return result
+
+result = asyncio.run(main())
+```
+
+## Team Awareness
+
+Enable agents to understand their position in the workflow:
+
+```python
+rearrange = AgentRearrange(
+    agents=agents,
+    flow="agent1 -> agent2 -> agent3",
+    team_awareness=True,  # Agents know who comes before/after
+)
+```
+
+With team awareness, agents receive context like:
+- "Agent ahead: agent1"
+- "Agent behind: agent3"
+- Sequential flow structure information
+
+## Human-in-the-Loop
+
+```python
+# Pause for human input between agents
+flow = "researcher -> H -> writer"
+
+rearrange = AgentRearrange(
+    agents=[researcher, writer],
+    flow=flow,
+    human_in_the_loop=True,
+)
+
+result = rearrange.run("Create article")
+```
+
+## Use Cases
+
+### Content Creation Pipeline
+
+```python
+# Research → Write → (Edit, Fact-Check) → Publish
+flow = "researcher -> writer -> editor, fact_checker -> publisher"
+
+pipeline = AgentRearrange(
+    agents=[researcher, writer, editor, fact_checker, publisher],
+    flow=flow,
+)
+
+article = pipeline.run("AI in healthcare")
+```
+
+### Software Development
+
+```python
+# Design → (Frontend, Backend) → Testing → Review
+flow = "architect -> frontend_dev, backend_dev -> tester -> reviewer"
+
+dev_pipeline = AgentRearrange(
+    agents=[architect, frontend_dev, backend_dev, tester, reviewer],
+    flow=flow,
+)
+
+code = dev_pipeline.run("Build user authentication system")
+```
+
+### Market Analysis
+
+```python
+# Data Collection → (Technical, Fundamental, Sentiment) → Synthesis
+flow = "collector -> tech_analyst, fund_analyst, sent_analyst -> synthesizer"
+
+analysis = AgentRearrange(
+    agents=[collector, tech_analyst, fund_analyst, sent_analyst, synthesizer],
+    flow=flow,
+)
+
+report = analysis.run("NVIDIA stock analysis")
+```
+
+## Dynamic Flow Management
+
+### Change Flow at Runtime
+
+```python
+rearrange = AgentRearrange(agents=agents, flow="agent1 -> agent2")
+
+# Update flow dynamically
+rearrange.set_custom_flow("agent1 -> agent2, agent3")
+
+result = rearrange.run("New task")
+```
+
+### Add/Remove Agents
+
+```python
+# Add new agent
+new_agent = Agent(agent_name="new_agent", ...)
+rearrange.add_agent(new_agent)
+
+# Remove agent
+rearrange.remove_agent("old_agent")
+```
+
+## Sequential Awareness
+
+Agents can understand their workflow position:
+
+```python
+# Get awareness info for specific agent
+awareness = rearrange.get_agent_sequential_awareness("agent2")
+print(awareness)
+# Output: "Sequential awareness: Agent ahead: agent1 | Agent behind: agent3"
+
+# Get full flow structure
+structure = rearrange.get_sequential_flow_structure()
+print(structure)
+# Output:
+# Sequential Flow Structure:
+# Step 1: agent1 (leads to: agent2)
+# Step 2: agent2 (follows: agent1) (leads to: agent3)
+# Step 3: agent3 (follows: agent2)
+```
+
+## Advanced Features
+
+### Custom Tasks for Specific Agents
+
+```python
+# Override task for specific agent
+custom_tasks = {
+    "researcher": "Focus on recent developments",
+}
+
+result = rearrange._run(
+    task="Main task",
+    custom_tasks=custom_tasks,
+)
+```
+
+### Output Formatting
+
+```python
+# Different output types
+rearrange_all = AgentRearrange(
+    agents=agents,
+    flow=flow,
+    output_type="all",  # All agent responses
+)
+
+rearrange_final = AgentRearrange(
+    agents=agents,
+    flow=flow,
+    output_type="final",  # Only final agent's response
+)
+
+rearrange_list = AgentRearrange(
+    agents=agents,
+    flow=flow,
+    output_type="list",  # List of responses
+)
+```
+
+## Best Practices
+
+<Note>
+  **Flow Design**: Start simple and add complexity as needed. Test with "agent1 -> agent2" before complex patterns.
+</Note>
+
+1. **Clear Flow Logic**: Ensure flow makes sense for your task
+2. **Agent Naming**: Use descriptive names for clarity in flow definitions
+3. **Validate Flow**: Use `validate_flow()` before production
+4. **Team Awareness**: Enable when agents benefit from position context
+5. **Start Simple**: Begin with sequential, add concurrency where beneficial
+
+<Warning>
+  Flow validation happens at runtime - ensure all agent names in flow exist in the agents list
+</Warning>
+
+## Flow Validation
+
+The system automatically validates flows:
+
+```python
+try:
+    rearrange = AgentRearrange(
+        agents=[agent1, agent2],
+        flow="agent1 -> agent3",  # agent3 doesn't exist
+    )
+except ValueError as e:
+    print(f"Invalid flow: {e}")
+    # Output: "Agent 'agent3' is not registered."
+```
+
+## Related Architectures
+
+- [Sequential Workflow](/architectures/sequential-workflow) - Simpler linear flows
+- [Concurrent Workflow](/architectures/concurrent-workflow) - Pure parallel execution
+- [Graph Workflow](/architectures/graph-workflow) - DAG-based complex flows
+- [Social Algorithms](/architectures/social-algorithms) - Custom communication patterns

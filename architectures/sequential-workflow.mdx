@@ -1,0 +1,273 @@
+---
+title: Sequential Workflow
+description: Execute agents in a linear chain where each agent's output becomes the next agent's input
+---
+
+# Sequential Workflow
+
+The `SequentialWorkflow` orchestrates multiple agents in a linear chain, where each agent processes the output from the previous agent. This creates a pipeline where tasks flow through a series of specialized agents.
+
+## When to Use
+
+- **Step-by-step processes**: Tasks with clear sequential dependencies
+- **Data transformation pipelines**: Progressive refinement of outputs
+- **Multi-stage analysis**: Research → Analysis → Writing → Review
+- **Quality improvement**: Multiple rounds of refinement
+
+## Key Features
+
+- Automatic flow construction from agent list
+- Support for multiple execution loops
+- Shared memory between agents (optional)
+- Team awareness capabilities
+- Conversation history tracking
+- Autosave functionality
+
+## Basic Example
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+# Create specialized agents
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="Research the given topic and provide detailed information.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="Transform research into an engaging article.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+editor = Agent(
+    agent_name="Editor",
+    system_prompt="Edit and polish the article for publication.",
+    model_name="gpt-4o-mini",
+    max_loops=1,
+)
+
+# Create workflow
+workflow = SequentialWorkflow(
+    agents=[researcher, writer, editor],
+    max_loops=1,
+)
+
+# Execute
+result = workflow.run("The impact of AI on healthcare")
+print(result)
+```
+
+## Advanced Configuration
+
+### With Team Awareness
+
+```python
+workflow = SequentialWorkflow(
+    name="ContentPipeline",
+    description="Research, write, and edit content",
+    agents=[researcher, writer, editor],
+    max_loops=1,
+    team_awareness=True,  # Agents know about each other
+    multi_agent_collab_prompt=True,  # Add collaboration instructions
+    output_type="dict",
+    autosave=True,
+    verbose=True,
+)
+```
+
+### With Shared Memory
+
+```python
+from swarms.memory.langtrace_memory import LangTrace
+
+# Initialize shared memory
+shared_memory = LangTrace()
+
+workflow = SequentialWorkflow(
+    agents=[researcher, writer, editor],
+    shared_memory_system=shared_memory,
+    max_loops=1,
+)
+```
+
+## Key Parameters
+
+<ParamField path="name" type="str" default="SequentialWorkflow">
+  Identifier for the workflow instance
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" required>
+  List of agents to execute sequentially
+</ParamField>
+
+<ParamField path="max_loops" type="int" default={1}>
+  Number of times to execute the complete workflow
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict">
+  Format for workflow output (dict, str, list, etc.)
+</ParamField>
+
+<ParamField path="team_awareness" type="bool" default={false}>
+  Enable agents to know about team structure and flow
+</ParamField>
+
+<ParamField path="multi_agent_collab_prompt" type="bool" default={false}>
+  Add collaboration instructions to agent prompts
+</ParamField>
+
+<ParamField path="autosave" type="bool" default={true}>
+  Automatically save conversation history
+</ParamField>
+
+## Methods
+
+### run()
+
+Execute the workflow with a task.
+
+```python
+result = workflow.run(
+    task="Analyze quantum computing trends",
+    img=None,  # Optional image input
+)
+```
+
+### run_batched()
+
+Process multiple tasks sequentially.
+
+```python
+tasks = [
+    "AI in healthcare",
+    "AI in finance",
+    "AI in education"
+]
+
+results = workflow.run_batched(tasks)
+```
+
+### run_async()
+
+Execute workflow asynchronously.
+
+```python
+import asyncio
+
+async def main():
+    result = await workflow.run_async("Task description")
+    return result
+
+result = asyncio.run(main())
+```
+
+### run_concurrent()
+
+Run multiple tasks concurrently.
+
+```python
+tasks = ["Task 1", "Task 2", "Task 3"]
+results = workflow.run_concurrent(tasks)
+```
+
+## Use Cases
+
+### Content Creation Pipeline
+
+```python
+# Research → Write → Edit → Publish
+researcher = Agent(agent_name="Researcher", ...)
+writer = Agent(agent_name="Writer", ...)
+editor = Agent(agent_name="Editor", ...)
+publisher = Agent(agent_name="Publisher", ...)
+
+pipeline = SequentialWorkflow(
+    agents=[researcher, writer, editor, publisher]
+)
+
+article = pipeline.run("Latest developments in renewable energy")
+```
+
+### Data Analysis Pipeline
+
+```python
+# Collect → Clean → Analyze → Visualize
+collector = Agent(agent_name="DataCollector", ...)
+cleaner = Agent(agent_name="DataCleaner", ...)
+analyst = Agent(agent_name="Analyst", ...)
+visualizer = Agent(agent_name="Visualizer", ...)
+
+analysis_pipeline = SequentialWorkflow(
+    agents=[collector, cleaner, analyst, visualizer]
+)
+
+result = analysis_pipeline.run("Q4 sales data")
+```
+
+### Code Review Pipeline
+
+```python
+# Generate → Test → Review → Document
+coder = Agent(agent_name="Coder", ...)
+tester = Agent(agent_name="Tester", ...)
+reviewer = Agent(agent_name="Reviewer", ...)
+documenter = Agent(agent_name="Documenter", ...)
+
+code_pipeline = SequentialWorkflow(
+    agents=[coder, tester, reviewer, documenter]
+)
+
+output = code_pipeline.run("Create a binary search function")
+```
+
+## Best Practices
+
+<Note>
+  **Tip**: Keep each agent focused on a single responsibility for cleaner workflows
+</Note>
+
+1. **Clear Agent Roles**: Each agent should have a distinct, well-defined purpose
+2. **Appropriate Ordering**: Place agents in logical sequence (research before writing)
+3. **Output Formatting**: Ensure each agent's output format matches the next agent's expected input
+4. **Error Handling**: Monitor for failures in early stages to prevent cascade issues
+5. **Performance**: Consider workflow length - too many agents can slow execution
+
+## Advanced Features
+
+### Custom Flow Generation
+
+The workflow automatically generates a flow string:
+
+```python
+workflow = SequentialWorkflow(
+    agents=[agent1, agent2, agent3]
+)
+
+# Automatically generates: "agent1 -> agent2 -> agent3"
+print(workflow.flow)
+```
+
+### Conversation Tracking
+
+Access complete conversation history:
+
+```python
+result = workflow.run("Task")
+
+# Access conversation through internal agent_rearrange
+history = workflow.agent_rearrange.conversation.conversation_history
+```
+
+<Warning>
+  The workflow validates that `agents` is not empty and `max_loops > 0` on initialization
+</Warning>
+
+## Related Architectures
+
+- [Concurrent Workflow](/architectures/concurrent-workflow) - For parallel execution
+- [Agent Rearrange](/architectures/agent-rearrange) - For custom flows
+- [Hierarchical Swarm](/architectures/hierarchical-swarm) - For complex orchestration
