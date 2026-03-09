@@ -1,17 +1,21 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "name": "Swarms",
+  "name": "swarms",
   "theme": "aspen",
   "colors": {
-    "primary": "#3670A0",
-    "light": "#5B9BD5",
-    "dark": "#1E3A5F"
+    "primary": "#DC2626",
+    "light": "#FFFFFF",
+    "dark": "#000000"
   },
+  "favicon": "/dark.svg",
   "navbar": {
     "primary": {
       "type": "github",
       "href": "https://github.com/kyegomez/swarms"
     }
+  },
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude", "cursor", "vscode"]
   },
   "footer": {
     "socials": {
