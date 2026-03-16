@@ -9,6 +9,7 @@
   },
   "favicon": "/dark.svg",
   "navbar": {
+    "logo": "/logo.png",
     "primary": {
       "type": "github",
       "href": "https://github.com/kyegomez/swarms"
@@ -19,10 +20,13 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/kyegomez/swarms",
-      "discord": "https://discord.gg/EamjgSaEQf",
       "twitter": "https://twitter.com/swarms_corp",
-      "website": "https://swarms.ai"
+      "github": "https://github.com/kyegomez/swarms",
+      "website": "https://swarms.ai",
+      "linkedin": "https://www.linkedin.com/company/the-swarm-corporation",
+      "discord": "https://discord.gg/EamjgSaEQf",
+      "youtube": "https://www.youtube.com/channel/UC9yXyitkbU_WSy7bd_41SqQ",
+      "medium": "https://medium.com/@kyeg"
     }
   },
   "navigation": {
