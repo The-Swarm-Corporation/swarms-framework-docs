@@ -260,6 +260,7 @@
             "group": "Contributing",
             "pages": [
               "community/contributing",
+              "community/contributing-to-docs",
               "community/code-of-conduct",
               "community/development-setup"
             ]

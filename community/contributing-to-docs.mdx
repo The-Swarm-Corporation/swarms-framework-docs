@@ -1,0 +1,106 @@
+---
+title: Contributing to this documentation
+description: How to propose changes, preview locally, and open pull requests for the Swarms documentation site
+icon: "book"
+---
+
+This site is built with [Mintlify](https://mintlify.com) and lives in a separate repository from the main Swarms Python package. If you want to fix typos, add guides, update API pages, or improve navigation, you contribute here.
+
+<Card title="Documentation repository" icon="github" href="https://github.com/The-Swarm-Corporation/swarms-framework-docs">
+  The-Swarm-Corporation/swarms-framework-docs on GitHub
+</Card>
+
+## What belongs in this repo
+
+Use [swarms-framework-docs](https://github.com/The-Swarm-Corporation/swarms-framework-docs) for:
+
+- MDX pages (guides, concepts, examples, community, API reference content)
+- `docs.json` (site name, theme, navigation, tabs)
+- Images and static assets referenced from the docs
+
+For Python library code, tests, and in-repo `docs/`, follow [Contributing to Swarms](/community/contributing) and the main framework repository linked from [GitHub](/community/github).
+
+## Quick start: edit on GitHub
+
+1. Open the [repository](https://github.com/The-Swarm-Corporation/swarms-framework-docs) and browse to the file (for example under `concepts/`, `agents/`, or `community/`).
+2. Click the pencil icon **Edit this file**.
+3. Commit to a new branch and open a pull request.
+
+Small fixes (wording, broken links, frontmatter) are ideal for this flow.
+
+## Local preview
+
+For larger edits, preview the site before you open a PR.
+
+1. **Fork and clone** the docs repo:
+
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/swarms-framework-docs.git
+   cd swarms-framework-docs
+   ```
+
+   Add the upstream remote if you plan to sync often:
+
+   ```bash
+   git remote add upstream https://github.com/The-Swarm-Corporation/swarms-framework-docs.git
+   ```
+
+2. **Install the Mintlify CLI** (requires Node.js):
+
+   ```bash
+   npm i -g mint
+   ```
+
+3. **Run the dev server** from the repository root (where `docs.json` lives):
+
+   ```bash
+   mint dev
+   ```
+
+4. Open **http://localhost:3000** and verify your changes.
+
+If the CLI is outdated or something fails to start, run `mint update` and try again.
+
+## Project layout
+
+| Path | Role |
+|------|------|
+| `docs.json` | Site config: theme, colors, navbar, **navigation** (which MDX files appear in each tab) |
+| `*.mdx` at repo root | Top-level pages (for example `introduction`, `quickstart`) |
+| Folders (`agents/`, `concepts/`, `api/`, …) | Grouped MDX pages; paths match entries in `docs.json` without the `.mdx` extension |
+| `AGENTS.md` | Notes for humans and AI assistants working in this repo |
+
+When you add a new page, create the MDX file **and** register it under the right `navigation.tabs[].groups[].pages` entry in `docs.json`, otherwise it will not appear in the sidebar.
+
+## Writing conventions
+
+These align with the repo’s [CONTRIBUTING.md](https://github.com/The-Swarm-Corporation/swarms-framework-docs/blob/main/CONTRIBUTING.md) and [AGENTS.md](https://github.com/The-Swarm-Corporation/swarms-framework-docs/blob/main/AGENTS.md):
+
+- Use **active voice** and address the reader as **you**.
+- Keep sentences short; **one idea per sentence**.
+- Start procedural sections with the **outcome** the reader wants.
+- Use **sentence case** for headings unless a product name requires otherwise.
+- Bold UI labels when describing clicks: **Settings**, **Submit**.
+- Use code formatting for commands, file paths, and identifiers.
+
+Prefer [Mintlify components](https://mintlify.com/docs) (for example `Card`, `Note`, `Warning`, `AccordionGroup`) when they improve scanning; match patterns used on neighboring pages.
+
+## Before you open a pull request
+
+- Confirm new or moved pages are wired in `docs.json`.
+- Run link checks from the repo root:
+
+  ```bash
+  mint broken-links
+  ```
+
+- Keep the change **focused** (one topic or fix per PR when possible) so review stays fast.
+
+## Conduct and help
+
+- Follow the [Code of Conduct](/community/code-of-conduct).
+- Questions about Swarms usage are a better fit for [Discord](/community/discord) or [FAQ](/community/faq); use GitHub issues on the docs repo for **site** bugs or clear documentation gaps.
+
+<Card title="Thank you" icon="heart">
+  Improvements to this documentation help every Swarms user. We appreciate your contributions.
+</Card>
