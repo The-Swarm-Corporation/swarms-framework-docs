@@ -166,26 +166,17 @@
         "tab": "Examples",
         "groups": [
           {
-            "group": "Overviews",
+            "group": "Index",
             "pages": [
               "examples/overviews/examples-index",
-              "examples/overviews/basic-overview",
-              "examples/overviews/multi-agent-overview",
-              "examples/overviews/applications-overview",
-              "examples/overviews/apps-overview",
-              "examples/overviews/aop-overview",
-              "examples/overviews/rag-overview",
-              "examples/overviews/tools-overview",
-              "examples/overviews/cli-overview",
               "examples/overviews/cookbook",
-              "examples/overviews/templates",
-              "examples/overviews/paper-implementations",
               "examples/overviews/community-resources"
             ]
           },
           {
             "group": "Basic Examples",
             "pages": [
+              "examples/overviews/basic-overview",
               "examples/basic-agent",
               "examples/agent-with-tools",
               "examples/vision-agent",
@@ -195,6 +186,7 @@
           {
             "group": "Single Agent",
             "pages": [
+              "examples/overviews/rag-overview",
               "examples/agents/agent-streaming",
               "examples/agents/advanced-research",
               "examples/agents/autonomous-looper-bash",
@@ -204,6 +196,8 @@
           {
             "group": "Multi-Agent Examples",
             "pages": [
+              "examples/overviews/multi-agent-overview",
+              "examples/overviews/aop-overview",
               "examples/sequential-workflow-example",
               "examples/concurrent-workflow-example",
               "examples/mixture-of-agents-example",
@@ -216,6 +210,10 @@
           {
             "group": "Applications",
             "pages": [
+              "examples/overviews/applications-overview",
+              "examples/overviews/apps-overview",
+              "examples/overviews/paper-implementations",
+              "examples/overviews/templates",
               "examples/applications/marketing-team",
               "examples/applications/hiring-swarm",
               "examples/applications/job-finding",
@@ -228,6 +226,7 @@
           {
             "group": "Integrations",
             "pages": [
+              "examples/overviews/tools-overview",
               "examples/integrations/exa-search",
               "examples/integrations/browser-use",
               "examples/integrations/mcp-datastax",
@@ -238,6 +237,7 @@
           {
             "group": "CLI",
             "pages": [
+              "examples/overviews/cli-overview",
               "examples/cli/chat-command",
               "examples/cli/multi-agent-quickstart"
             ]
