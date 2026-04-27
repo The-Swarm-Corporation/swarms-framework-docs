@@ -166,6 +166,24 @@
         "tab": "Examples",
         "groups": [
           {
+            "group": "Overviews",
+            "pages": [
+              "examples/overviews/examples-index",
+              "examples/overviews/basic-overview",
+              "examples/overviews/multi-agent-overview",
+              "examples/overviews/applications-overview",
+              "examples/overviews/apps-overview",
+              "examples/overviews/aop-overview",
+              "examples/overviews/rag-overview",
+              "examples/overviews/tools-overview",
+              "examples/overviews/cli-overview",
+              "examples/overviews/cookbook",
+              "examples/overviews/templates",
+              "examples/overviews/paper-implementations",
+              "examples/overviews/community-resources"
+            ]
+          },
+          {
             "group": "Basic Examples",
             "pages": [
               "examples/basic-agent",
@@ -175,13 +193,53 @@
             ]
           },
           {
+            "group": "Single Agent",
+            "pages": [
+              "examples/agents/agent-streaming",
+              "examples/agents/advanced-research",
+              "examples/agents/autonomous-looper-bash",
+              "examples/agents/autonomous-looper-tools"
+            ]
+          },
+          {
             "group": "Multi-Agent Examples",
             "pages": [
               "examples/sequential-workflow-example",
               "examples/concurrent-workflow-example",
               "examples/mixture-of-agents-example",
               "examples/hierarchical-swarm-example",
-              "examples/group-chat-example"
+              "examples/group-chat-example",
+              "examples/multi-agent/aop-medical",
+              "examples/multi-agent/debate-quickstart"
+            ]
+          },
+          {
+            "group": "Applications",
+            "pages": [
+              "examples/applications/marketing-team",
+              "examples/applications/hiring-swarm",
+              "examples/applications/job-finding",
+              "examples/applications/ma-swarm",
+              "examples/applications/realestate-swarm",
+              "examples/applications/gold-etf-research",
+              "examples/applications/smart-database"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "examples/integrations/exa-search",
+              "examples/integrations/browser-use",
+              "examples/integrations/mcp-datastax",
+              "examples/integrations/x402-discovery",
+              "examples/integrations/x402-payment"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "examples/cli/chat-command",
+              "examples/cli/multi-agent-quickstart"
             ]
           },
           {
