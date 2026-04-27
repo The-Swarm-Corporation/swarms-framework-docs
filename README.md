@@ -30,3 +30,7 @@ If something fails, run `mint update` and try `mint dev` again.
 ## Contribute
 
 See **[Contributing to this documentation](https://github.com/The-Swarm-Corporation/swarms-framework-docs/blob/main/community/contributing-to-docs.mdx)** (or the same page under **Community** in the published site) for editing, `docs.json`, and pull requests.
+
+# License
+
+MIT
