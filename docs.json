@@ -203,7 +203,6 @@
               "examples/mixture-of-agents-example",
               "examples/hierarchical-swarm-example",
               "examples/group-chat-example",
-              "examples/multi-agent/aop-medical",
               "examples/multi-agent/debate-quickstart"
             ]
           },
@@ -219,7 +218,6 @@
               "examples/applications/job-finding",
               "examples/applications/ma-swarm",
               "examples/applications/realestate-swarm",
-              "examples/applications/gold-etf-research",
               "examples/applications/smart-database"
             ]
           },
@@ -247,8 +245,26 @@
             "pages": [
               "examples/use-cases/research-team",
               "examples/use-cases/content-creation",
-              "examples/use-cases/data-analysis",
-              "examples/use-cases/financial-analysis"
+              "examples/use-cases/data-analysis"
+            ]
+          },
+          {
+            "group": "Finance",
+            "pages": [
+              "examples/finance/overview",
+              "examples/finance/gold-etf-research",
+              "examples/finance/financial-analysis",
+              "examples/finance/agentic-trading-gemini",
+              "examples/finance/prediction-markets-polymarket-kalshi"
+            ]
+          },
+          {
+            "group": "Healthcare",
+            "pages": [
+              "examples/healthcare/overview",
+              "examples/healthcare/medical-multi-agent",
+              "examples/healthcare/clinical-research-swarm",
+              "examples/healthcare/patient-intake-agent"
             ]
           }
         ]
