@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "name": "swarms",
-  "theme": "aspen",
+  "theme": "mint",
   "colors": {
     "primary": "#DC2626",
     "light": "#FFFFFF",
