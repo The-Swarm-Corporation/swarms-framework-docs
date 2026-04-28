@@ -8,8 +8,11 @@
     "dark": "#000000"
   },
   "favicon": "/dark.svg",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
   "navbar": {
-    "logo": "/logo.png",
     "primary": {
       "type": "github",
       "href": "https://github.com/kyegomez/swarms"
