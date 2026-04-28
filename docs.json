@@ -250,6 +250,12 @@
               "examples/use-cases/data-analysis",
               "examples/use-cases/financial-analysis"
             ]
+          },
+          {
+            "group": "Finance",
+            "pages": [
+              "examples/finance/agentic-trading-gemini"
+            ]
           }
         ]
       },

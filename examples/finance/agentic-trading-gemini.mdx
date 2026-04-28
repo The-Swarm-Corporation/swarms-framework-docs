@@ -1,0 +1,430 @@
+---
+title: 'Agentic Trading with Gemini'
+description: 'Build an autonomous crypto trading system using Swarms and the Gemini exchange API.'
+icon: 'robot'
+---
+
+This tutorial walks through building an **autonomous crypto trading system** using the Swarms framework and the [Gemini exchange API](https://docs.gemini.com/rest-api).
+
+### What is Gemini Agentic Trading?
+
+[Gemini's Agentic Trading](https://www.gemini.com/blog/introducing-agentic-trading-on-gemini-the-future-of-crypto-is-autonomous) is the first agentic trading capability offered by a regulated US exchange. It provides modular "Trading Skills" — pre-built functions that AI agents can call to:
+
+- **Query real-time market data** — prices, order book depth, bid-ask spreads
+- **Access historical data** — OHLCV candles for backtesting and trend analysis
+- **Execute trades autonomously** — place, modify, and cancel orders
+- **Monitor positions** — track balances, open orders, and P&L
+
+Gemini exposes these capabilities via the **Model Context Protocol (MCP)**, an open standard that lets AI agents interact with external tools. In this tutorial, we build equivalent tools as Python functions that Swarms agents call directly via function calling.
+
+### What We Build
+
+We cover two patterns:
+- **Single agent** — monitors price conditions and executes trades
+- **Multi-agent swarm** — signal generation, risk management, and execution as separate agents in a sequential pipeline
+
+<Warning>
+**Trading involves real financial risk.** Always start with Gemini's **sandbox** environment before using real funds. All examples default to sandbox mode with dry-run enabled.
+</Warning>
+
+## Install
+
+```bash
+pip install -U swarms requests loguru
+```
+
+## Environment Setup
+
+Create a `.env` file or export these in your shell:
+
+```bash
+# Gemini — get sandbox keys at exchange.sandbox.gemini.com/settings/api
+export GEMINI_API_KEY="your-api-key"
+export GEMINI_API_SECRET="your-api-secret"
+
+# LLM provider
+export OPENAI_API_KEY="sk-..."
+```
+
+For production trading, create API keys at [exchange.gemini.com/settings/api](https://exchange.gemini.com/settings/api) with **Trading** permissions enabled.
+
+## Part 1: Gemini API Tools
+
+Agents interact with Gemini through tool functions. Each tool must have type hints and a docstring — Swarms automatically converts them into the OpenAI function-calling schema that the LLM uses to decide when to call them.
+
+### Authentication Helper
+
+All private Gemini endpoints use HMAC-SHA384 signature authentication. The JSON payload is base64-encoded and sent as a header (not as a POST body).
+
+```python
+import base64
+import hashlib
+import hmac
+import json
+import os
+import time
+
+import requests
+from loguru import logger
+
+# Default to sandbox
+BASE_URL = os.getenv("GEMINI_BASE_URL", "https://api.sandbox.gemini.com")
+API_KEY = os.getenv("GEMINI_API_KEY", "")
+API_SECRET = os.getenv("GEMINI_API_SECRET", "")
+
+DRY_RUN = True  # Prevents real orders — set False only after thorough testing
+
+
+def _gemini_private(endpoint: str, payload: dict = None) -> dict:
+    """Make an authenticated request to a Gemini private endpoint."""
+    if payload is None:
+        payload = {}
+    payload["request"] = endpoint
+    payload["nonce"] = int(time.time() * 1000)
+
+    encoded = base64.b64encode(json.dumps(payload).encode())
+    signature = hmac.new(
+        API_SECRET.encode(), encoded, hashlib.sha384
+    ).hexdigest()
+
+    resp = requests.post(
+        BASE_URL + endpoint,
+        headers={
+            "X-GEMINI-APIKEY": API_KEY,
+            "X-GEMINI-PAYLOAD": encoded.decode(),
+            "X-GEMINI-SIGNATURE": signature,
+            "Content-Type": "text/plain",
+            "Content-Length": "0",
+            "Cache-Control": "no-cache",
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()
+```
+
+### Market Data Tools
+
+These are public endpoints — no authentication required.
+
+```python
+def get_ticker(symbol: str = "btcusd") -> str:
+    """Get the current price, bid/ask, and 24h stats for a trading pair.
+
+    Args:
+        symbol: Trading pair such as 'btcusd', 'ethusd', or 'solusd'.
+
+    Returns:
+        Formatted string with last price, bid, ask, high, low, and volume.
+    """
+    data = requests.get(
+        f"{BASE_URL}/v2/ticker/{symbol}", timeout=10
+    ).json()
+    vol_key = symbol[:3].upper()
+    return (
+        f"{symbol.upper()}: Last=${data.get('close')} "
+        f"Bid=${data.get('bid')} Ask=${data.get('ask')} "
+        f"High=${data.get('high')} Low=${data.get('low')} "
+        f"Vol={data.get('volume', {}).get(vol_key, '?')} {vol_key}"
+    )
+
+
+def get_orderbook(symbol: str = "btcusd") -> str:
+    """Get the top 5 bids and asks from the order book.
+
+    Args:
+        symbol: Trading pair such as 'btcusd'.
+
+    Returns:
+        Formatted order book showing price levels and quantities.
+    """
+    data = requests.get(
+        f"{BASE_URL}/v1/book/{symbol}",
+        params={"limit_bids": 5, "limit_asks": 5},
+        timeout=10,
+    ).json()
+    lines = [f"Order Book: {symbol.upper()}", "ASKS:"]
+    for a in reversed(data.get("asks", [])[:5]):
+        lines.append(f"  ${a['price']} x {a['amount']}")
+    lines.append("BIDS:")
+    for b in data.get("bids", [])[:5]:
+        lines.append(f"  ${b['price']} x {b['amount']}")
+    return "\n".join(lines)
+
+
+def get_candles(symbol: str = "btcusd", time_frame: str = "1hr") -> str:
+    """Get recent OHLCV candles for technical analysis.
+
+    Args:
+        symbol: Trading pair such as 'btcusd'.
+        time_frame: Candle interval — '1m', '5m', '15m', '30m', '1hr', '6hr', '1day'.
+
+    Returns:
+        Last 10 candles with timestamp, open, high, low, close, volume.
+    """
+    candles = requests.get(
+        f"{BASE_URL}/v2/candles/{symbol}/{time_frame}", timeout=10
+    ).json()[:10]
+    lines = [f"Candles {symbol.upper()} ({time_frame}):"]
+    for c in candles:
+        ts = time.strftime("%m-%d %H:%M", time.gmtime(c[0] / 1000))
+        lines.append(f"  {ts} O={c[1]} H={c[2]} L={c[3]} C={c[4]} V={c[5]:.4f}")
+    return "\n".join(lines)
+```
+
+### Account & Trading Tools
+
+These require authentication via the helper above.
+
+```python
+def get_balances() -> str:
+    """Get account balances for all currencies with non-zero amounts.
+
+    Returns:
+        Each currency with its available and total balance.
+    """
+    data = _gemini_private("/v1/balances")
+    lines = []
+    for b in data:
+        if float(b["amount"]) > 0:
+            lines.append(f"{b['currency']}: avail={b.get('available', '0')} total={b['amount']}")
+    return "\n".join(lines) if lines else "No balances."
+
+
+def get_active_orders() -> str:
+    """Get all open orders on the account.
+
+    Returns:
+        Each open order with its ID, symbol, side, price, and remaining amount.
+    """
+    orders = _gemini_private("/v1/orders")
+    if not orders:
+        return "No active orders."
+    lines = []
+    for o in orders:
+        lines.append(
+            f"ID={o['order_id']} {o['symbol'].upper()} "
+            f"{o['side'].upper()} {o['remaining_amount']} @ ${o['price']}"
+        )
+    return "\n".join(lines)
+
+
+def place_limit_order(symbol: str, side: str, amount: str, price: str) -> str:
+    """Place a limit order on Gemini.
+
+    Args:
+        symbol: Trading pair (e.g., 'btcusd').
+        side: 'buy' or 'sell'.
+        amount: Quantity to trade as a string (e.g., '0.001').
+        price: Limit price as a string (e.g., '65000.00').
+
+    Returns:
+        Order confirmation with ID and status, or dry-run summary.
+    """
+    log_msg = f"{side.upper()} {amount} {symbol.upper()} @ ${price}"
+    logger.info(f"{'[DRY RUN] ' if DRY_RUN else ''}Order: {log_msg}")
+
+    if DRY_RUN:
+        return f"[DRY RUN] {log_msg} — no order sent."
+
+    resp = _gemini_private("/v1/order/new", {
+        "symbol": symbol,
+        "amount": amount,
+        "price": price,
+        "side": side,
+        "type": "exchange limit",
+    })
+    return f"Order placed: ID={resp['order_id']} {log_msg} live={resp.get('is_live')}"
+
+
+def cancel_order(order_id: str) -> str:
+    """Cancel an open order by its ID.
+
+    Args:
+        order_id: The numeric order ID to cancel.
+
+    Returns:
+        Cancellation confirmation.
+    """
+    if DRY_RUN:
+        return f"[DRY RUN] Would cancel order {order_id}"
+    resp = _gemini_private("/v1/order/cancel", {"order_id": int(order_id)})
+    return f"Cancelled order {resp['order_id']}"
+```
+
+## Part 2: Single Agent
+
+A single agent that checks market conditions and places trades when it finds setups.
+
+```python
+from swarms import Agent
+
+trader = Agent(
+    agent_name="Gemini-Trader",
+    system_prompt=(
+        "You are an autonomous crypto trading agent on the Gemini exchange.\n\n"
+        "On each run:\n"
+        "1. Check account balances\n"
+        "2. Get current ticker and order book for BTCUSD and ETHUSD\n"
+        "3. Get 1-hour candles for trend analysis\n"
+        "4. Analyze: trend direction, support/resistance from the book, volume\n"
+        "5. If you find a high-conviction setup, place a limit order\n"
+        "6. If no setup, report your analysis and wait\n\n"
+        "Rules:\n"
+        "- Max 2% of account per trade\n"
+        "- Limit orders only — never chase prices\n"
+        "- Always check balances before ordering\n"
+        "- Log your reasoning for every decision"
+    ),
+    model_name="gpt-4o",
+    max_loops=3,
+    tools=[
+        get_ticker,
+        get_orderbook,
+        get_candles,
+        get_balances,
+        get_active_orders,
+        place_limit_order,
+        cancel_order,
+    ],
+)
+
+result = trader.run(
+    "Analyze BTC/USD and ETH/USD markets. "
+    "Check balances and identify any trading opportunities. "
+    "Place a trade if you find a high-conviction setup."
+)
+print(result)
+```
+
+## Part 3: Multi-Agent Swarm
+
+For more disciplined trading, split responsibilities across three agents in a sequential pipeline. Each agent focuses on one job and passes its output to the next.
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+signal_agent = Agent(
+    agent_name="Signal-Generator",
+    system_prompt=(
+        "You are a quantitative signal generator for crypto markets.\n\n"
+        "1. Fetch tickers, order books, and 1-hour candles for BTCUSD and ETHUSD\n"
+        "2. Analyze price action, volume trends, and order book imbalances\n"
+        "3. For each pair, output a signal:\n"
+        "   - Direction: LONG, SHORT, or FLAT\n"
+        "   - Conviction: LOW, MEDIUM, HIGH\n"
+        "   - Entry price, stop-loss, take-profit\n"
+        "   - Reasoning\n\n"
+        "Do NOT place any trades. Output a structured signal report only."
+    ),
+    model_name="gpt-4o",
+    max_loops=2,
+    tools=[get_ticker, get_orderbook, get_candles],
+)
+
+risk_agent = Agent(
+    agent_name="Risk-Manager",
+    system_prompt=(
+        "You are a risk manager for a crypto trading fund.\n\n"
+        "Given the signal report and account state:\n"
+        "1. Check balances and any open positions\n"
+        "2. Only approve HIGH conviction signals\n"
+        "3. Size each position: max 2% account risk per trade\n"
+        "4. Reject if spread > 0.5% or 24h volume is too low\n"
+        "5. Max 6% total risk across all positions\n\n"
+        "For each approved trade, output exact parameters:\n"
+        "  symbol, side, amount, price\n"
+        "For rejected signals, explain why."
+    ),
+    model_name="gpt-4o",
+    max_loops=1,
+    tools=[get_balances, get_active_orders, get_orderbook],
+)
+
+execution_agent = Agent(
+    agent_name="Executor",
+    system_prompt=(
+        "You are a trade executor on the Gemini exchange.\n\n"
+        "Given approved trades from the risk manager:\n"
+        "1. Place each order exactly as specified\n"
+        "2. Report the result of each order\n"
+        "3. If an order fails, report the error — do NOT retry\n"
+        "4. Never modify the risk manager's parameters"
+    ),
+    model_name="gpt-4o",
+    max_loops=1,
+    tools=[place_limit_order, get_active_orders],
+)
+
+swarm = SequentialWorkflow(
+    name="Gemini-Trading-Swarm",
+    agents=[signal_agent, risk_agent, execution_agent],
+    max_loops=1,
+)
+
+result = swarm.run(
+    "Analyze BTC/USD and ETH/USD. Generate signals, validate risk, "
+    "and execute any approved trades. Account size: $10,000."
+)
+print(result)
+```
+
+The pipeline flows: **Signal** (market data → signals) → **Risk** (signals → approved orders) → **Execution** (orders → confirmations).
+
+## Guardrails & Best Practices
+
+### Sandbox vs Production
+
+```python
+# Sandbox (default — fake money, safe to test)
+BASE_URL = "https://api.sandbox.gemini.com"
+
+# Production (real money — switch only when ready)
+BASE_URL = "https://api.gemini.com"
+```
+
+### Dry-Run Mode
+
+`DRY_RUN = True` prevents all real orders. The agent sees realistic responses but nothing is actually submitted to the exchange. Always start here.
+
+### Hard-Coded Safety Limits
+
+Even with agent-level risk management, add hard limits in your order tool:
+
+```python
+MAX_ORDER_USD = 500          # absolute cap per order
+ALLOWED_SYMBOLS = {"btcusd", "ethusd"}
+
+def place_limit_order(symbol: str, side: str, amount: str, price: str) -> str:
+    """Place a limit order on Gemini. ..."""
+    if symbol not in ALLOWED_SYMBOLS:
+        return f"Rejected: {symbol} not in allowed list."
+    if float(amount) * float(price) > MAX_ORDER_USD:
+        return f"Rejected: order value ${float(amount) * float(price):.2f} exceeds ${MAX_ORDER_USD} cap."
+    # ... rest of implementation
+```
+
+### Trade Logging
+
+Log every decision for audit:
+
+```python
+logger.add("trades.log", rotation="1 day")
+
+# In place_limit_order:
+logger.info(json.dumps({
+    "action": "order",
+    "symbol": symbol,
+    "side": side,
+    "amount": amount,
+    "price": price,
+    "dry_run": DRY_RUN,
+}))
+```
+
+### Gemini Rate Limits
+
+- **Public endpoints**: 120 requests/minute
+- **Private endpoints**: 600 requests/minute
+
+If running agents in a loop, add a `loop_interval` to the Agent constructor to avoid hitting limits.
