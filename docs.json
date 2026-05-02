@@ -52,7 +52,8 @@
               "concepts/agents",
               "concepts/swarms",
               "concepts/workflows",
-              "concepts/tools"
+              "concepts/tools",
+              "concepts/custom-architectures"
             ]
           },
           {
@@ -116,6 +117,7 @@
           {
             "group": "Core Classes",
             "pages": [
+              "api/structs-overview",
               "api/agent",
               "api/base-swarm",
               "api/base-structure",
@@ -128,23 +130,57 @@
               "api/sequential-workflow",
               "api/concurrent-workflow",
               "api/agent-rearrange",
-              "api/graph-workflow"
+              "api/graph-workflow",
+              "api/batched-grid-workflow"
             ]
           },
           {
             "group": "Multi-Agent Systems",
             "pages": [
               "api/mixture-of-agents",
-              "api/swarm-router",
               "api/hierarchical-swarm",
               "api/heavy-swarm",
               "api/group-chat",
-              "api/auto-swarm-builder",
-              "api/multi-agent-router",
               "api/spreadsheet-swarm",
               "api/round-robin-swarm",
+              "api/forest-swarm",
+              "api/self-moa-seq",
+              "api/advisor-swarm",
+              "api/planner-worker-swarm",
+              "api/skill-orchestra"
+            ]
+          },
+          {
+            "group": "Debate & Evaluation",
+            "pages": [
+              "api/orchestration-methods",
+              "api/debate-with-judge",
+              "api/majority-voting",
+              "api/planner-generator-evaluator",
               "api/llm-council",
               "api/council-as-judge"
+            ]
+          },
+          {
+            "group": "Routing & Orchestration",
+            "pages": [
+              "api/swarm-router",
+              "api/multi-agent-router",
+              "api/auto-swarm-builder",
+              "api/swarm-rearrange",
+              "api/model-router",
+              "api/swarm-matcher",
+              "api/agent-router"
+            ]
+          },
+          {
+            "group": "Advanced Architectures",
+            "pages": [
+              "api/multi-swarm-orchestration",
+              "api/hierarchical-communication-framework",
+              "api/hhcs",
+              "api/multi-agent-execution-utilities",
+              "api/social-algorithms"
             ]
           },
           {

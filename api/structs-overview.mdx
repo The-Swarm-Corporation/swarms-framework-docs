@@ -1,0 +1,97 @@
+---
+title: "Multi-Agent Architectures Overview"
+description: "A comprehensive overview of all available multi-agent architectures in Swarms, their use cases, and functionality"
+icon: "layer-group"
+---
+
+## Overview
+
+Swarms provides a wide range of multi-agent architectures designed for different use cases, from simple round-robin task distribution to complex hierarchical orchestration. This page provides a comprehensive overview to help you select the right architecture for your needs.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Core Architectures
+
+| Architecture | Use Case | Key Functionality |
+|-------------|----------|-------------------|
+| [MajorityVoting](/api/majority-voting) | Decision making through consensus | Combines multiple agent opinions and selects the most common answer |
+| [AgentRearrange](/api/agent-rearrange) | Optimizing agent order | Dynamically reorders agents based on task requirements |
+| [RoundRobin](/api/round-robin-swarm) | Equal task distribution | Cycles through agents in a fixed order |
+| [Mixture of Agents](/api/mixture-of-agents) | Complex problem solving | Combines diverse expert agents for comprehensive analysis |
+| [GroupChat](/api/group-chat) | Collaborative discussions | Simulates group discussions with multiple agents |
+| [SpreadSheetSwarm](/api/spreadsheet-swarm) | Data processing | Collaborative data processing and analysis |
+| [SwarmRouter](/api/swarm-router) | Task routing | Routes tasks to appropriate agents based on requirements |
+| [MultiAgentRouter](/api/multi-agent-router) | Advanced task routing | Routes tasks to specialized agents based on capabilities |
+
+## Workflow Architectures
+
+| Architecture | Use Case | Key Functionality |
+|-------------|----------|-------------------|
+| [ConcurrentWorkflow](/api/concurrent-workflow) | Parallel task execution | Executes multiple tasks simultaneously |
+| [SequentialWorkflow](/api/sequential-workflow) | Step-by-step processing | Executes tasks in a specific sequence |
+| [GraphWorkflow](/api/graph-workflow) | Complex task dependencies | Manages tasks with complex dependencies |
+
+## Hierarchical Architectures
+
+| Architecture | Use Case | Key Functionality |
+|-------------|----------|-------------------|
+| [HierarchicalSwarm](/api/hierarchical-swarm) | Hierarchical task orchestration | Director agent coordinates specialized worker agents |
+| [Hybrid Hierarchical-Cluster Swarm](/api/hhcs) | Complex organization | Combines hierarchical and cluster-based organization |
+| [Auto Swarm Builder](/api/auto-swarm-builder) | Automated swarm creation | Automatically creates and configures swarms |
+
+## Communication Structure
+
+<Note>
+The [Conversation](/api/conversation) documentation details the communication protocols and structures used between agents in these architectures.
+</Note>
+
+## Choosing the Right Architecture
+
+<Tip>
+**Task Complexity** -- Simple tasks may only need basic architectures like RoundRobin, while complex tasks might require Hierarchical or Graph-based approaches.
+</Tip>
+
+<Tip>
+**Parallelization Needs** -- If tasks can be executed in parallel, consider ConcurrentWorkflow or SpreadSheetSwarm.
+</Tip>
+
+<Tip>
+**Decision Making Requirements** -- For consensus-based decisions, MajorityVoting is ideal.
+</Tip>
+
+<Tip>
+**Resource Optimization** -- If you need to optimize agent usage, consider SwarmRouter or MultiAgentRouter.
+</Tip>
+
+<Tip>
+**Dynamic Adaptation** -- For tasks requiring dynamic adaptation, consider Auto Swarm Builder.
+</Tip>
+
+## Architecture Selection Guide
+
+### By Task Type
+
+| Task Type | Recommended Architecture |
+|-----------|------------------------|
+| Simple, sequential tasks | SequentialWorkflow, RoundRobin |
+| Parallel, independent tasks | ConcurrentWorkflow, SpreadSheetSwarm |
+| Consensus-based decisions | MajorityVoting |
+| Complex multi-domain tasks | HierarchicalSwarm, HHCS |
+| Dynamic, evolving tasks | Auto Swarm Builder |
+| Collaborative analysis | GroupChat, Mixture of Agents |
+| Task routing | SwarmRouter, MultiAgentRouter |
+
+### By Scale
+
+| Scale | Recommended Architecture |
+|-------|------------------------|
+| 2-5 agents | RoundRobin, SequentialWorkflow, AgentRearrange |
+| 5-20 agents | SwarmRouter, GroupChat, ConcurrentWorkflow |
+| 20+ agents | HierarchicalSwarm, HHCS, SpreadSheetSwarm |
+| Variable/dynamic | Auto Swarm Builder |
+
+For more detailed information about each architecture, refer to their respective documentation pages linked in the tables above.

@@ -1,0 +1,734 @@
+---
+title: "Orchestration Methods"
+description: "A comprehensive suite of multi-agent orchestration methods for structured conversations, debates, negotiations, and decision-making"
+icon: "users-between-lines"
+---
+
+## Overview
+
+Swarms provides a comprehensive suite of orchestration methods for coordinating multiple AI agents in structured conversations and decision-making processes. These methods enable sophisticated multi-agent interactions like debates, panel discussions, negotiations, and more.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Available Methods
+
+| Method | Description | Use Case |
+|---|---|---|
+| OneOnOneDebate | Turn-based debates between two agents | Philosophical discussions, arguments |
+| ExpertPanelDiscussion | Expert panel discussions with a moderator | Professional discussions, expert opinions |
+| RoundTableDiscussion | Round table discussions with multiple participants | Group discussions, brainstorming |
+| InterviewSeries | Structured interviews with follow-up questions | Q&A sessions, information gathering |
+| PeerReviewProcess | Academic peer review processes | Research review, feedback processes |
+| MediationSession | Mediation sessions for conflict resolution | Dispute resolution, negotiations |
+| BrainstormingSession | Brainstorming sessions for idea generation | Innovation, problem solving |
+| TrialSimulation | Trial simulations with legal roles | Legal proceedings, case analysis |
+| CouncilMeeting | Council meetings with voting procedures | Governance, voting processes |
+| MentorshipSession | Mentorship sessions with feedback loops | Learning, guidance |
+| NegotiationSession | Complex negotiations between parties | Business deals, agreements |
+
+## OneOnOneDebate
+
+Simulates a turn-based debate between two agents for a specified number of loops. Each agent takes turns responding to the other's arguments.
+
+### Attributes
+
+<ParamField path="max_loops" type="int" default="1">
+  Number of conversational turns
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" required>
+  Two agents for debate
+</ParamField>
+
+<ParamField path="img" type="str" default="None">
+  Optional image input
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the debate between agents.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The debate topic
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [Philosophy Discussion Example](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/philosophy_discussion_example.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import OneOnOneDebate
+
+# Create debating agents
+agent1 = Agent(agent_name="Philosopher1", model_name="openai/gpt-4o")
+agent2 = Agent(agent_name="Philosopher2", model_name="openai/gpt-4o")
+
+# Initialize debate
+debate = OneOnOneDebate(
+    max_loops=3,
+    agents=[agent1, agent2]
+)
+
+# Run debate
+result = debate.run("Is artificial intelligence consciousness possible?")
+```
+
+## ExpertPanelDiscussion
+
+Simulates an expert panel discussion with a moderator guiding the conversation. Multiple experts provide insights on a topic with structured rounds.
+
+### Attributes
+
+<ParamField path="max_rounds" type="int" default="3">
+  Number of discussion rounds
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" required>
+  Expert panel participants
+</ParamField>
+
+<ParamField path="moderator" type="Agent" required>
+  Discussion moderator
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the panel discussion.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The discussion topic
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [Healthcare Panel Discussion](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/healthcare_panel_discussion.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import ExpertPanelDiscussion
+
+# Create expert agents
+moderator = Agent(agent_name="Moderator", model_name="openai/gpt-4o")
+expert1 = Agent(agent_name="AI_Expert", model_name="openai/gpt-4o")
+expert2 = Agent(agent_name="Ethics_Expert", model_name="openai/gpt-4o")
+expert3 = Agent(agent_name="Neuroscience_Expert", model_name="openai/gpt-4o")
+
+# Initialize panel
+panel = ExpertPanelDiscussion(
+    max_rounds=2,
+    agents=[expert1, expert2, expert3],
+    moderator=moderator
+)
+
+# Run panel discussion
+result = panel.run("What are the ethical implications of AGI development?")
+```
+
+## RoundTableDiscussion
+
+Simulates a round table where each participant speaks in order, then the cycle repeats. Facilitated discussion with equal participation.
+
+### Attributes
+
+<ParamField path="max_cycles" type="int" default="2">
+  Number of speaking cycles
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" required>
+  Round table participants
+</ParamField>
+
+<ParamField path="facilitator" type="Agent" required>
+  Discussion facilitator
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the round table discussion.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The discussion topic
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [AI Ethics Debate](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/ai_ethics_debate.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import RoundTableDiscussion
+
+# Create participants
+facilitator = Agent(agent_name="Facilitator", model_name="openai/gpt-4o")
+participant1 = Agent(agent_name="Participant1", model_name="openai/gpt-4o")
+participant2 = Agent(agent_name="Participant2", model_name="openai/gpt-4o")
+participant3 = Agent(agent_name="Participant3", model_name="openai/gpt-4o")
+
+# Initialize round table
+roundtable = RoundTableDiscussion(
+    max_cycles=2,
+    agents=[participant1, participant2, participant3],
+    facilitator=facilitator
+)
+
+# Run discussion
+result = roundtable.run("How can we improve renewable energy adoption?")
+```
+
+## InterviewSeries
+
+Conducts a structured interview with follow-up questions. Systematic Q&A with depth through follow-up questions.
+
+### Attributes
+
+<ParamField path="questions" type="List[str]" default="Default questions">
+  Prepared interview questions
+</ParamField>
+
+<ParamField path="interviewer" type="Agent" required>
+  Interviewer agent
+</ParamField>
+
+<ParamField path="interviewee" type="Agent" required>
+  Interviewee agent
+</ParamField>
+
+<ParamField path="follow_up_depth" type="int" default="2">
+  Follow-up questions per main question
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the interview series.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The interview topic
+
+**Returns:** list of conversation history
+
+### Example
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import InterviewSeries
+
+# Create agents
+interviewer = Agent(agent_name="Interviewer", model_name="openai/gpt-4o")
+interviewee = Agent(agent_name="Expert", model_name="openai/gpt-4o")
+
+# Prepare questions
+questions = [
+    "What is your background in AI?",
+    "How do you see AI evolving in the next decade?",
+    "What are the biggest challenges in AI development?"
+]
+
+# Initialize interview
+interview = InterviewSeries(
+    questions=questions,
+    interviewer=interviewer,
+    interviewee=interviewee,
+    follow_up_depth=2
+)
+
+# Run interview
+result = interview.run("AI Development and Future Prospects")
+```
+
+## PeerReviewProcess
+
+Simulates academic peer review with multiple reviewers and author responses. Structured feedback and revision process.
+
+### Attributes
+
+<ParamField path="reviewers" type="List[Agent]" required>
+  Reviewer agents
+</ParamField>
+
+<ParamField path="author" type="Agent" required>
+  Author agent
+</ParamField>
+
+<ParamField path="review_rounds" type="int" default="2">
+  Number of review rounds
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the peer review process.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The paper or topic to review
+
+**Returns:** list of conversation history
+
+### Example
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import PeerReviewProcess
+
+# Create agents
+author = Agent(agent_name="Author", model_name="openai/gpt-4o")
+reviewer1 = Agent(agent_name="Reviewer1", model_name="openai/gpt-4o")
+reviewer2 = Agent(agent_name="Reviewer2", model_name="openai/gpt-4o")
+
+# Initialize peer review
+review = PeerReviewProcess(
+    reviewers=[reviewer1, reviewer2],
+    author=author,
+    review_rounds=2
+)
+
+# Run review process
+result = review.run("New Machine Learning Algorithm for Natural Language Processing")
+```
+
+## MediationSession
+
+Simulates a mediation session to resolve conflicts between parties. Facilitated conflict resolution with structured sessions.
+
+### Attributes
+
+<ParamField path="parties" type="List[Agent]" required>
+  Disputing parties
+</ParamField>
+
+<ParamField path="mediator" type="Agent" required>
+  Mediator agent
+</ParamField>
+
+<ParamField path="max_sessions" type="int" default="3">
+  Number of mediation sessions
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the mediation session.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The conflict to resolve
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [Merger Mediation Session](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/merger_mediation_session.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import MediationSession
+
+# Create agents
+mediator = Agent(agent_name="Mediator", model_name="openai/gpt-4o")
+party1 = Agent(agent_name="Party1", model_name="openai/gpt-4o")
+party2 = Agent(agent_name="Party2", model_name="openai/gpt-4o")
+
+# Initialize mediation
+mediation = MediationSession(
+    parties=[party1, party2],
+    mediator=mediator,
+    max_sessions=3
+)
+
+# Run mediation
+result = mediation.run("Resolve intellectual property dispute")
+```
+
+## BrainstormingSession
+
+Simulates a brainstorming session where participants build on each other's ideas. Creative idea generation with collaborative building.
+
+### Attributes
+
+<ParamField path="participants" type="List[Agent]" required>
+  Brainstorming participants
+</ParamField>
+
+<ParamField path="facilitator" type="Agent" required>
+  Session facilitator
+</ParamField>
+
+<ParamField path="idea_rounds" type="int" default="3">
+  Number of idea generation rounds
+</ParamField>
+
+<ParamField path="build_on_ideas" type="bool" default="True">
+  Whether to build on previous ideas
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the brainstorming session.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The brainstorming topic
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [Pharma Research Brainstorm](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/pharma_research_brainstorm.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import BrainstormingSession
+
+# Create agents
+facilitator = Agent(agent_name="Facilitator", model_name="openai/gpt-4o")
+participant1 = Agent(agent_name="Creative1", model_name="openai/gpt-4o")
+participant2 = Agent(agent_name="Creative2", model_name="openai/gpt-4o")
+participant3 = Agent(agent_name="Creative3", model_name="openai/gpt-4o")
+
+# Initialize brainstorming
+brainstorm = BrainstormingSession(
+    participants=[participant1, participant2, participant3],
+    facilitator=facilitator,
+    idea_rounds=3,
+    build_on_ideas=True
+)
+
+# Run brainstorming
+result = brainstorm.run("Innovative solutions for urban transportation")
+```
+
+## TrialSimulation
+
+Simulates a legal trial with structured phases and roles. Complete legal proceeding simulation with all participants.
+
+### Attributes
+
+<ParamField path="prosecution" type="Agent" required>
+  Prosecution attorney
+</ParamField>
+
+<ParamField path="defense" type="Agent" required>
+  Defense attorney
+</ParamField>
+
+<ParamField path="judge" type="Agent" required>
+  Trial judge
+</ParamField>
+
+<ParamField path="witnesses" type="List[Agent]" default="None">
+  Trial witnesses
+</ParamField>
+
+<ParamField path="phases" type="List[str]" default="Default phases">
+  Trial phases
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the trial simulation.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The trial case
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [Medical Malpractice Trial](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/medical_malpractice_trial.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import TrialSimulation
+
+# Create agents
+judge = Agent(agent_name="Judge", model_name="openai/gpt-4o")
+prosecutor = Agent(agent_name="Prosecutor", model_name="openai/gpt-4o")
+defense = Agent(agent_name="Defense", model_name="openai/gpt-4o")
+witness1 = Agent(agent_name="Witness1", model_name="openai/gpt-4o")
+witness2 = Agent(agent_name="Witness2", model_name="openai/gpt-4o")
+
+# Initialize trial
+trial = TrialSimulation(
+    prosecution=prosecutor,
+    defense=defense,
+    judge=judge,
+    witnesses=[witness1, witness2],
+    phases=["opening", "testimony", "cross", "closing"]
+)
+
+# Run trial
+result = trial.run("Patent infringement case")
+```
+
+## CouncilMeeting
+
+Simulates a council meeting with structured discussion and decision-making. Governance process with voting and consensus building.
+
+### Attributes
+
+<ParamField path="council_members" type="List[Agent]" required>
+  Council participants
+</ParamField>
+
+<ParamField path="chairperson" type="Agent" required>
+  Meeting chairperson
+</ParamField>
+
+<ParamField path="voting_rounds" type="int" default="1">
+  Number of voting rounds
+</ParamField>
+
+<ParamField path="require_consensus" type="bool" default="False">
+  Whether consensus is required
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the council meeting.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The meeting topic or proposal
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [Investment Council Meeting](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/investment_council_meeting.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import CouncilMeeting
+
+# Create agents
+chairperson = Agent(agent_name="Chair", model_name="openai/gpt-4o")
+member1 = Agent(agent_name="Member1", model_name="openai/gpt-4o")
+member2 = Agent(agent_name="Member2", model_name="openai/gpt-4o")
+member3 = Agent(agent_name="Member3", model_name="openai/gpt-4o")
+
+# Initialize council meeting
+council = CouncilMeeting(
+    council_members=[member1, member2, member3],
+    chairperson=chairperson,
+    voting_rounds=2,
+    require_consensus=True
+)
+
+# Run meeting
+result = council.run("Vote on new environmental policy")
+```
+
+## MentorshipSession
+
+Simulates a mentorship session with structured learning and feedback. Guided learning process with progress tracking.
+
+### Attributes
+
+<ParamField path="mentor" type="Agent" required>
+  Mentor agent
+</ParamField>
+
+<ParamField path="mentee" type="Agent" required>
+  Mentee agent
+</ParamField>
+
+<ParamField path="session_count" type="int" default="3">
+  Number of sessions
+</ParamField>
+
+<ParamField path="include_feedback" type="bool" default="True">
+  Whether to include feedback
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the mentorship session.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The mentorship topic
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [Startup Mentorship Program](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/startup_mentorship_program.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import MentorshipSession
+
+# Create agents
+mentor = Agent(agent_name="Mentor", model_name="openai/gpt-4o")
+mentee = Agent(agent_name="Mentee", model_name="openai/gpt-4o")
+
+# Initialize mentorship
+mentorship = MentorshipSession(
+    mentor=mentor,
+    mentee=mentee,
+    session_count=3,
+    include_feedback=True
+)
+
+# Run session
+result = mentorship.run("Career development in AI research")
+```
+
+## NegotiationSession
+
+Simulates a negotiation with multiple parties working toward agreement. Complex multi-party negotiation with concessions.
+
+### Attributes
+
+<ParamField path="parties" type="List[Agent]" required>
+  Negotiating parties
+</ParamField>
+
+<ParamField path="mediator" type="Agent" required>
+  Negotiation mediator
+</ParamField>
+
+<ParamField path="negotiation_rounds" type="int" default="5">
+  Number of rounds
+</ParamField>
+
+<ParamField path="include_concessions" type="bool" default="True">
+  Whether to allow concessions
+</ParamField>
+
+<ParamField path="output_type" type="str" default="str-all-except-first">
+  Format for conversation history
+</ParamField>
+
+### run()
+
+Executes the negotiation session.
+
+```python
+def run(self, task: str) -> list
+```
+
+**Parameters:**
+- `task` (str): The negotiation topic
+
+**Returns:** list of conversation history
+
+### Example
+
+Full example: [NVIDIA-AMD Executive Negotiation](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/orchestration_examples/nvidia_amd_executive_negotiation.py)
+
+```python
+from swarms import Agent
+from swarms.structs.multi_agent_debates import NegotiationSession
+
+# Create agents
+mediator = Agent(agent_name="Mediator", model_name="openai/gpt-4o")
+party1 = Agent(agent_name="Company1", model_name="openai/gpt-4o")
+party2 = Agent(agent_name="Company2", model_name="openai/gpt-4o")
+
+# Initialize negotiation
+negotiation = NegotiationSession(
+    parties=[party1, party2],
+    mediator=mediator,
+    negotiation_rounds=4,
+    include_concessions=True
+)
+
+# Run negotiation
+result = negotiation.run("Merger terms negotiation")
+```
+
+## Key Benefits
+
+1. **Structured Communication**: Each method provides a clear framework for organizing multi-agent interactions
+2. **Role-Based Interactions**: Agents can take on specific roles with defined responsibilities
+3. **Flexible Configuration**: Customizable parameters for controlling interaction flow
+4. **Scalable Architecture**: Support for various numbers of participants and interaction rounds
+5. **Comprehensive Coverage**: Methods for different use cases from debates to negotiations
+6. **Professional Output**: Consistent formatting and organization of conversation history
+7. **Easy Integration**: Simple API for incorporating into larger applications
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py)

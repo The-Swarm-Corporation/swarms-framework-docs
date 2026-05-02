@@ -203,7 +203,7 @@ def consensus_algorithm(agents, task, threshold=0.7, **kwargs):
   Function defining the communication pattern (agents, task, **kwargs) -> Any
 </ParamField>
 
-<ParamField path="max_execution_time" type="float" default={300.0}>
+<ParamField path="max_execution_time" type="float" default="300.0">
   Maximum execution time in seconds
 </ParamField>
 
@@ -211,15 +211,15 @@ def consensus_algorithm(agents, task, threshold=0.7, **kwargs):
   Format for output (dict, list, str)
 </ParamField>
 
-<ParamField path="enable_communication_logging" type="bool" default={false}>
+<ParamField path="enable_communication_logging" type="bool" default="False">
   Log all agent communications
 </ParamField>
 
-<ParamField path="parallel_execution" type="bool" default={false}>
+<ParamField path="parallel_execution" type="bool" default="False">
   Enable parallel execution where possible
 </ParamField>
 
-<ParamField path="verbose" type="bool" default={false}>
+<ParamField path="verbose" type="bool" default="False">
   Enable detailed logging
 </ParamField>
 

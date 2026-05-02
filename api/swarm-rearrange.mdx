@@ -1,0 +1,320 @@
+---
+title: "SwarmRearrange"
+description: "Orchestrate multiple swarms in sequential or parallel flow patterns with thread-safe operations"
+icon: "arrows-split-up-and-left"
+---
+
+## Overview
+
+`SwarmRearrange` is a class for orchestrating multiple swarms in a sequential or parallel flow pattern. It provides thread-safe operations for managing swarm execution, history tracking, and flow validation.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Attributes
+
+<ParamField path="id" type="str" default="UUID">
+  Unique identifier for the swarm arrangement.
+</ParamField>
+
+<ParamField path="name" type="str" default="SwarmRearrange">
+  Name of the swarm arrangement.
+</ParamField>
+
+<ParamField path="description" type="str" default="A swarm of swarms...">
+  Description of the arrangement.
+</ParamField>
+
+<ParamField path="swarms" type="List[Any]" default="[]">
+  List of swarm objects to be managed.
+</ParamField>
+
+<ParamField path="flow" type="str" default="None">
+  Flow pattern for swarm execution. Uses arrow notation to define execution order.
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Maximum number of execution loops.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+  Enable detailed logging.
+</ParamField>
+
+<ParamField path="human_in_the_loop" type="bool" default="False">
+  Enable human intervention during execution.
+</ParamField>
+
+<ParamField path="custom_human_in_the_loop" type="Callable" default="None">
+  Custom function for human interaction.
+</ParamField>
+
+<ParamField path="return_json" type="bool" default="False">
+  Return results in JSON format.
+</ParamField>
+
+## Methods
+
+### add_swarm()
+
+Adds a single swarm to the arrangement.
+
+```python
+def add_swarm(self, swarm: Any)
+```
+
+**Parameters:**
+- `swarm` (Any): The swarm object to add
+
+### remove_swarm()
+
+Removes a swarm by name from the arrangement.
+
+```python
+def remove_swarm(self, swarm_name: str)
+```
+
+**Parameters:**
+- `swarm_name` (str): Name of the swarm to remove
+
+### add_swarms()
+
+Adds multiple swarms to the arrangement.
+
+```python
+def add_swarms(self, swarms: List[Any])
+```
+
+**Parameters:**
+- `swarms` (List[Any]): List of swarm objects to add
+
+### validate_flow()
+
+Validates the flow pattern syntax and swarm names.
+
+```python
+def validate_flow(self)
+```
+
+### run()
+
+Executes the swarm arrangement according to the flow pattern.
+
+```python
+def run(self, task: str = None, img: str = None, custom_tasks: Dict[str, str] = None)
+```
+
+**Parameters:**
+- `task` (str, optional): The task to be executed
+- `img` (str, optional): Image input for the task
+- `custom_tasks` (Dict[str, str], optional): Custom tasks mapped to specific swarms
+
+**Returns:** The result of the swarm execution
+
+## Flow Pattern Syntax
+
+The flow pattern uses arrow notation (`->`) to define execution order:
+
+- **Sequential**: `"SwarmA -> SwarmB -> SwarmC"`
+- **Parallel**: `"SwarmA, SwarmB -> SwarmC"`
+- **Human intervention**: Use `"H"` in the flow
+
+## Usage Examples
+
+### Basic Sequential Flow
+
+```python
+import os
+from swarms import Agent, AgentRearrange, SwarmRearrange
+
+company = "TGSC"
+
+# Initialize the Managing Director agent
+managing_director = Agent(
+    agent_name="Managing-Director",
+    system_prompt=f"""
+    As the Managing Director at Blackstone, your role is to oversee the entire investment analysis process for potential acquisitions.
+    Your responsibilities include:
+    1. Setting the overall strategy and direction for the analysis
+    2. Coordinating the efforts of the various team members and ensuring a comprehensive evaluation
+    3. Reviewing the findings and recommendations from each team member
+    4. Making the final decision on whether to proceed with the acquisition
+
+    For the current potential acquisition of {company}, direct the tasks for the team to thoroughly analyze all aspects of the company, including its financials, industry position, technology, market potential, and regulatory compliance. Provide guidance and feedback as needed to ensure a rigorous and unbiased assessment.
+    """,
+    model_name="gpt-4.1",
+    max_loops=1,
+)
+
+# Initialize the Vice President of Finance
+vp_finance = Agent(
+    agent_name="VP-Finance",
+    system_prompt=f"""
+    As the Vice President of Finance at Blackstone, your role is to lead the financial analysis of potential acquisitions.
+    For the current potential acquisition of {company}, your tasks include:
+    1. Conducting a thorough review of {company}' financial statements
+    2. Analyzing key financial metrics such as revenue growth, profitability margins, liquidity ratios, and debt levels
+    3. Assessing the company's historical financial performance and projecting future performance
+    4. Identifying any financial risks or red flags that could impact the acquisition decision
+    5. Providing a detailed report on your findings and recommendations to the Managing Director
+    """,
+    model_name="gpt-4.1",
+    max_loops=1,
+)
+
+# Initialize the Industry Analyst
+industry_analyst = Agent(
+    agent_name="Industry-Analyst",
+    system_prompt=f"""
+    As the Industry Analyst at Blackstone, your role is to provide in-depth research and analysis on the industries and markets relevant to potential acquisitions.
+    For the current potential acquisition of {company}, your tasks include:
+    1. Conducting a comprehensive analysis of the industrial robotics and automation solutions industry
+    2. Identifying the major players in the industry and assessing their market share
+    3. Evaluating {company}' competitive position within the industry
+    4. Analyzing the key drivers and restraints for the industry
+    5. Identifying potential risks and opportunities for {company} based on the industry analysis
+    """,
+    model_name="gpt-4.1",
+    max_loops=1,
+)
+
+# Initialize the Technology Expert
+tech_expert = Agent(
+    agent_name="Tech-Expert",
+    system_prompt=f"""
+    As the Technology Expert at Blackstone, your role is to assess the technological capabilities, competitive advantages, and potential risks of companies being considered for acquisition.
+    For the current potential acquisition of {company}, your tasks include:
+    1. Conducting a deep dive into {company}' proprietary technologies
+    2. Assessing the uniqueness, scalability, and defensibility of {company}' technology stack
+    3. Comparing {company}' technologies to those of its competitors
+    4. Evaluating {company}' research and development capabilities
+    5. Identifying any potential technology risks or disruptive threats
+    """,
+    model_name="gpt-4.1",
+    max_loops=1,
+)
+
+# Initialize the Market Researcher
+market_researcher = Agent(
+    agent_name="Market-Researcher",
+    system_prompt=f"""
+    As the Market Researcher at Blackstone, your role is to analyze the target company's customer base, market share, and growth potential.
+    For the current potential acquisition of {company}, your tasks include:
+    1. Analyzing {company}' current customer base
+    2. Assessing {company}' market share within its target markets
+    3. Conducting a detailed market sizing and segmentation analysis
+    4. Evaluating the demand drivers and sales cycles
+    5. Developing financial projections and estimates for revenue growth potential
+    """,
+    model_name="gpt-4.1",
+    max_loops=1,
+)
+
+# Initialize the Regulatory Specialist
+regulatory_specialist = Agent(
+    agent_name="Regulatory-Specialist",
+    system_prompt=f"""
+    As the Regulatory Specialist at Blackstone, your role is to identify and assess any regulatory risks, compliance requirements, and potential legal liabilities.
+    For the current potential acquisition of {company}, your tasks include:
+    1. Identifying all relevant regulatory bodies and laws that govern the operations
+    2. Reviewing {company}' current compliance policies, procedures, and track record
+    3. Assessing the potential impact of any pending or proposed changes to relevant regulations
+    4. Evaluating the potential legal liabilities and risks
+    5. Providing recommendations on regulatory or legal due diligence steps
+    """,
+    model_name="gpt-4.1",
+    max_loops=1,
+)
+
+# Create a list of agents
+agents = [
+    managing_director,
+    vp_finance,
+    industry_analyst,
+    tech_expert,
+    market_researcher,
+    regulatory_specialist,
+]
+
+# Define multiple flow patterns
+flows = [
+    "Industry-Analyst -> Tech-Expert -> Market-Researcher -> Regulatory-Specialist -> Managing-Director -> VP-Finance",
+    "Managing-Director -> VP-Finance -> Industry-Analyst -> Tech-Expert -> Market-Researcher -> Regulatory-Specialist",
+    "Tech-Expert -> Market-Researcher -> Regulatory-Specialist -> Industry-Analyst -> Managing-Director -> VP-Finance",
+]
+
+# Create instances of AgentRearrange for each flow pattern
+blackstone_acquisition_analysis = AgentRearrange(
+    name="Blackstone-Acquisition-Analysis",
+    description="A system for analyzing potential acquisitions",
+    agents=agents,
+    flow=flows[0],
+)
+
+blackstone_investment_strategy = AgentRearrange(
+    name="Blackstone-Investment-Strategy",
+    description="A system for evaluating investment opportunities",
+    agents=agents,
+    flow=flows[1],
+)
+
+blackstone_market_analysis = AgentRearrange(
+    name="Blackstone-Market-Analysis",
+    description="A system for analyzing market trends and opportunities",
+    agents=agents,
+    flow=flows[2],
+)
+
+swarm_arrange = SwarmRearrange(
+    swarms=[
+        blackstone_acquisition_analysis,
+        blackstone_investment_strategy,
+        blackstone_market_analysis,
+    ],
+    flow=f"{blackstone_acquisition_analysis.name} -> {blackstone_investment_strategy.name} -> {blackstone_market_analysis.name}",
+)
+
+print(
+    swarm_arrange.run(
+        "Analyze swarms, 150k revenue with 45m+ agents build, with 1.4m downloads since march 2024"
+    )
+)
+```
+
+### Human-in-the-Loop
+
+```python
+from swarms import SwarmRearrange
+
+def custom_human_input(task):
+    return input(f"Review {task} and provide feedback: ")
+
+# Create arrangement with human intervention
+arrangement = SwarmRearrange(
+    name="HumanAugmented",
+    swarms=[swarm1, swarm2],
+    flow="SwarmA -> H -> SwarmB",
+    human_in_the_loop=True,
+    custom_human_in_the_loop=custom_human_input
+)
+
+# Execute with human intervention
+result = arrangement.run("Initial task")
+```
+
+## Best Practices
+
+| Best Practice | Description |
+|--------------|-------------|
+| **Flow Validation** | Always validate flows before execution |
+| **Error Handling** | Implement try-catch blocks around `run()` calls |
+| **History Tracking** | Use `track_history()` for monitoring swarm execution |
+| **Resource Management** | Set appropriate `max_loops` to prevent infinite execution |
+| **Logging** | Enable verbose mode during development for detailed logging |
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarm_rearrange.py)
