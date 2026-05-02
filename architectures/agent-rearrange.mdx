@@ -117,11 +117,11 @@ rearrange = AgentRearrange(
   Flow pattern defining agent execution (e.g., "agent1 -> agent2, agent3")
 </ParamField>
 
-<ParamField path="max_loops" type="int" default={1}>
+<ParamField path="max_loops" type="int" default="1">
   Maximum number of execution loops
 </ParamField>
 
-<ParamField path="team_awareness" type="bool" default={false}>
+<ParamField path="team_awareness" type="bool" default="False">
   Enable agents to know their position in workflow
 </ParamField>
 
@@ -129,11 +129,11 @@ rearrange = AgentRearrange(
   Output format (all, final, list, dict)
 </ParamField>
 
-<ParamField path="memory_system" type="Any" default={null}>
+<ParamField path="memory_system" type="Any" default="None">
   Optional memory system for persistence
 </ParamField>
 
-<ParamField path="human_in_the_loop" type="bool" default={false}>
+<ParamField path="human_in_the_loop" type="bool" default="False">
   Enable human interaction points
 </ParamField>
 

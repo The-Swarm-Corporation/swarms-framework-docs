@@ -104,7 +104,7 @@ workflow = SequentialWorkflow(
   List of agents to execute sequentially
 </ParamField>
 
-<ParamField path="max_loops" type="int" default={1}>
+<ParamField path="max_loops" type="int" default="1">
   Number of times to execute the complete workflow
 </ParamField>
 
@@ -112,15 +112,15 @@ workflow = SequentialWorkflow(
   Format for workflow output (dict, str, list, etc.)
 </ParamField>
 
-<ParamField path="team_awareness" type="bool" default={false}>
+<ParamField path="team_awareness" type="bool" default="False">
   Enable agents to know about team structure and flow
 </ParamField>
 
-<ParamField path="multi_agent_collab_prompt" type="bool" default={false}>
+<ParamField path="multi_agent_collab_prompt" type="bool" default="False">
   Add collaboration instructions to agent prompts
 </ParamField>
 
-<ParamField path="autosave" type="bool" default={true}>
+<ParamField path="autosave" type="bool" default="True">
   Automatically save conversation history
 </ParamField>
 

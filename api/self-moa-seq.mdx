@@ -1,0 +1,338 @@
+---
+title: "SelfMoASeq"
+description: "Sequential Self-Mixture of Agents that generates multiple candidate responses and synthesizes them using a sliding window approach"
+icon: "layer-group"
+---
+
+## Overview
+
+`SelfMoASeq` (Self-MoA-Seq: Sequential Self-Mixture of Agents) is an ensemble method that generates multiple candidate responses from a single high-performing model and synthesizes them sequentially using a sliding window approach. This keeps context within bounds while leveraging diversity across samples for a high-quality final output.
+
+- **Phase 1**: Generate `num_samples` responses using a proposer agent.
+- **Phase 2**: Aggregate responses in windows with an aggregator agent, biasing toward the current best.
+- **Phase 3**: Iterate until all samples are processed or `max_loops` is reached.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Attributes
+
+<ParamField path="name" type="str" default="SelfMoASeq">
+  Human-readable name for this orchestrator
+</ParamField>
+
+<ParamField path="description" type="str" default="Self-MoA-Seq: Sequential Self-Mixture of Agents">
+  Short description of the orchestrator
+</ParamField>
+
+<ParamField path="model_name" type="str" default="gpt-5.4">
+  Base model used when specific proposer/aggregator models are not provided
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0.7">
+  Sampling temperature for the proposer; must be in [0, 2]
+</ParamField>
+
+<ParamField path="window_size" type="int" default="6">
+  Total window size used during aggregation. Must be at least 2.
+</ParamField>
+
+<ParamField path="reserved_slots" type="int" default="3">
+  Number of slots reserved for the current best (and possibly other fixed items) in the window. Must be less than `window_size`.
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="10">
+  Maximum aggregation loops. Must be at least 1.
+</ParamField>
+
+<ParamField path="max_tokens" type="int" default="2000">
+  Token budget to consider for downstream consumers. Not enforced internally.
+</ParamField>
+
+<ParamField path="num_samples" type="int" default="30">
+  Number of candidate responses to generate overall; must be at least 2
+</ParamField>
+
+<ParamField path="enable_logging" type="bool" default="True">
+  Enable internal logging via `loguru`
+</ParamField>
+
+<ParamField path="log_level" type="str" default="INFO">
+  Log level string
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+  If True, prints a run summary after completion
+</ParamField>
+
+<ParamField path="proposer_model_name" type="Optional[str]" default="None">
+  Overrides the model for the proposer agent; falls back to `model_name` if not provided
+</ParamField>
+
+<ParamField path="aggregator_model_name" type="Optional[str]" default="None">
+  Overrides the model for the aggregator agent; falls back to `model_name` if not provided
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Max retry attempts for key operations (`_generate_samples`, `_aggregate_window`, `run`). Must be at least 0.
+</ParamField>
+
+<ParamField path="retry_delay" type="float" default="1.0">
+  Initial delay before first retry (seconds). Must be at least 0.
+</ParamField>
+
+<ParamField path="retry_backoff_multiplier" type="float" default="2.0">
+  Exponential backoff multiplier; must be at least 1
+</ParamField>
+
+<ParamField path="retry_max_delay" type="float" default="60.0">
+  Maximum backoff delay (seconds); must be at least `retry_delay`
+</ParamField>
+
+**Raises:**
+- `ValueError` for invalid parameter ranges (e.g., `window_size < 2`, `reserved_slots >= window_size`, temperature outside [0, 2], etc.)
+
+## Methods
+
+### run()
+
+Execute the full Self-MoA-Seq process: sample generation, sliding-window aggregation, and final synthesis.
+
+```python
+def run(self, task: str) -> Dict[str, Any]
+```
+
+**Parameters:**
+- `task` (str): The task to process; must be a non-empty string
+
+**Returns:** A dictionary with the following keys:
+
+| Key | Type | Description |
+|---|---|---|
+| `final_output` | `str` | The final synthesized best response |
+| `all_samples` | `List[str]` | All generated candidate responses |
+| `aggregation_steps` | `int` | Number of aggregation iterations executed |
+| `metrics` | `Dict[str, Any]` | Snapshot of performance metrics for this run |
+| `task` | `str` | Echoes the original task |
+| `timestamp` | `str` | ISO 8601 timestamp of completion |
+
+**Raises:**
+- `ValueError` if `task` is not a non-empty string
+- Propagates any exceptions from generation/aggregation; both are retried according to the instance retry configuration
+
+### get_metrics()
+
+Get a snapshot of the internal metrics counters.
+
+```python
+def get_metrics(self) -> Dict[str, Any]
+```
+
+**Returns:** A copy of the current metrics dictionary
+
+### Internal Methods
+
+<Note>
+Methods prefixed with `_` are internal but documented here for completeness.
+</Note>
+
+### _generate_samples()
+
+Generate `num_samples` candidate responses using the proposer agent.
+
+```python
+def _generate_samples(self, task: str, num_samples: int) -> List[str]
+```
+
+**Parameters:**
+- `task` (str): The task description to pass to the proposer agent
+- `num_samples` (int): Number of samples to generate
+
+**Returns:** The generated samples in generation order
+
+### _format_aggregation_prompt()
+
+Create the prompt that the aggregator agent will receive for a given window.
+
+```python
+def _format_aggregation_prompt(self, task: str, samples: List[str], best_so_far: Optional[str] = None) -> str
+```
+
+**Parameters:**
+- `task` (str): The original task string
+- `samples` (List[str]): Window of candidate responses to synthesize
+- `best_so_far` (Optional[str]): Previously synthesized best output, if any
+
+**Returns:** Aggregation prompt text to be sent to the aggregator agent
+
+### _aggregate_window()
+
+Aggregate a window of samples using the aggregator agent, biased by `best_so_far`.
+
+```python
+def _aggregate_window(self, task: str, window_samples: List[str], best_so_far: Optional[str] = None) -> str
+```
+
+**Parameters:**
+- `task` (str): The original task string
+- `window_samples` (List[str]): Current window, typically `[best_output] + current_window`
+- `best_so_far` (Optional[str]): Current best aggregation to bias the synthesizer
+
+**Returns:** The synthesized output for this window
+
+### _log_summary()
+
+Log a brief summary of the run when `verbose=True`.
+
+```python
+def _log_summary(self, result: Dict[str, Any]) -> None
+```
+
+**Parameters:**
+- `result` (Dict[str, Any]): The run result bundle returned by `run`
+
+## Usage Examples
+
+### Basic Usage
+
+```python
+from swarms.structs.self_moa_seq import SelfMoASeq
+
+# Initialize
+moa_seq = SelfMoASeq(
+    model_name="gpt-5.4",
+    temperature=0.7,
+    window_size=6,
+    verbose=True,
+    num_samples=4,
+)
+
+# Run
+task = (
+    "Describe an effective treatment plan for a patient with a broken rib. "
+    "Include immediate care, pain management, expected recovery timeline, and potential complications to watch for."
+)
+
+result = moa_seq.run(task)
+print(result)
+```
+
+### Medical Diagnosis with High Sample Count
+
+This example demonstrates using SelfMoASeq for a complex medical diagnosis task with a larger number of samples for comprehensive analysis.
+
+```python
+from swarms.structs.self_moa_seq import SelfMoASeq
+
+# Initialize with medical-focused configuration
+medical_moa = SelfMoASeq(
+    model_name="gpt-4o",
+    temperature=0.8,  # Higher creativity for diverse medical perspectives
+    window_size=8,    # Larger window for complex medical reasoning
+    num_samples=12,   # More samples for comprehensive analysis
+    max_loops=15,
+    verbose=True,
+    proposer_model_name="gpt-4o",  # Use same model for consistency
+    aggregator_model_name="gpt-4o"
+)
+
+# Complex medical case
+medical_case = """
+Patient: 45-year-old female
+Symptoms:
+- Chest pain for 3 days, worse with deep breathing
+- Shortness of breath
+- Low-grade fever (100.2°F)
+- Recent travel to Southeast Asia
+- History of smoking (quit 5 years ago)
+
+Vital signs: BP 140/90, HR 95, RR 22, O2 sat 94% on room air
+Physical exam: Decreased breath sounds in right lower lobe, no JVD, no peripheral edema
+
+Lab results pending: CBC, CMP, D-dimer, troponin
+Chest X-ray: Small pleural effusion on right side
+
+Provide a comprehensive differential diagnosis, immediate management plan,
+and follow-up recommendations.
+"""
+
+result = medical_moa.run(medical_case)
+print("Medical Diagnosis Analysis:")
+print("=" * 50)
+print(result["final_output"])
+print(f"\nGenerated {len(result['all_samples'])} samples in {result['aggregation_steps']} iterations")
+print(f"Execution time: {result['metrics']['execution_time_seconds']:.2f} seconds")
+```
+
+### Creative Writing with Different Models
+
+This example shows how to use different models for the proposer and aggregator, with a creative writing task.
+
+```python
+from swarms.structs.self_moa_seq import SelfMoASeq
+
+# Initialize with different models for proposer and aggregator
+creative_moa = SelfMoASeq(
+    model_name="gpt-5.4",  # Base model (fallback)
+    temperature=1.2,  # High creativity for writing
+    window_size=4,    # Smaller window for focused synthesis
+    num_samples=6,    # Moderate number of samples
+    max_loops=8,
+    verbose=True,
+    proposer_model_name="gpt-4o",      # Creative model for generation
+    aggregator_model_name="gpt-5.4", # Efficient model for synthesis
+    max_retries=2,
+    retry_delay=0.5
+)
+
+# Creative writing prompt
+writing_prompt = """
+Write a compelling opening chapter for a science fiction novel set in 2150.
+The story should involve:
+- A protagonist who discovers they can manipulate time in small ways
+- A mysterious organization that's been monitoring them
+- A world where AI and humans coexist but tensions are rising
+- An unexpected twist that challenges the reader's assumptions
+
+Focus on:
+- Strong character development
+- Immersive world-building
+- A hook that makes readers want to continue
+- Balance between action and character moments
+"""
+
+result = creative_moa.run(writing_prompt)
+print("Creative Writing Result:")
+print("=" * 40)
+print(result["final_output"])
+print(f"\nWriting samples generated: {len(result['all_samples'])}")
+print(f"Synthesis iterations: {result['aggregation_steps']}")
+```
+
+## Retry Behavior
+
+Key methods (`_generate_samples`, `_aggregate_window`, and `run`) are wrapped with an instance-configurable retry policy:
+
+- **stop**: Up to `max_retries + 1` total attempts
+- **wait**: Exponential backoff with `retry_backoff_multiplier`, min `retry_delay`, and max `retry_max_delay` seconds
+- **retry on**: Any `Exception`
+- **before sleep**: Logs a warning before each retry
+
+## When to Choose SelfMoASeq
+
+Choose `SelfMoASeq` when you need:
+
+- High-quality outputs that benefit from multiple perspectives
+- To work within context length constraints
+- Reliable, production-ready ensemble methods
+- Fine-grained control over the generation and synthesis process
+- Comprehensive observability and error handling
+
+For simpler tasks or when context limits are not a concern, consider using single-agent approaches or other ensemble methods like `MixtureOfAgents` for more straightforward aggregation strategies.
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/self_moa_seq.py)

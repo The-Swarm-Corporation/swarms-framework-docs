@@ -118,7 +118,7 @@ moa_result = moa_router.run(task)
   Description of the swarm's purpose
 </ParamField>
 
-<ParamField path="max_loops" type="int" default={1}>
+<ParamField path="max_loops" type="int" default="1">
   Maximum execution loops
 </ParamField>
 
@@ -126,7 +126,7 @@ moa_result = moa_router.run(task)
   Output format
 </ParamField>
 
-<ParamField path="autosave" type="bool" default={false}>
+<ParamField path="autosave" type="bool" default="False">
   Enable automatic state/metadata saving
 </ParamField>
 
@@ -134,7 +134,7 @@ moa_result = moa_router.run(task)
   Rules to inject into all agents
 </ParamField>
 
-<ParamField path="multi_agent_collab_prompt" type="bool" default={true}>
+<ParamField path="multi_agent_collab_prompt" type="bool" default="True">
   Add collaboration prompts to agents
 </ParamField>
 
@@ -156,7 +156,7 @@ router = SwarmRouter(
 
 ### For HeavySwarm
 
-<ParamField path="heavy_swarm_loops_per_agent" type="int" default={1}>
+<ParamField path="heavy_swarm_loops_per_agent" type="int" default="1">
   Loops per worker agent
 </ParamField>
 

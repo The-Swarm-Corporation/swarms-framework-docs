@@ -1,0 +1,272 @@
+---
+title: "HierarchicalStructuredCommunicationFramework"
+description: "A multi-agent framework implementing structured communication and hierarchical evaluation based on the 'Talk Structurally, Act Hierarchically' approach"
+icon: "comments"
+---
+
+## Overview
+
+The Hierarchical Structured Communication Framework implements the "Talk Structurally, Act Hierarchically" approach for LLM multi-agent systems, based on the research paper arXiv:2502.11098. It provides structured communication protocols with specialized agent classes for content generation, evaluation, refinement, and supervision.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Key Components
+
+### Agent Classes
+
+- `HierarchicalStructuredCommunicationGenerator` - Creates initial content
+- `HierarchicalStructuredCommunicationEvaluator` - Evaluates content quality
+- `HierarchicalStructuredCommunicationRefiner` - Improves content based on feedback
+- `HierarchicalStructuredCommunicationSupervisor` - Coordinates workflow
+
+### Main Framework
+
+- `HierarchicalStructuredCommunicationFramework` - Main orchestrator class
+- `HierarchicalStructuredCommunicationSwarm` - Convenience alias
+
+## Attributes
+
+<ParamField path="name" type="str" default="HierarchicalStructuredCommunicationFramework">
+  Name of the framework instance
+</ParamField>
+
+<ParamField path="supervisor" type="HierarchicalStructuredCommunicationSupervisor">
+  Main supervisor agent that coordinates the workflow
+</ParamField>
+
+<ParamField path="generators" type="List[HierarchicalStructuredCommunicationGenerator]" required>
+  List of generator agents for creating initial content
+</ParamField>
+
+<ParamField path="evaluators" type="List[HierarchicalStructuredCommunicationEvaluator]" required>
+  List of evaluator agents for assessing content quality
+</ParamField>
+
+<ParamField path="refiners" type="List[HierarchicalStructuredCommunicationRefiner]" required>
+  List of refiner agents for improving content based on feedback
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="3">
+  Maximum number of refinement loops
+</ParamField>
+
+<ParamField path="enable_structured_communication" type="bool" default="True">
+  Enable the structured communication protocol with Message (M_ij), Background (B_ij), and Intermediate Output (I_ij)
+</ParamField>
+
+<ParamField path="enable_hierarchical_evaluation" type="bool" default="True">
+  Enable hierarchical evaluation with supervisor coordination
+</ParamField>
+
+<ParamField path="shared_memory" type="bool" default="False">
+  Enable shared memory between agents
+</ParamField>
+
+<ParamField path="model_name" type="str">
+  LLM model name to use for the agents
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Enable verbose logging
+</ParamField>
+
+## Methods
+
+### run()
+
+Execute the complete workflow for a given task.
+
+```python
+def run(self, task: str, max_loops: int = None) -> dict
+```
+
+**Parameters:**
+- `task` (str): The task to execute
+- `max_loops` (int, optional): Override the default max_loops for this run
+
+**Returns:** A dictionary containing the workflow results, including `final_result`
+
+### step()
+
+Execute a single workflow step.
+
+```python
+def step(self, task: str) -> dict
+```
+
+**Parameters:**
+- `task` (str): The task to execute for one step
+
+**Returns:** Result of a single step
+
+### send_structured_message()
+
+Send a structured communication message between agents.
+
+```python
+def send_structured_message(self) -> None
+```
+
+### run_hierarchical_evaluation()
+
+Run the hierarchical evaluation system with supervisor coordination.
+
+```python
+def run_hierarchical_evaluation(self) -> dict
+```
+
+**Returns:** Evaluation results
+
+## Usage Examples
+
+### Quick Start
+
+```python
+from swarms.structs.hierarchical_structured_communication_framework import (
+    HierarchicalStructuredCommunicationFramework,
+    HierarchicalStructuredCommunicationGenerator,
+    HierarchicalStructuredCommunicationEvaluator,
+    HierarchicalStructuredCommunicationRefiner,
+    HierarchicalStructuredCommunicationSupervisor
+)
+
+# Create specialized agents
+generator = HierarchicalStructuredCommunicationGenerator(
+    agent_name="ContentGenerator"
+)
+
+evaluator = HierarchicalStructuredCommunicationEvaluator(
+    agent_name="QualityEvaluator"
+)
+
+refiner = HierarchicalStructuredCommunicationRefiner(
+    agent_name="ContentRefiner"
+)
+
+supervisor = HierarchicalStructuredCommunicationSupervisor(
+    agent_name="WorkflowSupervisor"
+)
+
+# Create the framework
+framework = HierarchicalStructuredCommunicationFramework(
+    name="MyFramework",
+    supervisor=supervisor,
+    generators=[generator],
+    evaluators=[evaluator],
+    refiners=[refiner],
+    max_loops=3
+)
+
+# Run the workflow
+result = framework.run("Create a comprehensive analysis of AI trends in 2024")
+```
+
+### Basic Usage with Default Supervisor
+
+```python
+from swarms.structs.hierarchical_structured_communication_framework import (
+    HierarchicalStructuredCommunicationFramework,
+    HierarchicalStructuredCommunicationGenerator,
+    HierarchicalStructuredCommunicationEvaluator,
+    HierarchicalStructuredCommunicationRefiner
+)
+
+# Create agents with custom names
+generator = HierarchicalStructuredCommunicationGenerator(agent_name="ContentGenerator")
+evaluator = HierarchicalStructuredCommunicationEvaluator(agent_name="QualityEvaluator")
+refiner = HierarchicalStructuredCommunicationRefiner(agent_name="ContentRefiner")
+
+# Create framework with default supervisor
+framework = HierarchicalStructuredCommunicationFramework(
+    generators=[generator],
+    evaluators=[evaluator],
+    refiners=[refiner],
+    max_loops=3,
+    verbose=True
+)
+
+# Execute task
+result = framework.run("Write a detailed report on renewable energy technologies")
+print(result["final_result"])
+```
+
+### Advanced Configuration
+
+```python
+from swarms.structs.hierarchical_structured_communication_framework import (
+    HierarchicalStructuredCommunicationFramework
+)
+
+# Create framework with custom configuration
+framework = HierarchicalStructuredCommunicationFramework(
+    name="AdvancedFramework",
+    max_loops=5,
+    enable_structured_communication=True,
+    enable_hierarchical_evaluation=True,
+    shared_memory=True,
+    model_name="gpt-4o",
+    verbose=True
+)
+
+# Run with custom parameters
+result = framework.run(
+    "Analyze the impact of climate change on global agriculture",
+    max_loops=3
+)
+```
+
+### Integration with Other Swarms
+
+```python
+from swarms.structs.hierarchical_structured_communication_framework import (
+    HierarchicalStructuredCommunicationFramework
+)
+from swarms import AutoSwarmBuilder
+
+# Use HierarchicalStructuredCommunicationFramework for content generation
+framework = HierarchicalStructuredCommunicationFramework(
+    max_loops=2,
+    verbose=True
+)
+
+# Integrate with AutoSwarmBuilder
+builder = AutoSwarmBuilder()
+swarm = builder.create_swarm(
+    swarm_type="HierarchicalStructuredCommunicationFramework",
+    task="Generate a comprehensive business plan"
+)
+```
+
+## How It Works
+
+The framework operates through a structured multi-phase workflow:
+
+1. **Generation Phase**: Generator agents create initial content based on the task
+2. **Evaluation Phase**: Evaluator agents assess the quality of generated content using structured communication protocols
+3. **Refinement Phase**: Refiner agents improve content based on evaluation feedback
+4. **Supervision**: The supervisor agent coordinates the entire workflow, deciding when to iterate or finalize
+5. **Iteration**: Steps 1-4 repeat up to `max_loops` times until quality thresholds are met
+
+### Structured Communication Protocol
+
+The framework uses a formal communication protocol with three components:
+- **Message (M_ij)**: Direct communication between agents
+- **Background (B_ij)**: Contextual information shared between agents
+- **Intermediate Output (I_ij)**: Partial results passed between workflow stages
+
+## Features
+
+- **Structured Communication**: Formal protocol for inter-agent messaging
+- **Hierarchical Evaluation**: Multi-level quality assessment with supervisor oversight
+- **Iterative Refinement**: Content improves through generate-evaluate-refine loops
+- **Specialized Agents**: Purpose-built agent classes for each workflow role
+- **Configurable**: Flexible configuration for communication, evaluation, and memory
+- **Shared Memory**: Optional shared memory between agents for context retention
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/hierarchical_structured_communication_framework.py)

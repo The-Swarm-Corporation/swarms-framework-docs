@@ -1,0 +1,520 @@
+---
+title: "SocialAlgorithms"
+description: "A flexible framework for defining custom social algorithms that control how agents communicate and interact in multi-agent systems"
+icon: "people-arrows"
+---
+
+## Overview
+
+The Social Algorithms framework provides a flexible system for defining custom social algorithms that control how agents communicate and interact with each other in multi-agent systems. This framework allows you to upload any arbitrary social algorithm as a callable that defines the sequence of communication between agents.
+
+| Feature | Description |
+|------|-------------|
+| Custom Communication Patterns | Define custom communication patterns between agents |
+| Complex Multi-Agent Workflows | Implement complex multi-agent workflows |
+| Emergent Behaviors | Create emergent behaviors through agent interactions |
+| Communication Logging | Log and track all communication between agents |
+| Timeout & Error Handling | Execute algorithms with timeout protection and error handling |
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Class Definition
+
+```python
+from swarms import SocialAlgorithms
+```
+
+## Attributes
+
+<ParamField path="algorithm_id" type="str" default="None">
+  Unique identifier for the algorithm. If None, a UUID will be generated.
+</ParamField>
+
+<ParamField path="name" type="str" default="SocialAlgorithm">
+  Human-readable name for the algorithm.
+</ParamField>
+
+<ParamField path="description" type="str" default="A custom social algorithm for agent communication">
+  Description of what the algorithm does.
+</ParamField>
+
+<ParamField path="agents" type="List[AgentType]" default="None">
+  List of agents that will participate in the algorithm.
+</ParamField>
+
+<ParamField path="social_algorithm" type="Callable" default="None">
+  The callable that defines the communication sequence. Must accept (agents, task, **kwargs) as parameters.
+</ParamField>
+
+<ParamField path="max_execution_time" type="float" default="300.0">
+  Maximum time allowed for algorithm execution in seconds.
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict">
+  Format of the output from the algorithm.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Whether to enable verbose logging.
+</ParamField>
+
+<ParamField path="enable_communication_logging" type="bool" default="True">
+  Whether to log communication steps.
+</ParamField>
+
+<ParamField path="parallel_execution" type="bool" default="False">
+  Whether to enable parallel execution where possible.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="None">
+  Maximum number of workers for parallel execution.
+</ParamField>
+
+## Methods
+
+### run()
+
+Execute the social algorithm with the given task.
+
+```python
+def run(self, task: str, algorithm_args: Optional[Dict[str, Any]] = None, **kwargs) -> SocialAlgorithmResult
+```
+
+**Parameters:**
+- `task` (str): The task to execute using the social algorithm.
+- `algorithm_args` (Dict[str, Any]): Additional arguments for the algorithm.
+
+**Returns:** `SocialAlgorithmResult` — The result of executing the social algorithm.
+
+**Raises:**
+- `InvalidAlgorithmError`: If no social algorithm is defined.
+- `TimeoutError`: If the algorithm execution exceeds max_execution_time.
+
+---
+
+### run_async()
+
+Execute the social algorithm asynchronously.
+
+```python
+async def run_async(self, task: str, algorithm_args: Optional[Dict[str, Any]] = None, **kwargs) -> SocialAlgorithmResult
+```
+
+**Parameters:**
+- `task` (str): The task to execute using the social algorithm.
+- `algorithm_args` (Dict[str, Any]): Additional arguments for the algorithm.
+
+**Returns:** `SocialAlgorithmResult`
+
+---
+
+### add_agent()
+
+Add an agent to the social algorithm.
+
+```python
+def add_agent(self, agent: Agent) -> None
+```
+
+**Parameters:**
+- `agent` (Agent): The agent to add.
+
+**Raises:**
+- `ValueError`: If agent is not an instance of the Agent class.
+
+---
+
+### remove_agent()
+
+Remove an agent from the social algorithm.
+
+```python
+def remove_agent(self, agent_name: str) -> None
+```
+
+**Parameters:**
+- `agent_name` (str): Name of the agent to remove.
+
+**Raises:**
+- `AgentNotFoundError`: If no agent with the given name is found.
+
+---
+
+### get_agent_names()
+
+Get a list of all agent names in the algorithm.
+
+```python
+def get_agent_names(self) -> List[str]
+```
+
+**Returns:** List of agent names.
+
+---
+
+### get_communication_history()
+
+Get the communication history for this algorithm execution.
+
+```python
+def get_communication_history(self) -> List[CommunicationStep]
+```
+
+**Returns:** List of communication steps.
+
+---
+
+### clear_communication_history()
+
+Clear the communication history.
+
+```python
+def clear_communication_history(self) -> None
+```
+
+---
+
+### get_algorithm_info()
+
+Get information about the social algorithm.
+
+```python
+def get_algorithm_info(self) -> Dict[str, Any]
+```
+
+**Returns:** Information about the algorithm including ID, name, description, agent count, and configuration.
+
+## Data Models
+
+### CommunicationStep
+
+Represents a single step in a social algorithm.
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `step_id` | `str` | Unique identifier for the communication step |
+| `sender_agent` | `str` | Name of the sending agent |
+| `receiver_agent` | `str` | Name of the receiving agent |
+| `message` | `str` | The message being sent |
+| `timestamp` | `float` | Timestamp when the communication occurred |
+| `metadata` | `Optional[Dict[str, Any]]` | Additional metadata about the communication |
+
+### SocialAlgorithmResult
+
+Result of executing a social algorithm.
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `algorithm_id` | `str` | Unique identifier for the algorithm |
+| `execution_time` | `float` | Time taken to execute the algorithm in seconds |
+| `total_steps` | `int` | Total number of communication steps |
+| `successful_steps` | `int` | Number of successful communication steps |
+| `failed_steps` | `int` | Number of failed communication steps |
+| `communication_history` | `List[CommunicationStep]` | Complete history of all communications |
+| `final_outputs` | `Dict[str, Any]` | The final outputs from the algorithm |
+| `metadata` | `Optional[Dict[str, Any]]` | Additional metadata about the execution |
+
+### SocialAlgorithmType (Enum)
+
+Predefined types of social algorithms.
+
+| Type | Description |
+|------|-------------|
+| `CUSTOM` | Custom user-defined algorithm |
+| `SEQUENTIAL` | Sequential execution pattern |
+| `CONCURRENT` | Concurrent execution pattern |
+| `HIERARCHICAL` | Hierarchical execution pattern |
+| `MESH` | Mesh network pattern |
+| `ROUND_ROBIN` | Round-robin execution pattern |
+| `BROADCAST` | Broadcast communication pattern |
+
+## Exception Classes
+
+- `SocialAlgorithmError` — Base exception for social algorithm errors
+- `InvalidAlgorithmError` — Raised when an invalid algorithm is provided
+- `AgentNotFoundError` — Raised when a required agent is not found
+
+## Usage Examples
+
+### Basic Social Algorithm
+
+```python
+from swarms import Agent, SocialAlgorithms
+
+# Define a custom social algorithm
+def custom_communication_algorithm(agents, task, **kwargs):
+    # Agent 1 researches the topic
+    research_result = agents[0].run(f"Research: {task}")
+
+    # Agent 2 analyzes the research
+    analysis = agents[1].run(f"Analyze this research: {research_result}")
+
+    # Agent 3 synthesizes the findings
+    synthesis = agents[2].run(f"Synthesize: {research_result} + {analysis}")
+
+    return {
+        "research": research_result,
+        "analysis": analysis,
+        "synthesis": synthesis
+    }
+
+# Create agents
+researcher = Agent(agent_name="Researcher", model_name="gpt-4o-mini")
+analyst = Agent(agent_name="Analyst", model_name="gpt-4o-mini")
+synthesizer = Agent(agent_name="Synthesizer", model_name="gpt-4o-mini")
+
+# Create social algorithm
+social_alg = SocialAlgorithms(
+    name="Research-Analysis-Synthesis",
+    agents=[researcher, analyst, synthesizer],
+    social_algorithm=custom_communication_algorithm,
+    verbose=True
+)
+
+# Run the algorithm
+result = social_alg.run("The impact of AI on healthcare")
+```
+
+### Research and Development Team
+
+```python
+from swarms import Agent, SocialAlgorithms
+
+def research_development_algorithm(agents, task, **kwargs):
+    """
+    A comprehensive R&D team algorithm with multiple phases.
+    """
+    project_manager = next(a for a in agents if "ProjectManager" in a.agent_name)
+    researcher = next(a for a in agents if "Researcher" in a.agent_name)
+    analyst = next(a for a in agents if "Analyst" in a.agent_name)
+    developer = next(a for a in agents if "Developer" in a.agent_name)
+    tester = next(a for a in agents if "Tester" in a.agent_name)
+    reviewer = next(a for a in agents if "Reviewer" in a.agent_name)
+
+    # Phase 1: Project Planning
+    project_plan = project_manager.run(f"""
+    Create a comprehensive project plan for: {task}
+    Include objectives, deliverables, timeline, and risk assessment.
+    """)
+
+    # Phase 2: Research
+    research_findings = researcher.run(f"""
+    Conduct comprehensive research on: {task}
+    Cover current state of the art, existing solutions, and emerging trends.
+    """)
+
+    # Phase 3: Analysis and Design
+    analysis_results = analyst.run(f"""
+    Analyze the research findings and design the solution:
+    Research: {research_findings}
+    Include requirements analysis, architecture design, and implementation strategy.
+    """)
+
+    # Phase 4: Development
+    prototype = developer.run(f"""
+    Create a prototype based on the analysis:
+    Analysis: {analysis_results}
+    Requirements: {project_plan}
+    """)
+
+    # Phase 5: Testing
+    test_results = tester.run(f"""
+    Create test plans and execute testing:
+    Prototype: {prototype}
+    Requirements: {project_plan}
+    """)
+
+    # Phase 6: Final Review
+    final_review = reviewer.run(f"""
+    Conduct final review of the entire project:
+    Plan: {project_plan}, Research: {research_findings},
+    Analysis: {analysis_results}, Prototype: {prototype},
+    Testing: {test_results}
+    """)
+
+    # Phase 7: Project Closure
+    deliverables = project_manager.run(f"""
+    Create final project deliverables including executive summary,
+    documentation, and lessons learned.
+    """)
+
+    return {
+        "task": task,
+        "project_plan": project_plan,
+        "research": research_findings,
+        "analysis": analysis_results,
+        "prototype": prototype,
+        "test_results": test_results,
+        "review": final_review,
+        "deliverables": deliverables,
+    }
+
+# Create specialized agents
+agents = [
+    Agent(agent_name="ProjectManager", system_prompt="You are an experienced project manager.", model_name="gpt-4o-mini", max_loops=1),
+    Agent(agent_name="Researcher", system_prompt="You are a research specialist.", model_name="gpt-4o-mini", max_loops=1),
+    Agent(agent_name="Analyst", system_prompt="You are a systems analyst.", model_name="gpt-4o-mini", max_loops=1),
+    Agent(agent_name="Developer", system_prompt="You are a senior developer.", model_name="gpt-4o-mini", max_loops=1),
+    Agent(agent_name="Tester", system_prompt="You are a QA specialist.", model_name="gpt-4o-mini", max_loops=1),
+    Agent(agent_name="Reviewer", system_prompt="You are a technical reviewer.", model_name="gpt-4o-mini", max_loops=1),
+]
+
+rd_algorithm = SocialAlgorithms(
+    name="Research-Development-Team",
+    description="Complete R&D workflow with specialized team members",
+    agents=agents,
+    social_algorithm=research_development_algorithm,
+    verbose=True,
+    max_execution_time=600
+)
+
+result = rd_algorithm.run("Develop a sustainable energy management system for smart cities")
+```
+
+### Competitive Evaluation
+
+```python
+from swarms import Agent, SocialAlgorithms
+
+def competitive_evaluation_algorithm(agents, task, **kwargs):
+    """Agents compete and are evaluated by a judge."""
+    if len(agents) < 3:
+        raise ValueError("Requires at least 3 agents (2 competitors + 1 judge)")
+
+    competitors = agents[:-1]
+    judge = agents[-1]
+
+    # Each competitor works on the task
+    competitor_results = {}
+    for i, competitor in enumerate(competitors):
+        result = competitor.run(f"Solve this task as best as you can: {task}")
+        competitor_results[f"competitor_{i+1}_{competitor.agent_name}"] = result
+
+    # Judge evaluates all solutions
+    evaluation_prompt = "Evaluate these solutions and rank them:\n\n"
+    for name, result in competitor_results.items():
+        evaluation_prompt += f"{name}:\n{result}\n\n"
+    evaluation_prompt += "Provide rankings, scores, and detailed feedback."
+
+    evaluation = judge.run(evaluation_prompt)
+
+    return {
+        "competitor_solutions": competitor_results,
+        "judge_evaluation": evaluation,
+        "task": task,
+    }
+
+social_alg = SocialAlgorithms(
+    name="Competitive-Evaluation",
+    description="Competitive evaluation where agents compete and are judged",
+    agents=[competitor1, competitor2, judge],
+    social_algorithm=competitive_evaluation_algorithm,
+    verbose=True,
+)
+
+result = social_alg.run("Design the most efficient algorithm for sorting large datasets")
+```
+
+### Negotiation Algorithm
+
+```python
+from swarms import Agent, SocialAlgorithms
+
+def negotiation_algorithm(agents, task, **kwargs):
+    """Agents engage in back-and-forth negotiation with mediation."""
+    negotiating_parties = agents[:-2]
+    mediator_agent = agents[-2]
+    legal_agent = agents[-1]
+
+    max_rounds = kwargs.get("max_rounds", 8)
+
+    # Phase 1: Initial Position Statements
+    current_positions = {}
+    for party in negotiating_parties:
+        initial_position = party.run(
+            f"As {party.agent_name}, state your initial position for: {task}"
+        )
+        current_positions[party.agent_name] = initial_position
+
+    # Phase 2: Negotiation Rounds
+    negotiation_history = []
+    for round_num in range(1, max_rounds + 1):
+        mediation_guidance = mediator_agent.run(
+            f"Analyze positions for round {round_num}"
+        )
+
+        round_responses = {}
+        for party in negotiating_parties:
+            response = party.run(
+                f"Respond to other positions in round {round_num}"
+            )
+            round_responses[party.agent_name] = response
+            current_positions[party.agent_name] = response
+
+        legal_review = legal_agent.run(
+            f"Review proposals for round {round_num}"
+        )
+
+        negotiation_history.append({
+            "round": round_num,
+            "mediation_guidance": mediation_guidance,
+            "responses": round_responses,
+            "legal_review": legal_review,
+        })
+
+    return {
+        "task": task,
+        "negotiation_history": negotiation_history,
+        "current_positions": current_positions,
+    }
+```
+
+## Advanced Features
+
+### Communication Logging
+
+The framework automatically logs all communication between agents when `enable_communication_logging=True`, including all `agent.run()` calls, `agent.talk_to()` calls, and timestamps with metadata.
+
+### Timeout Protection
+
+Algorithms are executed with timeout protection to prevent infinite loops. The default is 300 seconds (5 minutes), customizable via `max_execution_time`.
+
+### Error Handling
+
+Comprehensive error handling with `InvalidAlgorithmError`, `AgentNotFoundError`, `TimeoutError`, and graceful handling of agent execution failures.
+
+### Output Formatting
+
+Results can be formatted as `"dict"` (default), `"list"`, or `"str"`.
+
+### Parallel Execution
+
+When `parallel_execution=True`, the framework can execute independent operations in parallel for improved performance.
+
+## Integration
+
+| Component | Integration |
+|-----------|-------------|
+| **Agents** | Use any Swarms Agent in your social algorithms |
+| **Tools** | Agents can use tools within social algorithms |
+| **Memory** | Agents can access long-term memory during execution |
+| **Workflows** | Social algorithms can be used as steps in larger workflows |
+| **Routers** | Social algorithms can be used with SwarmRouter for dynamic selection |
+
+## Best Practices
+
+1. **Algorithm Design**: Design algorithms to be modular and reusable. Break complex algorithms into smaller, composable functions
+2. **Error Handling**: Always include proper error handling. Check for required agents and validate inputs
+3. **Logging**: Use the built-in logging system to track execution and debug issues
+4. **Timeout Management**: Set appropriate timeouts based on algorithm complexity
+5. **Agent Roles**: Clearly define roles for each agent to ensure proper communication patterns
+6. **Testing**: Test with different agent configurations and edge cases
+7. **Documentation**: Document custom algorithms thoroughly, including expected inputs and outputs
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/social_algorithms.py)
