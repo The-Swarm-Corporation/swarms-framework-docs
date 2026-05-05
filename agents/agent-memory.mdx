@@ -1,434 +1,407 @@
 ---
-title: 'Agent Memory'
-description: 'Understanding and configuring agent memory and conversation history'
-icon: 'database'
+title: "Agent Memory"
+description: "Configure persistent agent memory, context compression, archives, and conversation history"
+icon: "database"
 ---
 
-Agents in Swarms use the `Conversation` class to manage short-term memory and conversation history. This enables context-aware responses and multi-turn interactions.
+Swarms agents have disk-backed persistent memory through the `Conversation` class. Each agent writes its active interaction log to a `MEMORY.md` file and reloads that file when another process starts an agent with the same `agent_name`.
 
-## Memory Architecture
+Use this page to understand:
 
-Each agent maintains:
+- How `MEMORY.md` is created, loaded, and updated
+- How context compression keeps memory within the model context window
+- How archived transcripts preserve raw chat history
+- How to inspect, compact, export, or disable memory in code
+- When to use persistent memory versus RAG-based long-term memory
 
-1. **Short-term memory** - Current conversation history
-2. **Long-term memory** (optional) - RAG-based knowledge retrieval
-3. **System prompt** - Persistent instructions
+<Note>
+  Persistent memory is keyed by `agent_name`. Reusing the same `agent_name` resumes the same memory across process restarts. Changing the name starts a separate memory folder.
+</Note>
 
-## Short-Term Memory
+## Memory stack
 
-Short-term memory stores the conversation history for the current session.
+An agent can use several memory layers at the same time:
 
-### Automatic Memory Management
+| Layer | Purpose | Persistence |
+| --- | --- | --- |
+| `conversation_history` | In-memory messages for the current run | Current process |
+| `MEMORY.md` | Active user, agent, and tool interaction log | Disk-backed |
+| `archive/history_<timestamp>.md` | Raw transcripts saved before compaction | Disk-backed |
+| `Conversation.compact()` | Replaces raw active history with a summary | Disk-backed summary |
+| `ContextCompressor` | Automatically calls compaction near the context limit | Runtime behavior |
+| `long_term_memory` | Optional vector database for external knowledge retrieval | Depends on database |
+
+`MEMORY.md` is not the same thing as RAG. Persistent memory records the agent's own interaction history. RAG retrieves knowledge from external documents or a vector database.
+
+## Disk layout
+
+Agent memory lives under the workspace directory:
+
+```text
+$WORKSPACE_DIR/agents/{agent_name}/
+|-- MEMORY.md
+`-- archive/
+    |-- history_2026-04-20_14-30-45.md
+    |-- history_2026-04-20_16-12-08.md
+    `-- ...
+```
+
+<ParamField path="agent_name" type="str" default="swarm-worker-01">
+  Stable name used to identify the agent's memory folder.
+
+  ```python
+  from swarms import Agent
+
+  agent = Agent(
+      agent_name="ResearchAgent",
+      model_name="claude-sonnet-4-6",
+  )
+
+  # Memory path:
+  # $WORKSPACE_DIR/agents/ResearchAgent/MEMORY.md
+  ```
+</ParamField>
+
+### Key design points
+
+- The folder is keyed by `agent_name`, not by `id`.
+- `MEMORY.md` is append-updated during normal operation.
+- Every `conversation.add(role, content)` writes to in-memory history and to disk.
+- Compression archives the current `MEMORY.md` before replacing it with a compact summary.
+- The agent's static `system_prompt`, `rules`, and constructor configuration are not repeatedly appended to `MEMORY.md`.
+
+## Lifecycle
+
+### 1. File creation
+
+On first construction of an agent with a new `agent_name`, Swarms creates:
+
+```text
+$WORKSPACE_DIR/agents/{agent_name}/MEMORY.md
+```
+
+The file starts with a small header and an interaction log section:
+
+```markdown
+# Agent Memory
+
+**Conversation:** ResearchAgent_id_<uuid>_conversation
+**Created:** 2026-04-20T18:33:12
+
+---
+
+## Interaction Log
+```
+
+If the file already exists, Swarms leaves it in place.
+
+### 2. Preload on construction
+
+During `Conversation.__init__`, Swarms reads the existing `MEMORY.md` and injects it into `conversation_history` as a single `System` message.
+
+The resulting prompt order is:
+
+```text
+[0] System: <system_prompt>
+[1] User: <rules>                       # if provided
+[2] User: <custom_rules_prompt>         # if provided
+[3] System: [Persistent Memory - MEMORY.md]
+            ... full MEMORY.md contents ...
+```
+
+The preload is added directly to memory, so it is not written back to disk again. When `return_history_as_string()` builds the prompt, the model sees the system prompt, rules, persistent memory, and current task in order.
+
+### 3. Write-through on new messages
+
+Every `conversation.add(role, content)` call:
+
+1. Appends the message to `conversation_history`
+2. Appends a timestamped block to `MEMORY.md`
+
+The on-disk format looks like this:
+
+```markdown
+### User - 2026-04-20T18:35:04
+Research cloud database options for low-latency analytics.
+
+---
+
+### ResearchAgent - 2026-04-20T18:35:21
+I recommend evaluating BigQuery, ClickHouse Cloud, and AlloyDB...
+
+---
+```
+
+Disk writes are serialized with a per-conversation lock. Construction-time messages such as system prompts and rules are suppressed from disk so static identity does not get duplicated on every restart.
+
+## Context compression
+
+Without compression, a long-running agent could eventually exceed the model's context window. Swarms can attach a `ContextCompressor` that summarizes the current transcript and compacts the active memory.
+
+<ParamField path="context_compression" type="bool" default="True">
+  Enables automatic compression when memory approaches the configured context limit.
+
+  ```python
+  from swarms import Agent
+
+  agent = Agent(
+      agent_name="ResearchAgent",
+      model_name="claude-sonnet-4-6",
+      max_loops=5,
+      context_compression=True,
+  )
+  ```
+</ParamField>
+
+### When compression runs
+
+Compression can run when all of these are true:
+
+- `context_compression=True`
+- The token usage of `short_memory.return_history_as_string()` is greater than or equal to `threshold * context_length`
+- The agent is at the top of a loop iteration
+
+The default threshold is `0.9`, so compression starts when the active prompt reaches about 90% of the context window.
+
+Compression works for both `max_loops="auto"` and integer `max_loops` runs. The `context_compression` flag is the gate.
+
+### What compression does
+
+When compression fires:
+
+1. The current transcript is summarized with an LLM call.
+2. `Conversation.compact(summary=...)` is called.
+3. The current `MEMORY.md` is copied to `archive/history_<timestamp>.md`.
+4. The active `MEMORY.md` is deleted and recreated with a fresh header.
+5. `conversation_history` is rebuilt with the system prompt, rules, and custom rules.
+6. The summary is appended as one `System` message to both memory and `MEMORY.md`.
+
+After compaction, active memory is small again:
+
+```text
+conversation_history:
+  [0] System: <system_prompt>
+  [1] User: <rules>                     # if provided
+  [2] User: <custom_rules_prompt>       # if provided
+  [3] System: [Compressed Memory Summary] ...<summary>
+
+MEMORY.md:
+  # Agent Memory
+  ...
+  ## Interaction Log
+  ### System - <timestamp>
+  [Compressed Memory Summary] ...<summary>
+
+archive/history_<previous-timestamp>.md:
+  Full pre-compaction transcript
+```
+
+On the next process restart, Swarms loads the compact summary from `MEMORY.md` instead of the raw pre-compaction transcript. The archive keeps the full transcript available without filling the active context window.
+
+## Configure compression
+
+Compression is enabled by default:
 
 ```python
 from swarms import Agent
 
 agent = Agent(
-    agent_name="Assistant",
-    model_name="gpt-5.4",
-    max_loops=3,
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops=5,
+    context_compression=True,
 )
-
-# Each message is automatically added to memory
-response = agent.run("What is machine learning?")
-# Agent remembers context for follow-up
-response = agent.run("Give me an example")
 ```
 
-### Memory Configuration
-
-<ParamField path="user_name" type="str" default="Human">
-  Name used for user messages in conversation history.
-  
-  ```python
-  agent = Agent(
-      user_name="Alice",
-      model_name="gpt-5.4"
-  )
-  ```
-</ParamField>
-
-<ParamField path="return_history" type="bool" default="False">
-  Return full conversation history instead of just final response.
-  
-  ```python
-  agent = Agent(
-      return_history=True,
-      model_name="gpt-5.4"
-  )
-  
-  history = agent.run("Hello")
-  print(history)  # Full conversation
-  ```
-</ParamField>
-
-<ParamField path="context_length" type="int" default="Auto-detected">
-  Maximum context window size in tokens.
-  
-  ```python
-  agent = Agent(
-      context_length=16000,
-      model_name="gpt-5.4"
-  )
-  ```
-</ParamField>
-
-<ParamField path="dynamic_context_window" type="bool" default="True">
-  Automatically manage context to prevent overflow.
-  
-  ```python
-  agent = Agent(
-      dynamic_context_window=True,  # Auto-truncate if needed
-      model_name="gpt-5.4"
-  )
-  ```
-</ParamField>
-
-## Accessing Memory
-
-### View Conversation History
+Disable compression when you want the active `MEMORY.md` to remain un-compacted:
 
 ```python
-agent = Agent(model_name="gpt-5.4")
+from swarms import Agent
 
-agent.run("Hello!")
-agent.run("What's the weather?")
-
-# Get conversation history as string
-history = agent.short_memory.return_history_as_string()
-print(history)
-
-# Get as list of dictionaries
-history_list = agent.short_memory.to_dict()
-print(history_list)
-
-# Get as JSON
-json_history = agent.short_memory.return_json()
-print(json_history)
-```
-
-### Get Specific Messages
-
-```python
-# Get the last message
-last_message = agent.short_memory.get_final_message_content()
-print(last_message)
-
-# Get all messages except system prompt
-conversation = agent.short_memory.return_all_except_first_string()
-print(conversation)
-```
-
-## Memory Persistence
-
-### Auto-save Conversations
-
-```python
 agent = Agent(
-    agent_name="Persistent-Agent",
-    model_name="gpt-5.4",
-    autosave=True,  # Auto-save after each run
+    agent_name="StaticAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops="auto",
+    context_compression=False,
 )
-
-agent.run("Remember this conversation")
-# Conversation automatically saved to file
 ```
 
-### Manual Save and Load
+When compression is enabled, the agent attaches a `ContextCompressor(threshold=0.9)`. You can replace it after construction to tune the threshold, summarizer model, temperature, or summary length:
 
 ```python
-# Save conversation
-agent.short_memory.export(force=True)  # Saves to default path
+from swarms import Agent
+from swarms.agents.context_compressor import ContextCompressor
 
-# Or specify path
+agent = Agent(
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops=5,
+    context_compression=True,
+)
+
+agent._context_compressor = ContextCompressor(
+    threshold=0.75,
+    summarizer_model="claude-haiku-4-5",
+    summarizer_temperature=0.1,
+    summarizer_max_tokens=3000,
+)
+```
+
+## Access memory in code
+
+The `Conversation` object is available as `agent.short_memory`.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+)
+
+agent.run("Research low-latency data warehouse options.")
+agent.run("Narrow the recommendation to GCP.")
+
+# Path to the active on-disk memory file
+print(agent.short_memory.memory_md_path)
+
+# Full prompt-ready history
+print(agent.short_memory.return_history_as_string())
+
+# Structured message list
+messages = agent.short_memory.to_dict()
+print(messages)
+
+# Last response content
+print(agent.short_memory.get_final_message_content())
+```
+
+### Manual compaction
+
+You can compact memory yourself at any time:
+
+```python
+agent.short_memory.compact(
+    summary=(
+        "Researched cloud data warehouses. "
+        "The user prefers GCP for latency and operations reasons. "
+        "Shortlist: BigQuery, AlloyDB, and ClickHouse Cloud."
+    )
+)
+```
+
+Manual compaction follows the same archive, wipe, and re-seed flow as automatic compression.
+
+### Export and load conversations
+
+`MEMORY.md` is the active persistent memory file. You can also export or load conversation history in other formats:
+
+```python
+# Save conversation snapshots
+agent.short_memory.export(force=True)
 agent.short_memory.save_as_json(force=True)
 agent.short_memory.save_as_yaml(force=True)
 
-# Load conversation
+# Load a prior exported conversation
 agent.short_memory.load("conversation_agent-123.json")
 ```
 
-### Configure Save Location
+### Search memory
+
+Use built-in search helpers for quick inspection:
 
 ```python
+results = agent.short_memory.search("GCP")
+matches = agent.short_memory.search_keyword_in_conversation("latency")
+```
+
+## Disable disk-backed memory
+
+If an agent should keep only in-process memory, set `memory_md_path` to `None`:
+
+```python
+from swarms import Agent
+
 agent = Agent(
-    agent_name="My-Agent",
+    agent_name="EphemeralAgent",
     model_name="gpt-5.4",
-    autosave=True,
 )
 
-# Conversations saved to: ~/.swarms/conversations/
+agent.short_memory.memory_md_path = None
+
+agent.run("This updates conversation_history but does not write to MEMORY.md.")
 ```
 
-## Context Window Management
+This does not disable `conversation_history`. It only stops future writes to the disk-backed `MEMORY.md` file.
 
-### Dynamic Context Truncation
+## Persistent memory vs RAG
 
-When conversations exceed the context window, Swarms automatically manages the history:
-
-```python
-agent = Agent(
-    model_name="gpt-5.4",
-    context_length=4096,
-    dynamic_context_window=True,  # Automatically truncate if needed
-)
-
-# Have a long conversation
-for i in range(100):
-    agent.run(f"Tell me fact {i} about AI")
-
-# Old messages are automatically removed to fit context
-```
-
-### Manual Truncation
+Use `MEMORY.md` for the agent's own interaction history. Use RAG when the agent needs to retrieve information from documents, databases, or external knowledge stores.
 
 ```python
-# Truncate to fit context window
-agent.short_memory.truncate_memory_with_tokenizer()
-
-# Clear all memory
-agent.short_memory.clear()
-```
-
-## Long-Term Memory (RAG)
-
-For knowledge retrieval across sessions, use long-term memory with a vector database.
-
-### Basic RAG Setup
-
-```python
+from swarms import Agent
 from swarms.memory import ChromaDB
 
-# Initialize vector database
 vector_db = ChromaDB(
     output_dir="agent_memory",
     docs_folder="knowledge_base",
 )
 
 agent = Agent(
-    agent_name="Knowledge-Agent",
+    agent_name="KnowledgeAgent",
     model_name="claude-sonnet-4-6",
     long_term_memory=vector_db,
+    rag_every_loop=False,
     max_loops=1,
 )
 
-# Agent automatically queries RAG on each task
-response = agent.run("What do we know about quantum computing?")
+response = agent.run(
+    "Summarize what our renewable energy documents say about storage."
+)
 ```
 
-### RAG Configuration
-
 <ParamField path="long_term_memory" type="BaseVectorDatabase" default="None">
-  Vector database for long-term knowledge retrieval.
-  
-  ```python
-  from swarms.memory import ChromaDB
-  
-  memory = ChromaDB(output_dir="./memory")
-  agent = Agent(long_term_memory=memory)
-  ```
+  Vector database used for document retrieval.
 </ParamField>
 
 <ParamField path="rag_every_loop" type="bool" default="False">
-  Query RAG on every loop iteration vs. once at start.
-  
-  ```python
-  agent = Agent(
-      long_term_memory=vector_db,
-      rag_every_loop=True,  # Query RAG each loop
-      max_loops=3,
-  )
-  ```
+  Query long-term memory on every loop iteration instead of only at the beginning.
 </ParamField>
 
 <ParamField path="memory_chunk_size" type="int" default="2000">
-  Size of memory chunks for RAG retrieval.
-  
-  ```python
-  agent = Agent(
-      long_term_memory=vector_db,
-      memory_chunk_size=1000,
-  )
-  ```
+  Chunk size used when processing memory documents for retrieval.
 </ParamField>
 
-### RAG Query Examples
+## Best practices
 
-```python
-from swarms.memory import ChromaDB
+- Use stable, descriptive `agent_name` values for agents that should remember previous work.
+- Keep `context_compression=True` for autonomous or long-running agents.
+- Tune `ContextCompressor.threshold` lower for agents with large tool outputs or long responses.
+- Compact manually after major milestones to preserve the important state and reduce prompt size.
+- Use RAG for external knowledge. Do not rely on `MEMORY.md` as a document database.
+- Set `memory_md_path = None` for privacy-sensitive or one-off agents that should not write a transcript.
 
-vector_db = ChromaDB(output_dir="knowledge")
+## Why it works this way
 
-agent = Agent(
-    agent_name="Research-Agent",
-    model_name="claude-sonnet-4-6",
-    long_term_memory=vector_db,
-    rag_every_loop=False,  # Query once at start
-    max_loops=1,
-)
+### Why key memory by `agent_name`?
 
-# RAG is automatically queried with the task
-response = agent.run(
-    "Summarize what we know about renewable energy from our documents"
-)
-```
+`id` values can change between process starts. `agent_name` is user-controlled and stable, so it gives the agent a durable identity.
 
-## Memory Search
+### Why preload memory as one `System` message?
 
-### Search Conversation History
+The model needs to understand that the content is prior memory, not a current user request. A single system-level memory preamble is compact and less ambiguous than replaying old turns as active messages.
 
-```python
-agent = Agent(model_name="gpt-5.4")
+### Why wipe `MEMORY.md` during compaction?
 
-agent.run("AI is transforming healthcare")
-agent.run("Machine learning improves diagnostics")
-agent.run("Deep learning detects diseases")
+If compaction only appended a summary, the next run would load both the summary and the raw transcript it summarizes. Wiping the active file keeps the working context small, while `archive/` preserves the raw log.
 
-# Search for keyword
-results = agent.short_memory.search("healthcare")
-print(results)
-
-# Search with keyword method
-matches = agent.short_memory.search_keyword_in_conversation("learning")
-print(matches)
-```
-
-## Message Metadata
-
-### Enable Timestamps and IDs
-
-```python
-# The Conversation class is created internally by Agent
-# Configure through agent initialization
-agent = Agent(
-    agent_name="Tracked-Agent",
-    model_name="gpt-5.4",
-)
-
-# Messages automatically include metadata:
-# - role: "user" or agent name
-# - content: message text
-# - timestamp: ISO format datetime (if time_enabled=True in Conversation)
-# - message_id: UUID (if message_id_on=True in Conversation)
-```
-
-### Access Message Metadata
-
-```python
-# Get full history with metadata
-history = agent.short_memory.to_dict()
-
-for message in history:
-    print(f"Role: {message['role']}")
-    print(f"Content: {message['content']}")
-    if 'timestamp' in message:
-        print(f"Time: {message['timestamp']}")
-    if 'message_id' in message:
-        print(f"ID: {message['message_id']}")
-```
-
-## Advanced Memory Patterns
-
-### Multi-Turn Conversation
-
-```python
-agent = Agent(
-    agent_name="Tutor",
-    system_prompt="You are a helpful math tutor",
-    model_name="gpt-5.4",
-    max_loops=1,
-)
-
-# Build context over multiple interactions
-agent.run("I want to learn calculus")
-agent.run("Start with derivatives")  # Remembers previous context
-agent.run("Give me a practice problem")  # Still has full context
-```
-
-### Conversation Export
-
-```python
-# Export to different formats
-agent.short_memory.save_as_json(force=True)  # JSON format
-agent.short_memory.save_as_yaml(force=True)  # YAML format
-
-# Get as string
-json_str = agent.short_memory.to_json()
-print(json_str)
-```
-
-### Clear and Reset
-
-```python
-# Clear conversation history
-agent.short_memory.clear()
-
-# Start fresh
-agent.run("New conversation")
-```
-
-## Best Practices
-
-### 1. Use Dynamic Context Window
-
-```python
-# Good - Automatically manages context
-agent = Agent(
-    dynamic_context_window=True,
-    context_length=8192,
-)
-```
-
-### 2. Enable Autosave for Important Conversations
-
-```python
-# Good - Persist important work
-agent = Agent(
-    autosave=True,
-    agent_name="Important-Agent",
-)
-```
-
-### 3. Use RAG for Knowledge-Intensive Tasks
-
-```python
-# Good - Leverage external knowledge
-from swarms.memory import ChromaDB
-
-memory = ChromaDB(docs_folder="./knowledge")
-agent = Agent(
-    long_term_memory=memory,
-    model_name="claude-sonnet-4-6",
-)
-```
-
-### 4. Clear Memory Between Unrelated Tasks
-
-```python
-agent = Agent(model_name="gpt-5.4")
-
-# Task 1
-agent.run("Analyze sales data")
-
-# Clear before unrelated task
-agent.short_memory.clear()
-
-# Task 2 (no context from Task 1)
-agent.run("Write a poem")
-```
-
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Agent Tools" icon="wrench" href="/agents/agent-tools">
-    Add tools to extend agent capabilities
+  <Card title="Agent Configuration" icon="sliders" href="/agents/agent-configuration">
+    Configure core agent parameters such as `agent_name`, `max_loops`, and context limits.
   </Card>
-  <Card title="Structured Outputs" icon="code" href="/agents/structured-outputs">
-    Get structured responses from agents
+  <Card title="Conversation API" icon="comments" href="/api/conversation">
+    Explore the underlying `Conversation` class and its export, load, and search helpers.
   </Card>
 </CardGroup>
-
-## Reference
-
-- Conversation class: `swarms/structs/conversation.py:51`
-- Agent memory initialization: `swarms/structs/agent.py:1060-1082`
