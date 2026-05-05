@@ -4,7 +4,7 @@ description: 'Persist agent interaction history to disk via MEMORY.md and resume
 icon: 'database'
 ---
 
-Swarms agents persist their interaction history to disk through a per-agent `MEMORY.md` file. Reusing the same `agent_name` across process starts resumes the same memory.
+Swarms agents persist their interaction history to disk through a per-agent `MEMORY.md` file. Set `persistent_memory=True` (the default) and reuse the same `agent_name` across process starts to resume the same memory.
 
 ## When to use it
 
@@ -29,37 +29,44 @@ On construction, Swarms reads `MEMORY.md` and injects it into `conversation_hist
 
 ## Basic example
 
-Set `agent_name` and run the agent. The memory file is created automatically:
+Set `agent_name` and `persistent_memory=True` (the default). On the first run Swarms creates `MEMORY.md`. On subsequent runs the prior conversation is preloaded as a system preamble and the agent picks up where it left off:
 
 ```python
 from swarms import Agent
 
-agent = Agent(
-    agent_name="ResearchAgent",
-    model_name="claude-sonnet-4-6",
+# Persistent agent (default behavior).
+# On first run it creates MEMORY.md. On subsequent runs it picks up
+# where it left off — the model sees the prior conversation as a
+# system preamble.
+persistent_agent = Agent(
+    agent_name="ResearchAssistant",
+    agent_description="Remembers context across sessions",
+    model_name="gpt-4.1",
     max_loops=1,
+    persistent_memory=True,  # default — state survives restarts
 )
 
-agent.run("Research low-latency cloud data warehouses for analytics.")
-agent.run("Narrow the recommendation to GCP.")
+persistent_agent.run("Research low-latency cloud data warehouses for analytics.")
+persistent_agent.run("Narrow the recommendation to GCP.")
 
 # Active on-disk memory
-print(agent.short_memory.memory_md_path)
-# -> $WORKSPACE_DIR/agents/ResearchAgent/MEMORY.md
+print(persistent_agent.short_memory.memory_md_path)
+# -> $WORKSPACE_DIR/agents/ResearchAssistant/MEMORY.md
 ```
 
 ## Resume across restarts
 
-Re-instantiate an agent with the **same** `agent_name`. The prior transcript is preloaded as a system message before the new task runs:
+Re-instantiate an agent with the **same** `agent_name` and `persistent_memory=True`. The prior transcript is preloaded as a system message before the new task runs:
 
 ```python
 from swarms import Agent
 
 # Second process, hours later
 agent = Agent(
-    agent_name="ResearchAgent",  # same name -> same memory
-    model_name="claude-sonnet-4-6",
+    agent_name="ResearchAssistant",  # same name -> same memory
+    model_name="gpt-4.1",
     max_loops=1,
+    persistent_memory=True,
 )
 
 # The agent already "remembers" the GCP shortlist from before
@@ -102,19 +109,20 @@ agent.short_memory.load("conversation_agent-123.json")
 
 ## Disable disk-backed memory
 
-For privacy-sensitive or one-off agents, disable disk writes by clearing `memory_md_path`. In-process `conversation_history` still works:
+For privacy-sensitive or one-off agents, set `persistent_memory=False`. In-process `conversation_history` still works for the duration of the run, but nothing is written to disk and nothing is preloaded next time:
 
 ```python
 from swarms import Agent
 
-agent = Agent(
+# Ephemeral agent — no MEMORY.md, no archive, fresh state every run.
+ephemeral_agent = Agent(
     agent_name="EphemeralAgent",
-    model_name="claude-sonnet-4-6",
+    model_name="gpt-4.1",
+    max_loops=1,
+    persistent_memory=False,
 )
 
-agent.short_memory.memory_md_path = None
-
-agent.run("This task is not written to MEMORY.md.")
+ephemeral_agent.run("This task is not written to MEMORY.md.")
 ```
 
 ## Tips

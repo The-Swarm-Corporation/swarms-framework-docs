@@ -4,7 +4,7 @@ description: "Configure persistent agent memory, context compression, archives, 
 icon: "database"
 ---
 
-Swarms agents have disk-backed persistent memory through the `Conversation` class. Each agent writes its active interaction log to a `MEMORY.md` file and reloads that file when another process starts an agent with the same `agent_name`.
+Swarms agents have disk-backed persistent memory through the `Conversation` class. When `persistent_memory=True` (the default), each agent writes its active interaction log to a `MEMORY.md` file and reloads that file when another process starts an agent with the same `agent_name`. Set `persistent_memory=False` for ephemeral agents that should keep no on-disk state.
 
 Use this page to understand:
 
@@ -15,8 +15,40 @@ Use this page to understand:
 - When to use persistent memory versus RAG-based long-term memory
 
 <Note>
-  Persistent memory is keyed by `agent_name`. Reusing the same `agent_name` resumes the same memory across process restarts. Changing the name starts a separate memory folder.
+  Persistent memory is keyed by `agent_name`. Reusing the same `agent_name` (with `persistent_memory=True`) resumes the same memory across process restarts. Changing the name starts a separate memory folder; setting `persistent_memory=False` keeps the agent fully ephemeral.
 </Note>
+
+## The `persistent_memory` flag
+
+`persistent_memory` is the top-level switch that controls whether the agent reads from and writes to `MEMORY.md`.
+
+<ParamField path="persistent_memory" type="bool" default="True">
+  Enables disk-backed persistent memory. When `True`, the agent creates `MEMORY.md` on first run, preloads it on subsequent runs, and writes new turns through to disk. When `False`, the agent runs fully in-process — no `MEMORY.md`, no `archive/`, fresh state every run.
+
+  ```python
+  from swarms import Agent
+
+  # Persistent agent (default behavior).
+  # On first run it creates MEMORY.md. On subsequent runs it picks up
+  # where it left off — the model sees the prior conversation as a
+  # system preamble.
+  persistent_agent = Agent(
+      agent_name="ResearchAssistant",
+      agent_description="Remembers context across sessions",
+      model_name="gpt-4.1",
+      max_loops=1,
+      persistent_memory=True,  # default — state survives restarts
+  )
+
+  # Ephemeral agent — no disk writes, no preload, fresh every run.
+  ephemeral_agent = Agent(
+      agent_name="OneShotAgent",
+      model_name="gpt-4.1",
+      max_loops=1,
+      persistent_memory=False,
+  )
+  ```
+</ParamField>
 
 ## Memory stack
 
@@ -317,22 +349,27 @@ matches = agent.short_memory.search_keyword_in_conversation("latency")
 
 ## Disable disk-backed memory
 
-If an agent should keep only in-process memory, set `memory_md_path` to `None`:
+The clean way to keep an agent fully in-process is `persistent_memory=False`. Nothing is preloaded, nothing is written to `MEMORY.md`, and no `archive/` directory is created:
 
 ```python
 from swarms import Agent
 
 agent = Agent(
     agent_name="EphemeralAgent",
-    model_name="gpt-5.4",
+    model_name="gpt-4.1",
+    persistent_memory=False,
 )
-
-agent.short_memory.memory_md_path = None
 
 agent.run("This updates conversation_history but does not write to MEMORY.md.")
 ```
 
-This does not disable `conversation_history`. It only stops future writes to the disk-backed `MEMORY.md` file.
+If you have already constructed a persistent agent and want to stop further disk writes for the rest of the run, you can also clear `memory_md_path`:
+
+```python
+agent.short_memory.memory_md_path = None
+```
+
+This stops future writes but does not retroactively delete `MEMORY.md`. Neither approach disables `conversation_history` — that always tracks the current run in memory.
 
 ## Persistent memory vs RAG
 
