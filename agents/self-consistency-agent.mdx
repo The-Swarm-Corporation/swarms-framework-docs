@@ -1,0 +1,135 @@
+---
+title: Self-Consistency Agent
+description: Generate multiple independent reasoning paths and aggregate them via majority voting for reliable, high-accuracy answers
+icon: "check-double"
+---
+
+The `SelfConsistencyAgent` generates multiple independent responses to a given task and aggregates them into a single, consistent final answer. It leverages concurrent processing and employs a majority voting mechanism to ensure reliability.
+
+Based on the research paper: [Self-Consistency Improves Chain of Thought Reasoning in Language Models](https://arxiv.org/abs/2203.07870) (Wang et al., 2022).
+
+## Class: `SelfConsistencyAgent`
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | `str` | `"Self-Consistency-Agent"` | Name of the agent |
+| `description` | `str` | `"An agent that uses self consistency..."` | Description of the agent's purpose |
+| `system_prompt` | `str` | `CONSISTENCY_SYSTEM_PROMPT` | System prompt for the reasoning agent |
+| `model_name` | `str` | Required | The underlying language model to use |
+| `num_samples` | `int` | `5` | Number of independent responses to generate |
+| `max_loops` | `int` | `1` | Maximum number of reasoning loops per sample |
+| `majority_voting_prompt` | `Optional[str]` | `majority_voting_prompt` | Custom prompt for majority voting aggregation |
+| `eval` | `bool` | `False` | Enable evaluation mode for answer validation |
+| `output_type` | `OutputType` | `"dict"` | Format of the output |
+| `random_models_on` | `bool` | `False` | Enable random model selection for diversity |
+
+### Methods
+
+| Method | Description | Returns |
+|--------|-------------|---------|
+| `run(task, img?, answer?)` | Generates multiple responses and aggregates them | `Union[str, Dict[str, Any]]` |
+| `aggregation_agent(responses, prompt?, model_name?)` | Aggregates responses via majority voting | `str` |
+| `check_responses_for_answer(responses, answer)` | Checks if an answer appears in any response | `bool` |
+| `batched_run(tasks)` | Run the agent on multiple tasks in batch | `List[Union[str, Dict[str, Any]]]` |
+
+## Examples
+
+### Basic Usage
+
+```python
+from swarms.agents.consistency_agent import SelfConsistencyAgent
+
+agent = SelfConsistencyAgent(
+    name="Math-Reasoning-Agent",
+    model_name="gpt-4o",
+    max_loops=1,
+    num_samples=5
+)
+
+task = "What is the 40th prime number?"
+final_answer = agent.run(task)
+print("Final aggregated answer:", final_answer)
+```
+
+### Evaluation Mode
+
+```python
+from swarms.agents.consistency_agent import SelfConsistencyAgent
+
+agent = SelfConsistencyAgent(
+    name="Validation-Agent",
+    model_name="gpt-4o",
+    num_samples=3,
+    eval=True
+)
+
+result = agent.run("What is 2 + 2?", answer="4", eval=True)
+if result is not None:
+    print("Validation passed:", result)
+else:
+    print("Validation failed - expected answer not found")
+```
+
+### Random Models for Diversity
+
+```python
+from swarms.agents.consistency_agent import SelfConsistencyAgent
+
+agent = SelfConsistencyAgent(
+    name="Diverse-Reasoning-Agent",
+    model_name="gpt-4o",
+    num_samples=5,
+    random_models_on=True
+)
+
+result = agent.run("What are the benefits of renewable energy?")
+print("Diverse reasoning result:", result)
+```
+
+### Batch Processing
+
+```python
+from swarms.agents.consistency_agent import SelfConsistencyAgent
+
+agent = SelfConsistencyAgent(
+    name="Batch-Processing-Agent",
+    model_name="gpt-4o",
+    num_samples=3
+)
+
+tasks = [
+    "What is the capital of France?",
+    "What is 15 * 23?",
+    "Explain photosynthesis in simple terms."
+]
+
+results = agent.batched_run(tasks)
+for i, result in enumerate(results):
+    print(f"Task {i+1} result: {result}")
+```
+
+## How It Works
+
+1. **Generates Multiple Independent Responses**: Creates several reasoning paths for the same problem
+2. **Analyzes Consistency**: Examines agreement among different reasoning approaches
+3. **Aggregates Results**: Uses majority voting or consensus building
+4. **Produces Reliable Output**: Delivers a final answer reflecting the most reliable consensus
+
+The agent uses `ThreadPoolExecutor` to generate multiple responses concurrently, improving performance while maintaining independence between reasoning paths.
+
+## Output Formats
+
+- `"dict"`: Dictionary format with conversation history
+- `"str"`: Simple string output
+- `"list"`: List format
+- `"json"`: JSON formatted output
+
+## Best Practices
+
+1. **Sample Size**: Use 3-7 samples for most tasks; increase for critical decisions
+2. **Model Selection**: Choose models with strong reasoning capabilities
+3. **Evaluation Mode**: Enable for tasks with known correct answers
+4. **Custom Prompts**: Tailor majority voting prompts for specific domains
+5. **Batch Processing**: Use `batched_run` for multiple related tasks

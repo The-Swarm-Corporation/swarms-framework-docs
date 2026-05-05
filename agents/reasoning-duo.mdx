@@ -1,0 +1,99 @@
+---
+title: Reasoning Duo
+description: Dual-agent collaborative system that separates reasoning and execution phases for more robust and reliable outputs
+icon: "people-arrows"
+---
+
+The `ReasoningDuo` class implements a dual-agent reasoning system that combines a reasoning agent and a main agent to provide well-thought-out responses to complex tasks. This architecture separates the reasoning process from the final response generation.
+
+## Architecture
+
+```
+Task Input → Reasoning Agent → Structured Analysis → Main Agent → Final Output
+```
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model_name` | `str` | `"reasoning-agent-01"` | Name identifier for the reasoning agent |
+| `description` | `str` | `"A highly intelligent..."` | Description of the reasoning agent's capabilities |
+| `model_names` | `list[str]` | `["gpt-4o", "gpt-4o-mini"]` | Model names for reasoning and main agents |
+| `system_prompt` | `str` | `"You are a helpful..."` | System prompt for the main agent |
+
+### Methods
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `run` | `task: str` | `str` | Processes a single task through both agents |
+| `batched_run` | `tasks: List[str]` | `List[str]` | Processes multiple tasks sequentially |
+
+## Quick Start
+
+```python
+from swarms.agents.reasoning_duo import ReasoningDuo
+
+duo = ReasoningDuo(
+    model_name="reasoning-agent-01",
+    model_names=["gpt-4o", "gpt-4o-mini"]
+)
+
+result = duo.run("Explain the concept of gravitational waves")
+```
+
+## Examples
+
+### Mathematical Analysis
+
+```python
+duo = ReasoningDuo()
+
+math_task = """
+Solve the following differential equation:
+dy/dx + 2y = x^2, y(0) = 1
+"""
+
+solution = duo.run(math_task)
+```
+
+### Financial Analysis
+
+```python
+finance_task = """
+Calculate the Net Present Value (NPV) of a project with:
+- Initial investment: $100,000
+- Annual cash flows: $25,000 for 5 years
+- Discount rate: 8%
+"""
+
+analysis = duo.run(finance_task)
+```
+
+### Customizing Agent Behavior
+
+```python
+duo = ReasoningDuo(
+    model_name="custom-reasoning-agent",
+    description="Specialized financial analysis agent",
+    model_names=["gpt-4o", "gpt-4o-mini"],
+    system_prompt="You are a financial expert AI assistant..."
+)
+```
+
+### Batch Processing
+
+```python
+tasks = [
+    "Analyze market trends for tech stocks",
+    "Calculate risk metrics for a portfolio",
+    "Forecast revenue growth"
+]
+
+results = duo.batched_run(tasks)
+```
+
+## Best Practices
+
+1. **Task Formulation**: Be specific and clear in task descriptions. Include relevant context and constraints.
+2. **Performance Optimization**: Use `batched_run` for multiple related tasks. Monitor agent outputs for consistency.
+3. **Model Selection**: Adjust model parameters based on task complexity.
