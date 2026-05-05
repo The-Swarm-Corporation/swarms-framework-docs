@@ -301,7 +301,8 @@
             "pages": [
               "examples/applications/gold-etf-research",
               "examples/use-cases/financial-analysis",
-              "examples/finance/agentic-trading-gemini"
+              "examples/finance/agentic-trading-gemini",
+              "examples/finance/prediction-markets-polymarket-kalshi"
             ]
           },
           {
