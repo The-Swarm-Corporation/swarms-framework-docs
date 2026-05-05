@@ -1,0 +1,209 @@
+---
+title: Technical Support
+description: Getting help with the Swarms multi-agent framework — bug reports, feature requests, and support channels
+icon: "life-ring"
+---
+
+The Swarms team is committed to providing exceptional technical support to help you build production-grade multi-agent systems. Whether you're experiencing bugs, need implementation guidance, or want to request new features, we have multiple channels to ensure you get the help you need.
+
+## Support Channels Overview
+
+| Support Type | Best For | Response Time | Channel |
+|-------------|----------|---------------|---------|
+| **Bug Reports** | Code issues, errors, unexpected behavior | &lt; 24 hours | [GitHub Issues](https://github.com/kyegomez/swarms/issues) |
+| **Major Features (SIPs)** | New agent types, core changes, integrations | 1-2 weeks | [SIP Guidelines](/community/sip) |
+| **Minor Features** | Small enhancements, straightforward additions | &lt; 48 hours | [GitHub Issues](https://github.com/kyegomez/swarms/issues) |
+| **Private Issues** | Security concerns, enterprise consulting | &lt; 4 hours | [Book Support Call](https://cal.com/swarms/swarms-technical-support) |
+| **Real-time Help** | Quick questions, community discussions | Immediate | [Discord Community](https://discord.gg/EamjgSaEQf) |
+| **Documentation** | Usage guides, examples, tutorials | Self-service | [docs.swarms.world](https://docs.swarms.world) |
+
+## Reporting Bugs & Technical Issues
+
+### When to Use GitHub Issues
+
+Use GitHub Issues for:
+
+- Code bugs and errors
+- Installation problems
+- Documentation issues
+- Performance problems
+- API inconsistencies
+
+### How to Create an Effective Bug Report
+
+1. Visit the [Issues page](https://github.com/kyegomez/swarms/issues)
+2. Search existing issues to avoid duplicates
+3. Click "New Issue" and select the appropriate template
+4. Include the following information:
+
+```markdown
+## Bug Description
+A clear description of what the bug is.
+
+## Environment
+- Swarms version: [e.g., 5.9.2]
+- Python version: [e.g., 3.9.0]
+- Operating System: [e.g., Ubuntu 20.04, macOS 14, Windows 11]
+- Model provider: [e.g., OpenAI, Anthropic, Groq]
+
+## Steps to Reproduce
+1. Step one
+2. Step two
+3. Step three
+
+## Expected Behavior
+What you expected to happen.
+
+## Actual Behavior
+What actually happened.
+
+## Code Sample
+[Minimal code that reproduces the issue]
+
+## Error Messages
+[Paste any error messages or stack traces]
+```
+
+### Issue Templates Available
+
+| Template | Use Case |
+|----------|----------|
+| **Bug Report** | Standard bug reporting template |
+| **Documentation** | Issues with docs, guides, examples |
+| **Feature Request** | Suggesting new functionality |
+| **Question** | General questions about usage |
+| **Enterprise** | Enterprise-specific issues |
+
+## Private & Enterprise Support
+
+### When to Book a Private Support Call
+
+Book a private consultation for:
+
+- Security vulnerabilities or concerns
+- Enterprise deployment guidance
+- Custom implementation consulting
+- Architecture review sessions
+- Performance optimization
+- Integration troubleshooting
+
+### How to Schedule Support
+
+1. Visit the [booking page](https://cal.com/swarms/swarms-technical-support)
+2. Select an available time that works for your timezone
+3. Provide details about your issue or requirements
+4. Prepare for the call:
+   - Have your code/environment ready
+   - Prepare specific questions
+   - Include relevant error messages or logs
+
+## Real-Time Community Support
+
+### Join Our Discord Community
+
+Get instant help from our active community of developers and core team members.
+
+- **24/7 availability** — someone is always online
+- **Instant responses** — get help in real-time
+- **Community wisdom** — learn from other developers
+- **Specialized channels** — find the right help quickly
+- **Latest updates** — stay informed about new releases
+
+### Discord Channels Guide
+
+| Channel | Purpose |
+|---------|---------|
+| **#general** | General discussions and introductions |
+| **#technical-support** | Technical questions and troubleshooting |
+| **#showcase** | Share your Swarms projects and demos |
+| **#feature-requests** | Discuss potential new features |
+| **#announcements** | Official updates and releases |
+| **#resources** | Helpful links, tutorials, and guides |
+
+### Getting Help on Discord
+
+1. [Join here](https://discord.gg/EamjgSaEQf)
+2. Read the rules and introduce yourself in #general
+3. Use the right channel for your question type
+4. Provide context when asking questions:
+   ```
+   Python version: 3.9
+   Swarms version: 5.9.2
+   OS: macOS 14
+   Question: How do I implement custom tools with MCP?
+   What I tried: [paste your code]
+   Error: [paste error message]
+   ```
+
+## Feature Requests
+
+### Swarms Improvement Proposals (SIPs)
+
+The primary way to propose new features and significant enhancements is through the [SIP process](/community/sip).
+
+**When to Submit a SIP:**
+
+- New agent types or behaviors
+- Core framework changes
+- New integrations with external services
+- Breaking changes
+- Complex features requiring community discussion
+
+### Other Feature Requests
+
+For smaller enhancements that don't require a full SIP:
+
+- Visit [GitHub Issues](https://github.com/kyegomez/swarms/issues) and select the "Feature Request" template
+- Provide detailed description and use cases
+- For enterprise-specific features, contact [kye@swarms.world](mailto:kye@swarms.world)
+
+## Self-Service Resources
+
+Before reaching out for support, check these resources:
+
+| Resource | Link |
+|----------|------|
+| Complete Documentation | [docs.swarms.world](https://docs.swarms.world) |
+| Installation Guide | [Installation](/installation) |
+| Quick Start | [Quickstart](/quickstart) |
+| Examples Gallery | [Examples](/examples/overviews/examples-index) |
+
+### Common Solutions
+
+| Issue | Solution |
+|-------|----------|
+| **Installation fails** | Check [Environment Setup](/environment-setup) |
+| **Model not responding** | Verify API keys in environment variables |
+| **Import errors** | Ensure latest version: `pip install -U swarms` |
+| **Agent not working** | Check [Basic Agent Example](/examples/basic-agent) |
+
+## Support Checklist
+
+Before requesting support, please:
+
+- [ ] Check the documentation for existing solutions
+- [ ] Search GitHub issues for similar problems
+- [ ] Update to latest version: `pip install -U swarms`
+- [ ] Verify environment setup and API keys
+- [ ] Test with minimal code to isolate the issue
+- [ ] Gather error messages and relevant logs
+- [ ] Note your environment (OS, Python version, Swarms version)
+
+## Response Time Expectations
+
+| Priority | Response Time | Resolution Time |
+|----------|---------------|-----------------|
+| **Critical** (Production down) | &lt; 2 hours | &lt; 24 hours |
+| **High** (Major functionality blocked) | &lt; 8 hours | &lt; 48 hours |
+| **Medium** (Feature issues) | &lt; 24 hours | &lt; 1 week |
+| **Low** (Documentation, enhancements) | &lt; 48 hours | Next release |
+
+## Support Channel Summary
+
+| Urgency | Best Channel |
+|---------|-------------|
+| **Emergency** | [Book Immediate Call](https://cal.com/swarms/swarms-technical-support) |
+| **Urgent** | [Discord #technical-support](https://discord.gg/EamjgSaEQf) |
+| **Standard** | [GitHub Issues](https://github.com/kyegomez/swarms/issues) |
+| **Major Features** | [SIP Guidelines](/community/sip) |
+| **Minor Features** | [GitHub Issues](https://github.com/kyegomez/swarms/issues) |

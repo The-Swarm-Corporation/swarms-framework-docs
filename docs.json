@@ -311,6 +311,16 @@
             ]
           },
           {
+            "group": "Protocol",
+            "pages": [
+              "community/protocol-overview",
+              "community/sip",
+              "community/features",
+              "community/ecosystem",
+              "community/technical-support"
+            ]
+          },
+          {
             "group": "Support",
             "pages": [
               "community/discord",
