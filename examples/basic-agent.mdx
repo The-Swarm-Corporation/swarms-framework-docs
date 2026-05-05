@@ -15,7 +15,7 @@ from swarms import Agent
 
 # Initialize a new agent
 agent = Agent(
-    model_name="gpt-4o-mini",  # Specify the LLM
+    model_name="gpt-5.4",  # Specify the LLM
     max_loops="auto",           # Set the number of interactions
     interactive=True,           # Enable interactive mode for real-time feedback
 )
@@ -41,7 +41,7 @@ The `Agent` class is the core building block for creating autonomous agents in S
 
 ```python
 agent = Agent(
-    model_name="gpt-4o-mini",  # The language model to use
+    model_name="gpt-5.4",  # The language model to use
     max_loops="auto",           # How many times to iterate on the task
     interactive=True,           # Enable real-time feedback
 )
@@ -99,7 +99,7 @@ research_agent = Agent(
     agent_name="Research-Agent",
     agent_description="An expert research agent specializing in technical analysis",
     system_prompt="You are a research expert. Provide detailed, well-sourced analysis on any topic.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=3,
     interactive=True,
     verbose=True,  # Show detailed logging
@@ -128,7 +128,7 @@ Swarms supports multiple LLM providers:
 
 ```python
 # OpenAI
-agent_openai = Agent(model_name="gpt-4o")
+agent_openai = Agent(model_name="claude-sonnet-4-6")
 
 # Anthropic Claude
 agent_claude = Agent(model_name="claude-sonnet-4-5")
@@ -176,7 +176,7 @@ Now that you've created your first agent, explore these advanced topics:
 code_reviewer = Agent(
     agent_name="Code-Reviewer",
     system_prompt="You are an expert code reviewer. Analyze code for bugs, performance issues, and best practices.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -197,7 +197,7 @@ def calculate_total(items):
 # Agent that iterates until task is complete
 autonomous_agent = Agent(
     agent_name="Autonomous-Researcher",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops="auto",  # Will iterate until completion
     system_prompt="Research thoroughly and provide comprehensive analysis.",
 )
@@ -222,7 +222,7 @@ result = autonomous_agent.run(
 ```python
 # Enable verbose mode to see detailed logs
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     verbose=True,  # This will show what's happening
 )
 ```
@@ -236,7 +236,7 @@ import os
 if not os.getenv("OPENAI_API_KEY"):
     raise ValueError("Please set OPENAI_API_KEY environment variable")
 
-agent = Agent(model_name="gpt-4o-mini")
+agent = Agent(model_name="gpt-5.4")
 ```
 
 ## Learn More

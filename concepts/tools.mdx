@@ -102,7 +102,7 @@ def calculate(expression: str) -> float:
 
 # Create agent with tools
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[search_web, calculate],
 )
 
@@ -162,7 +162,7 @@ def get_weather(location: str, units: str = "celsius") -> str:
     return f"Weather in {location}: 22°{units[0].upper()}, Sunny"
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[get_weather],
 )
 
@@ -223,7 +223,7 @@ class CalculationRequest(BaseModel):
     precision: int = Field(2, description="Decimal places for the result")
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     list_base_models=[SearchQuery, CalculationRequest],
 )
 ```
@@ -246,7 +246,7 @@ mcp_connection = MCPConnection(
 
 # Agent automatically discovers and uses MCP tools
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     mcp_config=mcp_connection,
 )
 
@@ -274,7 +274,7 @@ def search_web(query: str) -> str:
     return search.run(query)
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[search_web],
 )
 ```
@@ -456,7 +456,7 @@ def save_to_file(filename: str, content: str) -> str:
 
 # Agent with multiple tools
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[search_web, calculate, save_to_file],
     max_loops=5,  # Allow multiple tool uses
 )
@@ -474,7 +474,7 @@ Control how tools are executed:
 
 ```python
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[tool1, tool2, tool3],
     
     # Tool execution settings

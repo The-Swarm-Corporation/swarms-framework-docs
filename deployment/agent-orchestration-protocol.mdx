@@ -53,14 +53,14 @@ from swarms.structs.aop import AOP
 research_agent = Agent(
     agent_name="Research-Agent",
     agent_description="Expert in research and data collection",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
 )
 
 analysis_agent = Agent(
     agent_name="Analysis-Agent",
     agent_description="Expert in data analysis and insights",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
 )
 
@@ -106,7 +106,7 @@ agents = [
     Agent(
         agent_name=f"Worker-{i}",
         agent_description=f"Specialized worker agent {i}",
-        model_name="gpt-4o",
+        model_name="claude-sonnet-4-6",
         max_loops=1,
     )
     for i in range(5)
@@ -208,7 +208,7 @@ print(info)
 #     "tool_name": "research_tool",
 #     "agent_name": "Research-Agent",
 #     "agent_description": "Expert in research and data collection",
-#     "model_name": "gpt-4o",
+#     "model_name": "claude-sonnet-4-6",
 #     "timeout": 30,
 #     "max_retries": 3,
 #     "verbose": True

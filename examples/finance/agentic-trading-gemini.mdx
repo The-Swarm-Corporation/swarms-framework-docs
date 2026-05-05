@@ -276,7 +276,7 @@ trader = Agent(
         "- Always check balances before ordering\n"
         "- Log your reasoning for every decision"
     ),
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=3,
     tools=[
         get_ticker,
@@ -317,7 +317,7 @@ signal_agent = Agent(
         "   - Reasoning\n\n"
         "Do NOT place any trades. Output a structured signal report only."
     ),
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=2,
     tools=[get_ticker, get_orderbook, get_candles],
 )
@@ -336,7 +336,7 @@ risk_agent = Agent(
         "  symbol, side, amount, price\n"
         "For rejected signals, explain why."
     ),
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     tools=[get_balances, get_active_orders, get_orderbook],
 )
@@ -351,7 +351,7 @@ execution_agent = Agent(
         "3. If an order fails, report the error — do NOT retry\n"
         "4. Never modify the risk manager's parameters"
     ),
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     tools=[place_limit_order, get_active_orders],
 )

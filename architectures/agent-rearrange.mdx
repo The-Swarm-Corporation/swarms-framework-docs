@@ -29,19 +29,19 @@ from swarms import Agent, AgentRearrange
 researcher = Agent(
     agent_name="researcher",
     system_prompt="Research topics and gather information.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 writer = Agent(
     agent_name="writer",
     system_prompt="Write engaging content based on research.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 reviewer = Agent(
     agent_name="reviewer",
     system_prompt="Review and provide feedback on content.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Define flow: researcher first, then writer and reviewer in parallel

@@ -307,7 +307,7 @@ from swarms.structs.auto_swarm_builder import AutoSwarmBuilder
 # Create swarm builder
 builder = AutoSwarmBuilder(
     name="intelligent-swarm-builder",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     execution_type="return-agents",
     verbose=True
 )
@@ -326,7 +326,7 @@ print(agent_specs)
 builder = AutoSwarmBuilder(
     name="agent-factory",
     execution_type="return-agents-objects",
-    model_name="gpt-4o"
+    model_name="claude-sonnet-4-6"
 )
 
 # Get ready-to-use Agent objects
@@ -346,7 +346,7 @@ for agent in agents:
 builder = AutoSwarmBuilder(
     name="swarm-architect",
     execution_type="return-swarm-router-config",
-    model_name="gpt-4o"
+    model_name="claude-sonnet-4-6"
 )
 
 config = builder.run(
@@ -389,7 +389,7 @@ and investment strategy.
 
 builder = AutoSwarmBuilder(
     system_prompt=custom_prompt,
-    model_name="gpt-4o"
+    model_name="claude-sonnet-4-6"
 )
 
 agents = builder.run("Create a financial analysis team")
@@ -399,7 +399,7 @@ agents = builder.run("Create a financial analysis team")
 
 ```python
 builder = AutoSwarmBuilder(
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     additional_llm_args={
         "api_base": "https://custom-endpoint.com",
         "api_key": "custom-key",

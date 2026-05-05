@@ -51,8 +51,8 @@ from swarms import HeavySwarm
 swarm = HeavySwarm(
     name="Investment-Research-Team",
     description="Comprehensive investment analysis",
-    question_agent_model_name="gpt-4o-mini",
-    worker_model_name="gpt-4o-mini",
+    question_agent_model_name="gpt-5.4",
+    worker_model_name="gpt-5.4",
     show_dashboard=True,
     max_loops=1,
 )
@@ -73,7 +73,7 @@ from swarms_tools import exa_search  # Web search tool
 swarm = HeavySwarm(
     name="Market-Research-Team",
     description="Research team with web search capabilities",
-    question_agent_model_name="gpt-4o-mini",
+    question_agent_model_name="gpt-5.4",
     worker_model_name="claude-sonnet-4-20250514",
     worker_tools=[exa_search],  # Add tools to all workers
     show_dashboard=True,
@@ -142,11 +142,11 @@ Expert in:
   Description of the swarm's purpose
 </ParamField>
 
-<ParamField path="question_agent_model_name" type="str" default="gpt-4o-mini">
+<ParamField path="question_agent_model_name" type="str" default="gpt-5.4">
   Model for question generation agent
 </ParamField>
 
-<ParamField path="worker_model_name" type="str" default="gpt-4o-mini">
+<ParamField path="worker_model_name" type="str" default="gpt-5.4">
   Model for all specialized worker agents
 </ParamField>
 
@@ -292,7 +292,7 @@ from swarms_tools import exa_search
 
 swarm = HeavySwarm(
     name="Market-Intel-Team",
-    worker_model_name="gpt-4o-mini",
+    worker_model_name="gpt-5.4",
     worker_tools=[exa_search],
     loops_per_agent=2,
 )
@@ -325,7 +325,7 @@ strategy = swarm.run(
 ```python
 swarm = HeavySwarm(
     name="Due-Diligence-Team",
-    worker_model_name="gpt-4o-mini",
+    worker_model_name="gpt-5.4",
     loops_per_agent=3,  # Thorough investigation
 )
 

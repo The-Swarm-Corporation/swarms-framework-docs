@@ -26,21 +26,21 @@ from swarms import Agent, ConcurrentWorkflow
 market_analyst = Agent(
     agent_name="Market-Analyst",
     system_prompt="Analyze market trends and provide insights on the given topic.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 financial_analyst = Agent(
     agent_name="Financial-Analyst", 
     system_prompt="Provide financial analysis and recommendations on the given topic.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 risk_analyst = Agent(
     agent_name="Risk-Analyst",
     system_prompt="Assess risks and provide risk management strategies for the given topic.",
-    model_name="gpt-4o-mini", 
+    model_name="gpt-5.4", 
     max_loops=1,
 )
 
@@ -92,28 +92,28 @@ from swarms import Agent, ConcurrentWorkflow
 technical_analyst = Agent(
     agent_name="Technical-Analyst",
     system_prompt="Perform technical analysis using chart patterns, indicators, and price action.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 fundamental_analyst = Agent(
     agent_name="Fundamental-Analyst",
     system_prompt="Analyze company financials, earnings, valuation metrics, and business fundamentals.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 sentiment_analyst = Agent(
     agent_name="Sentiment-Analyst",
     system_prompt="Analyze market sentiment, news, social media, and investor sentiment indicators.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 quant_analyst = Agent(
     agent_name="Quant-Analyst",
     system_prompt="Perform quantitative analysis using statistical models, algorithms, and data-driven metrics.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -143,28 +143,28 @@ from swarms import Agent, ConcurrentWorkflow
 formal_writer = Agent(
     agent_name="Formal-Writer",
     system_prompt="Write in a professional, formal tone suitable for corporate communications.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 casual_writer = Agent(
     agent_name="Casual-Writer",
     system_prompt="Write in a friendly, conversational tone that resonates with general audiences.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 technical_writer = Agent(
     agent_name="Technical-Writer",
     system_prompt="Write with technical precision and detail for expert audiences.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 persuasive_writer = Agent(
     agent_name="Persuasive-Writer",
     system_prompt="Write compelling, persuasive copy that drives action and engagement.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -193,28 +193,28 @@ from swarms import Agent, ConcurrentWorkflow
 spanish_translator = Agent(
     agent_name="Spanish-Translator",
     system_prompt="Translate the given text into Spanish while maintaining tone and context.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 french_translator = Agent(
     agent_name="French-Translator",
     system_prompt="Translate the given text into French while maintaining tone and context.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 german_translator = Agent(
     agent_name="German-Translator",
     system_prompt="Translate the given text into German while maintaining tone and context.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 japanese_translator = Agent(
     agent_name="Japanese-Translator",
     system_prompt="Translate the given text into Japanese while maintaining tone and context.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -243,28 +243,28 @@ from swarms import Agent, ConcurrentWorkflow
 product_analyzer = Agent(
     agent_name="Product-Analyzer",
     system_prompt="Analyze the product features, capabilities, and user experience.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 pricing_analyzer = Agent(
     agent_name="Pricing-Analyzer",
     system_prompt="Analyze pricing strategies, plans, and value proposition.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 marketing_analyzer = Agent(
     agent_name="Marketing-Analyzer",
     system_prompt="Analyze marketing strategies, messaging, and positioning.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 customer_analyzer = Agent(
     agent_name="Customer-Analyzer",
     system_prompt="Analyze customer reviews, satisfaction, and feedback patterns.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -327,7 +327,7 @@ experts = [market_analyst, financial_analyst, risk_analyst]
 aggregator = Agent(
     agent_name="Synthesizer",
     system_prompt="Combine all analyses into a comprehensive recommendation.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 moa = MixtureOfAgents(

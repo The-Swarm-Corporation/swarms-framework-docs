@@ -42,7 +42,7 @@ def calculate_roi(investment: float, return_amount: float) -> str:
 agent = Agent(
     agent_name="Financial-Analyst",
     system_prompt="You are a financial analyst. Use the calculate_roi tool to analyze investments.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
     tools=[calculate_roi],  # Add tools here
 )
@@ -201,7 +201,7 @@ def calculate_metrics(revenue: float, expenses: float) -> str:
 multi_tool_agent = Agent(
     agent_name="Investment-Analyst",
     system_prompt="You are an investment analyst. Use the available tools to research and analyze stocks.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=3,
     tools=[search_stocks, analyze_financials, calculate_metrics],
 )
@@ -234,7 +234,7 @@ def get_weather(city: str, units: str = "celsius") -> str:
     return f"Weather in {city}: 22°C, Sunny"
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[get_weather],
 )
 ```
@@ -272,7 +272,7 @@ class WebSearchTool(BaseTool):
 search_tool = WebSearchTool(api_key=os.getenv("SEARCH_API_KEY"))
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[search_tool],
 )
 ```
@@ -289,7 +289,7 @@ from swarms import Agent
 # Agent with pre-built tools
 agent = Agent(
     agent_name="Research-Agent",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[exa_search, browser_use],
 )
 
@@ -357,7 +357,7 @@ class DatabaseTool:
 db_tool = DatabaseTool("postgresql://localhost/mydb")
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[db_tool.query],
 )
 ```
@@ -467,7 +467,7 @@ if os.getenv("ENABLE_DATABASE"):
     tools.append(db_query)
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=tools,
 )
 ```
@@ -486,7 +486,7 @@ registry.register("calculate", calculate_metrics)
 
 # Use registered tools
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=registry.get_all_tools(),
 )
 ```

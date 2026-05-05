@@ -598,8 +598,8 @@ class SimpleSwarm(BaseSwarm):
         return results
 
 # Create agents
-agent1 = Agent(agent_name="Agent-1", model_name="gpt-4o")
-agent2 = Agent(agent_name="Agent-2", model_name="gpt-4o")
+agent1 = Agent(agent_name="Agent-1", model_name="claude-sonnet-4-6")
+agent2 = Agent(agent_name="Agent-2", model_name="claude-sonnet-4-6")
 
 # Create swarm
 swarm = SimpleSwarm(
@@ -630,7 +630,7 @@ swarm = DynamicSwarm(
 for i in range(5):
     agent = Agent(
         agent_name=f"Agent-{i}",
-        model_name="gpt-4o"
+        model_name="claude-sonnet-4-6"
     )
     swarm.add_agent(agent)
 

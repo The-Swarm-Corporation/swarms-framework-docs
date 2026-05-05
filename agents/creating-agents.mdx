@@ -16,7 +16,7 @@ from swarms import Agent
 # Create a basic agent
 agent = Agent(
     agent_name="my-agent",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -35,7 +35,7 @@ For quick prototyping and simple tasks:
 from swarms import Agent
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -51,7 +51,7 @@ For better organization and clarity:
 agent = Agent(
     agent_name="Financial-Analyst",
     agent_description="An expert financial analyst specializing in market analysis and reporting",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     verbose=True,
 )
@@ -75,7 +75,7 @@ Provide detailed, data-driven insights with proper citations.
 agent = Agent(
     agent_name="Financial-Expert",
     system_prompt=SYSTEM_PROMPT,
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
 )
 ```
@@ -87,7 +87,7 @@ For conversational interfaces:
 ```python
 agent = Agent(
     agent_name="Assistant",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=5,
     interactive=True,  # Enable interactive mode
     user_name="User",
@@ -105,7 +105,7 @@ For complex, multi-step reasoning:
 ```python
 agent = Agent(
     agent_name="Research-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops="auto",  # Autonomous loop mode
     reasoning_prompt_on=True,
     dynamic_temperature_enabled=True,
@@ -125,8 +125,8 @@ For reliability and cost optimization:
 agent = Agent(
     agent_name="Reliable-Agent",
     fallback_models=[
-        "gpt-4o",           # Primary model
-        "gpt-4o-mini",      # First fallback
+        "claude-sonnet-4-6",           # Primary model
+        "gpt-5.4",      # First fallback
         "gpt-3.5-turbo"     # Final fallback
     ],
     max_loops=1,
@@ -147,7 +147,7 @@ import os
 os.environ["SWARMS_API_KEY"] = "your-api-key"
 
 agent = Agent(
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     marketplace_prompt_id="550e8400-e29b-41d4-a716-446655440000",  # UUID from marketplace
     max_loops=1,
 )
@@ -165,11 +165,11 @@ response = agent.run("Execute the marketplace prompt task")
 agent = Agent(
     agent_name="Financial-Analyst",
     agent_description="Expert in financial analysis",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
 )
 
 # Avoid
-agent = Agent(model_name="gpt-4o")  # Uses default name
+agent = Agent(model_name="claude-sonnet-4-6")  # Uses default name
 ```
 
 ### 2. Use Descriptive System Prompts
@@ -207,7 +207,7 @@ agent = Agent(max_loops="auto")  # Dynamic execution
 
 ```python
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     verbose=True,  # See detailed logs
     print_on=True,  # Print agent responses
 )
@@ -218,7 +218,7 @@ agent = Agent(
 ```python
 agent = Agent(
     agent_name="Research-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     autosave=True,  # Automatically save state
     saved_state_path="./agent_states/",
 )
@@ -235,7 +235,7 @@ os.environ["WORKSPACE_DIR"] = "agent_workspace"
 
 # Create agent
 agent = Agent(
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
 )
 ```
@@ -248,7 +248,7 @@ agent = Agent(
 research_agent = Agent(
     agent_name="Researcher",
     system_prompt="You are an expert researcher. Provide detailed, cited information.",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=3,
     temperature=0.5,
     verbose=True,
@@ -261,7 +261,7 @@ research_agent = Agent(
 writer_agent = Agent(
     agent_name="Writer",
     system_prompt="You are a professional writer. Create engaging, well-structured content.",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     temperature=0.7,
 )
@@ -273,7 +273,7 @@ writer_agent = Agent(
 code_agent = Agent(
     agent_name="Code-Generator",
     system_prompt="You are an expert software engineer. Write clean, documented code.",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=2,
     temperature=0.3,  # Lower temperature for more deterministic output
 )

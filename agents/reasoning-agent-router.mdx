@@ -32,7 +32,7 @@ graph TD
 |-----------|------|---------|-------------|
 | `agent_name` | `str` | `"reasoning_agent"` | Name identifier for the agent |
 | `description` | `str` | `"A reasoning agent..."` | Description of the agent's capabilities |
-| `model_name` | `str` | `"gpt-4o"` | The underlying language model to use |
+| `model_name` | `str` | `"claude-sonnet-4-6"` | The underlying language model to use |
 | `system_prompt` | `str` | `"You are a helpful..."` | System prompt for the agent |
 | `max_loops` | `int` | `1` | Maximum number of reasoning loops |
 | `swarm_type` | `agent_types` | `"reasoning_duo"` | Type of reasoning swarm to use |
@@ -73,7 +73,7 @@ from swarms.agents.reasoning_agent_router import ReasoningAgentRouter
 
 router = ReasoningAgentRouter(
     agent_name="reasoning-agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     swarm_type="self-consistency",
     num_samples=3,
 )
@@ -87,7 +87,7 @@ result = router.run("What is the best approach to solve this problem?")
 router = ReasoningAgentRouter(
     swarm_type="self-consistency",
     num_samples=5,
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     eval=True,
     random_models_on=True
 )
@@ -100,7 +100,7 @@ result = router.run("What is 2 + 2?")
 ```python
 router = ReasoningAgentRouter(
     swarm_type="reasoning-duo",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     reasoning_model_name="claude-3-5-sonnet-20240620",
     max_loops=2
 )
@@ -116,7 +116,7 @@ result = router.run(
 ```python
 router = ReasoningAgentRouter(
     swarm_type="GKPAgent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     num_knowledge_items=6
 )
 
@@ -129,7 +129,7 @@ result = router.run("What are the implications of quantum entanglement?")
 router = ReasoningAgentRouter(
     swarm_type="ReflexionAgent",
     max_loops=3,
-    model_name="gpt-4o"
+    model_name="claude-sonnet-4-6"
 )
 
 result = router.run("Explain quantum computing to a beginner.")

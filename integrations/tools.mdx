@@ -42,7 +42,7 @@ def get_weather(location: str, units: str = "celsius") -> str:
 # Create agent with the tool
 agent = Agent(
     agent_name="Weather-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=[get_weather],
     max_loops=1,
 )
@@ -459,7 +459,7 @@ def save_data(data: Dict, destination: str) -> bool:
 # Create agent with pipeline tools
 pipeline_agent = Agent(
     agent_name="Pipeline-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=[fetch_data, transform_data, save_data],
     system_prompt="Execute data pipeline: fetch, transform, and save.",
     max_loops=3,

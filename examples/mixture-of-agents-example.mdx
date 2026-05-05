@@ -30,26 +30,26 @@ from swarms import Agent, MixtureOfAgents
 financial_analyst = Agent(
     agent_name="FinancialAnalyst",
     system_prompt="Analyze financial data.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 market_analyst = Agent(
     agent_name="MarketAnalyst",
     system_prompt="Analyze market trends.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 risk_analyst = Agent(
     agent_name="RiskAnalyst",
     system_prompt="Analyze investment risks.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Define the aggregator agent
 aggregator = Agent(
     agent_name="InvestmentAdvisor",
     system_prompt="Synthesize the financial, market, and risk analyses to provide a final investment recommendation.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create the MoA swarm
@@ -107,26 +107,26 @@ from swarms import Agent, MixtureOfAgents
 storyteller = Agent(
     agent_name="Storyteller",
     system_prompt="Create compelling narratives with emotional resonance and engaging story arcs.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 technical_expert = Agent(
     agent_name="TechnicalExpert",
     system_prompt="Provide accurate technical details, data, and factual information.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 seo_specialist = Agent(
     agent_name="SEOSpecialist",
     system_prompt="Optimize content for search engines with keywords and structure.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Define editor aggregator
 editor = Agent(
     agent_name="Editor",
     system_prompt="Combine the narrative, technical accuracy, and SEO elements into a polished, publication-ready article.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create MoA for content creation
@@ -153,26 +153,26 @@ from swarms import Agent, MixtureOfAgents
 cardiologist = Agent(
     agent_name="Cardiologist",
     system_prompt="Analyze symptoms from a cardiovascular perspective. Identify heart-related conditions.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 neurologist = Agent(
     agent_name="Neurologist",
     system_prompt="Analyze symptoms from a neurological perspective. Identify nervous system conditions.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 internal_medicine = Agent(
     agent_name="InternalMedicine",
     system_prompt="Analyze symptoms from a general internal medicine perspective. Consider systemic conditions.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Define general practitioner aggregator
 gp = Agent(
     agent_name="GeneralPractitioner",
     system_prompt="Synthesize all specialist opinions into a differential diagnosis and recommended course of action.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create medical MoA
@@ -199,32 +199,32 @@ from swarms import Agent, MixtureOfAgents
 engineering_lead = Agent(
     agent_name="EngineeringLead",
     system_prompt="Evaluate technical feasibility, architecture requirements, and development complexity.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 product_manager = Agent(
     agent_name="ProductManager",
     system_prompt="Assess user needs, market fit, and product-market alignment.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 business_analyst = Agent(
     agent_name="BusinessAnalyst",
     system_prompt="Analyze business impact, revenue potential, and resource requirements.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 ux_designer = Agent(
     agent_name="UXDesigner",
     system_prompt="Evaluate user experience, design implications, and usability considerations.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Define CEO aggregator
 ceo = Agent(
     agent_name="CEO",
     system_prompt="Synthesize engineering, product, business, and UX perspectives to make a strategic decision.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create strategy MoA
@@ -251,26 +251,26 @@ from swarms import Agent, MixtureOfAgents
 methodology_reviewer = Agent(
     agent_name="MethodologyReviewer",
     system_prompt="Review research methodology, experimental design, and statistical rigor.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 literature_reviewer = Agent(
     agent_name="LiteratureReviewer",
     system_prompt="Evaluate literature review, citations, and positioning within existing research.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 results_reviewer = Agent(
     agent_name="ResultsReviewer",
     system_prompt="Analyze results, data analysis, and validity of conclusions.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Define meta-reviewer aggregator
 meta_reviewer = Agent(
     agent_name="MetaReviewer",
     system_prompt="Synthesize all reviews into a comprehensive assessment and publication recommendation.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create review MoA
@@ -298,26 +298,26 @@ from swarms.structs.swarm_router import SwarmRouter, SwarmType
 writer = Agent(
     agent_name="Writer",
     system_prompt="You are a creative writer.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 editor = Agent(
     agent_name="Editor",
     system_prompt="You are an expert editor for stories.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 reviewer = Agent(
     agent_name="Reviewer",
     system_prompt="You are a final reviewer who gives a score.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Define aggregator
 aggregator = Agent(
     agent_name="Aggregator",
     system_prompt="Combine the story, edits, and review into a final document.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Use SwarmRouter for MoA
@@ -343,14 +343,14 @@ Ensure each expert agent has a clearly defined specialty:
 cardiologist = Agent(
     agent_name="Cardiologist",
     system_prompt="You are a cardiologist specializing in heart disease diagnosis.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Avoid: Too general
 general_doctor = Agent(
     agent_name="Doctor",
     system_prompt="You are a doctor.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 ```
 
@@ -367,7 +367,7 @@ aggregator = Agent(
     3. Synthesize insights into a coherent recommendation
     4. Highlight any uncertainties or trade-offs
     Provide a balanced, comprehensive final output.""",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 ```
 

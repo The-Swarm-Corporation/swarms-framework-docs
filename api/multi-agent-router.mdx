@@ -28,7 +28,7 @@ pip install -U swarms
   A list of agents to be managed by the router
 </ParamField>
 
-<ParamField path="model" type="str" default="gpt-4o-mini">
+<ParamField path="model" type="str" default="gpt-5.4">
   The model to use for the boss agent
 </ParamField>
 
@@ -151,7 +151,7 @@ router = MultiAgentRouter(
     name="custom-router",
     agents=agents,
     system_prompt="You are an expert task router. Always select the most qualified agent.",
-    model="gpt-4o",
+    model="claude-sonnet-4-6",
     temperature=0.2
 )
 

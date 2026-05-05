@@ -42,19 +42,19 @@ from swarms import Agent, SequentialWorkflow
 researcher = Agent(
     agent_name="Researcher",
     system_prompt="Your job is to research the provided topic and provide a detailed summary.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 writer = Agent(
     agent_name="Writer",
     system_prompt="Your job is to take the research summary and write a beautiful, engaging blog post.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 editor = Agent(
     agent_name="Editor",
     system_prompt="Review and polish the content for clarity, grammar, and engagement.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Create sequential workflow
@@ -133,21 +133,21 @@ from swarms import Agent, ConcurrentWorkflow
 market_analyst = Agent(
     agent_name="Market-Analyst",
     system_prompt="Analyze market trends and provide insights on the given topic.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 financial_analyst = Agent(
     agent_name="Financial-Analyst", 
     system_prompt="Provide financial analysis and recommendations on the given topic.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
 risk_analyst = Agent(
     agent_name="Risk-Analyst",
     system_prompt="Assess risks and provide risk management strategies for the given topic.",
-    model_name="gpt-4o-mini", 
+    model_name="gpt-5.4", 
     max_loops=1,
 )
 
@@ -259,10 +259,10 @@ results = concurrent_workflow.batch_run(tasks)
 ```python
 from swarms import Agent, AgentRearrange
 
-researcher = Agent(agent_name="researcher", model_name="gpt-4o-mini")
-writer = Agent(agent_name="writer", model_name="gpt-4o-mini")
-editor = Agent(agent_name="editor", model_name="gpt-4o-mini")
-reviewer = Agent(agent_name="reviewer", model_name="gpt-4o-mini")
+researcher = Agent(agent_name="researcher", model_name="gpt-5.4")
+writer = Agent(agent_name="writer", model_name="gpt-5.4")
+editor = Agent(agent_name="editor", model_name="gpt-5.4")
+reviewer = Agent(agent_name="reviewer", model_name="gpt-5.4")
 
 # Define custom flow:
 # researcher sends to both writer AND editor

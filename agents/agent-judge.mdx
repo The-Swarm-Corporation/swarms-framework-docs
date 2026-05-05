@@ -88,7 +88,7 @@ from swarms.agents.agent_judge import AgentJudge
 
 judge = AgentJudge(
     agent_name="quality-judge",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=2
 )
 
@@ -104,7 +104,7 @@ from swarms.agents.agent_judge import AgentJudge
 
 judge = AgentJudge(
     agent_name="technical-judge",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     evaluation_criteria={
         "accuracy": 0.4,
@@ -125,7 +125,7 @@ from swarms.agents.agent_judge import AgentJudge
 
 judge = AgentJudge(
     agent_name="scoring-judge",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=2,
     return_score=True
 )

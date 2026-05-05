@@ -34,13 +34,13 @@ from swarms import Agent, GroupChat
 tech_optimist = Agent(
     agent_name="TechOptimist",
     system_prompt="Argue for the benefits of AI in society.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 tech_critic = Agent(
     agent_name="TechCritic",
     system_prompt="Argue against the unchecked advancement of AI.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create the group chat
@@ -97,25 +97,25 @@ from swarms import Agent, GroupChat
 ceo = Agent(
     agent_name="CEO",
     system_prompt="Focus on long-term vision, company mission, and stakeholder value. Make final decisions.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 cfo = Agent(
     agent_name="CFO",
     system_prompt="Focus on financial viability, costs, revenue implications, and ROI.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 cto = Agent(
     agent_name="CTO",
     system_prompt="Focus on technical feasibility, architecture, scalability, and innovation.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 cmo = Agent(
     agent_name="CMO",
     system_prompt="Focus on market positioning, customer needs, competitive advantage, and brand impact.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create executive team chat
@@ -146,25 +146,25 @@ from swarms import Agent, GroupChat
 ux_designer = Agent(
     agent_name="UX-Designer",
     system_prompt="Evaluate user experience, usability, and interaction design.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 ui_designer = Agent(
     agent_name="UI-Designer",
     system_prompt="Evaluate visual design, aesthetics, and design system consistency.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 product_manager = Agent(
     agent_name="Product-Manager",
     system_prompt="Evaluate whether design meets product requirements and user needs.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 accessibility_expert = Agent(
     agent_name="Accessibility-Expert",
     system_prompt="Evaluate accessibility compliance and inclusive design.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create design review chat
@@ -196,19 +196,19 @@ from swarms import Agent, GroupChat
 buyer_attorney = Agent(
     agent_name="Buyer-Attorney",
     system_prompt="Represent the buyer's interests. Negotiate favorable terms, minimize liability, protect rights.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 seller_attorney = Agent(
     agent_name="Seller-Attorney",
     system_prompt="Represent the seller's interests. Ensure fair payment, limit obligations, protect IP.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 mediator = Agent(
     agent_name="Mediator",
     system_prompt="Facilitate fair negotiation. Identify common ground, propose compromises, ensure both parties are heard.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create negotiation chat
@@ -239,25 +239,25 @@ from swarms import Agent, GroupChat
 attending_physician = Agent(
     agent_name="Attending-Physician",
     system_prompt="Present case details and coordinate discussion. Synthesize recommendations.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 cardiologist = Agent(
     agent_name="Cardiologist",
     system_prompt="Evaluate from cardiovascular perspective. Identify heart-related concerns.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 neurologist = Agent(
     agent_name="Neurologist",
     system_prompt="Evaluate from neurological perspective. Identify nervous system issues.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 pharmacologist = Agent(
     agent_name="Pharmacologist",
     system_prompt="Evaluate drug interactions, contraindications, and medication recommendations.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create medical conference chat
@@ -289,25 +289,25 @@ from swarms import Agent, GroupChat
 copywriter = Agent(
     agent_name="Copywriter",
     system_prompt="Generate creative messaging, slogans, and narrative concepts.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 art_director = Agent(
     agent_name="Art-Director",
     system_prompt="Generate visual concepts, art direction, and creative executions.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 strategist = Agent(
     agent_name="Strategist",
     system_prompt="Ensure ideas align with brand strategy, target audience, and business objectives.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 creative_director = Agent(
     agent_name="Creative-Director",
     system_prompt="Guide creative direction, push for breakthrough ideas, elevate concepts.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create brainstorm chat
@@ -396,14 +396,14 @@ panel = GroupChat(
 agent = Agent(
     agent_name="Privacy-Advocate",
     system_prompt="You are a privacy advocate. Always consider data protection, user consent, and privacy implications in your arguments.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Avoid: Generic role
 agent = Agent(
     agent_name="Agent1",
     system_prompt="You are a helpful agent.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 ```
 
@@ -453,7 +453,7 @@ moderator = Agent(
     - Ask clarifying questions
     - Guide conversation toward conclusion
     """,
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 large_group = GroupChat(

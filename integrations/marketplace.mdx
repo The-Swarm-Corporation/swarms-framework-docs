@@ -28,7 +28,7 @@ from swarms import Agent
 # Create agent with marketplace prompt
 agent = Agent(
     agent_name="Marketplace-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     marketplace_prompt_id="550e8400-e29b-41d4-a716-446655440000",
     max_loops=1,
 )
@@ -167,7 +167,7 @@ from swarms import Agent
 # Create agent with auto-publish enabled
 agent = Agent(
     agent_name="Medical-Diagnosis-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     system_prompt="""You are an expert medical diagnostician specializing in:
     - Differential diagnosis
     - Medical imaging interpretation
@@ -304,7 +304,7 @@ from swarms import Agent
 # Real marketplace prompt for quantitative trading
 trading_agent = Agent(
     agent_name="Quant-Trader",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     marketplace_prompt_id="6d165e47-1827-4abe-9a84-b25005d8e3b4",
     max_loops=1,
     verbose=True,
@@ -325,7 +325,7 @@ from swarms import Agent
 # Medical AI agent from marketplace
 medical_agent = Agent(
     agent_name="Medical-Assistant",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     marketplace_prompt_id="75fc0d28-b0d0-4372-bc04-824aa388b7d2",
     max_loops=1,
 )

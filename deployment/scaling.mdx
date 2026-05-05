@@ -34,7 +34,7 @@ from swarms.structs.multi_agent_exec import run_agents_concurrently
 agents = [
     Agent(
         agent_name=f"Worker-{i}",
-        model_name="gpt-4o-mini",
+        model_name="gpt-5.4",
         max_loops=1,
     )
     for i in range(5)
@@ -97,7 +97,7 @@ from swarms.structs.multi_agent_exec import (
 
 async def process_tasks():
     agents = [
-        Agent(agent_name=f"Async-Agent-{i}", model_name="gpt-4o-mini")
+        Agent(agent_name=f"Async-Agent-{i}", model_name="gpt-5.4")
         for i in range(10)
     ]
     
@@ -223,7 +223,7 @@ from swarms.structs.aop import AOP
 
 # Create agents
 agents = [
-    Agent(agent_name=f"Worker-{i}", model_name="gpt-4o")
+    Agent(agent_name=f"Worker-{i}", model_name="claude-sonnet-4-6")
     for i in range(10)
 ]
 
@@ -292,7 +292,7 @@ Optimize token usage with dynamic context windows:
 ```python
 agent = Agent(
     agent_name="Optimized-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     dynamic_context_window=True,  # Auto-manage context
     context_length=8000,
 )
@@ -304,7 +304,7 @@ agent = Agent(
 # Truncate history to prevent memory bloat
 agent = Agent(
     agent_name="Memory-Efficient-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     context_length=4000,
 )
 
@@ -565,7 +565,7 @@ def check_resources():
 ```python
 agent = Agent(
     agent_name="Timeout-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     timeout=30,  # Set based on expected task duration
 )
 ```

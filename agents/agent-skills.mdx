@@ -121,7 +121,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Financial-Analyst",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     skills_dir="./skills",  # Load all skills from directory
     max_loops=1,
 )
@@ -139,7 +139,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Versatile-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     skills_dir="./skills",
     max_loops=1,
 )
@@ -221,7 +221,7 @@ Provide feedback in this structure:
 ```python
 agent = Agent(
     agent_name="Code-Reviewer",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     skills_dir="./skills",
 )
 
@@ -384,7 +384,7 @@ def function_name(param1: type1, param2: type2) -> return_type:
 # Skills are loaded during agent initialization
 agent = Agent(
     skills_dir="./skills",  # Path to skills directory
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
 )
 
 # Skills metadata is loaded from SKILL.md frontmatter

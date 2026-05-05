@@ -263,9 +263,9 @@ def custom_communication_algorithm(agents, task, **kwargs):
     }
 
 # Create agents
-researcher = Agent(agent_name="Researcher", model_name="gpt-4o-mini")
-analyst = Agent(agent_name="Analyst", model_name="gpt-4o-mini")
-synthesizer = Agent(agent_name="Synthesizer", model_name="gpt-4o-mini")
+researcher = Agent(agent_name="Researcher", model_name="gpt-5.4")
+analyst = Agent(agent_name="Analyst", model_name="gpt-5.4")
+synthesizer = Agent(agent_name="Synthesizer", model_name="gpt-5.4")
 
 # Create social algorithm
 social_alg = SocialAlgorithms(
@@ -355,12 +355,12 @@ def research_development_algorithm(agents, task, **kwargs):
 
 # Create specialized agents
 agents = [
-    Agent(agent_name="ProjectManager", system_prompt="You are an experienced project manager.", model_name="gpt-4o-mini", max_loops=1),
-    Agent(agent_name="Researcher", system_prompt="You are a research specialist.", model_name="gpt-4o-mini", max_loops=1),
-    Agent(agent_name="Analyst", system_prompt="You are a systems analyst.", model_name="gpt-4o-mini", max_loops=1),
-    Agent(agent_name="Developer", system_prompt="You are a senior developer.", model_name="gpt-4o-mini", max_loops=1),
-    Agent(agent_name="Tester", system_prompt="You are a QA specialist.", model_name="gpt-4o-mini", max_loops=1),
-    Agent(agent_name="Reviewer", system_prompt="You are a technical reviewer.", model_name="gpt-4o-mini", max_loops=1),
+    Agent(agent_name="ProjectManager", system_prompt="You are an experienced project manager.", model_name="gpt-5.4", max_loops=1),
+    Agent(agent_name="Researcher", system_prompt="You are a research specialist.", model_name="gpt-5.4", max_loops=1),
+    Agent(agent_name="Analyst", system_prompt="You are a systems analyst.", model_name="gpt-5.4", max_loops=1),
+    Agent(agent_name="Developer", system_prompt="You are a senior developer.", model_name="gpt-5.4", max_loops=1),
+    Agent(agent_name="Tester", system_prompt="You are a QA specialist.", model_name="gpt-5.4", max_loops=1),
+    Agent(agent_name="Reviewer", system_prompt="You are a technical reviewer.", model_name="gpt-5.4", max_loops=1),
 ]
 
 rd_algorithm = SocialAlgorithms(

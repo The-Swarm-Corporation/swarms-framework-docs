@@ -54,7 +54,7 @@ class CompanyAnalysis(BaseModel):
 
 agent = Agent(
     agent_name="Financial-Analyst",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     list_base_models=[CompanyAnalysis],  # Define schema
 )
@@ -90,7 +90,7 @@ class ComparisonReport(BaseModel):
 
 agent = Agent(
     agent_name="Product-Reviewer",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     list_base_models=[ProductReview, ComparisonReport],
 )
 
@@ -117,7 +117,7 @@ class EmailDraft(BaseModel):
 
 agent = Agent(
     agent_name="Email-Assistant",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tool_schema=EmailDraft,  # Define output schema
 )
 
@@ -164,7 +164,7 @@ class ProjectPlan(BaseModel):
 
 agent = Agent(
     agent_name="Project-Manager",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     list_base_models=[ProjectPlan],
     max_loops=1,
 )
@@ -208,7 +208,7 @@ class PortfolioRecommendations(BaseModel):
 
 agent = Agent(
     agent_name="Portfolio-Advisor",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     list_base_models=[PortfolioRecommendations],
 )
 
@@ -244,7 +244,7 @@ class FinancialReport(BaseModel):
 
 agent = Agent(
     agent_name="Financial-Reporter",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     list_base_models=[FinancialReport],
 )
 
@@ -284,7 +284,7 @@ class Bug(BaseModel):
 
 agent = Agent(
     agent_name="Bug-Tracker",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     list_base_models=[Bug],
 )
 
@@ -308,7 +308,7 @@ import json
 
 agent = Agent(
     agent_name="Data-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     output_type="json",  # Force JSON output
 )
 
@@ -324,7 +324,7 @@ for lang in data['languages']:
 ```python
 agent = Agent(
     agent_name="Analyzer",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     output_type="dict",
 )
 
@@ -350,7 +350,7 @@ class Article(BaseModel):
 
 agent = Agent(
     agent_name="Content-Creator",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     list_base_models=[Article],
 )
 
@@ -377,7 +377,7 @@ def calculate(expression: str) -> float:
 
 agent = Agent(
     agent_name="Calculator",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=[calculate],
     max_loops=2,
 )

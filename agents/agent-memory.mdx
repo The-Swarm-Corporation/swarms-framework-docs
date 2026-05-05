@@ -25,7 +25,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Assistant",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=3,
 )
 
@@ -43,7 +43,7 @@ response = agent.run("Give me an example")
   ```python
   agent = Agent(
       user_name="Alice",
-      model_name="gpt-4o-mini"
+      model_name="gpt-5.4"
   )
   ```
 </ParamField>
@@ -54,7 +54,7 @@ response = agent.run("Give me an example")
   ```python
   agent = Agent(
       return_history=True,
-      model_name="gpt-4o-mini"
+      model_name="gpt-5.4"
   )
   
   history = agent.run("Hello")
@@ -68,7 +68,7 @@ response = agent.run("Give me an example")
   ```python
   agent = Agent(
       context_length=16000,
-      model_name="gpt-4o-mini"
+      model_name="gpt-5.4"
   )
   ```
 </ParamField>
@@ -79,7 +79,7 @@ response = agent.run("Give me an example")
   ```python
   agent = Agent(
       dynamic_context_window=True,  # Auto-truncate if needed
-      model_name="gpt-4o-mini"
+      model_name="gpt-5.4"
   )
   ```
 </ParamField>
@@ -89,7 +89,7 @@ response = agent.run("Give me an example")
 ### View Conversation History
 
 ```python
-agent = Agent(model_name="gpt-4o-mini")
+agent = Agent(model_name="gpt-5.4")
 
 agent.run("Hello!")
 agent.run("What's the weather?")
@@ -126,7 +126,7 @@ print(conversation)
 ```python
 agent = Agent(
     agent_name="Persistent-Agent",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     autosave=True,  # Auto-save after each run
 )
 
@@ -153,7 +153,7 @@ agent.short_memory.load("conversation_agent-123.json")
 ```python
 agent = Agent(
     agent_name="My-Agent",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     autosave=True,
 )
 
@@ -168,7 +168,7 @@ When conversations exceed the context window, Swarms automatically manages the h
 
 ```python
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     context_length=4096,
     dynamic_context_window=True,  # Automatically truncate if needed
 )
@@ -207,7 +207,7 @@ vector_db = ChromaDB(
 
 agent = Agent(
     agent_name="Knowledge-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     long_term_memory=vector_db,
     max_loops=1,
 )
@@ -261,7 +261,7 @@ vector_db = ChromaDB(output_dir="knowledge")
 
 agent = Agent(
     agent_name="Research-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     long_term_memory=vector_db,
     rag_every_loop=False,  # Query once at start
     max_loops=1,
@@ -278,7 +278,7 @@ response = agent.run(
 ### Search Conversation History
 
 ```python
-agent = Agent(model_name="gpt-4o-mini")
+agent = Agent(model_name="gpt-5.4")
 
 agent.run("AI is transforming healthcare")
 agent.run("Machine learning improves diagnostics")
@@ -302,7 +302,7 @@ print(matches)
 # Configure through agent initialization
 agent = Agent(
     agent_name="Tracked-Agent",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Messages automatically include metadata:
@@ -335,7 +335,7 @@ for message in history:
 agent = Agent(
     agent_name="Tutor",
     system_prompt="You are a helpful math tutor",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -398,14 +398,14 @@ from swarms.memory import ChromaDB
 memory = ChromaDB(docs_folder="./knowledge")
 agent = Agent(
     long_term_memory=memory,
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
 )
 ```
 
 ### 4. Clear Memory Between Unrelated Tasks
 
 ```python
-agent = Agent(model_name="gpt-4o-mini")
+agent = Agent(model_name="gpt-5.4")
 
 # Task 1
 agent.run("Analyze sales data")

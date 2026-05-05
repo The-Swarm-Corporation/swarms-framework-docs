@@ -183,17 +183,17 @@ def test_agent_creation():
     """Test that an agent can be created successfully."""
     agent = Agent(
         agent_name="TestAgent",
-        model_name="gpt-4o-mini",
+        model_name="gpt-5.4",
         max_loops=1
     )
     assert agent.agent_name == "TestAgent"
-    assert agent.model_name == "gpt-4o-mini"
+    assert agent.model_name == "gpt-5.4"
 
 def test_agent_run():
     """Test that an agent can run a simple task."""
     agent = Agent(
         agent_name="TestAgent",
-        model_name="gpt-4o-mini",
+        model_name="gpt-5.4",
         max_loops=1
     )
     result = agent.run("Say hello")
@@ -259,7 +259,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="DebugAgent",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     verbose=True  # Enable verbose output
 )
 ```
@@ -269,7 +269,7 @@ agent = Agent(
 ```python
 agent = Agent(
     agent_name="InteractiveAgent",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     interactive=True  # Enable interactive mode
 )
 ```

@@ -35,11 +35,11 @@ from swarms.structs.heavy_swarm import HeavySwarm
   Number of execution loops each agent should perform. Must be greater than 0
 </ParamField>
 
-<ParamField path="question_agent_model_name" type="str" default="gpt-4o-mini">
+<ParamField path="question_agent_model_name" type="str" default="gpt-5.4">
   Language model for question generation
 </ParamField>
 
-<ParamField path="worker_model_name" type="str" default="gpt-4o-mini">
+<ParamField path="worker_model_name" type="str" default="gpt-5.4">
   Language model for specialized worker agents
 </ParamField>
 
@@ -215,8 +215,8 @@ from swarms.structs.heavy_swarm import HeavySwarm
 swarm = HeavySwarm(
     name="Market-Analysis-Swarm",
     description="Comprehensive market analysis swarm",
-    question_agent_model_name="gpt-4o",
-    worker_model_name="gpt-4o",
+    question_agent_model_name="claude-sonnet-4-6",
+    worker_model_name="claude-sonnet-4-6",
     show_dashboard=True,
     max_loops=3,
     verbose=True

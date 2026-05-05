@@ -96,7 +96,7 @@ from swarms import Agent
 
 # Initialize a basic agent
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
     interactive=True,
 )
@@ -120,7 +120,7 @@ agent = Agent(
     agent_description="Expert in financial analysis and market research",
     
     # LLM Configuration
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_tokens=4096,
     temperature=0.5,
     
@@ -161,7 +161,7 @@ Agents can run autonomously with `max_loops="auto"`:
 
 ```python
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops="auto",  # Agent will determine when to stop
 )
 ```
@@ -172,7 +172,7 @@ Agents can process images alongside text:
 
 ```python
 agent = Agent(
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     multi_modal=True,
 )
 
@@ -191,7 +191,7 @@ def streaming_callback(chunk: str):
     print(chunk, end="", flush=True)
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     streaming_callback=streaming_callback,
 )
 
@@ -208,7 +208,7 @@ from swarms.memory import ChromaDB
 memory = ChromaDB()
 
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     long_term_memory=memory,
 )
 ```
@@ -235,8 +235,8 @@ agent = Agent(
     Implement proper error handling and fallback strategies:
     ```python
     agent = Agent(
-        model_name="gpt-4o-mini",
-        fallback_models=["gpt-4o", "gpt-3.5-turbo"],
+        model_name="gpt-5.4",
+        fallback_models=["claude-sonnet-4-6", "gpt-3.5-turbo"],
         retry_attempts=3,
     )
     ```

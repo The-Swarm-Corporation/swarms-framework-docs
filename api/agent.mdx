@@ -49,7 +49,7 @@ from swarms import Agent
 </ParamField>
 
 <ParamField path="model_name" type="str">
-  The name of the model to use (e.g., "gpt-4o", "claude-3-opus")
+  The name of the model to use (e.g., "claude-sonnet-4-6", "claude-3-opus")
 </ParamField>
 
 <ParamField path="max_loops" type="Union[int, str]" default="1">
@@ -395,7 +395,7 @@ from swarms import Agent
 # Create a simple agent
 agent = Agent(
     agent_name="Financial-Analyst",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     system_prompt="You are a financial analyst. Provide detailed, data-driven insights."
 )
@@ -421,7 +421,7 @@ def calculate(expression: str) -> float:
 
 agent = Agent(
     agent_name="Research-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=5,
     tools=[search_web, calculate],
     system_prompt="You are a research assistant with web search and calculation abilities."
@@ -435,7 +435,7 @@ result = agent.run("Search for the population of Tokyo and calculate its growth 
 ```python
 agent = Agent(
     agent_name="Vision-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     multi_modal=True,
     max_loops=1
 )
@@ -451,7 +451,7 @@ response = agent.run(
 ```python
 agent = Agent(
     agent_name="Autonomous-Developer",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops="auto",  # Enables autonomous planning and execution
     system_prompt="You are an autonomous software developer."
 )
@@ -471,7 +471,7 @@ def on_token(token: str):
 
 agent = Agent(
     agent_name="Streaming-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     stream=True,
     streaming_callback=on_token,
     max_loops=1
@@ -485,7 +485,7 @@ response = agent.run("Write a creative story about space exploration")
 ```python
 agent = Agent(
     agent_name="Reliable-Agent",
-    fallback_models=["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
+    fallback_models=["claude-sonnet-4-6", "gpt-5.4", "gpt-3.5-turbo"],
     max_loops=1
 )
 
@@ -498,7 +498,7 @@ response = agent.run("Generate a market analysis report")
 ```python
 agent = Agent(
     agent_name="MCP-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     mcp_url="npx -y @modelcontextprotocol/server-filesystem /path/to/directory",
     max_loops=3
 )
@@ -512,20 +512,20 @@ result = agent.run("Read the contents of config.json and summarize the settings"
 # Create specialized agents
 researcher = Agent(
     agent_name="Researcher",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     system_prompt="You are a research specialist."
 )
 
 writer = Agent(
     agent_name="Writer",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     system_prompt="You are a technical writer."
 )
 
 # Create coordinator with handoffs
 coordinator = Agent(
     agent_name="Coordinator",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=5,
     handoffs=[researcher, writer],
     system_prompt="You coordinate tasks between research and writing teams."
@@ -540,7 +540,7 @@ result = coordinator.run("Create a comprehensive report on quantum computing")
 ```python
 # Load a prompt from Swarms marketplace in one line
 agent = Agent(
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     marketplace_prompt_id="550e8400-e29b-41d4-a716-446655440000",
     max_loops=1
 )

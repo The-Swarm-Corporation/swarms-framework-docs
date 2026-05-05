@@ -229,14 +229,14 @@ from swarms.structs.self_moa_seq import SelfMoASeq
 
 # Initialize with medical-focused configuration
 medical_moa = SelfMoASeq(
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     temperature=0.8,  # Higher creativity for diverse medical perspectives
     window_size=8,    # Larger window for complex medical reasoning
     num_samples=12,   # More samples for comprehensive analysis
     max_loops=15,
     verbose=True,
-    proposer_model_name="gpt-4o",  # Use same model for consistency
-    aggregator_model_name="gpt-4o"
+    proposer_model_name="claude-sonnet-4-6",  # Use same model for consistency
+    aggregator_model_name="claude-sonnet-4-6"
 )
 
 # Complex medical case
@@ -282,7 +282,7 @@ creative_moa = SelfMoASeq(
     num_samples=6,    # Moderate number of samples
     max_loops=8,
     verbose=True,
-    proposer_model_name="gpt-4o",      # Creative model for generation
+    proposer_model_name="claude-sonnet-4-6",      # Creative model for generation
     aggregator_model_name="gpt-5.4", # Efficient model for synthesis
     max_retries=2,
     retry_delay=0.5

@@ -34,19 +34,19 @@ from swarms.structs.graph_workflow import GraphWorkflow, Node, Edge
 data_collector = Agent(
     agent_name="DataCollector",
     system_prompt="Collect and validate data from sources.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 processor = Agent(
     agent_name="Processor",
     system_prompt="Process and clean collected data.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 analyzer = Agent(
     agent_name="Analyzer",
     system_prompt="Analyze processed data for insights.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Create graph workflow

@@ -162,7 +162,7 @@ os.environ["WORKSPACE_DIR"] = "/path/to/custom/workspace"
 
 # Or specify per-agent
 agent = Agent(
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     workspace_dir="./my_agent_workspace"
 )
 ```
@@ -309,7 +309,7 @@ def verify_setup():
         print("\n🤖 Testing agent creation...")
         try:
             agent = Agent(
-                model_name="gpt-4o-mini",
+                model_name="gpt-5.4",
                 max_loops=1,
             )
             response = agent.run("Say 'Setup verified!'")

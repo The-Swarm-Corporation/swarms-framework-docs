@@ -39,7 +39,7 @@ The council evaluates responses across six key dimensions:
   Description of the council's purpose
 </ParamField>
 
-<ParamField path="model_name" type="str" default="gpt-4o-mini">
+<ParamField path="model_name" type="str" default="gpt-5.4">
   Model name for judge agents (if not using random models)
 </ParamField>
 
@@ -59,7 +59,7 @@ The council evaluates responses across six key dimensions:
   Maximum number of loops for agents
 </ParamField>
 
-<ParamField path="aggregation_model_name" type="str" default="gpt-4o-mini">
+<ParamField path="aggregation_model_name" type="str" default="gpt-5.4">
   Model name for the aggregator agent
 </ParamField>
 
@@ -115,8 +115,8 @@ print(evaluation)
 ```python
 # Use specific models for evaluation
 council = CouncilAsAJudge(
-    model_name="gpt-4o",  # For judge agents
-    aggregation_model_name="gpt-4o",  # For final synthesis
+    model_name="claude-sonnet-4-6",  # For judge agents
+    aggregation_model_name="claude-sonnet-4-6",  # For final synthesis
     random_model_name=False,  # Don't randomize
     output_type="dict"
 )
@@ -158,7 +158,7 @@ for message in full_evaluation:
 # Use Claude for all judge agents
 council = CouncilAsAJudge(
     judge_agent_model_name="anthropic/claude-sonnet-4-5",
-    aggregation_model_name="gpt-4o",
+    aggregation_model_name="claude-sonnet-4-6",
     random_model_name=False
 )
 

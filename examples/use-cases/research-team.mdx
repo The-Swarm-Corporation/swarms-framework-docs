@@ -46,7 +46,7 @@ researcher_agent = Agent(
     
     Provide thorough, well-sourced research findings.
     """,
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     dynamic_temperature_enabled=True,
 )
@@ -63,7 +63,7 @@ data_analyst = Agent(
     
     Focus on extracting actionable insights from research.
     """,
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     dynamic_temperature_enabled=True,
 )
@@ -80,7 +80,7 @@ critical_analyst = Agent(
     
     Provide rigorous quality assurance for research outputs.
     """,
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     dynamic_temperature_enabled=True,
 )
@@ -97,7 +97,7 @@ report_writer = Agent(
     
     Create publication-ready research reports.
     """,
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     dynamic_temperature_enabled=True,
 )
@@ -151,7 +151,7 @@ Each agent receives the output of previous agents, building upon their work to c
 medical_expert = Agent(
     agent_name="Medical-Expert",
     system_prompt="You are a medical doctor who validates healthcare claims...",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
 )
 

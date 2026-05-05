@@ -35,7 +35,7 @@ tools = get_mcp_tools_sync(
 # Create agent with MCP tools
 agent = Agent(
     agent_name="MCP-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=tools,
     max_loops=1,
 )
@@ -230,7 +230,7 @@ print(f"Loaded {len(tools)} tools from MCP server")
 agent = Agent(
     agent_name="MCP-Enabled-Agent",
     system_prompt="You are an AI assistant with access to various tools via MCP.",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     tools=tools,
     verbose=True,

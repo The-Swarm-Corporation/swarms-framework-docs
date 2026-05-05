@@ -30,14 +30,14 @@ An **Agent** is the fundamental building block of a swarm—an autonomous entity
     ```python
     # Initialize a new agent
     agent = Agent(
-        model_name="gpt-4o-mini",  # Specify the LLM
+        model_name="gpt-5.4",  # Specify the LLM
         max_loops="auto",          # Set the number of interactions
         interactive=True,          # Enable interactive mode for real-time feedback
     )
     ```
     
     **Key Parameters:**
-    - `model_name`: The language model to use (e.g., "gpt-4o-mini", "claude-sonnet-4-5")
+    - `model_name`: The language model to use (e.g., "gpt-5.4", "claude-sonnet-4-5")
     - `max_loops`: Number of reasoning iterations ("auto" for automatic determination)
     - `interactive`: Enable real-time feedback and conversation
   </Step>
@@ -61,7 +61,7 @@ An **Agent** is the fundamental building block of a swarm—an autonomous entity
 
   # Initialize a new agent
   agent = Agent(
-      model_name="gpt-4o-mini",  # Specify the LLM
+      model_name="gpt-5.4",  # Specify the LLM
       max_loops="auto",          # Set the number of interactions
       interactive=True,          # Enable interactive mode for real-time feedback
   )
@@ -95,14 +95,14 @@ A **Swarm** consists of multiple agents working together. Let's create a two-age
     researcher = Agent(
         agent_name="Researcher",
         system_prompt="Your job is to research the provided topic and provide a detailed summary.",
-        model_name="gpt-4o-mini",
+        model_name="gpt-5.4",
     )
 
     # Agent 2: The Writer
     writer = Agent(
         agent_name="Writer",
         system_prompt="Your job is to take the research summary and write a beautiful, engaging blog post about it.",
-        model_name="gpt-4o-mini",
+        model_name="gpt-5.4",
     )
     ```
     
@@ -147,14 +147,14 @@ A **Swarm** consists of multiple agents working together. Let's create a two-age
   researcher = Agent(
       agent_name="Researcher",
       system_prompt="Your job is to research the provided topic and provide a detailed summary.",
-      model_name="gpt-4o-mini",
+      model_name="gpt-5.4",
   )
 
   # Agent 2: The Writer
   writer = Agent(
       agent_name="Writer",
       system_prompt="Your job is to take the research summary and write a beautiful, engaging blog post about it.",
-      model_name="gpt-4o-mini",
+      model_name="gpt-5.4",
   )
 
   # Create a sequential workflow where the researcher's output feeds into the writer's input
@@ -210,7 +210,7 @@ The `SequentialWorkflow` executes agents in order, creating a pipeline where eac
 customer_support = Agent(
     agent_name="Customer-Support",
     system_prompt="You are a helpful customer support agent. Respond professionally and empathetically to customer inquiries.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -228,19 +228,19 @@ from swarms import Agent, ConcurrentWorkflow
 market_analyst = Agent(
     agent_name="Market-Analyst",
     system_prompt="Analyze market trends and provide insights.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 financial_analyst = Agent(
     agent_name="Financial-Analyst",
     system_prompt="Provide financial analysis and recommendations.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 risk_analyst = Agent(
     agent_name="Risk-Analyst",
     system_prompt="Assess risks and provide risk management strategies.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Run all analysts concurrently

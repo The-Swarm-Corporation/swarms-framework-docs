@@ -53,19 +53,19 @@ from swarms import Agent, SequentialWorkflow
 researcher = Agent(
     agent_name="Researcher",
     system_prompt="Research topics and gather comprehensive information.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 writer = Agent(
     agent_name="Writer",
     system_prompt="Transform research into engaging, well-structured content.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 editor = Agent(
     agent_name="Editor",
     system_prompt="Review and polish content for clarity and correctness.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Create sequential workflow: Researcher -> Writer -> Editor
@@ -94,19 +94,19 @@ from swarms import Agent, ConcurrentWorkflow
 market_analyst = Agent(
     agent_name="Market-Analyst",
     system_prompt="Analyze market trends and competitive landscape.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 financial_analyst = Agent(
     agent_name="Financial-Analyst",
     system_prompt="Analyze financial metrics and profitability.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 risk_analyst = Agent(
     agent_name="Risk-Analyst",
     system_prompt="Identify and assess potential risks.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Run all agents concurrently
@@ -137,10 +137,10 @@ Initial Task ───────┼──→ Financial Analyst ───→ Co
 from swarms import Agent, AgentRearrange
 
 # Define agents
-researcher = Agent(agent_name="researcher", model_name="gpt-4o-mini")
-writer = Agent(agent_name="writer", model_name="gpt-4o-mini")
-editor = Agent(agent_name="editor", model_name="gpt-4o-mini")
-reviewer = Agent(agent_name="reviewer", model_name="gpt-4o-mini")
+researcher = Agent(agent_name="researcher", model_name="gpt-5.4")
+writer = Agent(agent_name="writer", model_name="gpt-5.4")
+editor = Agent(agent_name="editor", model_name="gpt-5.4")
+reviewer = Agent(agent_name="reviewer", model_name="gpt-5.4")
 
 # Define flow: researcher sends to both writer and editor,
 # then both send to reviewer
@@ -174,26 +174,26 @@ from swarms import Agent, MixtureOfAgents
 financial_expert = Agent(
     agent_name="Financial-Expert",
     system_prompt="Expert in financial analysis and investment strategies.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 market_expert = Agent(
     agent_name="Market-Expert",
     system_prompt="Expert in market trends and competitive analysis.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 risk_expert = Agent(
     agent_name="Risk-Expert",
     system_prompt="Expert in risk assessment and mitigation.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create aggregator to synthesize expert opinions
 aggregator = Agent(
     agent_name="Investment-Advisor",
     system_prompt="Synthesize expert analyses into actionable recommendations.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create MoA swarm
@@ -218,19 +218,19 @@ from swarms import Agent, HierarchicalSwarm
 content_strategist = Agent(
     agent_name="Content-Strategist",
     system_prompt="Develop content strategies and editorial calendars.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 creative_director = Agent(
     agent_name="Creative-Director",
     system_prompt="Create compelling advertising concepts and campaigns.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 seo_specialist = Agent(
     agent_name="SEO-Specialist",
     system_prompt="Optimize content for search engines and organic growth.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Director coordinates the team
@@ -259,19 +259,19 @@ from swarms import Agent, GroupChat
 optimist = Agent(
     agent_name="Optimist",
     system_prompt="Present the benefits and opportunities of ideas.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 critic = Agent(
     agent_name="Critic",
     system_prompt="Identify potential problems and challenges.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 realist = Agent(
     agent_name="Realist",
     system_prompt="Provide balanced, practical perspectives.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create group chat
@@ -371,7 +371,7 @@ from swarms import Agent, SequentialWorkflow
 researcher = Agent(
     agent_name="Researcher",
     system_prompt="Research topics thoroughly using multiple sources.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     tools=[web_search_tool, database_tool],
 )
 
@@ -379,21 +379,21 @@ researcher = Agent(
 writer = Agent(
     agent_name="Writer",
     system_prompt="Create engaging, well-structured content.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Stage 3: SEO Optimization
 seo_optimizer = Agent(
     agent_name="SEO-Optimizer",
     system_prompt="Optimize content for search engines.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Stage 4: Fact Checking
 fact_checker = Agent(
     agent_name="Fact-Checker",
     system_prompt="Verify all claims and citations.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 pipeline = SequentialWorkflow(

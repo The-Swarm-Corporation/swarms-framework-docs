@@ -18,7 +18,7 @@ Task Input → Reasoning Agent → Structured Analysis → Main Agent → Final 
 |-----------|------|---------|-------------|
 | `model_name` | `str` | `"reasoning-agent-01"` | Name identifier for the reasoning agent |
 | `description` | `str` | `"A highly intelligent..."` | Description of the reasoning agent's capabilities |
-| `model_names` | `list[str]` | `["gpt-4o", "gpt-4o-mini"]` | Model names for reasoning and main agents |
+| `model_names` | `list[str]` | `["claude-sonnet-4-6", "gpt-5.4"]` | Model names for reasoning and main agents |
 | `system_prompt` | `str` | `"You are a helpful..."` | System prompt for the main agent |
 
 ### Methods
@@ -35,7 +35,7 @@ from swarms.agents.reasoning_duo import ReasoningDuo
 
 duo = ReasoningDuo(
     model_name="reasoning-agent-01",
-    model_names=["gpt-4o", "gpt-4o-mini"]
+    model_names=["claude-sonnet-4-6", "gpt-5.4"]
 )
 
 result = duo.run("Explain the concept of gravitational waves")
@@ -75,7 +75,7 @@ analysis = duo.run(finance_task)
 duo = ReasoningDuo(
     model_name="custom-reasoning-agent",
     description="Specialized financial analysis agent",
-    model_names=["gpt-4o", "gpt-4o-mini"],
+    model_names=["claude-sonnet-4-6", "gpt-5.4"],
     system_prompt="You are a financial expert AI assistant..."
 )
 ```

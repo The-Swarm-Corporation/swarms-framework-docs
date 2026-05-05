@@ -33,7 +33,7 @@ def get_weather(location: str, units: str = "celsius") -> str:
 # Create agent with tool
 agent = Agent(
     agent_name="Weather-Assistant",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     tools=[get_weather],  # Add tools as a list
 )
@@ -127,7 +127,7 @@ def search_database(query: str) -> str:
 # Agent with multiple tools
 agent = Agent(
     agent_name="Multi-Tool-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=2,
     tools=[calculate, get_time, search_database],
     verbose=True,
@@ -173,7 +173,7 @@ def web_search(query: str, num_results: int = 5) -> str:
 
 agent = Agent(
     agent_name="Research-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=[web_search],
 )
 ```
@@ -216,7 +216,7 @@ def query_database(sql: str) -> List[Dict[str, Any]]:
 
 agent = Agent(
     agent_name="Data-Analyst",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=[query_database],
 )
 ```
@@ -280,7 +280,7 @@ def list_directory(path: str = ".") -> str:
 
 agent = Agent(
     agent_name="File-Manager",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=[read_file, write_file, list_directory],
     max_loops=3,
 )
@@ -296,7 +296,7 @@ agent = Agent(
   ```python
   agent = Agent(
       tools=[tool1, tool2, tool3],
-      model_name="gpt-4o"
+      model_name="claude-sonnet-4-6"
   )
   ```
 </ParamField>
@@ -382,7 +382,7 @@ db_tool = DatabaseTool("data.db")
 
 agent = Agent(
     agent_name="DB-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=[db_tool.connect, db_tool.query],
 )
 ```
@@ -421,7 +421,7 @@ def fetch_url(url: str) -> str:
     return asyncio.run(fetch_url_async(url))
 
 agent = Agent(
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     tools=[fetch_url],
 )
 ```
@@ -465,7 +465,7 @@ mcp_config = MCPConnection(
 
 agent = Agent(
     agent_name="MCP-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     mcp_config=mcp_config,  # Tools auto-loaded from MCP server
 )
 

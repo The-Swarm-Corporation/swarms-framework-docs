@@ -39,7 +39,7 @@ from swarms.structs.hiearchical_swarm import HierarchicalSwarm
   Format for the final output of the swarm
 </ParamField>
 
-<ParamField path="feedback_director_model_name" type="str" default="gpt-4o-mini">
+<ParamField path="feedback_director_model_name" type="str" default="gpt-5.4">
   Model name for the feedback director
 </ParamField>
 
@@ -47,7 +47,7 @@ from swarms.structs.hiearchical_swarm import HierarchicalSwarm
   Name identifier for the director agent
 </ParamField>
 
-<ParamField path="director_model_name" type="str" default="gpt-4o-mini">
+<ParamField path="director_model_name" type="str" default="gpt-5.4">
   Model name for the main director agent
 </ParamField>
 
@@ -247,19 +247,19 @@ from swarms.structs.hiearchical_swarm import HierarchicalSwarm
 research_agent = Agent(
     agent_name="Research-Specialist",
     system_prompt="Expert in research and data gathering",
-    model_name="gpt-4o"
+    model_name="claude-sonnet-4-6"
 )
 
 analysis_agent = Agent(
     agent_name="Analysis-Specialist",
     system_prompt="Expert in data analysis",
-    model_name="gpt-4o"
+    model_name="claude-sonnet-4-6"
 )
 
 writing_agent = Agent(
     agent_name="Writing-Specialist",
     system_prompt="Expert in writing and communication",
-    model_name="gpt-4o"
+    model_name="claude-sonnet-4-6"
 )
 
 # Create hierarchical swarm
@@ -268,7 +268,7 @@ swarm = HierarchicalSwarm(
     description="A hierarchical team for research and analysis",
     agents=[research_agent, analysis_agent, writing_agent],
     max_loops=2,
-    director_model_name="gpt-4o",
+    director_model_name="claude-sonnet-4-6",
     interactive=True,
     verbose=True
 )

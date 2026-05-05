@@ -69,14 +69,14 @@ agent = Agent(
 # GPT-4o (Optimized)
 agent = Agent(
     agent_name="GPT4o-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
 )
 
 # GPT-4o Mini (Cost-effective)
 agent = Agent(
     agent_name="GPT4o-Mini-Agent",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 ```
@@ -215,7 +215,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Custom-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
     temperature=0.7,        # Creativity (0.0-1.0)
     context_length=8192,    # Context window size
@@ -258,7 +258,7 @@ def get_agent_for_task(task_type: str) -> Agent:
         # Default to GPT-4o Mini
         return Agent(
             agent_name="Default-Agent",
-            model_name="gpt-4o-mini",
+            model_name="gpt-5.4",
             max_loops=1,
         )
 
@@ -312,7 +312,7 @@ from swarms import Agent
 # Use cheaper models for simple tasks
 simple_agent = Agent(
     agent_name="Simple-Task-Agent",
-    model_name="gpt-4o-mini",  # Most cost-effective
+    model_name="gpt-5.4",  # Most cost-effective
     max_loops=1,
 )
 

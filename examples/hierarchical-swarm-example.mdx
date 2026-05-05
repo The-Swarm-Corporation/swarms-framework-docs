@@ -34,25 +34,25 @@ from swarms import Agent, HierarchicalSwarm
 content_strategist = Agent(
     agent_name="Content-Strategist",
     system_prompt="You are a senior content strategist. Develop comprehensive content strategies, editorial calendars, and content roadmaps.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 creative_director = Agent(
     agent_name="Creative-Director", 
     system_prompt="You are a creative director. Develop compelling advertising concepts, visual directions, and campaign creativity.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 seo_specialist = Agent(
     agent_name="SEO-Specialist",
     system_prompt="You are an SEO expert. Conduct keyword research, optimize content, and develop organic growth strategies.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 brand_strategist = Agent(
     agent_name="Brand-Strategist",
     system_prompt="You are a brand strategist. Develop brand positioning, identity systems, and market differentiation strategies.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create the hierarchical swarm with a director
@@ -124,25 +124,25 @@ from swarms import Agent, HierarchicalSwarm
 backend_engineer = Agent(
     agent_name="Backend-Engineer",
     system_prompt="You are a senior backend engineer. Design APIs, database schemas, and server architecture.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 frontend_engineer = Agent(
     agent_name="Frontend-Engineer",
     system_prompt="You are a senior frontend engineer. Design user interfaces, components, and client-side logic.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 qa_engineer = Agent(
     agent_name="QA-Engineer",
     system_prompt="You are a QA engineer. Develop test strategies, test cases, and quality assurance plans.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 devops_engineer = Agent(
     agent_name="DevOps-Engineer",
     system_prompt="You are a DevOps engineer. Design deployment pipelines, infrastructure, and monitoring.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create development swarm
@@ -174,25 +174,25 @@ from swarms import Agent, HierarchicalSwarm
 literature_researcher = Agent(
     agent_name="Literature-Researcher",
     system_prompt="You are a literature review specialist. Search and synthesize existing research on topics.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 data_scientist = Agent(
     agent_name="Data-Scientist",
     system_prompt="You are a data scientist. Design experiments, analyze data, and develop statistical models.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 methodologist = Agent(
     agent_name="Methodologist",
     system_prompt="You are a research methodologist. Design rigorous experimental protocols and methodologies.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 writer = Agent(
     agent_name="Academic-Writer",
     system_prompt="You are an academic writer. Write clear, rigorous research papers and publications.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create research swarm
@@ -224,25 +224,25 @@ from swarms import Agent, HierarchicalSwarm
 venue_coordinator = Agent(
     agent_name="Venue-Coordinator",
     system_prompt="You are a venue coordinator. Find and evaluate event spaces, negotiate contracts, manage logistics.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 catering_specialist = Agent(
     agent_name="Catering-Specialist",
     system_prompt="You are a catering specialist. Plan menus, coordinate food service, manage dietary requirements.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 marketing_coordinator = Agent(
     agent_name="Marketing-Coordinator",
     system_prompt="You are an event marketing coordinator. Promote events, manage registrations, handle communications.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 technical_producer = Agent(
     agent_name="Technical-Producer",
     system_prompt="You are a technical producer. Manage AV equipment, streaming, presentations, and technical requirements.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create event planning swarm
@@ -275,25 +275,25 @@ from swarms import Agent, HierarchicalSwarm
 technical_support = Agent(
     agent_name="Technical-Support",
     system_prompt="You are a technical support specialist. Troubleshoot technical issues and provide solutions.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 billing_specialist = Agent(
     agent_name="Billing-Specialist",
     system_prompt="You are a billing specialist. Handle payment issues, refunds, and account billing questions.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 product_specialist = Agent(
     agent_name="Product-Specialist",
     system_prompt="You are a product specialist. Explain features, guide usage, and provide product training.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 escalation_manager = Agent(
     agent_name="Escalation-Manager",
     system_prompt="You are an escalation manager. Handle complex cases, customer complaints, and special requests.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create support swarm
@@ -346,13 +346,13 @@ from swarms import Agent, HierarchicalSwarm
 designer = Agent(
     agent_name="Designer",
     system_prompt="Design user interfaces and visual elements.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 developer = Agent(
     agent_name="Developer",
     system_prompt="Implement designs and build functionality.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Create swarm with feedback loops
@@ -399,14 +399,14 @@ result = swarm.run("Build a user-friendly dashboard for analytics")
 worker = Agent(
     agent_name="SEO-Specialist",
     system_prompt="You are an SEO expert specializing in technical SEO, keyword research, and organic growth.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 
 # Avoid: Too broad
 worker = Agent(
     agent_name="Marketer",
     system_prompt="You do marketing.",
-    model_name="gpt-4o-mini"
+    model_name="gpt-5.4"
 )
 ```
 

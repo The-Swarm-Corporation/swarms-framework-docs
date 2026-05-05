@@ -33,19 +33,19 @@ from swarms import Agent, HierarchicalSwarm
 content_strategist = Agent(
     agent_name="Content-Strategist",
     system_prompt="Develop content strategies and editorial calendars.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 creative_director = Agent(
     agent_name="Creative-Director",
     system_prompt="Create compelling advertising concepts and visual direction.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 seo_specialist = Agent(
     agent_name="SEO-Specialist",
     system_prompt="Conduct keyword research and optimize content for search.",
-    model_name="gpt-4o-mini",
+    model_name="gpt-5.4",
 )
 
 # Create hierarchical swarm (director auto-created)
@@ -131,7 +131,7 @@ Example output:
   Format for output
 </ParamField>
 
-<ParamField path="director_model_name" type="str" default="gpt-4o-mini">
+<ParamField path="director_model_name" type="str" default="gpt-5.4">
   Model for director agent
 </ParamField>
 

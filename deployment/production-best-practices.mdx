@@ -28,7 +28,7 @@ from swarms.structs.agent import (
 try:
     agent = Agent(
         agent_name="Production-Agent",
-        model_name="gpt-4o",
+        model_name="claude-sonnet-4-6",
         max_loops=3,
     )
     result = agent.run("Process this task")
@@ -86,7 +86,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Resilient-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     retry_attempts=5,  # Number of retry attempts
     retry_interval=2,  # Initial retry interval (seconds)
     max_loops=3,
@@ -143,8 +143,8 @@ Use fallback models for resilience:
 agent = Agent(
     agent_name="Resilient-Agent",
     fallback_models=[
-        "gpt-4o",           # Primary model
-        "gpt-4o-mini",      # First fallback
+        "claude-sonnet-4-6",           # Primary model
+        "gpt-5.4",      # First fallback
         "gpt-3.5-turbo",    # Second fallback
     ],
     max_loops=3,
@@ -200,7 +200,7 @@ logger.add(
 # Enable verbose logging for specific agents
 agent = Agent(
     agent_name="Debug-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     verbose=True,  # Enable verbose logging
     print_on=True,  # Print outputs to console
 )
@@ -356,7 +356,7 @@ load_dotenv()
 
 # Production configuration
 PROD_CONFIG = {
-    "model_name": os.getenv("MODEL_NAME", "gpt-4o"),
+    "model_name": os.getenv("MODEL_NAME", "claude-sonnet-4-6"),
     "max_loops": int(os.getenv("MAX_LOOPS", "3")),
     "retry_attempts": int(os.getenv("RETRY_ATTEMPTS", "5")),
     "timeout": int(os.getenv("TIMEOUT", "120")),
@@ -383,7 +383,7 @@ class AgentConfig(BaseModel):
     
     @validator('model_name')
     def validate_model(cls, v):
-        allowed_models = ["gpt-4o", "gpt-4o-mini", "claude-sonnet-3.5"]
+        allowed_models = ["claude-sonnet-4-6", "gpt-5.4", "claude-sonnet-3.5"]
         if v not in allowed_models:
             raise ValueError(f"Model must be one of {allowed_models}")
         return v
@@ -391,7 +391,7 @@ class AgentConfig(BaseModel):
 # Load and validate config
 config = AgentConfig(
     agent_name="Production-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     max_loops=5,
 )
 
@@ -412,7 +412,7 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # Use environment variables or secure vaults
 agent = Agent(
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     llm_api_key=OPENAI_API_KEY,
 )
 ```
@@ -446,7 +446,7 @@ result = agent.run(user_task)
 ```python
 agent = Agent(
     agent_name="Safe-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     safety_prompt_on=True,  # Enable safety guardrails
 )
 ```
@@ -459,7 +459,7 @@ agent = Agent(
 # Truncate conversation history to manage memory
 agent = Agent(
     agent_name="Memory-Managed-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     context_length=8000,  # Context window size
 )
 
@@ -491,7 +491,7 @@ def process_tasks(tasks):
 ```python
 agent = Agent(
     agent_name="Stateful-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     autosave=True,  # Auto-save state after each run
     saved_state_path="./agent_states/",
 )
@@ -508,7 +508,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Restored-Agent",
-    model_name="gpt-4o",
+    model_name="claude-sonnet-4-6",
     load_state_path="./agent_states/agent_state.json",
 )
 ```
@@ -525,7 +525,7 @@ class TestAgent(unittest.TestCase):
     def setUp(self):
         self.agent = Agent(
             agent_name="Test-Agent",
-            model_name="gpt-4o-mini",
+            model_name="gpt-5.4",
             max_loops=1,
         )
     
@@ -546,7 +546,7 @@ def test_agent_integration():
     """Test agent with real LLM."""
     agent = Agent(
         agent_name="Integration-Test-Agent",
-        model_name="gpt-4o-mini",
+        model_name="gpt-5.4",
         max_loops=2,
     )
     
