@@ -68,6 +68,19 @@
             ]
           },
           {
+            "group": "Reasoning Agents",
+            "pages": [
+              "agents/reasoning-agents-overview",
+              "agents/self-consistency-agent",
+              "agents/iterative-agent",
+              "agents/reasoning-duo",
+              "agents/reflexion-agent",
+              "agents/gkp-agent",
+              "agents/agent-judge",
+              "agents/reasoning-agent-router"
+            ]
+          },
+          {
             "group": "Multi-Agent Architectures",
             "pages": [
               "architectures/overview",
