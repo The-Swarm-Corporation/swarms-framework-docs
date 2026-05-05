@@ -1,0 +1,132 @@
+---
+title: 'Context Compression'
+description: 'Automatically summarize agent memory when it nears the context window, while archiving the full transcript.'
+icon: 'compress'
+---
+
+Long-running agents accumulate transcripts that eventually exceed the model's context window. Swarms ships a `ContextCompressor` that summarizes the active memory near the limit and archives the raw transcript — the agent keeps running without manual pruning.
+
+## When to use it
+
+- `max_loops="auto"` or any long-running iterative task.
+- Agents that produce or consume large tool outputs.
+- Multi-session agents whose `MEMORY.md` would otherwise grow unbounded.
+
+## How it fires
+
+Compression runs at the top of a loop iteration when **all** of the following hold:
+
+- `context_compression=True` on the agent
+- Token usage of the active prompt ≥ `threshold * context_length`
+- The agent is at the start of an iteration (not mid tool-call)
+
+The default `threshold` is `0.9` — compression fires at ~90% of the context window.
+
+## Default behavior
+
+Compression is enabled by default. Just construct the agent normally:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops=5,
+    context_compression=True,  # default
+)
+
+agent.run("Research low-latency cloud data warehouses, then dive deep on GCP.")
+```
+
+When the prompt approaches the limit, Swarms:
+
+1. Summarizes the current transcript with an LLM call.
+2. Copies `MEMORY.md` to `archive/history_<timestamp>.md`.
+3. Wipes `MEMORY.md` and re-seeds it with the summary as a single `System` message.
+4. Rebuilds `conversation_history` (system prompt + rules + summary).
+
+The agent keeps running with a small active context; the full pre-compaction transcript stays in `archive/`.
+
+## Tune the compressor
+
+Swap the default `ContextCompressor` after construction to change the threshold, summarizer model, or summary length:
+
+```python
+from swarms import Agent
+from swarms.agents.context_compressor import ContextCompressor
+
+agent = Agent(
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops=5,
+    context_compression=True,
+)
+
+agent._context_compressor = ContextCompressor(
+    threshold=0.75,                       # compress earlier
+    summarizer_model="claude-haiku-4-5",  # cheaper summary model
+    summarizer_temperature=0.1,
+    summarizer_max_tokens=3000,
+)
+```
+
+Lower `threshold` for agents with large tool outputs so you compress before any single iteration overflows.
+
+## Manual compaction
+
+You can compact memory yourself at any time — useful after a clear milestone (research phase done, plan finalized):
+
+```python
+agent.short_memory.compact(
+    summary=(
+        "Researched cloud data warehouses. "
+        "User prefers GCP. Shortlist: BigQuery, AlloyDB, ClickHouse Cloud."
+    )
+)
+```
+
+Manual compaction follows the same archive → wipe → re-seed flow as automatic compression.
+
+## Disable compression
+
+When you want the active `MEMORY.md` to keep the raw transcript intact:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="StaticAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops="auto",
+    context_compression=False,
+)
+```
+
+Use this for short tasks, or when downstream tooling parses the unmodified transcript.
+
+## What ends up on disk
+
+After compaction:
+
+```text
+$WORKSPACE_DIR/agents/ResearchAgent/
+|-- MEMORY.md                                  # header + compressed summary
+`-- archive/
+    `-- history_2026-04-20_18-44-12.md         # full pre-compaction transcript
+```
+
+On the next run, Swarms preloads the compact summary from `MEMORY.md` — the archive is preserved for forensics but does not enter the active context.
+
+## Tips
+
+- Keep compression on for autonomous loops; the cost of one summary call is small versus a context-overflow failure.
+- Lower `threshold` (0.6–0.75) for agents that emit long structured outputs.
+- Use a cheaper `summarizer_model` (Haiku) to keep compaction lightweight.
+- Compact manually at major milestones to lock in important state with a hand-written summary.
+
+## See also
+
+- [Persistent Memory](/examples/agents/persistent-memory) — How `MEMORY.md` is created and reloaded.
+- [Agent Memory Reference](/agents/agent-memory) — Full lifecycle, archive layout, and design rationale.
+- [Conversation API](/api/conversation) — `compact`, `export`, and search helpers.

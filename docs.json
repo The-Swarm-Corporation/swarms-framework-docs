@@ -121,6 +121,12 @@
               "cli/commands",
               "cli/configuration"
             ]
+          },
+          {
+            "group": "Changelog",
+            "pages": [
+              "changelog/swarms-v12"
+            ]
           }
         ]
       },
@@ -242,7 +248,9 @@
               "examples/agents/agent-streaming",
               "examples/agents/advanced-research",
               "examples/agents/autonomous-looper-bash",
-              "examples/agents/autonomous-looper-tools"
+              "examples/agents/autonomous-looper-tools",
+              "examples/agents/persistent-memory",
+              "examples/agents/context-compression"
             ]
           },
           {

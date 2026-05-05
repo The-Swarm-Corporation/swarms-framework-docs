@@ -1,0 +1,130 @@
+---
+title: 'Persistent Memory'
+description: 'Persist agent interaction history to disk via MEMORY.md and resume across process restarts.'
+icon: 'database'
+---
+
+Swarms agents persist their interaction history to disk through a per-agent `MEMORY.md` file. Reusing the same `agent_name` across process starts resumes the same memory.
+
+## When to use it
+
+- The agent runs in separate processes (CLI, cron, restarts) and needs to resume prior context.
+- You want a human-readable transcript of what the agent has seen and produced.
+- You need to inspect, search, or export the agent's interaction log.
+
+For external knowledge retrieval (PDFs, databases, doc stores), use `long_term_memory` (RAG) instead — `MEMORY.md` is for the agent's own history, not a document index.
+
+## How it works
+
+Memory is keyed by `agent_name` and lives under the workspace directory:
+
+```text
+$WORKSPACE_DIR/agents/{agent_name}/
+|-- MEMORY.md
+`-- archive/
+    `-- history_<timestamp>.md
+```
+
+On construction, Swarms reads `MEMORY.md` and injects it into `conversation_history` as a single `System` message. Every `conversation.add(...)` then write-throughs to disk so nothing is lost on exit.
+
+## Basic example
+
+Set `agent_name` and run the agent. The memory file is created automatically:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops=1,
+)
+
+agent.run("Research low-latency cloud data warehouses for analytics.")
+agent.run("Narrow the recommendation to GCP.")
+
+# Active on-disk memory
+print(agent.short_memory.memory_md_path)
+# -> $WORKSPACE_DIR/agents/ResearchAgent/MEMORY.md
+```
+
+## Resume across restarts
+
+Re-instantiate an agent with the **same** `agent_name`. The prior transcript is preloaded as a system message before the new task runs:
+
+```python
+from swarms import Agent
+
+# Second process, hours later
+agent = Agent(
+    agent_name="ResearchAgent",  # same name -> same memory
+    model_name="claude-sonnet-4-6",
+    max_loops=1,
+)
+
+# The agent already "remembers" the GCP shortlist from before
+agent.run("Compare BigQuery vs AlloyDB for our latency requirements.")
+```
+
+Changing the name starts a fresh memory folder; `id` changes between runs and is not used as the key.
+
+## Inspect memory in code
+
+The `Conversation` object is exposed as `agent.short_memory`:
+
+```python
+# Full prompt-ready history
+print(agent.short_memory.return_history_as_string())
+
+# Structured message list
+messages = agent.short_memory.to_dict()
+
+# Last response only
+print(agent.short_memory.get_final_message_content())
+
+# Search past turns
+hits = agent.short_memory.search("GCP")
+matches = agent.short_memory.search_keyword_in_conversation("latency")
+```
+
+## Export and reload
+
+Snapshot memory to JSON or YAML and reload it later:
+
+```python
+agent.short_memory.export(force=True)
+agent.short_memory.save_as_json(force=True)
+agent.short_memory.save_as_yaml(force=True)
+
+# Restore from a prior snapshot
+agent.short_memory.load("conversation_agent-123.json")
+```
+
+## Disable disk-backed memory
+
+For privacy-sensitive or one-off agents, disable disk writes by clearing `memory_md_path`. In-process `conversation_history` still works:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="EphemeralAgent",
+    model_name="claude-sonnet-4-6",
+)
+
+agent.short_memory.memory_md_path = None
+
+agent.run("This task is not written to MEMORY.md.")
+```
+
+## Tips
+
+- Use stable, descriptive `agent_name` values for any agent that should remember prior work.
+- Don't reuse the same `agent_name` across unrelated tasks — memory will leak between runs.
+- For long-running agents, also enable [context compression](/examples/agents/context-compression) so memory stays within the model's context window.
+
+## See also
+
+- [Agent Memory Reference](/agents/agent-memory) — Full memory stack, lifecycle, and disk layout.
+- [Context Compression](/examples/agents/context-compression) — Keep persistent memory within the context window.
+- [Conversation API](/api/conversation) — Underlying class for export, load, and search.
