@@ -130,7 +130,6 @@
           {
             "group": "Core Classes",
             "pages": [
-              "api/structs-overview",
               "api/agent",
               "api/base-swarm",
               "api/base-structure",
@@ -150,6 +149,7 @@
           {
             "group": "Multi-Agent Systems",
             "pages": [
+              "api/structs-overview",
               "api/mixture-of-agents",
               "api/hierarchical-swarm",
               "api/heavy-swarm",
