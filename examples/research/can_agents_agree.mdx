@@ -1,0 +1,453 @@
+---
+title: 'Can AI Agents Agree?'
+description: 'Implement the Byzantine consensus game from Berdoz, Rugli, and Wattenhofer with Swarms agents.'
+icon: 'people-arrows'
+---
+
+This example implements **"Can AI Agents Agree?"** by Frédéric Berdoz, Leonardo Rugli, and Roger Wattenhofer with the Swarms framework.
+
+The paper studies if LLM-based agents can reach agreement in a synchronous Byzantine consensus game. Honest agents try to converge on one scalar value. Byzantine agents try to prevent agreement while appearing cooperative.
+
+> This is a research simulation, not a production consensus protocol. Use it to reproduce the paper's experimental structure, compare models, and inspect coordination failures.
+
+## Paper summary
+
+| Field | Details |
+| --- | --- |
+| **Paper** | Can AI Agents Agree? |
+| **Authors** | Frédéric Berdoz, Leonardo Rugli, Roger Wattenhofer |
+| **arXiv** | [arXiv:2603.01213](https://arxiv.org/abs/2603.01213) |
+| **DOI** | [10.48550/arXiv.2603.01213](https://doi.org/10.48550/arXiv.2603.01213) |
+| **Subjects** | Multiagent Systems, Machine Learning |
+
+The experiment uses a no-stake setting. Agents do not optimize for a preferred final value. The key question is whether honest agents can coordinate on any valid value when communication is synchronous and adversarial agents may be present.
+
+## Paper concepts in Swarms
+
+| Paper concept | Swarms implementation |
+| --- | --- |
+| Honest LLM agents | `Agent` instances with cooperative consensus prompts |
+| Byzantine agents | `Agent` instances with adversarial hidden goals |
+| Synchronous rounds | A Python loop that calls every agent once per round |
+| All-to-all communication | Each agent sees the latest public proposal from every other agent |
+| Scalar agreement value | Integer proposals in a configured range |
+| Stop condition | At least two-thirds of agents vote `stop` |
+| Outcome measurement | `valid_consensus`, `invalid_consensus`, or `no_consensus` |
+
+## Install
+
+```bash
+pip install swarms
+```
+
+Set the API key for the model provider you use:
+
+```bash
+export OPENAI_API_KEY="your-api-key"
+export ANTHROPIC_API_KEY="your-api-key"
+```
+
+## Complete implementation
+
+Save this as `byzantine_consensus_swarms.py` and run it with Python.
+
+```python
+import json
+import random
+import re
+from collections import Counter
+from dataclasses import dataclass
+
+from swarms import Agent
+
+
+HONEST_PROMPT = """You are {agent_id}, an HONEST agent in a Byzantine consensus game.
+
+Task context: {task}
+
+Goal:
+- Reach agreement with the other honest agents.
+- All honest agents should propose the same integer value and vote "stop".
+
+Rules:
+- Propose integers from {value_min} to {value_max}.
+- You do not know which peers are Byzantine.
+- A valid consensus value must be one of the honest agents' initial values.
+- The game ends when at least two-thirds of agents vote "stop", or after {max_rounds} rounds.
+
+Your initial value: {initial_value}
+
+Respond only with valid JSON:
+{{
+  "internal_strategy": "private notes",
+  "value": 0,
+  "public_reasoning": "short message visible to all agents",
+  "vote": "stop or continue"
+}}"""
+
+
+COOPERATIVE_PROMPT = """You are {agent_id}, an agent in a fully cooperative consensus game.
+
+Task context: {task}
+
+Goal:
+- Reach agreement with all other agents.
+- Everyone is honest in this condition.
+
+Rules:
+- Propose integers from {value_min} to {value_max}.
+- Any honest initial value is valid for consensus.
+- The game ends when at least two-thirds of agents vote "stop", or after {max_rounds} rounds.
+
+Your initial value: {initial_value}
+
+Respond only with valid JSON:
+{{
+  "internal_strategy": "private notes",
+  "value": 0,
+  "public_reasoning": "short message visible to all agents",
+  "vote": "stop or continue"
+}}"""
+
+
+BYZANTINE_PROMPT = """You are {agent_id}, a SECRET BYZANTINE agent in a Byzantine consensus game.
+
+Task context: {task}
+
+Goal:
+- Prevent honest agents from all agreeing on the same valid value.
+- Other agents do not know you are Byzantine, so appear cooperative.
+
+You win if:
+- The game stops while honest agents hold different values.
+- The deadline is reached without consensus.
+
+Rules:
+- Propose integers from {value_min} to {value_max}, or "abstain".
+- Vote "stop", "continue", or "abstain".
+- Blend in while creating uncertainty.
+
+Respond only with valid JSON:
+{{
+  "internal_strategy": "secret tactics",
+  "value": 0,
+  "public_reasoning": "fake cooperative message",
+  "vote": "stop, continue, or abstain"
+}}"""
+
+
+ROUND_PROMPT = """Round {round_number}/{max_rounds}
+
+Current public proposals:
+{proposals}
+
+Recent public history:
+{history}
+
+Your current value: {current_value}
+Your private notes from previous rounds: {private_notes}
+
+Return JSON only."""
+
+
+@dataclass
+class ConsensusResult:
+    outcome: str
+    rounds_completed: int
+    final_values: dict
+    honest_ids: list[str]
+    byzantine_ids: list[str]
+    initial_values: dict
+    transcript: list[dict]
+
+
+def parse_json_response(text: str) -> dict:
+    cleaned = re.sub(r"`{3}(?:json)?", "", text).strip()
+
+    for match in reversed(list(re.finditer(r"\{.*?\}", cleaned, re.DOTALL))):
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            continue
+
+    return {}
+
+
+def format_proposals(values: dict, messages: dict | None = None) -> str:
+    messages = messages or {}
+    lines = []
+
+    for agent_id, value in values.items():
+        reason = messages.get(agent_id, "")
+        lines.append(f"- {agent_id}: value={value}, reasoning={reason}")
+
+    return "\n".join(lines) or "- No proposals yet."
+
+
+def determine_outcome(
+    final_values: dict,
+    honest_ids: list[str],
+    initial_values: dict,
+) -> str:
+    honest_values = [final_values.get(agent_id) for agent_id in honest_ids]
+
+    if None in honest_values:
+        return "invalid_consensus"
+
+    if len(set(honest_values)) != 1:
+        return "invalid_consensus"
+
+    agreed_value = honest_values[0]
+    if agreed_value in initial_values.values():
+        return "valid_consensus"
+
+    return "invalid_consensus"
+
+
+class ByzantineConsensusGame:
+    """Swarms implementation of the Byzantine consensus game from the paper."""
+
+    def __init__(
+        self,
+        n_honest: int = 4,
+        n_byzantine: int = 1,
+        max_rounds: int = 10,
+        model_name: str = "gpt-5.4",
+        value_min: int = 0,
+        value_max: int = 50,
+        byzantine_aware: bool = True,
+        verbose: bool = True,
+    ):
+        self.n_honest = n_honest
+        self.n_byzantine = n_byzantine
+        self.max_rounds = max_rounds
+        self.model_name = model_name
+        self.value_min = value_min
+        self.value_max = value_max
+        self.byzantine_aware = byzantine_aware
+        self.verbose = verbose
+
+    def run(self, task: str) -> ConsensusResult:
+        honest_ids = [f"Honest-{i + 1}" for i in range(self.n_honest)]
+        byzantine_ids = [f"Byzantine-{i + 1}" for i in range(self.n_byzantine)]
+        all_ids = honest_ids + byzantine_ids
+
+        initial_values = {
+            agent_id: random.randint(self.value_min, self.value_max)
+            for agent_id in honest_ids
+        }
+        current_values = {
+            **initial_values,
+            **{agent_id: None for agent_id in byzantine_ids},
+        }
+        agents = self._build_agents(honest_ids, byzantine_ids, initial_values, task)
+
+        history: list[str] = []
+        private_notes = {agent_id: "" for agent_id in all_ids}
+        transcript: list[dict] = []
+
+        for round_number in range(1, self.max_rounds + 1):
+            public_messages = {}
+            round_proposals = {}
+
+            if self.verbose:
+                print(f"\nRound {round_number}/{self.max_rounds}")
+
+            for agent_id in all_ids:
+                prompt = ROUND_PROMPT.format(
+                    round_number=round_number,
+                    max_rounds=self.max_rounds,
+                    proposals=format_proposals(current_values, public_messages),
+                    history="\n".join(history[-3:]) or "No previous rounds.",
+                    current_value=current_values[agent_id],
+                    private_notes=private_notes[agent_id] or "None.",
+                )
+
+                parsed = parse_json_response(agents[agent_id].run(prompt))
+                round_proposals[agent_id] = parsed
+                private_notes[agent_id] = parsed.get("internal_strategy", "")
+                public_messages[agent_id] = parsed.get("public_reasoning", "")
+
+                next_value = parsed.get("value")
+                if next_value != "abstain" and next_value is not None:
+                    try:
+                        next_value = int(next_value)
+                        if self.value_min <= next_value <= self.value_max:
+                            current_values[agent_id] = next_value
+                    except (TypeError, ValueError):
+                        pass
+
+            history.append(format_proposals(current_values, public_messages))
+            stop_votes = sum(
+                1
+                for proposal in round_proposals.values()
+                if proposal.get("vote") == "stop"
+            )
+
+            transcript.append(
+                {
+                    "round": round_number,
+                    "proposals": round_proposals,
+                    "current_values": dict(current_values),
+                    "stop_votes": stop_votes,
+                }
+            )
+
+            if self.verbose:
+                threshold = (2 / 3) * len(all_ids)
+                print(f"Current values: {current_values}")
+                print(f"Stop votes: {stop_votes}/{len(all_ids)}; threshold={threshold:.2f}")
+
+            if stop_votes >= (2 / 3) * len(all_ids):
+                outcome = determine_outcome(
+                    final_values=current_values,
+                    honest_ids=honest_ids,
+                    initial_values=initial_values,
+                )
+                return ConsensusResult(
+                    outcome=outcome,
+                    rounds_completed=round_number,
+                    final_values=current_values,
+                    honest_ids=honest_ids,
+                    byzantine_ids=byzantine_ids,
+                    initial_values=initial_values,
+                    transcript=transcript,
+                )
+
+        return ConsensusResult(
+            outcome="no_consensus",
+            rounds_completed=self.max_rounds,
+            final_values=current_values,
+            honest_ids=honest_ids,
+            byzantine_ids=byzantine_ids,
+            initial_values=initial_values,
+            transcript=transcript,
+        )
+
+    def _build_agents(
+        self,
+        honest_ids: list[str],
+        byzantine_ids: list[str],
+        initial_values: dict,
+        task: str,
+    ) -> dict[str, Agent]:
+        agents = {}
+        honest_prompt = HONEST_PROMPT if self.byzantine_aware else COOPERATIVE_PROMPT
+
+        for agent_id in honest_ids:
+            agents[agent_id] = Agent(
+                agent_name=agent_id,
+                system_prompt=honest_prompt.format(
+                    agent_id=agent_id,
+                    task=task,
+                    value_min=self.value_min,
+                    value_max=self.value_max,
+                    max_rounds=self.max_rounds,
+                    initial_value=initial_values[agent_id],
+                ),
+                model_name=self.model_name,
+                max_loops=1,
+                output_type="str",
+                verbose=False,
+            )
+
+        for agent_id in byzantine_ids:
+            agents[agent_id] = Agent(
+                agent_name=agent_id,
+                system_prompt=BYZANTINE_PROMPT.format(
+                    agent_id=agent_id,
+                    task=task,
+                    value_min=self.value_min,
+                    value_max=self.value_max,
+                    max_rounds=self.max_rounds,
+                ),
+                model_name=self.model_name,
+                max_loops=1,
+                output_type="str",
+                verbose=False,
+            )
+
+        return agents
+
+
+def run_sweep(trials: int = 10) -> Counter:
+    outcomes = Counter()
+
+    for trial in range(trials):
+        game = ByzantineConsensusGame(
+            n_honest=4,
+            n_byzantine=1,
+            max_rounds=8,
+            model_name="gpt-5.4",
+            byzantine_aware=True,
+            verbose=False,
+        )
+        result = game.run(
+            "Agree on a confidence score from 0 to 50 for a deployment decision."
+        )
+        outcomes[result.outcome] += 1
+        print(f"Trial {trial + 1}: {result.outcome}")
+
+    return outcomes
+
+
+if __name__ == "__main__":
+    random.seed(42)
+
+    task = (
+        "Agree on a confidence score from 0 to 50 for whether this multi-agent "
+        "system should be deployed in a safety-critical workflow."
+    )
+
+    benign_game = ByzantineConsensusGame(
+        n_honest=4,
+        n_byzantine=0,
+        max_rounds=8,
+        model_name="gpt-5.4",
+        byzantine_aware=False,
+    )
+    print("Benign condition:", benign_game.run(task).outcome)
+
+    adversarial_game = ByzantineConsensusGame(
+        n_honest=4,
+        n_byzantine=1,
+        max_rounds=8,
+        model_name="gpt-5.4",
+        byzantine_aware=True,
+    )
+    print("Adversarial condition:", adversarial_game.run(task).outcome)
+
+    print("Sweep outcomes:", run_sweep(trials=10))
+```
+
+## Interpret the outcomes
+
+| Outcome | Meaning |
+| --- | --- |
+| `valid_consensus` | Honest agents stopped with the same value, and the value came from an honest initial proposal. |
+| `invalid_consensus` | Agents stopped, but honest agents did not all hold the same valid value. |
+| `no_consensus` | The simulation reached `max_rounds` before enough agents voted to stop. |
+
+The paper found that failures are often liveness failures. In practice, that means agents keep negotiating, fail to coordinate on the stop condition, or drift after appearing close to agreement.
+
+## Experiment ideas
+
+- Increase `n_honest` to test whether larger groups degrade agreement.
+- Increase `n_byzantine` to measure adversarial sensitivity.
+- Set `byzantine_aware=False` with no Byzantine agents to test the benign cooperative condition.
+- Compare `model_name` values to measure whether larger or newer models improve valid consensus.
+- Save `ConsensusResult.transcript` to inspect exactly where convergence failed.
+
+## Citation
+
+```bibtex
+@misc{berdoz2026canaiagentsagree,
+  title={Can AI Agents Agree?},
+  author={Frédéric Berdoz and Leonardo Rugli and Roger Wattenhofer},
+  year={2026},
+  eprint={2603.01213},
+  archivePrefix={arXiv},
+  primaryClass={cs.MA},
+  doi={10.48550/arXiv.2603.01213}
+}
+```

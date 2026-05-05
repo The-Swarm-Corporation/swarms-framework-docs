@@ -275,6 +275,12 @@
             ]
           },
           {
+            "group": "Research",
+            "pages": [
+              "examples/research/can_agents_agree"
+            ]
+          },
+          {
             "group": "Use Cases",
             "pages": [
               "examples/use-cases/research-team",
