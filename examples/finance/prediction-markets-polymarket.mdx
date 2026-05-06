@@ -1,17 +1,17 @@
 ---
-title: 'Prediction Markets: Polymarket & Kalshi'
-description: 'Build autonomous prediction market agents that discover events, reason about outcomes, and place bets on Polymarket and Kalshi.'
+title: 'Prediction Markets: Polymarket'
+description: 'Build autonomous prediction market agents that discover events, reason about outcomes, and place bets on Polymarket.'
 icon: 'scale-balanced'
 ---
 
 ## Overview
 
-This tutorial shows how to build autonomous prediction market agents using Swarms with the **Polymarket** and **Kalshi** APIs. You will build agents that discover markets, estimate probabilities, find edges against market odds, and execute trades programmatically.
+This tutorial shows how to build autonomous prediction market agents using Swarms with the **Polymarket** API. You will build agents that discover markets, estimate probabilities, find edges against market odds, and execute trades programmatically.
 
 We cover a **single-agent pattern** for simple market analysis and a **multi-agent swarm pattern** with specialized research, analysis, risk, and execution agents.
 
 <Warning>
-**Trading involves real financial risk.** Always start with paper trading / demo mode before using real funds. The examples below include guardrails and dry-run mode — use them.
+**Trading involves real financial risk.** Always start with paper trading / dry-run mode before using real funds. The examples below include guardrails and dry-run mode — use them.
 </Warning>
 
 ## Prerequisites
@@ -19,7 +19,7 @@ We cover a **single-agent pattern** for simple market analysis and a **multi-age
 ### Dependencies
 
 ```bash
-pip install swarms py-clob-client requests cryptography
+pip install swarms py-clob-client requests
 ```
 
 ### API Keys & Accounts
@@ -28,21 +28,14 @@ pip install swarms py-clob-client requests cryptography
   <Accordion title="Polymarket Setup">
     1. Create a wallet on [Polymarket](https://polymarket.com) and fund it with USDC on Polygon
     2. Export your private key from your wallet
-    3. Derive API credentials using the py-clob-client SDK (shown below)
+    3. Derive API credentials using the py-clob-client SDK
     4. Set environment variables:
     ```bash
     export POLYMARKET_PRIVATE_KEY="0x..."
     export POLYMARKET_FUNDER_ADDRESS="0x..."   # your proxy wallet address
-    ```
-  </Accordion>
-  <Accordion title="Kalshi Setup">
-    1. Create an account on [Kalshi](https://kalshi.com) (or use [demo](https://demo.kalshi.co) for testing)
-    2. Go to **Account & Security > API Keys** and create a new key
-    3. Download the private key file (`.key`) — it cannot be recovered later
-    4. Set environment variables:
-    ```bash
-    export KALSHI_API_KEY_ID="your-api-key-uuid"
-    export KALSHI_PRIVATE_KEY_PATH="/path/to/kalshi-key.key"
+    export POLY_API_KEY="..."
+    export POLY_API_SECRET="..."
+    export POLY_API_PASSPHRASE="..."
     ```
   </Accordion>
   <Accordion title="LLM API Key">
@@ -57,11 +50,7 @@ pip install swarms py-clob-client requests cryptography
 
 ## Part 1: Market Discovery Tools
 
-Before building agents, we need tools that can fetch market data from both platforms.
-
-### Polymarket Market Discovery
-
-Polymarket uses three APIs: **Gamma** (market discovery), **CLOB** (pricing/trading), and **Data** (positions).
+Polymarket uses three APIs: **Gamma** (market discovery), **CLOB** (pricing/trading), and **Data** (positions). Market discovery endpoints are public — no authentication needed.
 
 ```python
 import requests
@@ -147,109 +136,19 @@ def get_polymarket_orderbook(token_id: str) -> str:
     )
 ```
 
-### Kalshi Market Discovery
-
-Kalshi uses RSA-PSS signature authentication. Market discovery endpoints are public (no auth needed).
-
-```python
-import datetime
-import base64
-from urllib.parse import urlparse
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import padding
-
-
-KALSHI_BASE = "https://api.elections.kalshi.com/trade-api/v2"
-KALSHI_DEMO_BASE = "https://demo-api.kalshi.co/trade-api/v2"
-
-
-def discover_kalshi_events(limit: int = 10) -> str:
-    """
-    Discover active prediction markets on Kalshi.
-
-    Args:
-        limit: Number of events to return (max 200).
-
-    Returns:
-        str: Formatted string of active markets with tickers, prices, and volume.
-    """
-    resp = requests.get(
-        f"{KALSHI_BASE}/events",
-        params={
-            "status": "open",
-            "limit": limit,
-            "with_nested_markets": True,
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-
-    results = []
-    for event in data.get("events", []):
-        results.append(f"Event: {event['title']} ({event['event_ticker']})")
-        for m in event.get("markets", []):
-            results.append(
-                f"  Market: {m['ticker']}\n"
-                f"  Yes Bid: ${m.get('yes_bid_dollars', '?')} | "
-                f"Yes Ask: ${m.get('yes_ask_dollars', '?')}\n"
-                f"  Last Price: ${m.get('last_price_dollars', '?')}\n"
-                f"  Volume 24h: {m.get('volume_24h_fp', '?')}\n"
-                f"  Closes: {m.get('close_time', '?')}"
-            )
-    return "\n".join(results) if results else "No active events found."
-
-
-def get_kalshi_orderbook(ticker: str) -> str:
-    """
-    Get the current order book for a Kalshi market.
-
-    Args:
-        ticker: The market ticker (e.g., 'KXHIGHNY-25APR27-T55').
-
-    Returns:
-        str: Order book summary with YES/NO bids and implied spread.
-    """
-    resp = requests.get(
-        f"{KALSHI_BASE}/markets/{ticker}/orderbook",
-        params={"depth": 5},
-        timeout=10,
-    )
-    resp.raise_for_status()
-    book = resp.json().get("orderbook_fp", {})
-
-    yes_bids = book.get("yes_dollars", [])
-    no_bids = book.get("no_dollars", [])
-
-    summary = f"Ticker: {ticker}\n"
-    if yes_bids:
-        best_yes_bid = float(yes_bids[-1][0])
-        summary += f"Best YES Bid: ${best_yes_bid:.4f}\n"
-    if no_bids:
-        best_no_bid = float(no_bids[-1][0])
-        best_yes_ask = 1.0 - best_no_bid
-        summary += f"Best YES Ask: ${best_yes_ask:.4f}\n"
-    if yes_bids and no_bids:
-        spread = best_yes_ask - best_yes_bid
-        summary += f"Spread: ${spread:.4f}\n"
-    summary += f"YES depth: {len(yes_bids)} levels | NO depth: {len(no_bids)} levels"
-    return summary
-```
-
 ---
 
 ## Part 2: Single-Agent Pattern
 
-A single agent that discovers markets, reasons about probability, and identifies edges.
+A single agent that discovers Polymarket markets, reasons about probability, and identifies edges.
 
 ```python
 from swarms import Agent
 
-PREDICTION_MARKET_PROMPT = """You are an expert prediction market analyst.
+POLYMARKET_ANALYST_PROMPT = """You are an expert Polymarket prediction market analyst.
 
 Your workflow:
-1. Use your tools to discover active markets on Polymarket and Kalshi
+1. Use your tools to discover active markets on Polymarket
 2. Select the most interesting markets with high volume and liquidity
 3. For each selected market, research the event and estimate the TRUE probability
 4. Compare your estimated probability to the market's implied probability
@@ -267,25 +166,23 @@ Never recommend betting more than 5% of bankroll on a single position.
 """
 
 analyst = Agent(
-    agent_name="Prediction-Market-Analyst",
-    agent_description="Analyzes prediction markets and identifies edges",
-    system_prompt=PREDICTION_MARKET_PROMPT,
+    agent_name="Polymarket-Analyst",
+    agent_description="Analyzes Polymarket prediction markets and identifies edges",
+    system_prompt=POLYMARKET_ANALYST_PROMPT,
     model_name="gpt-4o",
     max_loops=3,
     tools=[
         discover_polymarket_events,
-        discover_kalshi_events,
         get_polymarket_orderbook,
-        get_kalshi_orderbook,
     ],
     output_type="str",
 )
 
 result = analyst.run(
-    "Find the top 5 most active prediction markets across Polymarket "
-    "and Kalshi. Analyze each one and identify any markets where you "
-    "believe there is a significant edge (>10% probability difference "
-    "between your estimate and the market price)."
+    "Find the top 5 most active prediction markets on Polymarket. "
+    "Analyze each one and identify any markets where you believe there is "
+    "a significant edge (>10% probability difference between your estimate "
+    "and the market price)."
 )
 print(result)
 ```
@@ -296,20 +193,16 @@ print(result)
 
 For serious trading, use a multi-agent swarm with specialized roles. Each agent has a focused responsibility, and they work together in a sequential pipeline.
 
-### Execution Tools
+### Execution Tool
 
-First, build the tools for actually placing trades (with dry-run support):
+First, build the tool for actually placing trades (with dry-run support):
 
 ```python
 import os
-import json
-from typing import Optional
 
 # Dry-run mode — set to False only when ready for live trading
 DRY_RUN = True
 
-
-# --- Polymarket Execution ---
 
 def place_polymarket_order(
     token_id: str,
@@ -361,86 +254,6 @@ def place_polymarket_order(
         ),
     )
     return f"Order placed: ID={resp['orderID']}, Status={resp['status']}"
-
-
-# --- Kalshi Execution ---
-
-def _kalshi_auth_headers(method: str, path: str) -> dict:
-    """Build Kalshi authentication headers using RSA-PSS signing."""
-    key_path = os.environ["KALSHI_PRIVATE_KEY_PATH"]
-    api_key_id = os.environ["KALSHI_API_KEY_ID"]
-
-    with open(key_path, "rb") as f:
-        private_key = serialization.load_pem_private_key(
-            f.read(), password=None, backend=default_backend()
-        )
-
-    timestamp = str(int(datetime.datetime.now().timestamp() * 1000))
-    path_clean = path.split("?")[0]
-    message = f"{timestamp}{method}{path_clean}".encode("utf-8")
-    signature = private_key.sign(
-        message,
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=padding.PSS.DIGEST_LENGTH,
-        ),
-        hashes.SHA256(),
-    )
-
-    return {
-        "KALSHI-ACCESS-KEY": api_key_id,
-        "KALSHI-ACCESS-SIGNATURE": base64.b64encode(signature).decode(),
-        "KALSHI-ACCESS-TIMESTAMP": timestamp,
-        "Content-Type": "application/json",
-    }
-
-
-def place_kalshi_order(
-    ticker: str,
-    side: str,
-    action: str,
-    count: int,
-    price_cents: int,
-) -> str:
-    """
-    Place a limit order on Kalshi.
-
-    Args:
-        ticker: Market ticker (e.g., 'KXHIGHNY-25APR27-T55').
-        side: 'yes' or 'no'.
-        action: 'buy' or 'sell'.
-        count: Number of contracts.
-        price_cents: Limit price in cents (1-99).
-
-    Returns:
-        str: Order confirmation or dry-run summary.
-    """
-    if DRY_RUN:
-        return (
-            f"[DRY RUN] Kalshi order: {action} {count} {side} contracts "
-            f"at {price_cents}c on {ticker}"
-        )
-
-    import uuid
-
-    path = "/trade-api/v2/portfolio/orders"
-    headers = _kalshi_auth_headers("POST", path)
-    body = {
-        "ticker": ticker,
-        "action": action,
-        "side": side,
-        "type": "limit",
-        "count": count,
-        "yes_price": price_cents if side == "yes" else None,
-        "no_price": price_cents if side == "no" else None,
-        "client_order_id": str(uuid.uuid4()),
-    }
-    body = {k: v for k, v in body.items() if v is not None}
-
-    resp = requests.post(KALSHI_BASE + "/portfolio/orders", headers=headers, json=body, timeout=30)
-    resp.raise_for_status()
-    order = resp.json().get("order", {})
-    return f"Order placed: ID={order.get('order_id')}, Status={order.get('status')}"
 ```
 
 ### Agent Definitions
@@ -450,10 +263,10 @@ from swarms import Agent, SequentialWorkflow
 
 # --- Research Agent ---
 research_agent = Agent(
-    agent_name="Market-Researcher",
-    agent_description="Discovers and summarizes prediction markets",
-    system_prompt="""You are a prediction market researcher. Your job:
-1. Use your tools to discover active markets on both Polymarket and Kalshi
+    agent_name="Polymarket-Researcher",
+    agent_description="Discovers and summarizes Polymarket markets",
+    system_prompt="""You are a Polymarket researcher. Your job:
+1. Use your tools to discover active markets on Polymarket
 2. Focus on markets with high volume and liquidity
 3. For each market, provide: the question, current odds, volume, and closing date
 4. Gather relevant context about each event from your knowledge
@@ -464,9 +277,7 @@ Format your output as a clear research report that an analyst can use.""",
     max_loops=2,
     tools=[
         discover_polymarket_events,
-        discover_kalshi_events,
         get_polymarket_orderbook,
-        get_kalshi_orderbook,
     ],
     output_type="str",
 )
@@ -476,7 +287,7 @@ analyst_agent = Agent(
     agent_name="Probability-Analyst",
     agent_description="Estimates true probabilities and finds edges",
     system_prompt="""You are a quantitative analyst specializing in probability estimation.
-Given a research brief on prediction markets, you must:
+Given a research brief on Polymarket markets, you must:
 
 1. For each market, estimate the TRUE probability of each outcome
 2. Show your reasoning: list base rates, key factors, and analogies
@@ -499,7 +310,7 @@ Output a structured analysis with:
 risk_agent = Agent(
     agent_name="Risk-Manager",
     agent_description="Enforces position sizing and risk limits",
-    system_prompt="""You are a risk manager for a prediction market trading operation.
+    system_prompt="""You are a risk manager for a Polymarket trading operation.
 Given the analyst's recommendations, you must:
 
 1. Filter out any recommendations with edge < 10%
@@ -510,11 +321,10 @@ Given the analyst's recommendations, you must:
    - No positions in markets closing within 1 hour (too volatile)
    - Minimum liquidity: $10,000 in 24h volume
 4. For approved trades, output the exact order parameters:
-   - Platform (Polymarket or Kalshi)
-   - Token ID or ticker
-   - Side (BUY/SELL, YES/NO)
-   - Size (number of contracts/shares)
-   - Limit price
+   - Token ID
+   - Side (BUY/SELL)
+   - Size (number of shares)
+   - Limit price (between 0.01 and 0.99)
 5. For rejected trades, explain why
 
 Assume a bankroll of $1,000 unless specified otherwise.""",
@@ -526,18 +336,18 @@ Assume a bankroll of $1,000 unless specified otherwise.""",
 # --- Execution Agent ---
 execution_agent = Agent(
     agent_name="Trade-Executor",
-    agent_description="Executes approved trades on Polymarket and Kalshi",
-    system_prompt="""You are a trade execution agent. Given approved trades from the risk manager:
+    agent_description="Executes approved trades on Polymarket",
+    system_prompt="""You are a Polymarket trade execution agent. Given approved trades from the risk manager:
 
 1. Parse each approved trade's parameters
-2. Use the appropriate tool to place the order (Polymarket or Kalshi)
+2. Use the place_polymarket_order tool to place the order
 3. Report the result of each order (confirmation or error)
 4. If an order fails, do NOT retry — report the failure
 
 Always log every action. Never modify the risk manager's parameters.""",
     model_name="gpt-4o",
     max_loops=1,
-    tools=[place_polymarket_order, place_kalshi_order],
+    tools=[place_polymarket_order],
     output_type="str",
 )
 ```
@@ -551,7 +361,7 @@ swarm = SequentialWorkflow(
 )
 
 result = swarm.run(
-    "Scan Polymarket and Kalshi for the top active markets. "
+    "Scan Polymarket for the top active markets. "
     "Identify any edges and execute approved trades. "
     "Bankroll: $1,000."
 )
@@ -571,7 +381,7 @@ The sequential pipeline works as follows:
 
 ### Dry-Run Mode
 
-The `DRY_RUN = True` flag at the top of the execution tools prevents any real orders from being placed. Set it to `False` only when you are confident in the system.
+The `DRY_RUN = True` flag at the top of the execution tool prevents any real orders from being placed. Set it to `False` only when you are confident in the system.
 
 ### Position Limits
 
@@ -593,7 +403,7 @@ from loguru import logger
 import json
 
 logger.add(
-    "trades.log",
+    "polymarket-trades.log",
     rotation="1 day",
     format="{time} | {level} | {message}",
 )
@@ -610,20 +420,19 @@ logger.info(json.dumps({
 }))
 ```
 
-### Demo / Paper Trading
+### Paper Trading
 
-- **Kalshi**: Use the demo environment at `https://demo-api.kalshi.co/trade-api/v2` with a separate demo account. Change `KALSHI_BASE` to `KALSHI_DEMO_BASE`.
-- **Polymarket**: There is no official testnet. Use `DRY_RUN = True` for simulation, or trade with very small sizes ($1-5) on mainnet.
+Polymarket has no official testnet. Use `DRY_RUN = True` for simulation, or trade with very small sizes ($1-5) on mainnet to validate end-to-end flow.
 
 ---
 
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Kalshi Prediction Markets" icon="scale-balanced" href="/examples/finance/prediction-markets-kalshi">
+    Build the same agent pattern against Kalshi's regulated event markets.
+  </Card>
   <Card title="Financial Analysis System" icon="chart-pie" href="/examples/finance/financial-analysis">
     Multi-agent market analysis with MixtureOfAgents.
-  </Card>
-  <Card title="Gold ETF Research" icon="coins" href="/examples/finance/gold-etf-research">
-    Research swarm with web search tools.
   </Card>
 </CardGroup>
