@@ -1,0 +1,86 @@
+---
+title: 'Phala TEE Deployment'
+description: 'Deploy a Swarms agent inside a Trusted Execution Environment (TEE) on Phala Cloud, with verifiable on-chain attestation.'
+icon: 'shield-halved'
+---
+
+This guide deploys a Swarms agent into a **Trusted Execution Environment (TEE)** on **Phala Cloud**. TEEs run your agent inside a hardware-isolated enclave so neither the host operator nor a compromised orchestrator can read or tamper with the running process. After deployment you can produce an on-chain proof that the published Docker image is exactly what is executing.
+
+## Prerequisites
+
+- Docker installed locally.
+- A DockerHub account.
+- Access to the [Phala Cloud dashboard](https://cloud.phala.network/).
+
+## Step 1: Build and publish the Docker image
+
+```bash
+# Build the image (replace with your DockerHub username)
+docker compose build -t <your-dockerhub-username>/swarm-agent-node:latest
+
+# Push to DockerHub
+docker push <your-dockerhub-username>/swarm-agent-node:latest
+```
+
+<Warning>
+  Public DockerHub images are visible to anyone. If your image embeds anything confidential (rare — keys belong in env vars or secrets), use a private registry instead.
+</Warning>
+
+## Step 2: Deploy to Phala Cloud
+
+Pick one of:
+
+- **CLI (recommended)** — use [tee-cloud-cli](https://github.com/Phala-Network/tee-cloud-cli) for scripted, reproducible deployments.
+- **Dashboard** — deploy interactively from the [Phala Cloud Dashboard](https://cloud.phala.network/).
+
+## Step 3: Verify the TEE attestation
+
+Once your service is live, visit the [TEE Attestation Explorer](https://proof.t16z.com/) and check that the published image hash matches the running enclave. This is your verifiable proof that the deployed code is exactly the code you pushed — anyone (you, your users, an auditor) can independently verify it.
+
+## Sample `docker-compose.yaml`
+
+```yaml
+services:
+  swarms-agent-server:
+    image: swarms-agent-node:latest
+    platform: linux/amd64
+    volumes:
+      - /var/run/tappd.sock:/var/run/tappd.sock
+      - swarms:/app
+    restart: always
+    ports:
+      - 8000:8000
+    command: # Sample MCP Server
+      - /bin/sh
+      - -c
+      - |
+        cd /app/mcp_example
+        python mcp_test.py
+volumes:
+  swarms:
+```
+
+The `tappd.sock` mount exposes Phala's TEE attestation socket inside your container so the agent can request and emit attestation reports at runtime.
+
+## When to use TEE deployment
+
+- **Sensitive system prompts or tools** — the prompt and tool implementations stay isolated from the host.
+- **Regulated workloads** — health, finance, or legal use cases where you need cryptographic evidence of what code processed user data.
+- **Multi-party trust** — when several stakeholders need to agree on what an agent is doing without trusting a single operator.
+
+## Useful links
+
+- [Swarms documentation](https://docs.swarms.world/)
+- [Phala Cloud dashboard](https://cloud.phala.network/)
+- [tee-cloud-cli on GitHub](https://github.com/Phala-Network/tee-cloud-cli)
+- [TEE Attestation Explorer](https://proof.t16z.com/)
+
+<Note>
+  Source: [docs/swarms_cloud/phala_deploy.md](https://github.com/kyegomez/swarms/blob/master/docs/swarms_cloud/phala_deploy.md). Replace `<your-dockerhub-username>` with your actual DockerHub username when running the commands above.
+</Note>
+
+## See also
+
+- [Deployment Solutions Overview](/examples/deployment-overview) — when to pick TEE vs Cloud Run vs Workers.
+- [Google Cloud Run](/examples/cloud-run) — managed-container alternative without TEE guarantees.
+- [Cloudflare Workers](/examples/cloudflare-workers) — edge-cron alternative for non-confidential workloads.

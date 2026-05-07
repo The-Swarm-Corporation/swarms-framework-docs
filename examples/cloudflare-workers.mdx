@@ -1,0 +1,183 @@
+---
+title: 'Cloudflare Workers'
+description: 'Deploy cron-driven AI agents on Cloudflare Workers global edge network. Powered by the Swarms API.'
+icon: 'cloudflare'
+---
+
+Run autonomous Swarms agents on Cloudflare Workers — schedule them with cron triggers, fetch real-time data from external APIs, and dispatch results to email or downstream systems. Workers run in 330+ cities worldwide, giving sub-100ms latency to data sources.
+
+## What this pattern is good for
+
+- ⚡ **Scheduled execution** — agents trigger automatically on cron schedules.
+- 📊 **Real-time data fetch** — pull from Yahoo Finance, news feeds, custom APIs.
+- 🤖 **Multi-agent analysis** — call the Swarms API with several specialized agents.
+- 📧 **Automated actions** — email reports, webhook posts, push notifications.
+- 🌍 **Global edge** — Cloudflare's network is closer to your users and data sources than a single VM.
+
+## Reference implementation
+
+A complete, production-ready stock analysis agent is published at:
+
+**🔗 [github.com/The-Swarm-Corporation/Swarms-CloudFlare-Deployment](https://github.com/The-Swarm-Corporation/Swarms-CloudFlare-Deployment)**
+
+The repository ships **two** implementations:
+
+| Folder | Runtime | Status |
+|---|---|---|
+| `stock-agent/` — JavaScript / TypeScript | V8 | Production-ready |
+| `python-stock-agent/` — Python (Pyodide) | Cloudflare Python Workers | Beta |
+
+Both implementations cover the same workflow: fetch market data, run multi-agent analysis via the Swarms API, generate a report, send it via email, and expose a small web dashboard for manual triggers.
+
+## Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Cloudflare      │    │  Data Sources   │    │   Swarms API    │
+│ Workers Runtime │    │                 │    │                 │
+│ "0 */3 * * *"   │───▶│ Yahoo Finance   │───▶│ Technical Agent │
+│ JS | Python     │    │ News APIs       │    │ Fundamental     │
+│ scheduled()     │    │ Market Data     │    │ Agent Analysis  │
+│ Global Edge     │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+## Step 1: Clone and install
+
+### Option A — JavaScript
+
+```bash
+git clone https://github.com/The-Swarm-Corporation/Swarms-CloudFlare-Deployment.git
+cd Swarms-CloudFlare-Deployment/stock-agent
+npm install
+```
+
+### Option B — Python
+
+```bash
+git clone https://github.com/The-Swarm-Corporation/Swarms-CloudFlare-Deployment.git
+cd Swarms-CloudFlare-Deployment/python-stock-agent
+npm install   # Wrangler CLI
+```
+
+## Step 2: Configure environment
+
+Create a `.dev.vars` file:
+
+```env
+# Required: Swarms API key
+SWARMS_API_KEY=your-swarms-api-key-here
+
+# Optional: market news (free tier available)
+FMP_API_KEY=your-fmp-api-key
+
+# Optional: email notifications
+MAILGUN_API_KEY=your-mailgun-api-key
+MAILGUN_DOMAIN=your-domain.com
+RECIPIENT_EMAIL=your-email@example.com
+```
+
+For production, store these as Cloudflare Workers secrets via `wrangler secret put`.
+
+## Step 3: Set the cron schedule
+
+Cron triggers are configured in `wrangler.jsonc`:
+
+```jsonc
+{
+  "triggers": {
+    "crons": [
+      "0 */3 * * *"   // every 3 hours
+    ]
+  }
+}
+```
+
+Common patterns:
+
+| Cron | Schedule |
+|---|---|
+| `0 9 * * 1-5` | 9 AM weekdays |
+| `0 */6 * * *` | Every 6 hours |
+| `0 0 * * *` | Daily at midnight |
+
+Use [crontab.guru](https://crontab.guru/) to validate expressions.
+
+## Step 4: Run locally
+
+```bash
+npm run dev
+# visit http://localhost:8787
+```
+
+## Step 5: Deploy
+
+```bash
+npm run deploy
+# live at https://stock-agent.your-subdomain.workers.dev
+```
+
+## Customization
+
+### Stock symbols
+
+In JavaScript:
+
+```javascript
+const symbols = ["SPY", "QQQ", "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "GOOGL"];
+```
+
+### Custom Swarms agents
+
+```javascript
+const swarmConfig = {
+  agents: [
+    {
+      agent_name: "Risk Assessment Agent",
+      system_prompt: "Analyze portfolio risk and provide recommendations...",
+      model_name: "gpt-5.4",
+      max_tokens: 2000,
+      temperature: 0.1,
+    },
+  ],
+};
+```
+
+## Cost notes
+
+- **Cloudflare Workers** — free tier covers 100,000 requests/day.
+- **Swarms API** — monitor usage in the dashboard; switch to `gpt-4o-mini` for cost-sensitive runs.
+- **External APIs** — most of the providers listed above (Yahoo Finance, FMP free tier, Mailgun free tier) are free at low volume.
+
+## Security checklist
+
+- Store API keys as Wrangler secrets, never in source.
+- Validate incoming requests + apply per-IP rate limits.
+- Audit AI decisions and persist compliance logs.
+- Use HTTPS for every outbound call.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| API key errors | `.dev.vars` missing or `wrangler secret put` not run for production |
+| Cron not firing | Check `wrangler.jsonc` syntax and Workers cron limits |
+| Email not sending | Mailgun domain not verified, or API key wrong region |
+| Data fetch failures | External API quota hit or rate-limited |
+
+## Useful links
+
+- [Cloudflare Workers docs](https://developers.cloudflare.com/workers/)
+- [Swarms API docs](https://docs.swarms.world/)
+- [Cron expression generator](https://crontab.guru/)
+- [Financial Modeling Prep API](https://financialmodelingprep.com/developer/docs)
+
+<Note>
+  Source: [docs/swarms_cloud/cloudflare_workers.md](https://github.com/kyegomez/swarms/blob/master/docs/swarms_cloud/cloudflare_workers.md)
+</Note>
+
+## See also
+
+- [Deployment Solutions Overview](/examples/deployment-overview) — comparison table for picking the right deploy target.
+- [Google Cloud Run](/examples/cloud-run) — managed-container alternative for synchronous APIs.
+- [FastAPI Agent API](/examples/fastapi-agent-api) — local FastAPI deployment.

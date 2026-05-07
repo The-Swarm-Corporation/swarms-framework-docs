@@ -336,7 +336,10 @@
             "group": "Deployment",
             "pages": [
               "examples/deployment-overview",
-              "examples/fastapi-agent-api"
+              "examples/fastapi-agent-api",
+              "examples/cloud-run",
+              "examples/cloudflare-workers",
+              "examples/phala-deploy"
             ]
           },
           {

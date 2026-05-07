@@ -1,0 +1,163 @@
+---
+title: 'Google Cloud Run'
+description: 'Deploy a Swarms agent as a containerized REST API on Google Cloud Run with automatic scaling and managed infrastructure.'
+icon: 'cloud'
+---
+
+This guide walks you through hosting a Swarms agent on **Google Cloud Run** — a fully managed container platform that auto-scales from zero. The setup uses a slim Docker image, an `api/api.py` Flask endpoint, and `gcloud` for deployment.
+
+## Project structure
+
+```
+.
+├── Dockerfile
+├── requirements.txt
+└── api/
+    └── api.py
+```
+
+## Step 1: Prerequisites
+
+1. **Google Cloud account** — sign in at [console.cloud.google.com](https://console.cloud.google.com/) and enable billing on a project.
+2. **gcloud SDK** — install via the [official guide](https://cloud.google.com/sdk/docs/install).
+3. **Docker** — install via the [Docker docs](https://docs.docker.com/get-docker/).
+4. **Project** — create a new Google Cloud project and note the **Project ID**.
+5. **APIs** — enable the following in the [API Library](https://console.cloud.google.com/apis/library):
+   - Cloud Run API
+   - Cloud Build API
+   - Artifact Registry API
+
+## Step 2: Build the agent
+
+### `api/api.py`
+
+```python
+from flask import Flask, request, jsonify
+from swarms import Agent
+
+app = Flask(__name__)
+
+agent = Agent(
+    agent_name="Stock-Analysis-Agent",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    interactive=True,
+    streaming_on=True,
+)
+
+
+@app.route("/run-agent", methods=["POST"])
+def run_agent():
+    data = request.json
+    task = data.get("task", "")
+    result = agent.run(task)
+    return jsonify({"result": result})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
+```
+
+### `requirements.txt`
+
+```
+flask
+swarms
+```
+
+### `Dockerfile`
+
+```dockerfile
+FROM python:3.10-slim
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY api/ ./api/
+
+EXPOSE 8080
+CMD ["python", "api/api.py"]
+```
+
+<Note>
+  Cloud Run sends traffic to port `8080` by default — keep that as the listening port.
+</Note>
+
+## Step 3: Authenticate
+
+```bash
+gcloud auth login
+gcloud config set project [PROJECT_ID]
+```
+
+## Step 4: Push the image to Artifact Registry
+
+```bash
+# 1. Create the registry
+gcloud artifacts repositories create my-repo \
+    --repository-format=Docker \
+    --location=us-central1
+
+# 2. Authenticate Docker against the registry
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
+# 3. Build and tag the image
+docker build -t us-central1-docker.pkg.dev/[PROJECT_ID]/my-repo/my-image .
+
+# 4. Push it
+docker push us-central1-docker.pkg.dev/[PROJECT_ID]/my-repo/my-image
+```
+
+## Step 5: Deploy to Cloud Run
+
+```bash
+gcloud run deploy my-agent-service \
+    --image us-central1-docker.pkg.dev/[PROJECT_ID]/my-repo/my-image \
+    --platform managed \
+    --region us-central1 \
+    --allow-unauthenticated
+```
+
+`--allow-unauthenticated` makes the service publicly reachable. Drop it to require IAM-authenticated calls.
+
+## Step 6: Test the deployment
+
+Cloud Run prints a URL after deploy. Hit the endpoint:
+
+```bash
+curl -X POST [CLOUD_RUN_URL]/run-agent \
+    -H "Content-Type: application/json" \
+    -d '{"task": "Summarise the latest performance of AAPL"}'
+```
+
+## Step 7: Update the service
+
+Iterating is just rebuild → push → redeploy:
+
+```bash
+docker build -t us-central1-docker.pkg.dev/[PROJECT_ID]/my-repo/my-image .
+docker push us-central1-docker.pkg.dev/[PROJECT_ID]/my-repo/my-image
+gcloud run deploy my-agent-service \
+    --image us-central1-docker.pkg.dev/[PROJECT_ID]/my-repo/my-image
+```
+
+## Troubleshooting
+
+- **Permission errors** — your account needs the **Cloud Run Admin** and **Artifact Registry Reader** roles.
+- **Port issues** — Cloud Run expects port `8080`. Make sure your Flask app binds to it.
+- **Logs**:
+
+  ```bash
+  gcloud logs read --project [PROJECT_ID]
+  ```
+
+<Note>
+  Source: [docs/swarms_cloud/cloud_run.md](https://github.com/kyegomez/swarms/blob/master/docs/swarms_cloud/cloud_run.md)
+</Note>
+
+## See also
+
+- [Deployment Solutions Overview](/examples/deployment-overview) — when to pick Cloud Run vs cron jobs vs Kubernetes.
+- [FastAPI Agent API](/examples/fastapi-agent-api) — alternative API stack using FastAPI + Uvicorn.
+- [Cloudflare Workers](/examples/cloudflare-workers) — edge deployment pattern for cron-driven agents.
