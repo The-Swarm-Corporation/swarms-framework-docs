@@ -238,7 +238,8 @@
               "examples/basic-agent",
               "examples/agent-with-tools",
               "examples/vision-agent",
-              "examples/streaming"
+              "examples/streaming",
+              "examples/agent-streaming-example"
             ]
           },
           {
@@ -259,6 +260,7 @@
               "examples/overviews/multi-agent-overview",
               "examples/overviews/aop-overview",
               "examples/sequential-workflow-example",
+              "examples/sequential-workflow-streaming-example",
               "examples/concurrent-workflow-example",
               "examples/mixture-of-agents-example",
               "examples/hierarchical-swarm-example",

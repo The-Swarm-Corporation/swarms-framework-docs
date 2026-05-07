@@ -199,6 +199,52 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
+### Streaming Methods
+
+In addition to the streaming flags above, the `Agent` exposes two streaming methods that yield tokens as a generator. They are real LLM streaming — tokens are forwarded the moment LiteLLM emits them, across **every loop** of the agent (tool-call turns, synthesis turns, autonomous plan/execute/summary phases).
+
+#### `agent.run_stream(task) -> Iterator[str]`
+
+Sync generator that yields tokens. The agent runs in a background thread; tokens are pushed onto a queue and yielded to the caller in order.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Writer",
+    model_name="gpt-4.1-mini",
+    max_loops=3,
+)
+
+for token in agent.run_stream("Write a short poem about distributed systems."):
+    print(token, end="", flush=True)
+```
+
+#### `agent.arun_stream(task) -> AsyncIterator[str]`
+
+Async generator. Same semantics as `run_stream`, but the agent loop runs in a thread executor while tokens are forwarded through an `asyncio.Queue`, so the caller's event loop is never blocked.
+
+```python
+import asyncio
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Writer",
+    model_name="gpt-4.1-mini",
+    max_loops=1,
+)
+
+async def main():
+    async for token in agent.arun_stream("Explain async/await in two sentences."):
+        print(token, end="", flush=True)
+
+asyncio.run(main())
+```
+
+<Note>
+  Both methods stream tokens through every internal loop, including tool calls, synthesis turns after a tool returns, and the autonomous plan/execute/summary cycle when `max_loops="auto"`.
+</Note>
+
 <ParamField path="verbose" type="bool" default="False">
   Enable detailed logging output.
   

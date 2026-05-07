@@ -1,0 +1,113 @@
+---
+title: 'Agent Streaming'
+description: 'Real-time token streaming from a single Agent using run_stream and arun_stream'
+icon: 'bolt'
+---
+
+Stream tokens from an `Agent` the moment the LLM produces them — across every internal loop including tool-call turns, synthesis turns, and the autonomous plan/execute/summary cycle.
+
+The `Agent` exposes two generator methods:
+
+- `agent.run_stream(task)` — sync generator yielding `str` tokens
+- `agent.arun_stream(task)` — async generator yielding `str` tokens
+
+Both work for any `max_loops` value (`1`, integer > 1 with tools, or `"auto"`).
+
+## Sync Streaming with a Multi-Loop Tool-Calling Agent
+
+Tokens stream during the tool-call turn AND the synthesis turn that runs after the tool returns.
+
+```python
+from swarms import Agent
+
+
+def add(a: int, b: int) -> int:
+    """Add two integers and return the result."""
+    return a + b
+
+
+agent = Agent(
+    agent_name="Calculator",
+    model_name="gpt-4.1-mini",
+    max_loops=3,
+    tools=[add],
+    persistent_memory=False,
+    print_on=False,
+)
+
+for token in agent.run_stream(
+    "Use the add tool to compute 17 + 25, then state the result."
+):
+    print(token, end="", flush=True)
+```
+
+## Async Streaming
+
+Drop-in for any async caller. The agent loop runs in a thread executor; tokens flow through an `asyncio.Queue` so the caller's event loop is never blocked.
+
+```python
+import asyncio
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Writer",
+    model_name="gpt-4.1-mini",
+    max_loops=1,
+    persistent_memory=False,
+    print_on=False,
+)
+
+
+async def main():
+    async for token in agent.arun_stream(
+        "Explain the difference between concurrency and parallelism in two sentences."
+    ):
+        print(token, end="", flush=True)
+
+
+asyncio.run(main())
+```
+
+## Streaming Through the Autonomous Loop
+
+When `max_loops="auto"`, the agent runs a plan→execute→summary cycle. All phases stream their tokens — including the final summary phase.
+
+```python
+import asyncio
+from swarms import Agent
+
+
+def add(a: int, b: int) -> int:
+    """Add two integers and return the result."""
+    return a + b
+
+
+agent = Agent(
+    agent_name="AutoBot",
+    model_name="gpt-4.1-mini",
+    max_loops="auto",
+    tools=[add],
+    persistent_memory=False,
+    print_on=False,
+)
+
+
+async def main():
+    async for token in agent.arun_stream(
+        "Use the add tool to compute 99 + 1, then briefly explain the answer."
+    ):
+        print(token, end="", flush=True)
+
+
+asyncio.run(main())
+```
+
+<Note>
+  `run_stream` and `arun_stream` are real LLM streaming, not buffered chunking. Tokens arrive over the wall-clock duration of the LLM call (typically 10–80 ms apart inside a network burst), not all at once at the end.
+</Note>
+
+## Related
+
+- [Agent Configuration](/agents/agent-configuration) — `streaming_on`, `streaming_callback`, and the streaming method signatures
+- [Streaming](/examples/streaming) — full overview of every streaming mode
+- [SequentialWorkflow Streaming](/examples/sequential-workflow-streaming-example) — pipeline streaming across multiple agents

@@ -385,6 +385,51 @@ Display the agent's configuration dashboard.
 def print_dashboard() -> None
 ```
 
+### run_stream
+
+Run the agent and yield response tokens one-by-one as a sync generator. The full agent loop (multi-step reasoning, tool calls, MCP, autonomous plan/execute/summary) runs in a background daemon thread; tokens are forwarded to the caller the moment the LLM emits them.
+
+```python
+def run_stream(
+    task: str,
+    img: Optional[str] = None,
+    **kwargs,
+) -> Iterator[str]
+```
+
+Tool-call results are fed back into the loop automatically — tokens from each subsequent LLM turn (synthesis turn, autonomous summary phase, etc.) are streamed through as well.
+
+```python
+for token in agent.run_stream("Analyse NVDA"):
+    print(token, end="", flush=True)
+```
+
+### arun_stream
+
+Async generator version of `run_stream`. The agent loop runs in a thread executor while tokens are forwarded through an `asyncio.Queue`, so the caller's event loop is never blocked.
+
+```python
+async def arun_stream(
+    task: str,
+    img: Optional[str] = None,
+    **kwargs,
+) -> AsyncIterator[str]
+```
+
+```python
+import asyncio
+
+async def main():
+    async for token in agent.arun_stream("Analyse NVDA"):
+        print(token, end="", flush=True)
+
+asyncio.run(main())
+```
+
+<Note>
+  Both `run_stream` and `arun_stream` work for any `max_loops` value (1, integer > 1 with tools, or `"auto"`). They stream tokens through every internal loop, including tool-call turns, synthesis turns after a tool returns, and the autonomous plan/execute/summary cycle.
+</Note>
+
 ## Examples
 
 ### Basic Usage

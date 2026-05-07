@@ -172,6 +172,53 @@ tasks = ["Task 1", "Task 2", "Task 3"]
 results = workflow.run_concurrent(tasks)
 ```
 
+### run_stream() / arun_stream()
+
+Stream tokens from each agent in pipeline order, in real time. Each agent's tokens are yielded the moment the LLM produces them; once an agent finishes, its full output is handed off to the next agent — same hand-off as `run()`, just streamed.
+
+```python
+# Sync generator
+for token in workflow.run_stream("Analyse NVDA"):
+    print(token, end="", flush=True)
+```
+
+```python
+# Async generator
+import asyncio
+
+async def main():
+    async for token in workflow.arun_stream("Analyse NVDA"):
+        print(token, end="", flush=True)
+
+asyncio.run(main())
+```
+
+#### Structured events: `with_events=True`
+
+By default both methods yield plain token strings. Pass `with_events=True` to receive structured event dicts instead — useful when you want to render per-agent panels, attribute tokens to their emitting agent, or know exactly when each agent starts and finishes.
+
+```python
+async for evt in workflow.arun_stream(task, with_events=True):
+    if evt["type"] == "agent_start":
+        print(f"--- {evt['agent']} starting ---")
+    elif evt["type"] == "token":
+        print(evt["token"], end="", flush=True)
+    elif evt["type"] == "agent_end":
+        print(f"\n--- {evt['agent']} finished ({len(evt['output'])} chars) ---")
+```
+
+Three event types are emitted:
+
+| Type | Fields | When |
+|---|---|---|
+| `agent_start` | `agent` | Right before an agent begins streaming |
+| `token` | `agent`, `token` | For every token emitted by the agent |
+| `agent_end` | `agent`, `output` | After the agent has finished, carries the full output |
+
+<Note>
+  `max_loops > 1` and `drift_detection` are not applied in streaming mode. Use `run()` if you need those.
+</Note>
+
 ## Use Cases
 
 ### Content Creation Pipeline

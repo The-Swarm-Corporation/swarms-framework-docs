@@ -150,6 +150,70 @@ Executes a batch of tasks through the agents concurrently using ThreadPoolExecut
   A list of final results after processing through all agents
 </ResponseField>
 
+### `run_stream(task, img=None, with_events=False, **kwargs)`
+
+Stream tokens from each agent in pipeline order, in real time. Each agent's tokens are yielded the moment the LLM produces them; once an agent finishes, its full output is handed off to the next agent — the same hand-off as `run()`, just streamed.
+
+Delegates to `AgentRearrange.run_stream` internally.
+
+<ParamField path="task" type="str" required>
+  Initial task passed to the first agent in the pipeline.
+</ParamField>
+
+<ParamField path="img" type="Optional[str]" default="None">
+  Optional image input forwarded to every agent.
+</ParamField>
+
+<ParamField path="with_events" type="bool" default="False">
+  When `False`, yield plain token strings. When `True`, yield structured event dicts (`agent_start`, `token`, `agent_end`) — useful for per-agent UI panels or attributing each token to its emitting agent.
+</ParamField>
+
+<ResponseField name="generator" type="Iterator[str | dict]">
+  Sync generator. Yields plain token strings by default, or event dicts when `with_events=True`.
+</ResponseField>
+
+```python
+for token in workflow.run_stream("Analyse NVDA"):
+    print(token, end="", flush=True)
+```
+
+### `arun_stream(task, img=None, with_events=False, **kwargs)`
+
+Async generator version of `run_stream`. Drop-in for any async caller (FastAPI's `StreamingResponse`, async background workers, etc.). Same parameter and yield semantics as the sync version.
+
+<ResponseField name="async_generator" type="AsyncIterator[str | dict]">
+  Async generator. Yields plain token strings by default, or event dicts when `with_events=True`.
+</ResponseField>
+
+```python
+async for token in workflow.arun_stream("Analyse NVDA"):
+    print(token, end="", flush=True)
+```
+
+#### Structured events
+
+When called with `with_events=True`, both methods yield three event types:
+
+| Type | Fields | When emitted |
+|---|---|---|
+| `agent_start` | `agent` | Right before an agent begins streaming |
+| `token` | `agent`, `token` | For every token the agent emits |
+| `agent_end` | `agent`, `output` | After the agent finishes; carries the full output |
+
+```python
+async for evt in workflow.arun_stream(task, with_events=True):
+    if evt["type"] == "agent_start":
+        print(f"--- {evt['agent']} starting ---")
+    elif evt["type"] == "token":
+        print(evt["token"], end="", flush=True)
+    elif evt["type"] == "agent_end":
+        print(f"\n--- {evt['agent']} finished ({len(evt['output'])} chars) ---")
+```
+
+<Note>
+  `max_loops > 1` and `drift_detection` are not applied in streaming mode. Use `run()` if you need those.
+</Note>
+
 ### `sequential_flow()`
 
 Constructs a string representation of the agent execution order.
