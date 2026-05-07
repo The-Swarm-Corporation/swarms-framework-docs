@@ -327,7 +327,16 @@
               "examples/integrations/browser-use",
               "examples/integrations/mcp-datastax",
               "examples/integrations/x402-discovery",
-              "examples/integrations/x402-payment"
+              "examples/integrations/x402-payment",
+              "examples/integrations/firecrawl",
+              "examples/integrations/web-scraper-agents"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "examples/deployment-overview",
+              "examples/fastapi-agent-api"
             ]
           },
           {

@@ -1,0 +1,309 @@
+---
+title: 'FastAPI Agent API'
+description: 'Deploy your Swarms agents as REST endpoints in minutes using FastAPI and Uvicorn.'
+icon: 'server'
+---
+
+This guide takes you from zero to a running REST API that exposes your Swarms agents over HTTP. FastAPI handles routing, Pydantic validates requests, and Uvicorn serves the app.
+
+| Feature | Description |
+|---|---|
+| **Fast** | Built on Starlette and Pydantic. |
+| **Auto-docs** | Automatic OpenAPI / Swagger UI at `/docs`. |
+| **Type-safe** | Full type hints and request validation. |
+| **Easy** | Minimal boilerplate. |
+| **Monitoring** | Built-in logging hooks for metrics and tracing. |
+
+## Step 1: Install dependencies
+
+```bash
+pip install fastapi uvicorn swarms
+```
+
+## Step 2: Create the API
+
+Save the following as `agent_api.py`:
+
+```python
+from typing import Optional
+import time
+
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+from swarms import Agent
+
+app = FastAPI(
+    title="Swarms Agent API",
+    description="REST API for Swarms agents",
+    version="1.0.0",
+)
+
+
+class AgentRequest(BaseModel):
+    task: str
+    agent_name: Optional[str] = "default"
+    max_loops: Optional[int] = 1
+    temperature: Optional[float] = None
+
+
+class AgentResponse(BaseModel):
+    success: bool
+    result: str
+    agent_name: str
+    task: str
+    execution_time: Optional[float] = None
+
+
+def create_agent(agent_name: str = "default") -> Agent:
+    return Agent(
+        agent_name=agent_name,
+        agent_description="Versatile AI agent for various tasks",
+        system_prompt=(
+            "You are a helpful AI assistant. Be clear, accurate, and concise."
+        ),
+        model_name="claude-sonnet-4-20250514",
+        dynamic_temperature_enabled=True,
+        max_loops=1,
+        dynamic_context_window=True,
+    )
+
+
+@app.get("/")
+async def root():
+    return {"message": "Swarms Agent API is running!", "status": "healthy"}
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "Swarms Agent API", "version": "1.0.0"}
+
+
+@app.post("/agent/run", response_model=AgentResponse)
+async def run_agent(request: AgentRequest):
+    try:
+        start_time = time.time()
+        agent = create_agent(request.agent_name)
+        result = agent.run(task=request.task, max_loops=request.max_loops)
+        return AgentResponse(
+            success=True,
+            result=str(result),
+            agent_name=request.agent_name,
+            task=request.task,
+            execution_time=time.time() - start_time,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agent execution failed: {e}")
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+## Step 3: Run it
+
+```bash
+python agent_api.py
+```
+
+Or with uvicorn's reload mode for development:
+
+```bash
+uvicorn agent_api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+The server is now reachable at:
+
+- **API**: `http://localhost:8000`
+- **Docs**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+## Step 4: Call it
+
+### curl
+
+```bash
+curl -X POST "http://localhost:8000/agent/run" \
+     -H "Content-Type: application/json" \
+     -d '{"task": "What are the best top 3 ETFs for gold coverage?"}'
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8000/agent/run",
+    json={"task": "Explain quantum computing in simple terms"},
+)
+print(response.json())
+```
+
+## Step 5: Add a specialised endpoint
+
+When you want a dedicated endpoint for a specific agent persona, just create the agent inline:
+
+```python
+@app.post("/agent/quantitative-trading")
+async def run_quant_agent(request: AgentRequest):
+    try:
+        agent = Agent(
+            agent_name="Quantitative-Trading-Agent",
+            agent_description="Advanced quantitative trading and algorithmic analysis agent",
+            system_prompt=(
+                "You are an expert quantitative trading agent with deep expertise in "
+                "algorithmic trading, statistical arbitrage, risk management, and "
+                "machine learning applications in trading."
+            ),
+            model_name="claude-sonnet-4-20250514",
+            dynamic_temperature_enabled=True,
+            max_loops=request.max_loops,
+            dynamic_context_window=True,
+        )
+        result = agent.run(task=request.task)
+        return {
+            "success": True,
+            "result": str(result),
+            "agent_name": "Quantitative-Trading-Agent",
+            "task": request.task,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Quant agent failed: {e}")
+```
+
+## Step 6: Production hardening
+
+### Agent factory
+
+Centralise agent configs so endpoints stay thin:
+
+```python
+from swarms import Agent
+
+
+class AgentFactory:
+    AGENT_CONFIGS = {
+        "default": {
+            "agent_name": "Default-Agent",
+            "agent_description": "Versatile AI agent for various tasks",
+            "system_prompt": "You are a helpful AI assistant...",
+            "model_name": "claude-sonnet-4-20250514",
+        },
+        "quantitative-trading": {
+            "agent_name": "Quantitative-Trading-Agent",
+            "agent_description": "Advanced quantitative trading agent",
+            "system_prompt": "You are an expert quantitative trading agent...",
+            "model_name": "claude-sonnet-4-20250514",
+        },
+        "research": {
+            "agent_name": "Research-Agent",
+            "agent_description": "Academic research and analysis agent",
+            "system_prompt": "You are an expert research agent...",
+            "model_name": "claude-sonnet-4-20250514",
+        },
+    }
+
+    @classmethod
+    def create_agent(cls, agent_type: str = "default", **overrides) -> Agent:
+        if agent_type not in cls.AGENT_CONFIGS:
+            raise ValueError(f"Unknown agent type: {agent_type}")
+        config = {**cls.AGENT_CONFIGS[agent_type], **overrides}
+        return Agent(**config)
+```
+
+### Auth + rate limiting
+
+```python
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+security = HTTPBearer()
+
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if credentials.credentials != "your-secret-token":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+    return credentials.credentials
+
+
+@app.post("/agent/run", response_model=AgentResponse)
+@limiter.limit("10/minute")
+async def run_agent_secure(
+    request: AgentRequest,
+    token: str = Depends(verify_token),
+):
+    ...
+```
+
+### Gunicorn for multi-worker production
+
+```bash
+pip install gunicorn
+gunicorn agent_api:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+```
+
+### Docker
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 8000
+CMD ["uvicorn", "agent_api:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### docker-compose
+
+```yaml
+version: '3.8'
+services:
+  agent-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - AGENT_MODEL_NAME=claude-sonnet-4-20250514
+    volumes:
+      - ./logs:/app/logs
+```
+
+## Best practices
+
+| Practice | Why |
+|---|---|
+| **Try/except every agent run** | LLM calls fail; clients need clean 5xx + message rather than tracebacks. |
+| **Pydantic for every request** | Free validation + auto-generated docs. |
+| **Rate limit early** | LLM calls are expensive; cap per-IP/token. |
+| **Auth on mutating endpoints** | Anything that costs money or runs tools must be gated. |
+| **Structured logging** | Log request method, path, duration, status. Crucial for triage. |
+| **Health checks** | `/health` for liveness, `/health/detailed` for agent + model reachability. |
+
+## Troubleshooting
+
+- **Port in use** — change `--port` or kill the existing process.
+- **Agent init fails** — check API keys and model name; the error message usually points at the missing env var.
+- **OOM** — drop `max_loops`, or stream the response (see [Agent Streaming](/examples/agent-streaming-example)).
+- **Timeouts** — long agent runs need higher proxy/uvicorn timeouts; consider returning a job id and polling for results.
+
+<Note>
+  Source: [docs/deployment_solutions/fastapi_agent_api.md](https://github.com/kyegomez/swarms/blob/master/docs/deployment_solutions/fastapi_agent_api.md)
+</Note>
+
+## See also
+
+- [Deployment Solutions Overview](/examples/deployment-overview) — when to use FastAPI vs cron jobs vs Docker vs Kubernetes.
+- [Agent Streaming](/examples/agent-streaming-example) — wire token streaming into a FastAPI `StreamingResponse` for incremental responses.

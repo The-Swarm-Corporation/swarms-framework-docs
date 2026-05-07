@@ -1,0 +1,91 @@
+---
+title: 'Deployment Solutions Overview'
+description: 'Choose the right deployment strategy for your Swarms agents — from a single FastAPI process to scheduled cron jobs and beyond.'
+icon: 'cloud-arrow-up'
+---
+
+This page maps the most common ways to ship a Swarms agent to production and helps you pick the right one based on workload, complexity, and cost.
+
+## Deployment types at a glance
+
+| Deployment | Use case | Complexity | Scalability | Cost | Best for |
+|---|---|---|---|---|---|
+| **FastAPI + Uvicorn** | REST API endpoints | Low | Medium | Low | Quick prototypes, internal tools, real-time agent calls |
+| **Cron Jobs** | Scheduled tasks | Low | Low | Very low | Batch processing, periodic agents (digest, daily reports) |
+
+Detailed walkthroughs:
+
+- [FastAPI Agent API](/examples/fastapi-agent-api) — full guide with code, auth, rate limiting, Docker, Gunicorn.
+- Cron jobs: see the runnable examples in the repo at `examples/guides/deployment/cron_job_examples/`.
+
+## Quick-start
+
+### 1. FastAPI + Uvicorn (REST API)
+
+- **Best for:** exposing agents over HTTP for synchronous calls.
+- **Setup time:** 5–10 minutes.
+- **Walkthrough:** [FastAPI Agent API](/examples/fastapi-agent-api).
+- **Reference code:** [fastapi_agent_api_example.py](https://github.com/kyegomez/swarms/blob/master/examples/guides/deployment/fastapi/fastapi_agent_api_example.py)
+
+### 2. Cron jobs (scheduled tasks)
+
+- **Best for:** running agents on a schedule (every hour, daily summary, weekly report).
+- **Setup time:** 2–5 minutes.
+- **Reference code:** [cron_job_examples/](https://github.com/kyegomez/swarms/tree/master/examples/guides/deployment/cron_job_examples)
+
+## Choosing a target
+
+### Performance
+
+- **FastAPI** — excellent for high-throughput synchronous APIs.
+- **Cron jobs** — good for batch processing where latency doesn't matter.
+- **Docker** — consistent performance across environments.
+- **Kubernetes** — best for complex, scalable, multi-service systems.
+
+### Security
+
+- **FastAPI** — built-in mechanisms for auth, CORS, rate limiting.
+- **Cron jobs** — runs with the system user's permissions; isolate carefully.
+- **Docker** — sandboxed processes, easier to apply security patches.
+- **Kubernetes** — full RBAC, network policies, secrets management.
+
+### Monitoring & observability
+
+- **FastAPI** — standard Python logging hooks; integrates with Prometheus, Datadog, etc.
+- **Cron jobs** — basic log files; pair with a log shipper for visibility.
+- **Docker** — container-level metrics via the runtime.
+- **Kubernetes** — first-class metrics, alerting, and tracing.
+
+### Cost
+
+- **FastAPI** — pay for the compute that hosts the process.
+- **Cron jobs** — minimal cost; runs on existing infrastructure.
+- **Docker** — efficient resource utilisation.
+- **Kubernetes** — advanced auto-scaling and resource governance.
+
+## What to pick
+
+| You are… | Pick |
+|---|---|
+| Building an API for your agents | **FastAPI + Uvicorn** |
+| Running batch jobs / scheduled agents | **Cron jobs** |
+| Shipping to production with consistency requirements | **FastAPI + Docker** |
+| Auto-scaling under variable load | **Cloud Run** or **Kubernetes** |
+| Running on existing infrastructure with minimal cost | **Cron jobs** or **Cloud Functions** |
+| Building a complex multi-service platform | **Kubernetes** |
+
+## Recommended progression
+
+1. Start with **FastAPI** if you need synchronous agent calls.
+2. Add **cron jobs** for any scheduled or batch agents.
+3. Move to **Docker** once you need consistent environments and easy deployment.
+4. Consider **Kubernetes** once you have multiple services that need orchestration, auto-scaling, or advanced resource policies.
+
+<Note>
+  Source: [docs/deployment_solutions/overview.md](https://github.com/kyegomez/swarms/blob/master/docs/deployment_solutions/overview.md)
+</Note>
+
+## See also
+
+- [FastAPI Agent API](/examples/fastapi-agent-api) — step-by-step API deployment guide.
+- [Agent Streaming](/examples/agent-streaming-example) — pair token streaming with FastAPI's `StreamingResponse` for real-time UX.

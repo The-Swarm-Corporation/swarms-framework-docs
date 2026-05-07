@@ -1,0 +1,99 @@
+---
+title: 'Web Scraper Agents'
+description: 'Build agents that navigate websites, extract structured data, and run scraping jobs in parallel across many sites.'
+icon: 'spider'
+---
+
+Web scraper agents combine an LLM with the `scrape_and_format_sync` tool from `swarms-tools`. The agent decides what to scrape, the tool handles HTML parsing and formatting, and the LLM produces structured output — JSON, markdown, free text, or whatever the system prompt requests.
+
+| Capability | Description |
+|---|---|
+| **Auto-navigation** | Pull relevant content from web pages without writing selectors. |
+| **Structured parsing** | Convert HTML into clean text/markdown/JSON. |
+| **Dynamic content** | Handles JS-rendered pages and dynamic elements. |
+| **Summarisation & analysis** | LLM produces summaries, comparisons, and analyses on top of the scraped content. |
+| **Batched scaling** | Run many scrape jobs in parallel for comprehensive research. |
+
+## Step 1: Install
+
+```bash
+pip3 install -U swarms swarms-tools
+```
+
+## Step 2: Set up environment
+
+```bash
+export OPENAI_API_KEY="..."
+```
+
+## Step 3: Build a single-site scraper agent
+
+```python
+from swarms import Agent
+from swarms_tools import scrape_and_format_sync
+
+agent = Agent(
+    agent_name="Web Scraper Agent",
+    model_name="gpt-5.4",
+    tools=[scrape_and_format_sync],
+    dynamic_context_window=True,
+    dynamic_temperature_enabled=True,
+    max_loops=1,
+    system_prompt=(
+        "You are a web scraper agent. You are given a URL and you need to scrape "
+        "the website and return the data in a structured format. The format type should be full"
+    ),
+)
+
+out = agent.run(
+    "Scrape swarms.ai website and provide a full report of the company does. "
+    "The format type should be full."
+)
+print(out)
+```
+
+## Step 4: Scale to multiple sites in parallel
+
+`batched_grid_agent_execution` runs N agents on N tasks concurrently. Use it when you need to scrape several sites at once — for example, a competitive landscape report.
+
+```python
+from swarms import Agent
+from swarms_tools import scrape_and_format_sync
+from swarms.structs.multi_agent_exec import batched_grid_agent_execution
+
+agent = Agent(
+    agent_name="Web Scraper Agent",
+    model_name="gpt-5.4",
+    tools=[scrape_and_format_sync],
+    dynamic_context_window=True,
+    dynamic_temperature_enabled=True,
+    max_loops=1,
+    system_prompt=(
+        "You are a web scraper agent. You are given a URL and you need to scrape "
+        "the website and return the data in a structured format. The format type should be full"
+    ),
+)
+
+out = batched_grid_agent_execution(
+    agents=[agent, agent],
+    tasks=[
+        "Scrape swarms.ai website and provide a full report of the company's mission, "
+        "products, and team. The format type should be full.",
+        "Scrape langchain.com website and provide a full report of the company's mission, "
+        "products, and team. The format type should be full.",
+    ],
+)
+
+print(out)
+```
+
+You can pass distinct agents per task as well — useful when each site needs a different system prompt or model.
+
+<Note>
+  Source: [docs/developer_guides/web_scraper.md](https://github.com/kyegomez/swarms/blob/master/docs/developer_guides/web_scraper.md)
+</Note>
+
+## See also
+
+- [Firecrawl Tool](/examples/integrations/firecrawl) — alternative crawl backend with deeper site-wide extraction.
+- [Agent with Tools](/examples/agent-with-tools) — the underlying tool-calling pattern used here.

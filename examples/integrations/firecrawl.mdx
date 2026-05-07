@@ -1,0 +1,81 @@
+---
+title: 'Firecrawl Tool'
+description: 'Crawl entire websites and extract structured content with a Firecrawl-powered Swarms agent.'
+icon: 'fire'
+---
+
+The Firecrawl tool plugs into a Swarms agent through `swarms_tools.crawl_entire_site_firecrawl`. The agent receives a structured site dump and can analyse, rewrite, or summarise the content — useful for marketing copy review, competitive research, content audits, and bulk data extraction.
+
+### Key features
+
+| Feature | Description |
+|---|---|
+| **Complete site crawling** | Crawl entire websites and pull content from many pages in one call. |
+| **Structured extraction** | Returns parsed, structured page content rather than raw HTML. |
+| **Agent integration** | Drop straight into `Agent(tools=[...])` — no glue code. |
+| **Marketing-copy analysis** | Built-in fit for analyzing and improving on-site copy. |
+| **Content optimization** | Surface key value props and CTAs at scale. |
+
+## Step 1: Prerequisites
+
+- Python 3.8+
+- Firecrawl API key — get one at [firecrawl.dev/app](https://www.firecrawl.dev/app)
+- LLM provider key (e.g. `OPENAI_API_KEY`)
+
+## Step 2: Install
+
+```bash
+pip3 install -U swarms swarms-tools
+```
+
+## Step 3: Set environment variables
+
+```bash
+export FIRECRAWL_API_KEY="..."
+export OPENAI_API_KEY="..."
+```
+
+## Step 4: Build a marketing-copy agent
+
+```python
+from swarms import Agent
+from swarms_tools import crawl_entire_site_firecrawl
+
+agent = Agent(
+    agent_name="Marketing Copy Improver",
+    model_name="gpt-4.1",
+    tools=[crawl_entire_site_firecrawl],
+    dynamic_context_window=True,
+    dynamic_temperature_enabled=True,
+    max_loops=1,
+    system_prompt=(
+        "You are a world-class marketing copy improver. "
+        "Given a website URL, your job is to crawl the entire site, analyze all marketing copy, "
+        "and rewrite it to maximize clarity, engagement, and conversion. "
+        "Return the improved marketing copy in a structured, easy-to-read format. "
+        "Be concise, persuasive, and ensure the tone matches the brand. "
+        "Highlight key value propositions and calls to action."
+    ),
+)
+```
+
+## Step 5: Run a task
+
+```python
+out = agent.run(
+    "Crawl 2-3 pages of swarms.ai and improve the marketing copy found on those pages. "
+    "Return the improved copy in a structured format."
+)
+print(out)
+```
+
+The agent will call the Firecrawl tool, receive structured page content, and return rewritten copy — all within a single `run()` call.
+
+<Note>
+  Source: [docs/developer_guides/firecrawl.md](https://github.com/kyegomez/swarms/blob/master/docs/developer_guides/firecrawl.md)
+</Note>
+
+## See also
+
+- [Web Scraper Agents](/examples/integrations/web-scraper-agents) — alternative scraping tool, plus a multi-site batched pattern.
+- [Agent Tools](/agents/agent-tools) — how Swarms turns Python functions into tools.
