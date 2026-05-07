@@ -41,6 +41,9 @@ class SequentialWorkflow:
         team_awareness: bool = False,
         autosave: bool = True,
         verbose: bool = False,
+        drift_detection: bool = False,
+        drift_threshold: float = 0.75,
+        drift_model: str = "claude-sonnet-4-5",
         *args,
         **kwargs,
     )
@@ -92,26 +95,40 @@ class SequentialWorkflow:
   Whether to enable verbose logging
 </ParamField>
 
+<ParamField path="drift_detection" type="bool" default="False">
+  If `True`, a judge agent scores the final output's semantic alignment with the original task after the pipeline completes. If the score falls below `drift_threshold`, the pipeline reruns and the cycle repeats until the score meets the threshold. If the judge output cannot be parsed, drift checking is skipped and the last result is returned as-is.
+</ParamField>
+
+<ParamField path="drift_threshold" type="float" default="0.75">
+  Minimum alignment score (0.0–1.0) to consider the output acceptable. A warning is logged when the score falls below this value, and the pipeline reruns. Used only when `drift_detection=True`.
+</ParamField>
+
+<ParamField path="drift_model" type="str" default="claude-sonnet-4-5">
+  Model used by the drift detection judge agent. Used only when `drift_detection=True`.
+</ParamField>
+
 ## Methods
 
 ### `run(task, img=None, imgs=None, *args, **kwargs)`
 
 Executes a specified task through the agents in the dynamically constructed flow.
 
+If `drift_detection` is configured, a judge agent scores the final output's semantic alignment with the original task after the pipeline completes. If the score falls below `drift_threshold`, the pipeline reruns and the cycle repeats until the score meets the threshold.
+
 <ParamField path="task" type="str" required>
   The task for the agents to execute
 </ParamField>
 
 <ParamField path="img" type="Optional[str]" default="None">
-  An optional image input for the agents
+  An optional image input forwarded to every agent that supports it
 </ParamField>
 
 <ParamField path="imgs" type="Optional[List[str]]" default="None">
-  Optional list of images for the agents
+  Optional list of images. Accepted for API compatibility; only `img` is currently forwarded to the underlying flow.
 </ParamField>
 
-<ResponseField name="result" type="str">
-  The final result after processing through all agents
+<ResponseField name="result" type="str | dict | list">
+  The final result, formatted per `output_type`
 </ResponseField>
 
 ### `run_batched(tasks)`
@@ -239,6 +256,14 @@ Validates the workflow configuration and prepares agents for execution.
 | `agents` | List[Union[Agent, Callable]] | List of agents or callables to execute in sequence |
 | `max_loops` | int | Maximum number of times to execute the workflow |
 | `output_type` | OutputType | Format of the output from the workflow |
+| `shared_memory_system` | callable | Optional shared memory helper |
+| `multi_agent_collab_prompt` | bool | Whether the collaboration prompt is appended to each agent |
+| `team_awareness` | bool | Whether team-awareness is enabled on the underlying `AgentRearrange` |
+| `autosave` | bool | Whether conversation history is autosaved to disk |
+| `verbose` | bool | Whether verbose logging is on |
+| `drift_threshold` | float | Minimum alignment score required when `drift_detection=True` |
+| `drift_agent` | Optional[Agent] | Judge agent used for drift detection; `None` when disabled |
+| `swarm_workspace_dir` | Optional[str] | Workspace directory used for autosave; populated by `_setup_autosave()` |
 | `flow` | str | String representation of the agent execution order |
 | `agent_rearrange` | AgentRearrange | Internal helper for managing agent execution |
 
