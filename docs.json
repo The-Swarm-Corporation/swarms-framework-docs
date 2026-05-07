@@ -309,6 +309,17 @@
             ]
           },
           {
+            "group": "Voice Agents",
+            "pages": [
+              "examples/voice-agents/overview",
+              "examples/voice-agents/agent-speech",
+              "examples/voice-agents/agent-with-streaming-speech",
+              "examples/voice-agents/autonomous-agent-with-speech",
+              "examples/voice-agents/debate-with-speech",
+              "examples/voice-agents/hierarchical-speech-swarm"
+            ]
+          },
+          {
             "group": "Integrations",
             "pages": [
               "examples/overviews/tools-overview",

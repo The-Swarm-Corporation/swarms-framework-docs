@@ -1,0 +1,62 @@
+---
+title: 'Voice Agents Overview'
+description: 'Build speech-enabled agents using the voice-agents package with Swarms — streaming TTS, STT input, and per-agent voices.'
+icon: 'microphone'
+---
+
+## What you can build
+
+The [`voice-agents`](https://pypi.org/project/voice-agents/) package plugs directly into any Swarms agent through the standard `streaming_callback` parameter. Tokens are streamed straight from the LLM into a streaming text-to-speech (TTS) pipeline, so the agent's response begins speaking the moment the first sentence is generated — there is no "wait for the agent to finish, then speak" delay.
+
+| Pattern | Example | What it shows |
+|---|---|---|
+| Basic post-run TTS | [Basic Speech Agent](/examples/voice-agents/agent-speech) | Run the agent normally, then narrate the final result. |
+| Streaming TTS callback | [Streaming Voice Agent](/examples/voice-agents/agent-with-streaming-speech) | Speak each sentence as the LLM produces it. |
+| Autonomous loop + bash + voice | [Autonomous Voice Agent](/examples/voice-agents/autonomous-agent-with-speech) | `max_loops="auto"` agent with terminal access narrating its work. |
+| Multi-agent debate | [Voice Debate](/examples/voice-agents/debate-with-speech) | Two agents alternate, each with a distinct voice. Optional STT input. |
+| Hierarchical swarm | [Hierarchical Speech Swarm](/examples/voice-agents/hierarchical-speech-swarm) | Director and workers, each with their own voice. |
+
+## Prerequisites
+
+### Install
+
+```bash
+pip install -U swarms voice-agents
+```
+
+### API keys
+
+Set the keys for the LLM you want to drive the agent and for the TTS provider (OpenAI's `tts-1` is the default):
+
+```bash
+export OPENAI_API_KEY=sk-...           # required for OpenAI TTS
+export ANTHROPIC_API_KEY=sk-ant-...    # only if using Claude models
+```
+
+## How the integration works
+
+`StreamingTTSCallback` is a callable that accepts one token at a time, buffers it sentence-by-sentence, and dispatches each sentence to the configured TTS engine. Because it implements the `streaming_callback` contract, it works anywhere Swarms exposes per-token callbacks — single agents, autonomous loops, hierarchical swarms, debates, etc.
+
+```python
+from swarms import Agent
+from voice_agents import StreamingTTSCallback
+
+tts = StreamingTTSCallback(voice="alloy", model="openai/tts-1")
+
+agent = Agent(model_name="gpt-4.1", max_loops=1)
+result = agent.run(task="Hello!", streaming_callback=tts)
+tts.flush()  # emit any remaining text in the buffer
+```
+
+### Available voices
+
+OpenAI's TTS engine supports six voices out of the box: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`. Pick distinct voices when you have multiple agents speaking so users can tell them apart.
+
+<Note>
+  Always call `tts_callback.flush()` at the end of every run. The streaming callback buffers the **last** sentence until the agent emits a sentence terminator — `flush()` forces it out.
+</Note>
+
+## Related
+
+- [Agent Streaming](/examples/agent-streaming-example) — the underlying token-streaming mechanism the voice callback uses.
+- [voice-agents on PyPI](https://pypi.org/project/voice-agents/) — package source and TTS/STT API reference.

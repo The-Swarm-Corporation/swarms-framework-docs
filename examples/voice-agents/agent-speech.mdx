@@ -1,0 +1,93 @@
+---
+title: 'Basic Speech Agent'
+description: 'Run an agent normally, then narrate its final response with text-to-speech.'
+icon: 'volume-high'
+---
+
+The simplest voice-agent pattern: let the agent finish thinking, then hand the final text to `stream_tts_openai` for narration. This is ideal when you only care about the final answer, not intermediate tokens.
+
+## Step 1: Install dependencies
+
+```bash
+pip install -U swarms voice-agents
+export OPENAI_API_KEY=sk-...
+```
+
+## Step 2: Build the agent
+
+Use any LiteLLM-compatible model. Here we use a quantitative trading agent.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Quantitative-Trading-Agent",
+    agent_description="Advanced quantitative trading and algorithmic analysis agent",
+    model_name="gpt-4.1",
+    dynamic_temperature_enabled=True,
+    max_loops=1,
+    dynamic_context_window=True,
+    top_p=None,
+)
+```
+
+## Step 3: Run the agent
+
+The agent runs to completion and returns the full response as a string.
+
+```python
+out = agent.run(
+    task="What are the top five best energy stocks across nuclear, solar, gas, and other energy sources?",
+)
+```
+
+## Step 4: Stream the result through TTS
+
+`stream_tts_openai` accepts a list of strings and streams them through OpenAI's TTS engine. With `stream_mode=True`, audio chunks play as they're synthesised.
+
+```python
+from voice_agents.main import stream_tts_openai
+
+stream_tts_openai(
+    [out],
+    stream_mode=True,
+)
+```
+
+## Full example
+
+```python
+from swarms import Agent
+from voice_agents.main import stream_tts_openai
+
+agent = Agent(
+    agent_name="Quantitative-Trading-Agent",
+    agent_description="Advanced quantitative trading and algorithmic analysis agent",
+    model_name="gpt-4.1",
+    dynamic_temperature_enabled=True,
+    max_loops=1,
+    dynamic_context_window=True,
+    top_p=None,
+)
+
+out = agent.run(
+    task="What are the top five best energy stocks across nuclear, solar, gas, and other energy sources?",
+)
+
+stream_tts_openai(
+    [out],
+    stream_mode=True,
+)
+```
+
+<Note>
+  Source: [examples/guides/voice_agents/voice_agents_examples/agent_speech.py](https://github.com/kyegomez/swarms/blob/master/examples/guides/voice_agents/voice_agents_examples/agent_speech.py)
+</Note>
+
+## When to use this pattern
+
+- You only need to narrate the **final** answer.
+- Latency to first audio is not critical (you wait for the agent to finish before any speech).
+- Simplicity wins — no callback wiring, no `flush()` calls.
+
+For sentence-by-sentence narration as the agent generates, see [Streaming Voice Agent](/examples/voice-agents/agent-with-streaming-speech).

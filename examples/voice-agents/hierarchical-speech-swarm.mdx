@@ -1,0 +1,121 @@
+---
+title: 'Hierarchical Speech Swarm'
+description: 'Run a HierarchicalSwarm where the director and each worker speak with a distinct voice, making it easy to follow who is doing what.'
+icon: 'sitemap'
+---
+
+This example builds a `HierarchicalSwarm` (director + worker agents) where every agent gets its own `StreamingTTSCallback` with a different voice. The result is an audible org chart: you can hear the director delegating, the research analyst gathering, the data analyst crunching, and the strategy consultant recommending — each in their own voice.
+
+## Step 1: Install dependencies
+
+```bash
+pip install -U swarms voice-agents
+export OPENAI_API_KEY=sk-...
+```
+
+## Step 2: Create one TTS callback per agent
+
+Distinct voices are the whole point — pick a different OpenAI voice for each role. Available voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`.
+
+```python
+from voice_agents import StreamingTTSCallback
+
+tts_callbacks = {
+    "Research-Analyst":     StreamingTTSCallback(voice="onyx",  model="openai/tts-1"),
+    "Data-Analyst":         StreamingTTSCallback(voice="nova",  model="openai/tts-1"),
+    "Strategy-Consultant":  StreamingTTSCallback(voice="alloy", model="openai/tts-1"),
+    "Director":             StreamingTTSCallback(voice="echo",  model="openai/tts-1"),
+}
+```
+
+## Step 3: Build the worker agents
+
+Each agent gets its own callback through the `streaming_callback` parameter, and `streaming_on=True` so the LLM streams tokens into the callback in real time.
+
+```python
+from swarms import Agent
+
+research_agent = Agent(
+    agent_name="Research-Analyst",
+    agent_description="Specialized in comprehensive research and data gathering",
+    model_name="gpt-4.1",
+    max_loops=1,
+    streaming_on=True,
+    streaming_callback=tts_callbacks["Research-Analyst"],
+)
+
+analysis_agent = Agent(
+    agent_name="Data-Analyst",
+    agent_description="Expert in data analysis and pattern recognition",
+    model_name="gpt-4.1",
+    max_loops=1,
+    streaming_on=True,
+    streaming_callback=tts_callbacks["Data-Analyst"],
+)
+
+strategy_agent = Agent(
+    agent_name="Strategy-Consultant",
+    agent_description="Specialized in strategic planning and recommendations",
+    model_name="gpt-4.1",
+    max_loops=1,
+    streaming_on=True,
+    streaming_callback=tts_callbacks["Strategy-Consultant"],
+)
+```
+
+## Step 4: Assemble the hierarchical swarm
+
+```python
+from swarms import HierarchicalSwarm
+
+swarm = HierarchicalSwarm(
+    name="Swarms Corporation Operations",
+    description="Hierarchical swarm with voice-narrated communication",
+    agents=[research_agent, analysis_agent, strategy_agent],
+    max_loops=1,
+    interactive=False,
+    director_model_name="gpt-4.1",
+    director_temperature=0.7,
+    director_top_p=None,
+    planning_enabled=True,
+)
+```
+
+`planning_enabled=True` makes the director draft an explicit plan before delegating work.
+
+## Step 5: Run, then flush every callback
+
+The TTS callbacks each buffer their last sentence — flush them all at the end (and on errors) so nothing gets cut off.
+
+```python
+task = (
+    "Conduct a comprehensive analysis of renewable energy stocks. "
+    "Research the current market trends, analyze the data, and provide "
+    "strategic recommendations for investment."
+)
+
+try:
+    result = swarm.run(task=task)
+    for callback in tts_callbacks.values():
+        callback.flush()
+except Exception:
+    for callback in tts_callbacks.values():
+        callback.flush()
+    raise
+```
+
+<Note>
+  Source: [examples/guides/voice_agents/voice_agents_examples/hiearchical_speech_swarm.py](https://github.com/kyegomez/swarms/blob/master/examples/guides/voice_agents/voice_agents_examples/hiearchical_speech_swarm.py)
+</Note>
+
+## Why this pattern works well
+
+- **Clarity**: in a multi-agent swarm, output that's text-only mixes everyone's responses together. Distinct voices make role attribution effortless.
+- **Real-time feedback**: streaming callbacks deliver each sentence as soon as it's complete — you don't wait for the whole swarm to finish before any audio plays.
+- **Per-agent customisation**: voices, models, even TTS providers can vary per agent if you build each callback differently.
+
+## See also
+
+- [Voice Debate](/examples/voice-agents/debate-with-speech) — the same per-agent voice pattern in a two-agent debate.
+- [Streaming Voice Agent](/examples/voice-agents/agent-with-streaming-speech) — single-agent baseline.
+- [Hierarchical Swarm](/architectures/hierarchical-swarm) — non-voice reference for the underlying architecture.

@@ -1,0 +1,109 @@
+---
+title: 'Autonomous Voice Agent'
+description: 'An autonomous (max_loops="auto") agent with terminal access that narrates its plan, tool use, and final summary in real time.'
+icon: 'robot'
+---
+
+This example combines three Swarms features into one voice-driven agent:
+
+- `max_loops="auto"` — the autonomous plan → execute → summary loop.
+- `selected_tools="all"` — the agent picks up every available tool, including the built-in bash terminal.
+- `StreamingTTSCallback` — every token from every loop phase is narrated in real time.
+
+The result is an agent that talks through its plan, the commands it runs, and its final summary — useful for accessibility, demos, and ambient operations dashboards.
+
+## Step 1: Install dependencies
+
+```bash
+pip install -U swarms voice-agents
+export ANTHROPIC_API_KEY=sk-ant-...   # this example uses Claude
+export OPENAI_API_KEY=sk-...          # required for OpenAI TTS
+```
+
+## Step 2: Build the autonomous agent
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Terminal-Agent",
+    agent_description="Agent that can plan tasks and run bash commands on the terminal",
+    model_name="anthropic/claude-sonnet-4-5",
+    dynamic_temperature_enabled=True,
+    max_loops="auto",
+    dynamic_context_window=True,
+    selected_tools="all",
+    top_p=None,
+)
+```
+
+`max_loops="auto"` runs the agent through three phases — plan, execute, summary — looping until it decides the task is done. `selected_tools="all"` exposes every tool the autonomous looper has access to (bash, file ops, etc.).
+
+## Step 3: Wire up the streaming TTS callback
+
+```python
+from voice_agents import StreamingTTSCallback
+
+# voice options: alloy, echo, fable, onyx, nova, shimmer
+tts_callback = StreamingTTSCallback(voice="alloy", model="tts-1")
+```
+
+## Step 4: Run the agent
+
+The TTS callback receives tokens from **every** phase of the autonomous loop — the planning step, each tool-call/synthesis turn, and the final summary.
+
+```python
+if __name__ == "__main__":
+    result = agent.run(
+        task="Use the terminal to list the current directory, and see what files are in it.",
+        streaming_callback=tts_callback,
+    )
+
+    # Flush so the last sentence is spoken
+    tts_callback.flush()
+
+    print(result)
+```
+
+## Full example
+
+```python
+from swarms import Agent
+from voice_agents import StreamingTTSCallback
+
+agent = Agent(
+    agent_name="Terminal-Agent",
+    agent_description="Agent that can plan tasks and run bash commands on the terminal",
+    model_name="anthropic/claude-sonnet-4-5",
+    dynamic_temperature_enabled=True,
+    max_loops="auto",
+    dynamic_context_window=True,
+    selected_tools="all",
+    top_p=None,
+)
+
+tts_callback = StreamingTTSCallback(voice="alloy", model="tts-1")
+
+
+if __name__ == "__main__":
+    result = agent.run(
+        task="Use the terminal to list the current directory, and see what files are in it.",
+        streaming_callback=tts_callback,
+    )
+
+    tts_callback.flush()
+    print(result)
+```
+
+<Warning>
+  An autonomous agent with `selected_tools="all"` can execute bash commands. Run it inside a sandbox or scoped working directory if the task is untrusted.
+</Warning>
+
+<Note>
+  Source: [examples/guides/voice_agents/voice_agents_examples/run_auto_agent_with_speech.py](https://github.com/kyegomez/swarms/blob/master/examples/guides/voice_agents/voice_agents_examples/run_auto_agent_with_speech.py)
+</Note>
+
+## See also
+
+- [Streaming Voice Agent](/examples/voice-agents/agent-with-streaming-speech) — same callback pattern with a single-loop agent.
+- [Google Calendar Voice Agent](/examples/voice-agents/google-calendar-voice-agent) — a tool-using voice agent over a real API.

@@ -1,0 +1,143 @@
+---
+title: 'Voice Debate'
+description: 'Two agents debate turn-by-turn, each speaking with a distinct voice. Optional speech-to-text input for the opening prompt.'
+icon: 'comments'
+---
+
+This example runs a turn-based debate between two agents, where each agent's response is narrated in real time using a distinct voice. Voice differentiation makes it easy to follow who is speaking. You can also drive the opening prompt by speaking into a microphone, using the package's STT helper.
+
+## Step 1: Install dependencies
+
+```bash
+pip install -U swarms voice-agents
+export OPENAI_API_KEY=sk-...
+```
+
+## Step 2: Set up two TTS callbacks with different voices
+
+Each speaker gets its own callback so the audio is clearly attributable.
+
+```python
+from voice_agents import StreamingTTSCallback
+
+# Deeper voice for Socrates, softer voice for Simone de Beauvoir
+tts_callback1 = StreamingTTSCallback(voice="onyx", model="openai/tts-1")
+tts_callback2 = StreamingTTSCallback(voice="nova", model="openai/tts-1")
+```
+
+## Step 3: Define the debate driver
+
+The driver alternates speakers, runs each turn with the appropriate TTS callback, flushes the buffer, and feeds the prior response as the next agent's input.
+
+```python
+from swarms import Agent
+from swarms.structs.conversation import Conversation
+from swarms.utils.history_output_formatter import history_output_formatter
+from voice_agents import speech_to_text, record_audio, StreamingTTSCallback
+
+
+def debate_with_speech(
+    agents: list,
+    max_loops: int = 1,
+    task: str = None,
+    output_type: str = "str-all-except-first",
+    use_stt_for_input: bool = False,
+):
+    if len(agents) != 2:
+        raise ValueError("There must be exactly two agents in the dialogue.")
+
+    conversation = Conversation()
+    agent1, agent2 = agents
+
+    tts_callback1 = StreamingTTSCallback(voice="onyx", model="openai/tts-1")
+    tts_callback2 = StreamingTTSCallback(voice="nova", model="openai/tts-1")
+
+    # Optional: capture the opening prompt by voice
+    if use_stt_for_input and task is None:
+        print("Please speak your question or topic for the debate...")
+        audio = record_audio(duration=10.0)
+        task = speech_to_text(audio_data=audio, sample_rate=16000)
+        print(f"Transcribed: {task}\n")
+
+    message = task
+    speaker, other = agent1, agent2
+    current_callback, other_callback = tts_callback1, tts_callback2
+
+    for i in range(max_loops):
+        print(f"\n--- Turn {i+1}: {speaker.agent_name} speaking ---\n")
+        response = speaker.run(task=message, streaming_callback=current_callback)
+        current_callback.flush()
+
+        conversation.add(speaker.agent_name, response)
+        message = response
+
+        # swap roles + callbacks
+        speaker, other = other, speaker
+        current_callback, other_callback = other_callback, current_callback
+
+    tts_callback1.flush()
+    tts_callback2.flush()
+
+    return history_output_formatter(conversation=conversation, type=output_type)
+```
+
+## Step 4: Define the two debaters
+
+Use distinct system prompts so the agents argue in character. Keeping the responses short produces a more natural-sounding back-and-forth.
+
+```python
+socratic_prompt = """
+You are Socrates, the Greek philosopher. Respond only with short and simple
+questions or comments. Always question Simone de Beauvoir's answers. Never
+agree, only point out problems or ask for clarification. Keep replies brief.
+"""
+
+existentialist_prompt = """
+You are Simone de Beauvoir, an existentialist philosopher. Reply in short,
+simple sentences. Always disagree with Socrates, question his reasoning, and
+point out problems simply. Never agree. Keep your answers brief.
+"""
+
+agent1 = Agent(
+    agent_name="Socrates",
+    system_prompt=socratic_prompt,
+    max_loops=1,
+    model_name="gpt-4.1",
+    dynamic_temperature_enabled=True,
+    output_type="str-all-except-first",
+    streaming_on=True,
+)
+
+agent2 = Agent(
+    agent_name="Simone de Beauvoir",
+    system_prompt=existentialist_prompt,
+    max_loops=1,
+    model_name="gpt-4.1",
+    dynamic_temperature_enabled=True,
+    output_type="str-all-except-first",
+    streaming_on=True,
+)
+```
+
+## Step 5: Run the debate
+
+```python
+result = debate_with_speech(
+    agents=[agent1, agent2],
+    max_loops=10,
+    task="What is the meaning of life?",
+    output_type="str-all-except-first",
+    use_stt_for_input=False,  # set True to dictate the opening prompt
+)
+
+print(result)
+```
+
+<Note>
+  Source: [examples/guides/voice_agents/voice_agents_examples/debate_with_speech.py](https://github.com/kyegomez/swarms/blob/master/examples/guides/voice_agents/voice_agents_examples/debate_with_speech.py)
+</Note>
+
+## See also
+
+- [Hierarchical Speech Swarm](/examples/voice-agents/hierarchical-speech-swarm) — voice differentiation across more than two agents.
+- [Streaming Voice Agent](/examples/voice-agents/agent-with-streaming-speech) — single-agent variant of the same callback pattern.

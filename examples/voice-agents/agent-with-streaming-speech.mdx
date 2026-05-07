@@ -1,0 +1,110 @@
+---
+title: 'Streaming Voice Agent'
+description: 'Speak each sentence the moment the LLM produces it using StreamingTTSCallback.'
+icon: 'tower-broadcast'
+---
+
+This pattern gives you the lowest possible "time to first audio". Instead of waiting for the agent to finish, every token is forwarded to a streaming TTS callback that buffers up sentences and dispatches them to the speech engine the moment they're complete.
+
+## Step 1: Install dependencies
+
+```bash
+pip install -U swarms voice-agents
+export OPENAI_API_KEY=sk-...
+```
+
+## Step 2: Build the agent
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Quantitative-Trading-Agent",
+    agent_description="Advanced quantitative trading and algorithmic analysis agent",
+    model_name="gpt-4.1",
+    dynamic_temperature_enabled=True,
+    max_loops=1,
+    dynamic_context_window=True,
+    top_p=None,
+)
+```
+
+## Step 3: Create the streaming TTS callback
+
+`StreamingTTSCallback` is a callable that satisfies Swarms's `streaming_callback` contract. With `stream_mode=True`, the audio for each sentence is played the moment it's synthesised.
+
+```python
+from voice_agents.main import StreamingTTSCallback
+
+tts_callback = StreamingTTSCallback(
+    voice="alloy",
+    model="openai/tts-1",
+    stream_mode=True,
+)
+```
+
+OpenAI ships six voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`.
+
+## Step 4: Run the agent with the callback
+
+Pass the callback as `streaming_callback`. Tokens flow into the agent's response and into the TTS engine in parallel.
+
+```python
+out = agent.run(
+    task="What are the top five best energy stocks across nuclear, solar, gas, and other energy sources?",
+    streaming_callback=tts_callback,
+)
+```
+
+## Step 5: Flush the buffer
+
+`StreamingTTSCallback` buffers the last sentence until it sees a terminator (`.`, `?`, `!`, …). Always call `flush()` at the end so the final sentence is spoken.
+
+```python
+tts_callback.flush()
+print(out)
+```
+
+## Full example
+
+```python
+from swarms import Agent
+from voice_agents.main import StreamingTTSCallback
+
+agent = Agent(
+    agent_name="Quantitative-Trading-Agent",
+    agent_description="Advanced quantitative trading and algorithmic analysis agent",
+    model_name="gpt-4.1",
+    dynamic_temperature_enabled=True,
+    max_loops=1,
+    dynamic_context_window=True,
+    top_p=None,
+)
+
+tts_callback = StreamingTTSCallback(
+    voice="alloy", model="openai/tts-1", stream_mode=True
+)
+
+out = agent.run(
+    task="What are the top five best energy stocks across nuclear, solar, gas, and other energy sources?",
+    streaming_callback=tts_callback,
+)
+
+tts_callback.flush()
+print(out)
+```
+
+<Note>
+  Source: [examples/guides/voice_agents/voice_agents_examples/agent_with_speech.py](https://github.com/kyegomez/swarms/blob/master/examples/guides/voice_agents/voice_agents_examples/agent_with_speech.py)
+</Note>
+
+## When to use this pattern
+
+- You want **time to first audio** as low as possible.
+- The agent's output is long enough that waiting for completion would be awkward.
+- You're fine with sentence-level granularity (the callback buffers per sentence, not per token).
+
+## See also
+
+- [Autonomous Voice Agent](/examples/voice-agents/autonomous-agent-with-speech) — same pattern but with `max_loops="auto"` and tools.
+- [Hierarchical Speech Swarm](/examples/voice-agents/hierarchical-speech-swarm) — distinct voice per agent in a swarm.
