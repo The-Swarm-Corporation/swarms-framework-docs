@@ -1,0 +1,76 @@
+---
+title: 'Sequential Streaming (Simple)'
+description: 'Minimal example: stream tokens from each agent in a SequentialWorkflow and tag them by agent name'
+icon: 'bolt'
+---
+
+The smallest possible example of streaming tokens through a `SequentialWorkflow`. Each agent's tokens are yielded the moment the LLM produces them, and `with_events=True` tags every chunk with the emitting agent so you always know which one is talking.
+
+## Full Example
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+workflow = SequentialWorkflow(
+    agents=[
+        Agent(
+            agent_name="Researcher",
+            system_prompt="Write two short bullet points on the topic.",
+            model_name="gpt-4.1-mini",
+            max_loops=1,
+            persistent_memory=False,
+        ),
+        Agent(
+            agent_name="Writer",
+            system_prompt="Combine the bullets into one short paragraph.",
+            model_name="gpt-4.1-mini",
+            max_loops=1,
+            persistent_memory=False,
+        ),
+    ],
+)
+
+for evt in workflow.run_stream(
+    "what is your name?", with_events=True
+):
+    if evt["type"] == "agent_start":
+        print(f"\n--- {evt['agent']} ---")
+    elif evt["type"] == "token":
+        print(evt["token"], end="", flush=True)
+    elif evt["type"] == "agent_end":
+        print(f"\n--- {evt['agent']} finished ---")
+print()
+```
+
+## What's Happening
+
+1. Two agents are wired into a `SequentialWorkflow` — the Researcher's full output is handed off to the Writer once it completes.
+2. `workflow.run_stream(..., with_events=True)` returns a sync generator of event dicts instead of plain token strings.
+3. Each event has a `type` field — `agent_start`, `token`, or `agent_end` — and an `agent` field with the emitting agent's name, so you always know who is speaking.
+
+## Event Types
+
+| Type | Fields | When emitted |
+|---|---|---|
+| `agent_start` | `agent` | Right before an agent begins streaming |
+| `token` | `agent`, `token` | For every token the agent emits |
+| `agent_end` | `agent`, `output` | After the agent finishes; carries the full output |
+
+## Without Events
+
+Drop `with_events=True` to get plain token strings instead. You lose the per-agent tags but the code is one line shorter:
+
+```python
+for token in workflow.run_stream("what is your name?"):
+    print(token, end="", flush=True)
+```
+
+<Note>
+  `max_loops > 1` and `drift_detection` are not applied in streaming mode. Use `workflow.run()` if you need those.
+</Note>
+
+## Related
+
+- [Sequential Workflow Streaming](/examples/sequential-workflow-streaming-example) — full streaming guide with sync, async, and event modes
+- [Sequential Workflow](/architectures/sequential-workflow) — the underlying architecture
+- [Agent Streaming](/examples/agent-streaming-example) — single-agent streaming

@@ -261,6 +261,7 @@
               "examples/overviews/aop-overview",
               "examples/sequential-workflow-example",
               "examples/sequential-workflow-streaming-example",
+              "examples/sequential-streaming-simple",
               "examples/concurrent-workflow-example",
               "examples/mixture-of-agents-example",
               "examples/hierarchical-swarm-example",
