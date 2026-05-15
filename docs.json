@@ -51,9 +51,11 @@
             "pages": [
               "concepts/agents",
               "concepts/swarms",
+              "concepts/benefits",
               "concepts/workflows",
               "concepts/tools",
-              "concepts/custom-architectures"
+              "concepts/custom-architectures",
+              "concepts/choosing-architecture"
             ]
           },
           {
@@ -62,9 +64,20 @@
               "agents/creating-agents",
               "agents/agent-configuration",
               "agents/agent-memory",
+              "agents/diy-memory",
               "agents/agent-tools",
               "agents/agent-skills",
-              "agents/structured-outputs"
+              "agents/structured-outputs",
+              "agents/fallback-models",
+              "agents/agent-loader",
+              "agents/agents-yaml"
+            ]
+          },
+          {
+            "group": "Third-Party Agents",
+            "pages": [
+              "agents/new-agent",
+              "agents/external-party-agents"
             ]
           },
           {
@@ -156,6 +169,7 @@
             "group": "Multi-Agent Systems",
             "pages": [
               "api/structs-overview",
+              "api/custom-swarm",
               "api/mixture-of-agents",
               "api/hierarchical-swarm",
               "api/heavy-swarm",
@@ -206,6 +220,10 @@
             "group": "Tools & Utilities",
             "pages": [
               "api/tools",
+              "api/agent-mcp",
+              "api/multi-agent-helpers",
+              "api/agent-registry",
+              "api/subagent-registry",
               "api/prompts",
               "api/schemas",
               "api/utils"
