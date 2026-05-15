@@ -1,266 +1,518 @@
 ---
 title: "LLMCouncil"
-description: "A collaborative council of LLM agents that independently answer queries, review each other's responses, and synthesize the best elements into a final answer"
+description: "Orchestrates multiple specialized LLM agents to collaboratively answer queries through a structured peer review and synthesis process."
 icon: "users"
 ---
 
-## Overview
+```mermaid
+flowchart TD
+    A[User Query] --> B[Council Members]
 
-The `LLMCouncil` creates a council of specialized LLM agents that collaborate through independent responses, peer review, and synthesis. Inspired by Andrej Karpathy's llm-council, it demonstrates how different models evaluate and rank each other's work.
+    subgraph "Council Members"
+        C1[GPT-5.1-Councilor]
+        C2[Gemini-3-Pro-Councilor]
+        C3[Claude-Sonnet-4.5-Councilor]
+        C4[Grok-4-Councilor]
+    end
 
-## Installation
+    B --> C1
+    B --> C2
+    B --> C3
+    B --> C4
 
-```bash
-pip install -U swarms
+    C1 --> D[Responses]
+    C2 --> D
+    C3 --> D
+    C4 --> D
+
+    D --> E[Anonymize & Evaluate]
+    E --> F[Chairman Synthesis]
+    F --> G[Final Response]
+
 ```
 
-## Workflow
+The `LLMCouncil` class orchestrates multiple specialized LLM agents to collaboratively answer queries through a structured peer review and synthesis process. Inspired by Andrej Karpathy's llm-council implementation, this architecture demonstrates how different models evaluate and rank each other's work, often selecting responses from other models as superior to their own.
 
-1. **Dispatch**: Query sent to all council members in parallel
-2. **Respond**: Each member independently answers the query
-3. **Evaluate**: All members review and rank anonymized responses
-4. **Synthesize**: Chairman creates final answer based on responses and rankings
+The class automatically tracks all agent messages in a `Conversation` object and formats output using `history_output_formatter`, providing flexible output formats including dictionaries, lists, strings, JSON, YAML, and more.
 
-## Attributes
+## Workflow Overview
 
-<ParamField path="name" type="str" default="LLM Council">
-  Name of the council
-</ParamField>
+The LLM Council follows a four-step process:
 
-<ParamField path="description" type="str" default="A collaborative council of LLM agents...">
-  Description of the council's purpose
-</ParamField>
+1. **Parallel Response Generation**: All council members independently respond to the user query
+2. **Anonymization**: Responses are anonymized with random IDs (A, B, C, D, etc.) to ensure objective evaluation
+3. **Peer Review**: Each member evaluates and ranks all responses (including potentially their own)
+4. **Synthesis**: The Chairman agent synthesizes all responses and evaluations into a final comprehensive answer
 
-<ParamField path="council_members" type="Optional[List[Agent]]" default="None">
-  List of Agent instances representing council members. If None, creates default council with GPT-5.1, Gemini 3 Pro, Claude Sonnet 4.5, and Grok-4
-</ParamField>
+## Class Definition
 
-<ParamField path="chairman_model" type="str" default="gpt-5.1">
-  Model name for the Chairman agent that synthesizes responses
-</ParamField>
+### LLMCouncil
 
-<ParamField path="verbose" type="bool" default="True">
-  Whether to print progress and intermediate results
-</ParamField>
+```python
+class LLMCouncil:
+```
 
-<ParamField path="output_type" type="HistoryOutputType" default="dict-all-except-first">
-  Format for the output ("list", "dict", "string", "final", "json", "yaml", etc.)
-</ParamField>
+### Attributes
+
+| Attribute | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `council_members` | `List[Agent]` | List of Agent instances representing council members | `None` (creates default council) |
+| `chairman` | `Agent` | The Chairman agent responsible for synthesizing responses | Created during initialization |
+| `conversation` | `Conversation` | Conversation object tracking all messages throughout the workflow | Created during initialization |
+| `output_type` | `HistoryOutputType` | Format for the output (e.g., "dict", "list", "string", "json", "yaml") | `"dict"` |
+| `verbose` | `bool` | Whether to print progress and intermediate results | `True` |
 
 ## Methods
 
-### run()
+### `__init__`
 
-Execute the full LLM Council workflow.
+Initializes the LLM Council with council members and a Chairman agent.
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `id` | `str` | `swarm_id()` | Unique identifier for the council instance. |
+| `name` | `str` | `"LLM Council"` | Name of the council instance. |
+| `description` | `str` | `"A collaborative council..."` | Description of the council's purpose. |
+| `council_members` | `Optional[List[Agent]]` | `None` | List of Agent instances representing council members. If `None`, creates default council with GPT-5.1, Gemini 3 Pro, Claude Sonnet 4.5, and Grok-4. |
+| `chairman_model` | `str` | `"gpt-5.1"` | Model name for the Chairman agent that synthesizes responses. |
+| `verbose` | `bool` | `True` | Whether to print progress and intermediate results. |
+| `output_type` | `HistoryOutputType` | `"dict"` | Format for the output. Options: "list", "dict", "string", "final", "json", "yaml", "xml", "dict-all-except-first", "str-all-except-first", "dict-final", "list-final". |
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `LLMCouncil` | Initialized LLM Council instance. |
+
+#### Description
+
+Creates an LLM Council instance with specialized council members. If no members are provided, it creates a default council consisting of:
+
+| Council Member                  | Description                              |
+|---------------------------------|------------------------------------------|
+| **GPT-5.1-Councilor**           | Analytical and comprehensive responses   |
+| **Gemini-3-Pro-Councilor**      | Concise and well-processed responses     |
+| **Claude-Sonnet-4.5-Councilor** | Thoughtful and balanced responses        |
+| **Grok-4-Councilor**            | Creative and innovative responses        |
+
+The Chairman agent is automatically created with a specialized prompt for synthesizing responses. A `Conversation` object is also initialized to track all messages throughout the workflow, including user queries, council member responses, evaluations, and the final synthesis.
+
+#### Example Usage
 
 ```python
-def run(self, task: str = None, query: str = None)
-```
-
-**Parameters:**
-- `task` (str): The user's task/query to process (preferred parameter)
-- `query` (str): Alias for task (kept for backwards compatibility)
-
-**Returns:** Formatted output containing conversation history with all responses, evaluations, and synthesis
-
-### batched_run()
-
-Run the LLM Council workflow for a batch of tasks.
-
-```python
-def batched_run(self, tasks: List[str]) -> list
-```
-
-**Parameters:**
-- `tasks` (List[str]): List of tasks to process
-
-**Returns:** List of formatted outputs
-
-## Usage Examples
-
-### Basic Usage with Default Council
-
-```python
-from swarms import LLMCouncil
+from swarms.structs.llm_council import LLMCouncil
 
 # Create council with default members
+council = LLMCouncil(verbose=True)
+
+# Create council with custom members and output format
+from swarms import Agent
+custom_members = [
+    Agent(agent_name="Expert-1", model_name="gpt-4", max_loops=1),
+    Agent(agent_name="Expert-2", model_name="claude-3-opus", max_loops=1),
+]
 council = LLMCouncil(
+    council_members=custom_members,
+    chairman_model="gpt-4",
     verbose=True,
-    output_type="final"
+    output_type="json"  # Output as JSON string
 )
-
-# Process a query
-result = council.run(
-    task="What are the key considerations for building a production AI system?"
-)
-
-print(result)
 ```
 
-### Custom Council Members
+### `run`
+
+Executes the full LLM Council workflow: parallel responses, anonymization, peer review, and synthesis. All messages are tracked in the conversation object and formatted according to the `output_type` setting.
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | `str` | Required | The user's query to process through the council. |
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `Union[List, Dict, str]` | Formatted output based on `output_type`. The output contains the conversation history with all messages tracked throughout the workflow. |
+
+#### Output Format
+
+The return value depends on the `output_type` parameter set during initialization:
+
+| `output_type` value             | Description                                                        |
+|---------------------------------|---------------------------------------------------------------------|
+| **`"dict"`** (default)          | Returns conversation as a dictionary/list of message dictionaries   |
+| **`"list"`**                    | Returns conversation as a list of formatted strings (`"role: content"`) |
+| **`"string"`** or **`"str"`**   | Returns conversation as a formatted string                          |
+| **`"final"`** or **`"last"`**   | Returns only the content of the final message (Chairman's response) |
+| **`"json"`**                    | Returns conversation as a JSON string                               |
+| **`"yaml"`**                    | Returns conversation as a YAML string                               |
+| **`"xml"`**                     | Returns conversation as an XML string                               |
+| **`"dict-all-except-first"`**   | Returns all messages except the first as a dictionary               |
+| **`"str-all-except-first"`**    | Returns all messages except the first as a string                   |
+| **`"dict-final"`**              | Returns the final message as a dictionary                           |
+| **`"list-final"`**              | Returns the final message as a list                                 |
+
+#### Conversation Tracking
+
+All messages are automatically tracked in the conversation object with the following roles:
+
+- **`"User"`**: The original user query
+- **`"{member_name}"`**: Each council member's response (e.g., "GPT-5.1-Councilor")
+- **`"{member_name}-Evaluation"`**: Each council member's evaluation (e.g., "GPT-5.1-Councilor-Evaluation")
+- **`"Chairman"`**: The final synthesized response
+
+#### Description
+
+Executes the complete LLM Council workflow:
+
+1. **User Query Tracking**: Adds the user query to the conversation as "User" role
+2. **Dispatch Phase**: Sends the query to all council members in parallel using `run_agents_concurrently`
+3. **Collection Phase**: Collects all responses, maps them to member names, and adds each to the conversation with the member's name as the role
+4. **Anonymization Phase**: Creates anonymous IDs (A, B, C, D, etc.) and shuffles them to ensure anonymity
+5. **Evaluation Phase**: Each member evaluates and ranks all anonymized responses using `batched_grid_agent_execution`, then adds evaluations to the conversation with "\{member_name\}-Evaluation" as the role
+6. **Synthesis Phase**: The Chairman agent synthesizes all responses and evaluations into a final comprehensive answer, which is added to the conversation as "Chairman" role
+7. **Output Formatting**: Returns the conversation formatted according to the `output_type` setting using `history_output_formatter`
+
+The method provides verbose output by default, showing progress at each stage. All messages are tracked in the `conversation` attribute for later access or export.
+
+#### Example Usage
 
 ```python
-from swarms import Agent, LLMCouncil
+from swarms.structs.llm_council import LLMCouncil
 
-# Define custom council members
-council_members = [
-    Agent(
-        agent_name="Security-Expert",
-        agent_description="Security and privacy specialist",
-        system_prompt="You are a security expert. Focus on security implications.",
-        model_name="openai/gpt-4o",
-        max_loops=1,
-    ),
-    Agent(
-        agent_name="Performance-Expert",
-        agent_description="Performance and scalability specialist",
-        system_prompt="You are a performance expert. Focus on scalability.",
-        model_name="anthropic/claude-sonnet-4-5",
-        max_loops=1,
-    ),
-    Agent(
-        agent_name="UX-Expert",
-        agent_description="User experience specialist",
-        system_prompt="You are a UX expert. Focus on user experience.",
-        model_name="gemini/gemini-2.5-flash",
-        max_loops=1,
-    ),
-]
+# Create council with default output format (dict)
+council = LLMCouncil(verbose=True)
 
+query = "What are the top five best energy stocks across nuclear, solar, gas, and other energy sources?"
+
+# Run the council - returns formatted conversation based on output_type
+result = council.run(query)
+
+# With default "dict" output_type, result is a list of message dictionaries
+# Access conversation messages
+for message in result:
+    print(f"{message['role']}: {message['content'][:200]}...")
+
+# Access the conversation object directly for more control
+conversation = council.conversation
+print("\nFinal message:", conversation.get_final_message_content())
+
+# Get conversation as string
+print("\nFull conversation:")
+print(conversation.get_str())
+
+# Example with different output types
+council_json = LLMCouncil(output_type="json", verbose=False)
+result_json = council_json.run(query)  # Returns JSON string
+
+council_final = LLMCouncil(output_type="final", verbose=False)
+result_final = council_final.run(query)  # Returns only final response string
+```
+
+### `_create_default_council`
+
+Creates default council members with specialized prompts and models.
+
+#### Parameters
+
+None (internal method).
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `List[Agent]` | List of Agent instances configured as council members. |
+
+#### Description
+
+Internal method that creates the default council configuration with four specialized agents:
+
+- **GPT-5.1-Councilor** (`model_name="gpt-5.1"`): Analytical and comprehensive, temperature=0.7
+- **Gemini-3-Pro-Councilor** (`model_name="gemini-2.5-flash"`): Concise and structured, temperature=0.7
+- **Claude-Sonnet-4.5-Councilor** (`model_name="anthropic/claude-sonnet-4-5"`): Thoughtful and balanced, temperature=0.0
+- **Grok-4-Councilor** (`model_name="x-ai/grok-4"`): Creative and innovative, temperature=0.8
+
+Each agent is configured with:
+
+- Specialized system prompts matching their role
+- `max_loops=1` for single-response generation
+- `verbose=False` to reduce noise during parallel execution
+- Appropriate temperature settings for their style
+
+## Helper Functions
+
+### `get_gpt_councilor_prompt()`
+
+Returns the system prompt for GPT-5.1 councilor agent.
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `str` | System prompt string emphasizing analytical thinking and comprehensive coverage. |
+
+### `get_gemini_councilor_prompt()`
+
+Returns the system prompt for Gemini 3 Pro councilor agent.
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `str` | System prompt string emphasizing concise, well-processed, and structured responses. |
+
+### `get_claude_councilor_prompt()`
+
+Returns the system prompt for Claude Sonnet 4.5 councilor agent.
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `str` | System prompt string emphasizing thoughtful, balanced, and nuanced responses. |
+
+### `get_grok_councilor_prompt()`
+
+Returns the system prompt for Grok-4 councilor agent.
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `str` | System prompt string emphasizing creative, innovative, and unique perspectives. |
+
+### `get_chairman_prompt()`
+
+Returns the system prompt for the Chairman agent.
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `str` | System prompt string for synthesizing responses and evaluations into a final answer. |
+
+### `get_evaluation_prompt(query, responses, evaluator_name)`
+
+Creates evaluation prompt for council members to review and rank responses.
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `query` | `str` | The original user query. |
+| `responses` | `Dict[str, str]` | Dictionary mapping anonymous IDs to response texts. |
+| `evaluator_name` | `str` | Name of the agent doing the evaluation. |
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `str` | Formatted evaluation prompt string with instructions for ranking responses. |
+
+### `get_synthesis_prompt(query, original_responses, evaluations, id_to_member)`
+
+Creates synthesis prompt for the Chairman.
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `query` | `str` | Original user query. |
+| `original_responses` | `Dict[str, str]` | Dictionary mapping member names to their responses. |
+| `evaluations` | `Dict[str, str]` | Dictionary mapping evaluator names to their evaluation texts. |
+| `id_to_member` | `Dict[str, str]` | Mapping from anonymous IDs to member names. |
+
+#### Returns
+
+| Type | Description |
+|------|-------------|
+| `str` | Formatted synthesis prompt for the Chairman agent. |
+
+## Use Cases
+
+The LLM Council is ideal for scenarios requiring:
+
+- **Multi-perspective Analysis**: When you need diverse viewpoints on complex topics
+- **Quality Assurance**: When peer review and ranking can improve response quality
+- **Transparent Decision Making**: When you want to see how different models evaluate each other
+- **Synthesis of Expertise**: When combining multiple specialized perspectives is valuable
+
+### Common Applications
+
+| Use Case              | Description                                                                                      |
+|-----------------------|--------------------------------------------------------------------------------------------------|
+| **Medical Diagnosis** | Multiple medical AI agents provide diagnoses, evaluate each other, and synthesize recommendations |
+| **Financial Analysis**| Different financial experts analyze investments and rank each other's assessments                |
+| **Legal Analysis**    | Multiple legal perspectives evaluate compliance and risk                                         |
+| **Business Strategy** | Diverse strategic viewpoints are synthesized into comprehensive plans                            |
+| **Research Analysis** | Multiple research perspectives are combined for thorough analysis                                |
+
+
+## Examples
+
+For comprehensive examples demonstrating various use cases, see the [LLM Council Examples](https://github.com/kyegomez/swarms/tree/master/examples/multi_agent/llm_council_examples) directory:
+
+- **Medical**: `medical_diagnosis_council.py`, `medical_treatment_council.py`
+- **Finance**: `finance_analysis_council.py`, `etf_stock_analysis_council.py`
+- **Business**: `business_strategy_council.py`, `marketing_strategy_council.py`
+- **Technology**: `technology_assessment_council.py`, `research_analysis_council.py`
+- **Legal**: `legal_analysis_council.py`
+
+### Quick Start Example
+
+```python
+from swarms.structs.llm_council import LLMCouncil
+
+# Create the council with default output format
+council = LLMCouncil(verbose=True)
+
+# Example query
+query = "What are the top five best energy stocks across nuclear, solar, gas, and other energy sources?"
+
+# Run the council - returns formatted conversation
+result = council.run(query)
+
+# With default "dict" output_type, result is a list of message dictionaries
+# Print all messages
+for message in result:
+    role = message['role']
+    content = message['content']
+    print(f"\n{role}:")
+    print(content[:500] + "..." if len(content) > 500 else content)
+
+# Access conversation object directly for more options
+conversation = council.conversation
+
+# Get only the final response
+print("\n" + "="*80)
+print("FINAL RESPONSE")
+print("="*80)
+print(conversation.get_final_message_content())
+
+# Get conversation as formatted string
+print("\n" + "="*80)
+print("FULL CONVERSATION")
+print("="*80)
+print(conversation.get_str())
+
+# Export conversation to JSON
+conversation.export()
+```
+
+## Customization
+
+### Creating Custom Council Members
+
+You can create custom council members with specialized roles:
+
+```python
+from swarms import Agent
+from swarms.structs.llm_council import LLMCouncil, get_gpt_councilor_prompt
+
+# Create custom councilor
+custom_agent = Agent(
+    agent_name="Domain-Expert-Councilor",
+    agent_description="Specialized domain expert for specific analysis",
+    system_prompt=get_gpt_councilor_prompt(),  # Or create custom prompt
+    model_name="gpt-4",
+    max_loops=1,
+    verbose=False,
+    temperature=0.7,
+)
+
+# Create council with custom members
 council = LLMCouncil(
-    council_members=council_members,
-    chairman_model="claude-sonnet-4-6",
+    council_members=[custom_agent, ...],  # Add your custom agents
+    chairman_model="gpt-4",
     verbose=True
 )
-
-result = council.run(task="Design a mobile app for health tracking")
 ```
 
-### Batch Processing
+### Custom Chairman Model
+
+You can specify a different model for the Chairman:
 
 ```python
-tasks = [
-    "Explain quantum computing in simple terms",
-    "What are best practices for API design?",
-    "How to optimize database queries?"
-]
-
-results = council.batched_run(tasks)
-
-for i, result in enumerate(results):
-    print(f"\nTask {i+1} Result:")
-    print(result)
+council = LLMCouncil(
+    chairman_model="claude-3-opus",  # Use Claude as Chairman
+    verbose=True
+)
 ```
 
-### Different Output Formats
+### Custom Output Format
+
+You can control the output format using the `output_type` parameter:
 
 ```python
-# Get only final synthesized answer
-council_final = LLMCouncil(output_type="final")
-final_answer = council_final.run(task="Explain machine learning")
+# Get output as JSON string
+council = LLMCouncil(output_type="json")
+result = council.run(query)  # Returns JSON string
 
-# Get full conversation history as dict
-council_dict = LLMCouncil(output_type="dict")
-full_conversation = council_dict.run(task="Explain machine learning")
+# Get only the final response
+council = LLMCouncil(output_type="final")
+result = council.run(query)  # Returns only final response string
 
-# Get as JSON
-council_json = LLMCouncil(output_type="json")
-json_output = council_json.run(task="Explain machine learning")
+# Get as YAML
+council = LLMCouncil(output_type="yaml")
+result = council.run(query)  # Returns YAML string
+
+# Get as formatted string
+council = LLMCouncil(output_type="string")
+result = council.run(query)  # Returns formatted conversation string
 ```
 
-### Non-Verbose Mode
+### Accessing Conversation History
+
+The conversation object is accessible for advanced usage:
 
 ```python
-# Run without printing progress
-council = LLMCouncil(verbose=False)
-result = council.run(task="Some query")
+council = LLMCouncil()
+council.run(query)
+
+# Access conversation directly
+conversation = council.conversation
+
+# Get conversation history
+history = conversation.conversation_history
+
+# Export to file
+conversation.export()  # Saves to default location
+
+# Get specific format
+json_output = conversation.to_json()
+yaml_output = conversation.return_messages_as_dictionary()
 ```
 
-## Default Council Members
+## Architecture Benefits
 
-When no custom members are provided, the default council includes:
+1. **Diversity**: Multiple models provide varied perspectives and approaches
+2. **Quality Control**: Peer review ensures responses are evaluated objectively
+3. **Synthesis**: Chairman combines the best elements from all responses
+4. **Transparency**: Full visibility into individual responses and evaluation rankings
+5. **Scalability**: Easy to add or remove council members
+6. **Flexibility**: Supports custom agents and models
+7. **Conversation Tracking**: All messages are automatically tracked in a Conversation object for history and export
+8. **Flexible Output**: Multiple output formats supported via `history_output_formatter` (dict, list, string, JSON, YAML, XML, etc.)
 
-1. **GPT-5.1 Councilor**
-   - Specialization: Analytical and comprehensive responses
-   - Focus: Deep analysis, thorough exploration
+## Performance Considerations
 
-2. **Gemini 3 Pro Councilor**
-   - Specialization: Concise and well-structured responses
-   - Focus: Clear structure, efficient information processing
+| Feature                   | Description                                                                                                    |
+|---------------------------|----------------------------------------------------------------------------------------------------------------|
+| **Parallel Execution**    | Both response generation and evaluation phases run in parallel for efficiency                                  |
+| **Anonymization**         | Responses are anonymized to prevent bias in evaluation                                                         |
+| **Model Selection**       | Different models can be used for different roles based on their strengths                                      |
+| **Verbose Mode**          | Can be disabled for production use to reduce output                                                            |
+| **Conversation Management** | Conversation object efficiently tracks all messages in memory and supports export to JSON/YAML files         |
+| **Output Formatting**     | Choose lightweight output formats (e.g., "final") for production to reduce memory usage                        |
 
-3. **Claude Sonnet 4.5 Councilor**
-   - Specialization: Thoughtful and balanced responses
-   - Focus: Nuanced reasoning, ethical considerations
+## Related Documentation
 
-4. **Grok-4 Councilor**
-   - Specialization: Creative and innovative responses
-   - Focus: Unique perspectives, creative problem-solving
-
-## Evaluation Process
-
-Each council member evaluates all responses (anonymized) and provides:
-
-1. **Rankings**: Ordered list from best to worst response
-2. **Reasoning**: Explanation for each ranking
-3. **Observations**: Additional insights about strengths/weaknesses
-
-Example evaluation format:
-```
-RANKINGS:
-1. Response B: Clear structure and comprehensive coverage
-2. Response A: Good depth but could be more organized
-3. Response D: Creative but lacks some technical details
-4. Response C: Too verbose, missing key points
-
-ADDITIONAL OBSERVATIONS:
-Common strength: All responses addressed the core question
-Area for improvement: More concrete examples needed
-```
-
-## Synthesis Process
-
-The Chairman agent:
-
-1. Reviews all original responses
-2. Considers all evaluations and rankings
-3. Identifies strongest elements from each response
-4. Creates cohesive final answer incorporating best aspects
-5. Acknowledges which perspectives influenced the synthesis
-
-## Output Structure
-
-The conversation history includes:
-
-```python
-[
-    {"role": "User", "content": "Original query"},
-    {"role": "GPT-5.1-Councilor", "content": "Response..."},
-    {"role": "Gemini-3-Pro-Councilor", "content": "Response..."},
-    {"role": "Claude-Sonnet-4.5-Councilor", "content": "Response..."},
-    {"role": "Grok-4-Councilor", "content": "Response..."},
-    {"role": "GPT-5.1-Councilor-Evaluation", "content": "Evaluation..."},
-    {"role": "Gemini-3-Pro-Councilor-Evaluation", "content": "Evaluation..."},
-    {"role": "Claude-Sonnet-4.5-Councilor-Evaluation", "content": "Evaluation..."},
-    {"role": "Grok-4-Councilor-Evaluation", "content": "Evaluation..."},
-    {"role": "Chairman", "content": "Final synthesized answer"}
-]
-```
-
-## Features
-
-- **Parallel Execution**: All council members respond simultaneously
-- **Anonymous Evaluation**: Responses are anonymized during peer review
-- **Multi-Model Diversity**: Leverages different LLM strengths
-- **Peer Review**: Each member evaluates all responses objectively
-- **Intelligent Synthesis**: Chairman creates cohesive final answer
-- **Transparent Process**: Full conversation history available
-- **Flexible Output**: Multiple output format options
-- **Batch Processing**: Handle multiple queries efficiently
-
-## Best Practices
-
-1. **Council Composition**: Include agents with complementary strengths
-2. **Clear Queries**: Provide well-defined questions for best results
-3. **Output Type**: Use "final" for end-user answers, "dict" for analysis
-4. **Custom Members**: Tailor council to your domain/use case
-5. **Verbose Mode**: Enable for understanding the decision process
+- [Multi-Agent Architectures Overview](/api/structs-overview)
+- [Council of Judges](/api/council-as-judge) - Similar peer review pattern
+- [Agent Class Reference](/api/agent) - Understanding individual agents
+- [Conversation Class Reference](/api/conversation) - Understanding conversation tracking and management
+- [Multi-Agent Execution Utilities](/api/multi-agent-execution-utilities) - Underlying execution methods
+- [History Output Formatter](https://github.com/kyegomez/swarms/blob/master/swarms/utils/history_output_formatter.py) - Output formatting utilities

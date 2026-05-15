@@ -1,10 +1,14 @@
 ---
-title: Reasoning Agent Router
-description: Dynamic routing system for selecting and executing different reasoning strategies based on task requirements
+title: "Reasoning Agent Router"
+description: "Sophisticated routing system that dynamically selects and executes different reasoning strategies based on task requirements."
 icon: "route"
 ---
 
-The `ReasoningAgentRouter` enables dynamic selection and execution of different reasoning strategies based on task requirements. It provides a flexible interface to work with multiple reasoning approaches.
+<Note>
+  **Overview**
+
+  The ReasoningAgentRouter is a sophisticated agent routing system that enables dynamic selection and execution of different reasoning strategies based on the task requirements. It provides a flexible interface to work with multiple reasoning approaches including Reasoning Duo, Self-Consistency, IRE (Iterative Reflective Expansion), Reflexion, GKP (Generated Knowledge Prompting), and Agent Judge.
+</Note>
 
 ## Architecture
 
@@ -26,130 +30,442 @@ graph TD
     AJ --> Output
 ```
 
-## Parameters
+## Configuration
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `agent_name` | `str` | `"reasoning_agent"` | Name identifier for the agent |
-| `description` | `str` | `"A reasoning agent..."` | Description of the agent's capabilities |
-| `model_name` | `str` | `"claude-sonnet-4-6"` | The underlying language model to use |
-| `system_prompt` | `str` | `"You are a helpful..."` | System prompt for the agent |
-| `max_loops` | `int` | `1` | Maximum number of reasoning loops |
-| `swarm_type` | `agent_types` | `"reasoning_duo"` | Type of reasoning swarm to use |
-| `num_samples` | `int` | `1` | Number of samples for self-consistency |
-| `output_type` | `OutputType` | `"dict-all-except-first"` | Format of the output |
-| `num_knowledge_items` | `int` | `6` | Number of knowledge items for GKP agent |
-| `memory_capacity` | `int` | `6` | Memory capacity for agents that support it |
-| `eval` | `bool` | `False` | Enable evaluation mode for self-consistency |
-| `random_models_on` | `bool` | `False` | Enable random model selection for diversity |
-| `majority_voting_prompt` | `Optional[str]` | `None` | Custom prompt for majority voting |
-| `reasoning_model_name` | `Optional[str]` | `"claude-3-5-sonnet-20240620"` | Model for reasoning in ReasoningDuo |
+### Arguments
 
-## Available Agent Types
+<Info>
+  **Constructor Parameters**
 
-The following values are supported for the `swarm_type` parameter:
+  | Argument | Type | Default | Description |
+  |----------|------|---------|-------------|
+  | `agent_name` | str | "reasoning_agent" | Name identifier for the agent |
+  | `description` | str | "A reasoning agent..." | Description of the agent's capabilities |
+  | `model_name` | str | "gpt-5.4" | The underlying language model to use |
+  | `system_prompt` | str | "You are a helpful..." | System prompt for the agent |
+  | `max_loops` | int | 1 | Maximum number of reasoning loops |
+  | `swarm_type` | agent_types | "reasoning_duo" | Type of reasoning swarm to use |
+  | `num_samples` | int | 1 | Number of samples for self-consistency |
+  | `output_type` | OutputType | "dict-all-except-first" | Format of the output |
+  | `num_knowledge_items` | int | 6 | Number of knowledge items for GKP agent |
+  | `memory_capacity` | int | 6 | Memory capacity for agents that support it |
+  | `eval` | bool | False | Enable evaluation mode for self-consistency |
+  | `random_models_on` | bool | False | Enable random model selection for diversity |
+  | `majority_voting_prompt` | Optional[str] | None | Custom prompt for majority voting |
+  | `reasoning_model_name` | Optional[str] | "claude-3-5-sonnet-20240620" | Model to use for reasoning in ReasoningDuo |
+</Info>
 
-- `"reasoning-duo"` or `"reasoning-agent"`
-- `"self-consistency"` or `"consistency-agent"`
-- `"ire"` or `"ire-agent"`
-- `"ReflexionAgent"`
-- `"GKPAgent"`
-- `"AgentJudge"`
+### Available Agent Types
 
-## Methods
+<Note>
+  **Supported Types**
 
-| Method | Description |
-|--------|-------------|
-| `select_swarm()` | Selects and initializes the appropriate reasoning swarm |
-| `run(task, img?, **kwargs)` | Executes the selected swarm's reasoning process |
-| `batched_run(tasks, imgs?, **kwargs)` | Executes the reasoning process on a batch of tasks |
+  The following agent types are supported through the `swarm_type` parameter:
 
-## Examples
+  - `"reasoning-duo"` or `"reasoning-agent"`
+  - `"self-consistency"` or `"consistency-agent"`
+  - `"ire"` or `"ire-agent"`
+  - `"ReflexionAgent"`
+  - `"GKPAgent"`
+  - `"AgentJudge"`
+</Note>
 
-### Basic Usage
+### Agent Types Comparison
 
-```python
-from swarms.agents.reasoning_agent_router import ReasoningAgentRouter
+<Tabs>
+  <Tab title="Reasoning Duo">
+    **Key Features**
 
-router = ReasoningAgentRouter(
-    agent_name="reasoning-agent",
-    model_name="claude-sonnet-4-6",
-    swarm_type="self-consistency",
-    num_samples=3,
-)
+    - Dual agent system
+    - Collaborative reasoning
+    - Split between reasoning and execution
 
-result = router.run("What is the best approach to solve this problem?")
-```
+    **Best Use Cases**
 
-### Self-Consistency with Evaluation
+    - Complex tasks requiring both analysis and action
+    - Multi-step problem solving
+    - Tasks needing verification
 
-```python
-router = ReasoningAgentRouter(
-    swarm_type="self-consistency",
-    num_samples=5,
-    model_name="claude-sonnet-4-6",
-    eval=True,
-    random_models_on=True
-)
+    **Required Parameters**
 
-result = router.run("What is 2 + 2?")
-```
+    - model_name
+    - system_prompt
 
-### ReasoningDuo with Image Support
+    **Optional Parameters**
 
-```python
-router = ReasoningAgentRouter(
-    swarm_type="reasoning-duo",
-    model_name="claude-sonnet-4-6",
-    reasoning_model_name="claude-3-5-sonnet-20240620",
-    max_loops=2
-)
+    - output_type
+    - reasoning_model_name (default: "claude-3-5-sonnet-20240620")
+    - max_loops
+    - img (for image input support)
+  </Tab>
 
-result = router.run(
-    "Analyze this image and explain the patterns you see",
-    img="data_visualization.png"
-)
-```
+  <Tab title="Self Consistency">
+    **Key Features**
 
-### GKP Agent
+    - Multiple solution generation
+    - Consensus building
+    - Solution verification
+    - Concurrent execution
+    - AI-powered aggregation
 
-```python
-router = ReasoningAgentRouter(
-    swarm_type="GKPAgent",
-    model_name="claude-sonnet-4-6",
-    num_knowledge_items=6
-)
+    **Best Use Cases**
 
-result = router.run("What are the implications of quantum entanglement?")
-```
+    - Tasks requiring high reliability
+    - Problems with multiple approaches
+    - Validation-heavy tasks
+    - Mathematical problem solving
+    - Decision making scenarios
 
-### Reflexion Agent
+    **Required Parameters**
 
-```python
-router = ReasoningAgentRouter(
-    swarm_type="ReflexionAgent",
-    max_loops=3,
-    model_name="claude-sonnet-4-6"
-)
+    - model_name
+    - system_prompt
 
-result = router.run("Explain quantum computing to a beginner.")
-```
+    **Optional Parameters**
 
-## Choosing the Right Type
+    - num_samples (default: 5)
+    - max_loops (default: 1)
+    - output_type (default: "dict")
+    - eval (default: False) - Enable answer validation
+    - random_models_on (default: False) - Enable model diversity
+    - majority_voting_prompt (default: None) - Custom aggregation prompt
+  </Tab>
 
-| Scenario | Recommended Type | Why |
-|----------|-----------------|-----|
-| Tasks requiring high reliability | `self-consistency` | Multiple validation paths, consensus building |
-| Complex tasks needing analysis + action | `reasoning-duo` | Separates reasoning from execution |
-| Problems requiring iterative refinement | `ire` | Designed for progressive improvement |
-| Tasks requiring introspection | `ReflexionAgent` | Self-reflection and learning from experience |
-| Knowledge-intensive tasks | `GKPAgent` | Generates knowledge before reasoning |
-| Quality control | `AgentJudge` | Specialized evaluation capabilities |
+  <Tab title="IRE">
+    **Key Features**
+
+    - Iterative improvement
+    - Self-reflection
+    - Progressive refinement
+
+    **Best Use Cases**
+
+    - Complex reasoning tasks
+    - Problems requiring refinement
+    - Learning from previous iterations
+
+    **Required Parameters**
+
+    - model_name
+    - system_prompt
+
+    **Optional Parameters**
+
+    - max_loops
+    - output_type
+  </Tab>
+
+  <Tab title="ReflexionAgent">
+    **Key Features**
+
+    - Self-reflection capabilities
+    - Learning from experience
+    - Adaptive reasoning
+
+    **Best Use Cases**
+
+    - Tasks requiring introspection
+    - Continuous improvement scenarios
+    - Learning-based tasks
+
+    **Required Parameters**
+
+    - model_name
+    - system_prompt
+
+    **Optional Parameters**
+
+    - max_loops
+  </Tab>
+
+  <Tab title="GKPAgent">
+    **Key Features**
+
+    - Knowledge generation
+    - Information synthesis
+    - Knowledge base management
+
+    **Best Use Cases**
+
+    - Knowledge-intensive tasks
+    - Information gathering
+    - Research-based problems
+
+    **Required Parameters**
+
+    - model_name
+    - num_knowledge_items
+
+    **Optional Parameters**
+
+    - memory_capacity
+  </Tab>
+
+  <Tab title="AgentJudge">
+    **Key Features**
+
+    - Solution evaluation
+    - Quality assessment
+    - Decision making
+
+    **Best Use Cases**
+
+    - Quality control tasks
+    - Solution validation
+    - Performance evaluation
+
+    **Required Parameters**
+
+    - model_name
+    - system_prompt
+
+    **Optional Parameters**
+
+    - max_loops
+  </Tab>
+</Tabs>
+
+## Usage
+
+### Methods
+
+<Tip>
+  **Available Methods**
+
+  | Method | Description |
+  |--------|-------------|
+  | `select_swarm()` | Selects and initializes the appropriate reasoning swarm based on specified type |
+  | `run(task: str, img: Optional[str] = None, **kwargs)` | Executes the selected swarm's reasoning process on the given task |
+  | `batched_run(tasks: List[str], imgs: Optional[List[str]] = None, **kwargs)` | Executes the reasoning process on a batch of tasks |
+</Tip>
+
+### Image Support
+
+<Info>
+  **Multi-modal Capabilities**
+
+  The ReasoningAgentRouter supports image inputs for compatible agent types:
+
+  **Supported Parameters:**
+
+  - `img` (str, optional): Path or URL to a single image file for single task execution
+  - `imgs` (List[str], optional): List of image paths/URLs for batch task execution
+
+  **Compatible Agent Types:**
+
+  - `reasoning-duo` / `reasoning-agent`: Full image support for both reasoning and execution phases
+  - Other agent types may have varying levels of image support depending on their underlying implementation
+
+  **Usage Example:**
+  ```python
+  # Single image with task
+  router = ReasoningAgentRouter(swarm_type="reasoning-duo")
+  result = router.run(
+      task="Describe what you see in this image",
+      img="path/to/image.jpg"
+  )
+
+  # Batch processing with images
+  results = router.batched_run(
+      tasks=["Analyze this chart", "Describe this photo"],
+      imgs=["chart.png", "photo.jpg"]
+  )
+  ```
+</Info>
+
+### Code Examples
+
+<Tabs>
+  <Tab title="Basic Usage">
+    ```python
+    from swarms.agents.reasoning_agent_router import ReasoningAgentRouter
+
+    # Initialize the router
+    router = ReasoningAgentRouter(
+        agent_name="reasoning-agent",
+        description="A reasoning agent that can answer questions and help with tasks.",
+        model_name="gpt-5.4",
+        system_prompt="You are a helpful assistant that can answer questions and help with tasks.",
+        max_loops=1,
+        swarm_type="self-consistency",
+        num_samples=3,
+        eval=False,
+        random_models_on=False,
+        majority_voting_prompt=None
+    )
+
+    # Run a single task
+    result = router.run("What is the best approach to solve this problem?")
+
+    # Run with image input
+    result_with_image = router.run(
+        "Analyze this image and provide insights",
+        img="path/to/image.jpg"
+    )
+    ```
+  </Tab>
+
+  <Tab title="Self-Consistency Examples">
+    ```python
+    # Basic self-consistency
+    router = ReasoningAgentRouter(
+        swarm_type="self-consistency",
+        num_samples=3,
+        model_name="gpt-5.4"
+    )
+
+    # Self-consistency with evaluation mode
+    router = ReasoningAgentRouter(
+        swarm_type="self-consistency",
+        num_samples=5,
+        model_name="gpt-5.4",
+        eval=True,
+        random_models_on=True
+    )
+
+    # Self-consistency with custom majority voting
+    router = ReasoningAgentRouter(
+        swarm_type="self-consistency",
+        num_samples=3,
+        model_name="gpt-5.4",
+        majority_voting_prompt="Analyze the responses and provide the most accurate answer."
+    )
+    ```
+  </Tab>
+
+  <Tab title="ReflexionAgent">
+    ```python
+    router = ReasoningAgentRouter(
+        swarm_type="ReflexionAgent",
+        max_loops=3,
+        model_name="gpt-5.4"
+    )
+    ```
+  </Tab>
+
+  <Tab title="GKPAgent">
+    ```python
+    router = ReasoningAgentRouter(
+        swarm_type="GKPAgent",
+        model_name="gpt-5.4",
+        num_knowledge_items=6
+    )
+    ```
+  </Tab>
+
+  <Tab title="ReasoningDuo Examples">
+    ```python
+    # Basic ReasoningDuo
+    router = ReasoningAgentRouter(
+        swarm_type="reasoning-duo",
+        model_name="gpt-5.4",
+        reasoning_model_name="claude-3-5-sonnet-20240620"
+    )
+
+    # ReasoningDuo with image support
+    router = ReasoningAgentRouter(
+        swarm_type="reasoning-duo",
+        model_name="gpt-5.4",
+        reasoning_model_name="gpt-4-vision-preview",
+        max_loops=2
+    )
+
+    result = router.run(
+        "Analyze this image and explain the patterns you see",
+        img="data_visualization.png"
+    )
+    ```
+  </Tab>
+
+  <Tab title="AgentJudge">
+    ```python
+    router = ReasoningAgentRouter(
+        swarm_type="AgentJudge",
+        model_name="gpt-5.4",
+        max_loops=2
+    )
+    ```
+  </Tab>
+</Tabs>
 
 ## Best Practices
 
-1. **Swarm Type Selection**: Match the reasoning strategy to your task requirements
-2. **Performance**: Adjust `max_loops` and `num_samples` based on task complexity
-3. **Self-Consistency**: Use 3-5 samples for most tasks, 7+ for critical decisions
-4. **Multi-modal**: Use vision-capable models when processing images
-5. **ReasoningDuo**: Set different models for reasoning vs execution via `reasoning_model_name`
+<Tip>
+  **Optimization Tips**
+
+  1. **Swarm Type Selection**
+      - Use ReasoningDuo for tasks requiring both analysis and action
+
+      - Use SelfConsistency for tasks requiring high reliability
+
+      - Use IRE for complex problem-solving requiring iterative refinement
+
+  2. **Performance Optimization**
+      - Adjust max_loops based on task complexity
+
+      - Increase num_samples for higher reliability (3-7 for most tasks)
+
+      - Choose appropriate model_name based on task requirements
+
+      - Enable random_models_on for diverse reasoning approaches
+
+      - Use eval mode for validation tasks with known answers
+
+  3. **Output Handling**
+      - Use appropriate output_type for your needs
+
+      - Process batched results appropriately
+
+      - Handle errors gracefully
+
+  4. **Self-Consistency Specific**
+      - Use 3-5 samples for most tasks, 7+ for critical decisions
+
+      - Enable eval mode when you have expected answers for validation
+
+      - Customize majority_voting_prompt for domain-specific aggregation
+
+      - Consider random_models_on for diverse model perspectives
+
+  5. **Multi-modal and Reasoning Configuration**
+      - Use vision-capable models when processing images (e.g., "gpt-4-vision-preview")
+
+      - For ReasoningDuo, set different models for reasoning vs execution via reasoning_model_name
+
+      - Ensure image paths are accessible and in supported formats (JPG, PNG, etc.)
+
+      - Consider using reasoning_model_name with specialized reasoning models for complex tasks
+</Tip>
+
+## Limitations
+
+<Warning>
+  **Known Limitations**
+
+  1. Processing time increases with:
+      - Higher num_samples
+
+      - Larger max_loops
+
+      - More complex tasks
+
+  2. Model-specific limitations based on:
+      - Token limits
+
+      - Model capabilities
+
+      - API rate limits
+</Warning>
+
+## Contributing
+
+<Note>
+  **Development Guidelines**
+
+  When extending the ReasoningAgentRouter:
+
+  1. Follow the existing swarm interface
+  2. Add comprehensive tests
+  3. Update documentation
+  4. Maintain error handling
+</Note>
