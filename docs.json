@@ -288,7 +288,8 @@
           {
             "group": "Research",
             "pages": [
-              "examples/research/can_agents_agree"
+              "examples/research/can_agents_agree",
+              "examples/research/open_agent_bazaar"
             ]
           },
           {
