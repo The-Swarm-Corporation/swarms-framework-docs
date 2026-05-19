@@ -1,0 +1,402 @@
+---
+title: Swarm Router Example
+description: Use a single SwarmRouter to switch between any multi-agent architecture by changing one parameter
+---
+
+The `SwarmRouter` is the universal entry point for multi-agent orchestration in Swarms. Instead of importing and configuring different swarm classes, you keep the same `agents` list and just change the `swarm_type` to switch between Sequential, Concurrent, AgentRearrange, MixtureOfAgents, HierarchicalSwarm, and more.
+
+This page walks through one runnable example per common `swarm_type`, plus a strategy-comparison pattern and a production-ready configuration.
+
+## How SwarmRouter Works
+
+1. **Single interface** — one class, one `run(task)` method, regardless of which architecture you select.
+2. **Strategy via parameter** — set `swarm_type="SequentialWorkflow"`, `"ConcurrentWorkflow"`, `"MixtureOfAgents"`, etc.
+3. **Per-architecture options** — some swarm types accept extra kwargs (e.g. `rearrange_flow`, `aggregator_agent`).
+4. **Same agents everywhere** — define your `Agent` instances once and reuse them across architectures.
+
+## Basic Example: Switching Architectures Without Rewriting Code
+
+Define your agents once, then run the same task through three different architectures by changing only `swarm_type`.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+# Define your agents once
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="You research the topic and produce a detailed factual summary.",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="You turn research into a clear, engaging blog post.",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+editor = Agent(
+    agent_name="Editor",
+    system_prompt="You sharpen prose, fix errors, and tighten arguments.",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+agents = [researcher, writer, editor]
+task = "The state of open-source LLMs in 2026"
+
+# Run as a sequential pipeline (researcher -> writer -> editor)
+sequential = SwarmRouter(swarm_type="SequentialWorkflow", agents=agents)
+print(sequential.run(task))
+
+# Run all three in parallel on the same task
+concurrent = SwarmRouter(swarm_type="ConcurrentWorkflow", agents=agents)
+print(concurrent.run(task))
+```
+
+## Example: Sequential Workflow via SwarmRouter
+
+Each agent's output flows into the next. Ideal for ordered pipelines like research → write → edit.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="Research the topic thoroughly with citations.",
+    model_name="gpt-5.4",
+)
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="Convert research into a coherent narrative.",
+    model_name="gpt-5.4",
+)
+editor = Agent(
+    agent_name="Editor",
+    system_prompt="Polish for clarity and grammar.",
+    model_name="gpt-5.4",
+)
+
+router = SwarmRouter(
+    name="content-pipeline",
+    swarm_type="SequentialWorkflow",
+    agents=[researcher, writer, editor],
+    max_loops=1,
+)
+
+result = router.run("Explain transformer architectures to a software engineer.")
+print(result)
+```
+
+## Example: Concurrent Workflow via SwarmRouter
+
+All agents see the same task and run in parallel. Use for independent perspectives, redundancy, or fan-out queries.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+bull = Agent(
+    agent_name="Bull",
+    system_prompt="Argue why the asset is undervalued.",
+    model_name="gpt-5.4",
+)
+bear = Agent(
+    agent_name="Bear",
+    system_prompt="Argue why the asset is overvalued.",
+    model_name="gpt-5.4",
+)
+quant = Agent(
+    agent_name="Quant",
+    system_prompt="Analyze with risk-adjusted return frameworks.",
+    model_name="gpt-5.4",
+)
+
+router = SwarmRouter(
+    name="market-perspectives",
+    swarm_type="ConcurrentWorkflow",
+    agents=[bull, bear, quant],
+)
+
+result = router.run("Evaluate NVIDIA as a long-term investment in 2026.")
+print(result)
+```
+
+## Example: AgentRearrange via SwarmRouter
+
+Mix sequential and parallel execution in one flow using the DSL. `->` chains agents; `,` runs them in parallel.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+planner = Agent(agent_name="Planner",  model_name="gpt-5.4")
+coder   = Agent(agent_name="Coder",    model_name="gpt-5.4")
+reviewer = Agent(agent_name="Reviewer", model_name="gpt-5.4")
+tester  = Agent(agent_name="Tester",   model_name="gpt-5.4")
+
+router = SwarmRouter(
+    name="dev-flow",
+    swarm_type="AgentRearrange",
+    agents=[planner, coder, reviewer, tester],
+    rearrange_flow="Planner -> Coder -> Reviewer, Tester",
+    #                sequential          parallel
+)
+
+result = router.run("Build a Python function that validates email addresses.")
+print(result)
+```
+
+## Example: Mixture of Agents via SwarmRouter
+
+Workers respond independently, then an aggregator agent synthesizes a final answer. Pass a dedicated `aggregator_agent`.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+worker_gpt = Agent(
+    agent_name="Worker-GPT",
+    model_name="gpt-5.4",
+    system_prompt="Answer from the perspective of an LLM specialist.",
+)
+worker_claude = Agent(
+    agent_name="Worker-Claude",
+    model_name="claude-sonnet-4-6",
+    system_prompt="Answer from the perspective of a systems architect.",
+)
+worker_llama = Agent(
+    agent_name="Worker-Llama",
+    model_name="groq/llama-3.3-70b-versatile",
+    system_prompt="Answer from the perspective of an open-source engineer.",
+)
+
+aggregator = Agent(
+    agent_name="Aggregator",
+    model_name="gpt-5.4",
+    system_prompt=(
+        "Combine the worker responses into one coherent answer. "
+        "Highlight where they agree and where they diverge."
+    ),
+)
+
+router = SwarmRouter(
+    name="multi-provider-ensemble",
+    swarm_type="MixtureOfAgents",
+    agents=[worker_gpt, worker_claude, worker_llama],
+    aggregator_agent=aggregator,
+)
+
+result = router.run(
+    "What are the best practices for deploying LLMs in production?"
+)
+print(result)
+```
+
+## Example: Hierarchical Swarm via SwarmRouter
+
+A director agent decomposes the task and delegates subtasks to worker agents.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+data_worker = Agent(
+    agent_name="DataWorker",
+    system_prompt="You gather and clean data.",
+    model_name="gpt-5.4",
+)
+writing_worker = Agent(
+    agent_name="WritingWorker",
+    system_prompt="You draft reports from data summaries.",
+    model_name="gpt-5.4",
+)
+review_worker = Agent(
+    agent_name="ReviewWorker",
+    system_prompt="You critique drafts for accuracy and clarity.",
+    model_name="gpt-5.4",
+)
+
+router = SwarmRouter(
+    name="research-org",
+    swarm_type="HierarchicalSwarm",
+    agents=[data_worker, writing_worker, review_worker],
+    max_loops=2,  # allow one round of feedback
+)
+
+result = router.run(
+    "Produce a competitive analysis of the AI chip market."
+)
+print(result)
+```
+
+## Pattern: Strategy Comparison
+
+Run the same task through multiple architectures and compare outputs. Useful when you don't know which architecture suits your task best.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+analyst = Agent(agent_name="Analyst",  model_name="gpt-5.4")
+writer  = Agent(agent_name="Writer",   model_name="gpt-5.4")
+reviewer = Agent(agent_name="Reviewer", model_name="gpt-5.4")
+agents = [analyst, writer, reviewer]
+
+task = "Summarize the impact of generative AI on knowledge work."
+
+strategies = ["SequentialWorkflow", "ConcurrentWorkflow", "MixtureOfAgents"]
+results = {}
+
+aggregator = Agent(agent_name="Aggregator", model_name="gpt-5.4")
+
+for strategy in strategies:
+    kwargs = {"swarm_type": strategy, "agents": agents}
+    if strategy == "MixtureOfAgents":
+        kwargs["aggregator_agent"] = aggregator
+
+    router = SwarmRouter(**kwargs)
+    results[strategy] = router.run(task)
+
+for strategy, output in results.items():
+    print(f"\n=== {strategy} ===\n{output}")
+```
+
+## Pattern: Dynamic Architecture Selection
+
+Pick the architecture at runtime based on task characteristics. This is a common production pattern when one server handles tasks of varying complexity.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+
+def pick_swarm_type(task: str) -> str:
+    """Toy classifier — in production, use embeddings or a small LLM."""
+    lowered = task.lower()
+    if "compare" in lowered or "perspectives" in lowered:
+        return "ConcurrentWorkflow"
+    if "step" in lowered or "pipeline" in lowered:
+        return "SequentialWorkflow"
+    if "decompose" in lowered or "delegate" in lowered:
+        return "HierarchicalSwarm"
+    return "MixtureOfAgents"
+
+
+agents = [
+    Agent(agent_name="Researcher", model_name="gpt-5.4"),
+    Agent(agent_name="Writer",     model_name="gpt-5.4"),
+    Agent(agent_name="Reviewer",   model_name="gpt-5.4"),
+]
+aggregator = Agent(agent_name="Aggregator", model_name="gpt-5.4")
+
+
+def route_task(task: str) -> str:
+    swarm_type = pick_swarm_type(task)
+    kwargs = {"swarm_type": swarm_type, "agents": agents}
+    if swarm_type == "MixtureOfAgents":
+        kwargs["aggregator_agent"] = aggregator
+    return SwarmRouter(**kwargs).run(task)
+
+
+print(route_task("Compare three competing perspectives on AGI timelines."))
+print(route_task("Decompose and delegate: build a fintech compliance checklist."))
+```
+
+## Pattern: Production-Ready Configuration
+
+Combine `rules`, `autosave`, and explicit `output_type` for a deployable router. The router will save its config, state, and metadata after every run.
+
+```python
+from swarms import Agent
+from swarms.structs.swarm_router import SwarmRouter
+
+rules = """
+1. Cite sources for every factual claim.
+2. Prefer concise outputs over verbose ones.
+3. Flag any uncertainty explicitly.
+"""
+
+agents = [
+    Agent(agent_name="Analyst", model_name="gpt-5.4"),
+    Agent(agent_name="Writer",  model_name="gpt-5.4"),
+    Agent(agent_name="QA",      model_name="gpt-5.4"),
+]
+
+router = SwarmRouter(
+    name="production-research-swarm",
+    description="Cited, concise research outputs",
+    swarm_type="SequentialWorkflow",
+    agents=agents,
+    max_loops=1,
+    output_type="dict-all-except-first",
+    rules=rules,
+    autosave=True,
+    autosave_use_timestamp=True,
+    multi_agent_collab_prompt=True,
+)
+
+result = router.run("Assess the risks of deploying LLMs in regulated industries.")
+print(result)
+# Persisted at: {workspace_dir}/swarms/SwarmRouter/production-research-swarm-{timestamp}/
+#   - config.json (on init)
+#   - state.json + metadata.json (after each run)
+```
+
+## Batch and Concurrent Execution
+
+`SwarmRouter` exposes the same task-execution helpers regardless of which architecture is selected.
+
+```python
+router = SwarmRouter(swarm_type="SequentialWorkflow", agents=agents)
+
+# Sequential batch
+tasks = [
+    "Summarize the 2026 AI hardware market.",
+    "Summarize the 2026 AI software market.",
+    "Summarize the 2026 AI services market.",
+]
+sequential_results = router.batch_run(tasks)
+
+# Single task in a separate thread
+threaded_result = router.concurrent_run(
+    "Summarize the 2026 generative-AI consumer landscape."
+)
+```
+
+## Choosing a `swarm_type`
+
+| Situation | `swarm_type` |
+|---|---|
+| Linear A → B → C pipeline | `"SequentialWorkflow"` |
+| Same task, many agents at once | `"ConcurrentWorkflow"` |
+| Mix of sequential + parallel via DSL | `"AgentRearrange"` |
+| Multiple models, one synthesized answer | `"MixtureOfAgents"` |
+| Director delegates to specialists | `"HierarchicalSwarm"` |
+| Deep multi-loop analysis | `"HeavySwarm"` |
+| Round-table discussion / brainstorming | `"GroupChat"` |
+| Discrete consensus answer | `"MajorityVoting"` |
+| Adversarial debate with a judge | `"DebateWithJudge"` |
+| Council deliberates, judge rules | `"CouncilAsAJudge"` |
+| Round-robin task distribution | `"RoundRobin"` |
+| Batched grid execution | `"BatchedGridWorkflow"` |
+| LLM-driven council decisions | `"LLMCouncil"` |
+| Task-aware routing to one agent | `"MultiAgentRouter"` |
+
+## What to Avoid
+
+- **Don't add the aggregator to `agents`** when using `MixtureOfAgents` — pass it via the dedicated `aggregator_agent` kwarg so it isn't also run as a worker.
+- **Don't omit `rearrange_flow`** when using `AgentRearrange` — it is required and validated at construction time.
+- **Don't reuse a SwarmRouter across unrelated tasks expecting clean state** — construct a new one per logical job, or reset its internal conversation between runs.
+
+## Related Pages
+
+- [SwarmRouter architecture overview](/architectures/swarm-router)
+- [SwarmRouter API reference](/api/swarm-router)
+- [Sequential Workflow](/examples/sequential-workflow-example)
+- [Concurrent Workflow](/examples/concurrent-workflow-example)
+- [Mixture of Agents](/examples/mixture-of-agents-example)
+- [Hierarchical Swarm](/examples/hierarchical-swarm-example)
