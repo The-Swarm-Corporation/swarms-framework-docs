@@ -118,6 +118,7 @@
             "group": "CLI Reference",
             "pages": [
               "cli/overview",
+              "cli/tutorial",
               "cli/commands",
               "cli/configuration"
             ]
@@ -348,6 +349,7 @@
             "group": "CLI",
             "pages": [
               "examples/overviews/cli-overview",
+              "examples/cli/quickstart-tutorial",
               "examples/cli/chat-command",
               "examples/cli/multi-agent-quickstart"
             ]

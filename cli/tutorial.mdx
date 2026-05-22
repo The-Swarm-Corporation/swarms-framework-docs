@@ -1,0 +1,432 @@
+---
+title: "Swarms CLI Tutorial"
+description: "A complete, hands-on tour of the Swarms CLI — from your first agent to multi-agent workflows, in under 30 minutes"
+icon: "book-open"
+---
+
+# Swarms CLI Tutorial: From Zero to Multi-Agent
+
+If you can use `git`, `curl`, or `gh`, you already know how to use the Swarms CLI. This tutorial walks through every command in order, from a clean install to running a four-agent debate on a real task. By the end you'll be productive without ever leaving the terminal.
+
+We'll cover:
+
+- Installing and verifying the CLI
+- Scaffolding a project with `swarms init`
+- Talking to a single agent with `swarms chat`
+- Running one-shot tasks with `swarms agent`
+- Discovering models with the new `swarms models` command
+- Auto-generating swarms with `swarms autoswarm`
+- Running deep multi-agent analyses with `swarms heavy-swarm` and `swarms llm-council`
+- Loading whole teams from YAML and markdown files
+- Power-user tricks: streaming, autosave, MCP servers, environment scoping
+- The rotating `swarms tips` engine and how to use it
+- Recovering from errors — the CLI's built-in classifier and typo-corrector
+
+---
+
+## 1. Install and Verify
+
+The CLI ships with the main package. One line installs both:
+
+```bash
+pip install -U swarms
+```
+
+Verify the install — the banner that prints is more than decoration:
+
+```bash
+swarms
+```
+
+You'll see a panel like this:
+
+```
+╭─ 👾 Swarms ──────────────────────────────────────────────╮
+│  ▄     ▄    Swarms  v12.0.0                              │
+│  ▀█████▀    OpenAI +1 more · Multi-Agent Framework       │
+│  █▀███▀█    ~/Desktop/research/swarms                    │
+│  ███████    https://github.com/kyegomez/swarms           │
+│  ▀█   █▀                                                 │
+│                                                          │
+│ ───────────────────────────────────────────────────────  │
+│  ⚡ Pro tip: Start chatting instantly with swarms chat   │
+╰────────────────────────────────────  swarms --help  ─────╯
+ 🪄 Hint: Use --temperature 0.1 for deterministic responses
+```
+
+The second line ("OpenAI +1 more") detects which provider keys are set in your environment. If it says "No API key found", that's your next step.
+
+The randomized tip lines (`⚡ Pro tip`, `🪄 Hint`, etc.) rotate on every invocation. They are not noise — they surface real CLI capabilities you might have missed.
+
+---
+
+## 2. Scaffold a Project: `swarms init`
+
+`init` is the interactive wizard. It walks you through:
+
+1. Picking a project directory
+2. Picking a `WORKSPACE_DIR` (where agents read and write files)
+3. Adding API keys for any providers you have access to
+4. Writing a `.env` file
+5. Validating the result
+
+Run it:
+
+```bash
+swarms init
+```
+
+The wizard handles missing pieces gracefully — leave a key blank if you don't have one yet. When it finishes you'll have:
+
+- `<project_dir>/.env`           — your API keys
+- `<project_dir>/workspace/`     — the workspace directory
+
+After it finishes, the CLI prints a contextual "next step" tip based on the success state. That same engine fires after `setup-check` passes, suggesting your real first command (usually `swarms chat`).
+
+To verify the environment at any time:
+
+```bash
+swarms setup-check --verbose
+```
+
+This pings each configured provider, checks Python version, validates dependencies, and tells you exactly what's wrong if anything is.
+
+---
+
+## 3. Your First Conversation: `swarms chat`
+
+The fastest way to talk to a model:
+
+```bash
+swarms chat
+```
+
+That's it. The CLI builds an Agent with autonomous looping enabled (`max_loops="auto"`), drops you into an interactive REPL, and streams responses back. Type `exit` or hit `Ctrl-C` to leave — your session state is autosaved so you can resume later.
+
+Customize the persona:
+
+```bash
+swarms chat \
+  --name "Tutor" \
+  --system-prompt "You are a patient Python tutor for absolute beginners" \
+  --task "Walk me through how list comprehensions work"
+```
+
+The `--task` flag seeds the first message; from there the conversation is interactive.
+
+---
+
+## 4. One-Shot Agents: `swarms agent`
+
+When you don't want a REPL — say, in a shell script or CI job — use `swarms agent`:
+
+```bash
+swarms agent \
+  --name "MarketAnalyst" \
+  --description "Researches and summarizes equity markets" \
+  --system-prompt "You are an equity research analyst. Always cite sources." \
+  --task "Give me a one-paragraph thesis on NVIDIA over the next 12 months" \
+  --model-name "claude-opus-4-7" \
+  --temperature 0.1 \
+  --max-loops 1
+```
+
+Key flags worth memorizing:
+
+| Flag | What it does |
+|---|---|
+| `--max-loops auto` | Let the agent decide when it's done (autonomous mode) |
+| `--streaming-on` | Stream tokens to the terminal as they arrive |
+| `--verbose` | Show every internal step the agent takes |
+| `--autosave --saved-state-path ./state.json` | Persist agent memory between runs |
+| `--mcp-url <url>` | Auto-discover and use tools from an MCP server |
+| `--marketplace-prompt-id <id>` | Pull a pre-built system prompt from the marketplace |
+
+Combine `--streaming-on --verbose` to watch the model think token by token.
+
+---
+
+## 5. Discover Models: `swarms models`
+
+Before you change `--model-name`, you need to know what to put there. The CLI ships a model-discovery command backed by the LiteLLM registry, so the list stays current as providers ship new models.
+
+List every model, grouped by provider:
+
+```bash
+swarms models
+```
+
+Restrict to one provider:
+
+```bash
+swarms models --provider anthropic
+```
+
+Fuzzy-search by name (substring matches first, then `difflib` fuzzy matches):
+
+```bash
+swarms models --search opus
+```
+
+Get detailed info about a specific model — context window, capabilities, pricing per million tokens:
+
+```bash
+swarms models --info claude-opus-4-7
+```
+
+Output:
+
+```
+claude-opus-4-7
+┌───────────────────┬─────────────┐
+│ Provider          │ anthropic   │
+│ Mode              │ chat        │
+│ Max input tokens  │ 1,000,000   │
+│ Max output tokens │ 128,000     │
+│ Input cost        │ $5.00 / 1M  │
+│ Output cost       │ $25.00 / 1M │
+│ Function calling  │ ✓           │
+│ Vision            │ ✓           │
+│ Streaming         │ ✓           │
+└───────────────────┴─────────────┘
+```
+
+If you mistype a model name, the `--info` command suggests the closest matches.
+
+---
+
+## 6. Auto-Generate a Swarm: `swarms autoswarm`
+
+Don't know which architecture fits your task? Let the CLI design one:
+
+```bash
+swarms autoswarm \
+  --task "Produce a competitive analysis of the AI chip market" \
+  --model "gpt-4o"
+```
+
+The CLI calls a planning LLM, generates a complete swarm spec, writes a ready-to-run Python file to disk, and (by default) executes it. Add `--no-run` to inspect the file before running:
+
+```bash
+swarms autoswarm \
+  --task "Build me a multi-agent customer support pipeline" \
+  --model "gpt-4o" \
+  --no-run \
+  -o ./customer_support_swarm.py
+```
+
+The generated file is plain Python — read it, edit it, version-control it.
+
+---
+
+## 7. Heavy Analysis: `swarms heavy-swarm`
+
+For research-grade depth, `heavy-swarm` decomposes the task into specialist questions, dispatches them to multiple worker agents in parallel, then synthesizes a final answer:
+
+```bash
+swarms heavy-swarm \
+  --task "What are the second-order consequences of widespread AI coding assistants on the software job market?" \
+  --loops-per-agent 3 \
+  --worker-model-name "claude-opus-4-7" \
+  --question-agent-model-name "gpt-4o"
+```
+
+Each worker reasons for `--loops-per-agent` iterations on its sub-question, which gives meaningfully deeper output than a single LLM call. With high loop counts this gets expensive — check costs first with `swarms models --info <name>` to know what you're paying per million tokens.
+
+For non-deterministic exploration:
+
+```bash
+swarms heavy-swarm \
+  --task "Brainstorm novel applications of agentic AI in healthcare" \
+  --random-loops-per-agent \
+  --verbose
+```
+
+---
+
+## 8. Multi-Model Debate: `swarms llm-council`
+
+`llm-council` runs the same task across multiple models and aggregates their responses. It's the right shape when you want disagreement surfaced — adversarial verification, due-diligence reviews, or "is this consensus actually consensus?" questions:
+
+```bash
+swarms llm-council \
+  --task "Should our team adopt Rust for our next backend service?" \
+  --verbose
+```
+
+The council's chairman synthesizes the members' positions, highlighting where they agree and where they diverge.
+
+---
+
+## 9. Load a Team from a File
+
+For repeatable workflows, define agents in a YAML or markdown file and load them with one command.
+
+**YAML** — `agents.yaml`:
+
+```yaml
+agents:
+  - name: Researcher
+    model_name: gpt-4o
+    system_prompt: You research a topic thoroughly with citations.
+  - name: Writer
+    model_name: claude-opus-4-7
+    system_prompt: You turn research into engaging prose.
+swarm:
+  type: SequentialWorkflow
+  task: Write a 500-word brief on the future of robotic surgery
+```
+
+Run it:
+
+```bash
+swarms run-agents --yaml-file agents.yaml
+```
+
+**Markdown** — drop a folder of `.md` files, each with YAML frontmatter:
+
+```markdown
+---
+name: SecurityReviewer
+description: Reviews code for security issues
+model_name: claude-opus-4-7
+temperature: 0.1
+---
+You are a senior security engineer. Find vulnerabilities and explain them
+in terms a junior developer can understand.
+```
+
+Load all agents in the folder concurrently:
+
+```bash
+swarms load-markdown --markdown-path ./agents/
+```
+
+Markdown loading is the most ergonomic format if you're building a library of reusable agents — each file is self-describing and easy to share via git.
+
+---
+
+## 10. The `tips` Engine
+
+The CLI ships with ~75 categorized tips covering every command and flag. The banner rotates one per invocation, but you can also pull them on demand:
+
+```bash
+swarms tips              # one random tip
+swarms tips --count 5    # five distinct random tips
+swarms tips --category pro            # one CLI power-user trick
+swarms tips --category models --all   # every tip about --model-name
+```
+
+Categories available: `commands`, `agents`, `swarms`, `models`, `pro`, `trivia`, `env`, `community`. Use `swarms tips --all` to dump every tip in every category — useful as a cheat-sheet to print and pin next to your terminal.
+
+The prefix labels (`⚡ Pro tip:`, `💡 Did you know:`, `🪄 Hint:`, `🔥 Hot tip:`, and four others) are randomized per render. It's intentional — varied prefixes catch your eye when a tip is genuinely useful.
+
+---
+
+## 11. Power-User Tricks
+
+A few patterns that pay off in real use:
+
+**Pipe a task in from stdin:**
+
+```bash
+echo "Summarize this for a non-technical audience" | \
+  swarms agent --name Summarizer --task -
+```
+
+**Scope API keys per project with `direnv`:** drop a `.envrc` per project, and `swarms` auto-loads the project's `.env` because of how `python-dotenv` resolves the cwd.
+
+**Long autonomous loops inside `tmux`:** detach with `Ctrl-b d` and the agent keeps running. Combined with `--autosave`, you can disconnect for hours and resume the session later.
+
+**Watch a model think:**
+
+```bash
+swarms agent ... --streaming-on --verbose
+```
+
+**Save and resume an agent's memory:**
+
+```bash
+swarms agent ... --autosave --saved-state-path ./research.json
+# Later, same path
+swarms agent ... --saved-state-path ./research.json
+```
+
+**Cap context for long sessions:**
+
+```bash
+swarms agent ... --context-length 32000
+```
+
+When the agent approaches 90% of that budget, its built-in compressor summarizes older history automatically.
+
+**Attach an MCP tool server:**
+
+```bash
+swarms agent ... --mcp-url http://localhost:8000/sse
+```
+
+The agent auto-discovers every tool the server exposes — no Python glue needed.
+
+---
+
+## 12. Errors and Recovery
+
+When something goes wrong, the CLI doesn't just dump a stack trace. It classifies the error and prints targeted recovery hints:
+
+- A `401 Unauthorized` from a provider → "Run `swarms init` or `swarms get-api-key`"
+- A `model_not_found` error → "Find a valid model with `swarms models --search <name>`"
+- A missing `WORKSPACE_DIR` → "Run `swarms init` to scaffold one"
+- A `429 RateLimit` → "Slow down, use a smaller `--model-name`, or retry in a minute"
+- A network timeout → "Run `swarms setup-check --verbose` to validate connectivity"
+- A `ModuleNotFoundError` → "Try `swarms upgrade` or `pip install -U swarms`"
+
+If you mistype a command, the CLI suggests the closest match:
+
+```
+$ swarms agnt --task hi
+─── Error ───
+Unknown command 'agnt'
+Available commands: init, onboarding, ...
+Did you mean swarms agent?
+```
+
+This uses Python's `difflib.get_close_matches` against the command list, so corrections work even for two-character typos.
+
+---
+
+## 13. Where to Go Next
+
+You now have everything you need for daily use. A few directions to grow into:
+
+- **Build a reusable agent library** — Use markdown frontmatter to define agents once and load them from any project with `swarms load-markdown`.
+- **Compose pipelines as YAML** — `swarms run-agents --yaml-file` lets you commit the entire workflow to git.
+- **Wire MCP tools** — Any tool exposed via an MCP server (filesystem, web search, database) becomes available to any agent through `--mcp-url`.
+- **Read the API reference** — When you're ready to leave the CLI for Python code, every CLI flag maps to an Agent class parameter documented in the [API Reference](/api/agent).
+
+A few good third commands to try right now:
+
+```bash
+swarms tips --category pro
+swarms models --search sonnet
+swarms heavy-swarm --task "Summarize the case for and against AGI by 2035" --verbose
+```
+
+That's the CLI in 2,000 words. The shortest path to feeling fluent is to install it, run `swarms init`, then alternate between `swarms chat` for ideation and `swarms agent --task '...'` for one-shot work. Everything else — autoswarm, heavy-swarm, llm-council, YAML loading — composes from the same primitives once you're comfortable with the basics.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Commands Reference" icon="list" href="/cli/commands">
+    Every command, every flag, with examples
+  </Card>
+  <Card title="Configuration" icon="gear" href="/cli/configuration">
+    YAML, markdown, and environment configuration
+  </Card>
+  <Card title="Quickstart Tutorial" icon="rocket" href="/examples/cli/quickstart-tutorial">
+    A hands-on multi-agent workflow you can build right now
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/agent">
+    Map every CLI flag back to its Python API counterpart
+  </Card>
+</CardGroup>

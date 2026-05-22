@@ -1,0 +1,376 @@
+---
+title: "CLI Quickstart Tutorial"
+description: "A hands-on walkthrough — build a real multi-agent research-and-writing workflow using only the Swarms CLI"
+icon: "rocket"
+---
+
+# CLI Quickstart Tutorial
+
+This tutorial builds a working multi-agent workflow from scratch using only the CLI — no Python required until the final optional step. By the end you'll have a reusable agent library, a YAML pipeline, and a one-command way to run it.
+
+**You'll build:** a research → write → review pipeline that takes a topic and produces a polished briefing.
+
+**Time:** 15–20 minutes.
+
+**Prerequisites:** Python 3.10+, one provider API key (OpenAI or Anthropic).
+
+---
+
+## Step 1 — Install and Initialize
+
+```bash
+pip install -U swarms
+swarms init
+```
+
+The wizard prompts for a project directory, a workspace path, and your API keys. When it finishes, you'll have:
+
+```
+my-swarm/
+├── .env              # your API keys
+└── workspace/        # where agents read and write files
+```
+
+Verify the install:
+
+```bash
+swarms setup-check
+```
+
+If every check passes, the CLI will print a "next step" tip suggesting a real first command. Follow it — or stay with this tutorial.
+
+---
+
+## Step 2 — Pick a Model
+
+Before configuring agents, decide which model you'll use. Browse the catalog:
+
+```bash
+swarms models --provider anthropic
+```
+
+Pick one that fits your budget. Inspect details:
+
+```bash
+swarms models --info claude-opus-4-7
+```
+
+You'll see context window, supported features, and per-million-token pricing. For this tutorial we'll use:
+
+- `claude-opus-4-7` for the writer (quality matters most)
+- `gpt-4o` for the researcher (good cost/quality tradeoff)
+- `gpt-4o` for the reviewer
+
+If you only have one provider key, use that provider's strongest model for all three. The pipeline still works.
+
+---
+
+## Step 3 — Define the Agent Library (Markdown)
+
+The most ergonomic way to define a reusable agent is a markdown file with YAML frontmatter. Create three files inside an `agents/` folder:
+
+**`agents/researcher.md`**
+
+```markdown
+---
+name: Researcher
+description: Researches a topic thoroughly with citations
+model_name: gpt-4o
+temperature: 0.2
+---
+
+You are a senior research analyst. Given a topic, produce a detailed
+research summary with these sections:
+
+1. **Context** — Why this topic matters right now (1 paragraph)
+2. **Key facts** — 5–7 bullet points with concrete numbers, dates, and named sources
+3. **Open questions** — What remains uncertain or contested
+4. **Citations** — Inline source attributions for every factual claim
+
+Be specific. Prefer numbers over adjectives.
+```
+
+**`agents/writer.md`**
+
+```markdown
+---
+name: Writer
+description: Turns research into a concise polished briefing
+model_name: claude-opus-4-7
+temperature: 0.5
+---
+
+You are a writer for an executive briefing newsletter. Given research
+notes, produce a 400-word briefing with this structure:
+
+- **Lede** — One sentence that captures the entire story
+- **Body** — Three short paragraphs covering context, evidence, and stakes
+- **Takeaway** — One actionable sentence for a decision-maker
+
+Use plain language. Cut every word that doesn't earn its place.
+```
+
+**`agents/reviewer.md`**
+
+```markdown
+---
+name: Reviewer
+description: Critiques the writing for accuracy, clarity, and concision
+model_name: gpt-4o
+temperature: 0.1
+---
+
+You are a senior editor. Given a draft briefing and the source research,
+produce a critique with:
+
+1. **Accuracy issues** — Claims the draft makes that aren't supported
+   by the research
+2. **Clarity issues** — Sentences a busy executive would skip
+3. **Specific rewrites** — Suggested replacement language for the
+   weakest two paragraphs
+4. **Verdict** — "Ship", "Revise", or "Restart"
+```
+
+Confirm they load:
+
+```bash
+swarms load-markdown --markdown-path ./agents/
+```
+
+You should see a table listing all three agents with their models and descriptions.
+
+---
+
+## Step 4 — Run a Single Agent
+
+Before chaining, sanity-check one agent in isolation:
+
+```bash
+swarms agent \
+  --name "Researcher" \
+  --description "Researches a topic thoroughly" \
+  --system-prompt "You are a senior research analyst. Produce a detailed summary with citations." \
+  --task "What's the current state of mRNA vaccine development for cancer?" \
+  --model-name "gpt-4o" \
+  --streaming-on
+```
+
+`--streaming-on` shows tokens arriving in real time so you can tell whether the agent is on track without waiting for the full response.
+
+---
+
+## Step 5 — Chain Them: YAML Pipeline
+
+Create `pipeline.yaml`:
+
+```yaml
+agents:
+  - name: Researcher
+    model_name: gpt-4o
+    temperature: 0.2
+    system_prompt: |
+      You are a senior research analyst. Given a topic, produce
+      a detailed research summary with context, key facts (with
+      citations), and open questions.
+
+  - name: Writer
+    model_name: claude-opus-4-7
+    temperature: 0.5
+    system_prompt: |
+      You are a writer for an executive briefing newsletter.
+      Turn the research notes into a 400-word briefing with a
+      lede, three-paragraph body, and one-sentence takeaway.
+
+  - name: Reviewer
+    model_name: gpt-4o
+    temperature: 0.1
+    system_prompt: |
+      You are a senior editor. Given a draft briefing and the
+      source research, return: accuracy issues, clarity issues,
+      specific rewrites for the weakest paragraphs, and a
+      verdict of Ship/Revise/Restart.
+
+swarm:
+  type: SequentialWorkflow
+  task: |
+    Topic: How are large language models being used in drug discovery in 2026?
+```
+
+Run it:
+
+```bash
+swarms run-agents --yaml-file pipeline.yaml
+```
+
+Each agent receives the previous one's output as context. The Researcher's notes flow into the Writer's brief, which flows into the Reviewer's critique. Total cost on `gpt-4o` + `claude-opus-4-7` will be a few cents.
+
+---
+
+## Step 6 — Try a Different Architecture
+
+The same agents can run as a Concurrent Workflow (all three see the same task in parallel) or as a Mixture of Agents (workers + aggregator). Try Concurrent for a different angle:
+
+```yaml
+# pipeline-concurrent.yaml
+agents:
+  - name: Optimist
+    model_name: gpt-4o
+    system_prompt: Argue the strongest case for the topic
+  - name: Pessimist
+    model_name: claude-opus-4-7
+    system_prompt: Argue the strongest case against the topic
+  - name: Realist
+    model_name: gpt-4o
+    system_prompt: Provide a balanced analysis of the topic
+
+swarm:
+  type: ConcurrentWorkflow
+  task: |
+    Should our R&D team adopt LLMs as a daily tool for protein design?
+```
+
+Run:
+
+```bash
+swarms run-agents --yaml-file pipeline-concurrent.yaml
+```
+
+You get three independent perspectives in parallel rather than a chained refinement.
+
+---
+
+## Step 7 — Auto-Generate a Swarm
+
+When you don't know which architecture fits, let the CLI design one:
+
+```bash
+swarms autoswarm \
+  --task "Produce a competitive analysis of CRISPR-based cancer therapies in 2026" \
+  --model "gpt-4o" \
+  --no-run \
+  -o ./generated_swarm.py
+```
+
+`--no-run` writes the generated Python file without executing it, so you can inspect it first. Open `generated_swarm.py` — it's plain `swarms` Python code you can edit, version-control, or rerun manually.
+
+To run it immediately, drop `--no-run`:
+
+```bash
+swarms autoswarm \
+  --task "Produce a competitive analysis of CRISPR-based cancer therapies in 2026" \
+  --model "gpt-4o"
+```
+
+---
+
+## Step 8 — Deep Analysis with Heavy Swarm
+
+For research-grade depth, `heavy-swarm` decomposes the task into specialist questions and runs each through a worker for multiple loops:
+
+```bash
+swarms heavy-swarm \
+  --task "What are the second-order economic effects of AI coding assistants on the software labor market over the next five years?" \
+  --loops-per-agent 3 \
+  --worker-model-name "claude-opus-4-7" \
+  --question-agent-model-name "gpt-4o" \
+  --verbose
+```
+
+This costs more (3 loops × N workers × 1 question-generator) but produces noticeably deeper output than a single LLM call. Use sparingly.
+
+---
+
+## Step 9 — Council Debate
+
+When the task has multiple valid answers and you want disagreement surfaced:
+
+```bash
+swarms llm-council \
+  --task "Should we rewrite our Python data pipeline in Rust?" \
+  --verbose
+```
+
+Each council member responds independently; the chairman synthesizes, highlighting agreements and conflicts.
+
+---
+
+## Step 10 — Save and Resume an Agent
+
+For long-running tasks (autonomous research, ongoing chat with memory), persist state to disk:
+
+```bash
+swarms agent \
+  --name "ProjectAssistant" \
+  --description "Remembers context across days" \
+  --system-prompt "You are a project assistant. Remember every fact I tell you." \
+  --task "My project is called Helios. The team has 4 engineers." \
+  --autosave \
+  --saved-state-path ./helios.json
+```
+
+The next time you run the same command pointing at `./helios.json`, the agent picks up exactly where it left off — including everything you told it.
+
+---
+
+## Step 11 — Use a Tip on Every Run
+
+Run `swarms tips` whenever you want a quick reminder of a flag you might have forgotten:
+
+```bash
+swarms tips --count 3
+```
+
+Or print every CLI power-user trick:
+
+```bash
+swarms tips --category pro --all
+```
+
+---
+
+## Step 12 — When Things Break
+
+If a command errors out, the CLI classifies the failure and prints targeted hints. Try these intentionally to see the error system at work:
+
+```bash
+swarms agent --name X --description Y --system-prompt Z --task "hi" --model-name "gpt-99"
+```
+
+You'll see a "Could not load info" message with the closest model name suggestions.
+
+```bash
+swarms agnt   # typo
+```
+
+You'll see `Did you mean swarms agent?`.
+
+---
+
+## What You Built
+
+You now have:
+
+- A reusable agent library in `agents/*.md`
+- A repeatable sequential pipeline in `pipeline.yaml`
+- A concurrent variant in `pipeline-concurrent.yaml`
+- A fluency with the four most useful swarm-level commands (`run-agents`, `autoswarm`, `heavy-swarm`, `llm-council`)
+- A way to persist and resume long-running agents
+
+Commit `agents/` and `pipeline.yaml` to git — they're plain text. Anyone who clones your repo can run your workflow with the same one-liner.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="CLI Tutorial" icon="book-open" href="/cli/tutorial">
+    The long-form CLI tour, including power-user tricks
+  </Card>
+  <Card title="Commands Reference" icon="list" href="/cli/commands">
+    Every command, every flag, with examples
+  </Card>
+  <Card title="Configuration" icon="gear" href="/cli/configuration">
+    YAML and markdown configuration formats in depth
+  </Card>
+  <Card title="Multi-Agent Architectures" icon="diagram-project" href="/architectures/overview">
+    Learn the architectures behind each swarm command
+  </Card>
+</CardGroup>

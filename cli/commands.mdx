@@ -8,7 +8,38 @@ icon: "terminal"
 
 This page provides detailed documentation for all Swarms CLI commands, including their parameters, usage examples, and common use cases.
 
+For a guided walkthrough, see the [CLI Tutorial](/cli/tutorial). For an end-to-end multi-agent workflow you can build right now, see the [Quickstart Tutorial](/examples/cli/quickstart-tutorial).
+
 ## Setup & Configuration Commands
+
+### init
+
+Interactive project-scaffolding wizard. Creates a `.env` file with your API keys, a workspace directory, and runs validation.
+
+**Usage:**
+```bash
+swarms init [--dir <path>]
+```
+
+**Parameters:**
+- `--dir` (optional) — Project directory (default: prompted interactively)
+
+**What it does:**
+1. Prompts for a project directory
+2. Prompts for a `WORKSPACE_DIR` location
+3. Walks through every supported LLM provider and collects API keys
+4. Writes `.env` to the project directory
+5. Validates the resulting environment
+
+**Example:**
+```bash
+swarms init                    # fully interactive
+swarms init --dir ./my-project # skip the directory prompt
+```
+
+On success, the CLI prints a contextual "next step" tip suggesting your real first command.
+
+---
 
 ### onboarding
 
@@ -360,43 +391,94 @@ swarms llm-council \
 
 ---
 
+## Discovery Commands
+
+### models
+
+List, search, and inspect every LLM model available through LiteLLM. The catalog stays in sync as providers ship new models — no CLI update required.
+
+**Usage:**
+```bash
+swarms models [--provider <name>] [--search <pattern>] [--info <model>]
+```
+
+**Parameters:**
+- `--provider <name>` — Restrict the list to one provider (e.g. `anthropic`, `openai`, `groq`)
+- `--search <pattern>` — Substring + fuzzy search by model name
+- `--info <model>` — Show context window, capabilities, and per-1M-token pricing
+
+**Examples:**
+
+List every model, grouped by provider:
+```bash
+swarms models
+```
+
+Filter to one provider:
+```bash
+swarms models --provider anthropic
+```
+
+Fuzzy-search:
+```bash
+swarms models --search opus
+```
+
+Detailed info — useful before swapping a model in another command:
+```bash
+swarms models --info claude-opus-4-7
+```
+
+If you mistype the model name in `--info`, the CLI suggests the closest matches.
+
+---
+
+### tips
+
+Display random tips and tricks for using the CLI. The startup banner picks one tip per invocation; this command lets you pull them on demand.
+
+**Usage:**
+```bash
+swarms tips [--count <n>] [--category <name>] [--all]
+```
+
+**Parameters:**
+- `--count <n>` — Number of distinct random tips to print (default: 1)
+- `--category <name>` — Restrict to one of: `commands`, `agents`, `swarms`, `models`, `pro`, `trivia`, `env`, `community`
+- `--all` — Print every tip in the selected category (or every category if none given)
+
+**Examples:**
+
+One random tip:
+```bash
+swarms tips
+```
+
+Five distinct random tips:
+```bash
+swarms tips --count 5
+```
+
+A power-user trick:
+```bash
+swarms tips --category pro
+```
+
+Every CLI trick, as a printable cheat-sheet:
+```bash
+swarms tips --category pro --all
+```
+
+Every tip in every category:
+```bash
+swarms tips --all
+```
+
+The prefix labels (`⚡ Pro tip:`, `💡 Did you know:`, `🪄 Hint:`, `🔥 Hot tip:`, etc.) are randomized per render for visual variety.
+
+---
+
 ## Utility Commands
-
-### help
-
-Display comprehensive help message with all commands and parameters.
-
-**Usage:**
-```bash
-swarms help
-```
-
-**Parameters:** None
-
-**Example:**
-```bash
-swarms help
-```
-
----
-
-### features
-
-Display all available features and actions in a comprehensive table.
-
-**Usage:**
-```bash
-swarms features
-```
-
-**Parameters:** None
-
-**Example:**
-```bash
-swarms features
-```
-
----
 
 ### upgrade
 
@@ -422,28 +504,56 @@ This executes: `pip install --upgrade swarms`
 
 | Category | Commands |
 |----------|----------|
-| Setup | `onboarding`, `setup-check`, `get-api-key`, `check-login` |
+| Setup | `init`, `onboarding`, `setup-check`, `get-api-key`, `check-login` |
 | Agent Operations | `agent`, `chat`, `run-agents`, `load-markdown` |
 | Swarm Operations | `autoswarm`, `heavy-swarm`, `llm-council` |
-| Utilities | `help`, `features`, `upgrade` |
+| Discovery | `models`, `tips` |
+| Utilities | `upgrade` |
+
+## Global Help
+
+Every command supports `--help`:
+
+```bash
+swarms --help              # top-level help
+swarms agent --help        # flags for one command
+```
 
 ## Common Flags
 
 Many commands support these common flags:
 
-- `--verbose` - Enable detailed output
-- `--task` - Specify a task to execute
-- `--model-name` - Specify the LLM model
-- `--temperature` - Control randomness (0.0-2.0)
-- `--max-loops` - Set iteration limits
+- `--verbose` — Enable detailed output
+- `--task` — Specify a task to execute
+- `--model-name` — Specify the LLM model (see `swarms models` for the catalog)
+- `--temperature` — Control randomness (0.0-2.0)
+- `--max-loops` — Set iteration limits (integer or `auto`)
+
+## Error Recovery
+
+If a command fails, the CLI classifies the error and prints targeted recovery hints. For example:
+
+- `401 Unauthorized` → suggests `swarms init` or `swarms get-api-key`
+- `model_not_found` → suggests `swarms models --search <name>`
+- Missing `WORKSPACE_DIR` → suggests `swarms init`
+- `429 RateLimit` → suggests using a smaller `--model-name`
+- Network timeout → suggests `swarms setup-check --verbose`
+
+Mistyped command names get a "Did you mean..." suggestion via fuzzy matching.
 
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="CLI Tutorial" icon="book-open" href="/cli/tutorial">
+    A complete, hands-on tour of every command in order
+  </Card>
+  <Card title="Quickstart Tutorial" icon="rocket" href="/examples/cli/quickstart-tutorial">
+    Build a real multi-agent workflow step by step
+  </Card>
   <Card title="Configuration" icon="gear" href="/cli/configuration">
-    Learn how to configure agents using YAML files
+    YAML, markdown, and environment configuration
   </Card>
   <Card title="CLI Overview" icon="terminal" href="/cli/overview">
-    Return to CLI overview and quick start guide
+    Return to the CLI overview
   </Card>
 </CardGroup>
