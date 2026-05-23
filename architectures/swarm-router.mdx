@@ -15,7 +15,7 @@ The `SwarmRouter` is a universal orchestration system that provides a unified in
 
 ## Key Features
 
-- Support for 13+ swarm architectures
+- Support for 17 swarm types through a single interface
 - Factory pattern with O(1) lookup
 - Swarm caching for performance
 - Automatic agent configuration
@@ -26,31 +26,44 @@ The `SwarmRouter` is a universal orchestration system that provides a unified in
 
 ## Supported Swarm Types
 
-```python
-from swarms.structs.swarm_router import SwarmType
+`swarm_type` takes a **string** value. `SwarmType` is a `typing.Literal`, so pass the string directly — there is no `SwarmType.X` attribute access.
 
-# Available types:
-SwarmType.SequentialWorkflow
-SwarmType.ConcurrentWorkflow
-SwarmType.AgentRearrange
-SwarmType.MixtureOfAgents
-SwarmType.HierarchicalSwarm
-SwarmType.HeavySwarm
-SwarmType.GroupChat
-SwarmType.MultiAgentRouter
-SwarmType.MajorityVoting
-SwarmType.CouncilAsAJudge
-SwarmType.BatchedGridWorkflow
-SwarmType.LLMCouncil
-SwarmType.DebateWithJudge
-SwarmType.RoundRobin
+```python
+from swarms.structs.swarm_router import SwarmRouter
+
+router = SwarmRouter(
+    swarm_type="SequentialWorkflow",  # any value from the table below
+    agents=agents,
+)
 ```
+
+| Value | Description |
+|---|---|
+| `"SequentialWorkflow"` | Run agents one after another, passing context forward |
+| `"ConcurrentWorkflow"` | Run all agents in parallel on the same task |
+| `"AgentRearrange"` | Custom flow defined by a `rearrange_flow` string |
+| `"MixtureOfAgents"` | Workers run, then the last agent aggregates their output |
+| `"GroupChat"` | Agents converse, ordered by a speaker-selection function |
+| `"HierarchicalSwarm"` | A director delegates subtasks to worker agents |
+| `"HeavySwarm"` | A question agent plus workers with multiple loops |
+| `"MajorityVoting"` | Agents answer independently; the majority wins |
+| `"CouncilAsAJudge"` | A council evaluates output against a judge model |
+| `"LLMCouncil"` | Council members deliberate under a chairman |
+| `"DebateWithJudge"` | Pro and con agents debate; a judge decides |
+| `"MultiAgentRouter"` | Routes each task to the best-matched agent |
+| `"RoundRobin"` | Cycles through agents in turn |
+| `"BatchedGridWorkflow"` | Runs a grid of tasks across agents |
+| `"PlannerWorkerSwarm"` | A planner decomposes work for worker agents |
+
+<Note>
+  `"auto"` and `"AutoSwarmBuilder"` are also defined in the `SwarmType` Literal, but the current factory does not dispatch them — selecting either passes construction validation and then raises `ValueError` at run time. Use one of the 15 values above.
+</Note>
 
 ## Basic Example
 
 ```python
 from swarms import Agent
-from swarms.structs.swarm_router import SwarmRouter, SwarmType
+from swarms.structs.swarm_router import SwarmRouter
 
 # Define agents once
 writer = Agent(
@@ -88,24 +101,27 @@ conc_router = SwarmRouter(
 )
 conc_result = conc_router.run(task)
 
-# Try Mixture of Agents
-aggregator = Agent(agent_name="Aggregator", ...)
+# Try Mixture of Agents (the last agent in the list is the aggregator)
+aggregator = Agent(
+    agent_name="Aggregator",
+    system_prompt="You synthesize the team's outputs into a final answer.",
+    model_name="gpt-5.4",
+)
 moa_router = SwarmRouter(
     swarm_type="MixtureOfAgents",
-    agents=agents,
-    aggregator_agent=aggregator,
+    agents=[writer, editor, aggregator],  # aggregator = agents[-1]
 )
 moa_result = moa_router.run(task)
 ```
 
 ## Key Parameters
 
-<ParamField path="swarm_type" type="SwarmType" required>
-  Type of swarm to execute (e.g., "SequentialWorkflow")
+<ParamField path="swarm_type" type="SwarmType" default="SequentialWorkflow">
+  Which architecture to run, passed as a string (see the table above).
 </ParamField>
 
-<ParamField path="agents" type="List[Agent]" required>
-  List of agents for the swarm
+<ParamField path="agents" type="List[Union[Agent, Callable]]" default="[]">
+  Agents passed to the selected swarm. Most types need at least one; `HeavySwarm` and `CouncilAsAJudge` build their own.
 </ParamField>
 
 <ParamField path="name" type="str" default="swarm-router">
@@ -189,14 +205,14 @@ router = SwarmRouter(
 ### Shared Memory System
 
 ```python
-from swarms.memory import ChromaDB
+from swarms_memory import ChromaDB
 
-memory = ChromaDB()
+memory = ChromaDB(metric="cosine", output_dir="swarm_rag")
 
 router = SwarmRouter(
     swarm_type="SequentialWorkflow",
     agents=agents,
-    shared_memory_system=memory,
+    shared_memory_system=memory,  # assigned as each agent's long_term_memory
 )
 ```
 

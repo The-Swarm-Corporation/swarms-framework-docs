@@ -53,6 +53,10 @@ SwarmType = Literal[
 ]
 ```
 
+<Note>
+  `"auto"` and `"AutoSwarmBuilder"` are listed in the Literal but are **not** dispatched by the current factory (it handles 15 of the 17 values). Selecting either passes construction validation, then raises `ValueError` during `run()`. Use one of the other 15 values.
+</Note>
+
 ## Constructor
 
 ```python
@@ -259,13 +263,14 @@ These are only consulted when the corresponding `swarm_type` is selected.
 
 ### Additional kwargs
 
-Any extra keyword arguments are forwarded to the underlying swarm constructor via `**kwargs`. This is how you pass swarm-specific options that the router does not list explicitly — for example `aggregator_agent` for `MixtureOfAgents`:
+The constructor accepts arbitrary `*args` / `**kwargs` for forward-compatibility, but they are **not** stored on the router or forwarded to the underlying swarm — extra constructor kwargs are effectively ignored. Configure the underlying swarm through the router's explicit parameters listed above.
+
+For `MixtureOfAgents`, the aggregator is **not** passed as a kwarg; the **last agent** in `agents` is used as the aggregator automatically:
 
 ```python
 router = SwarmRouter(
     swarm_type="MixtureOfAgents",
-    agents=workers,
-    aggregator_agent=aggregator,  # forwarded to MixtureOfAgents
+    agents=[worker_1, worker_2, aggregator],  # aggregator = agents[-1]
 )
 ```
 
@@ -357,17 +362,13 @@ result = router.concurrent_run("Summarize Q1.")
 
 ### `reliability_check()`
 
-Validate construction inputs. Called automatically at the end of `__init__`. Raises `SwarmRouterConfigError` on failure.
-
-```python
-router.reliability_check()  # idempotent; safe to call manually
-```
+Validates the configuration (swarm type, per-type required parameters, `max_loops`) and then runs `setup()`. Called automatically at the end of `__init__`; you do not normally call it yourself. Raises `SwarmRouterConfigError` on invalid input.
 
 ---
 
 ### `setup()`
 
-Idempotent helper that prepares conversation state, rules injection, shared memory, and the underlying swarm instance. Called lazily by `run()`.
+Applies pre-run configuration to the agents: auto-prompt-engineering (`auto_generate_prompts`), shared-memory activation (`shared_memory_system`), rules injection (`rules`), and the multi-agent collaboration prompt (`multi_agent_collab_prompt`). Called automatically during construction via `reliability_check()`. The underlying swarm itself is created lazily on the first `run()`.
 
 ---
 
@@ -400,11 +401,11 @@ Internal helpers used during `setup()` for shared-memory activation, rules injec
 | `SequentialWorkflow` | `agents` (≥1) |
 | `ConcurrentWorkflow` | `agents` (≥1) |
 | `AgentRearrange` | `agents`, `rearrange_flow` |
-| `MixtureOfAgents` | `agents` (workers), `aggregator_agent` (via kwargs) |
+| `MixtureOfAgents` | `agents` (workers + aggregator as the **last** element) |
 | `HierarchicalSwarm` | `agents` (workers); director is created automatically |
 | `GroupChat` | `agents`, `speaker_fn` or `speaker_function` |
 | `MajorityVoting` | `agents` (≥3 recommended) |
-| `CouncilAsAJudge` | `agents`, `council_judge_model_name` |
+| `CouncilAsAJudge` | `council_judge_model_name` (builds its own agents) |
 | `LLMCouncil` | `agents`, `chairman_model`, `aggregation_strategy` |
 | `DebateWithJudge` | `agents` (≥3: pro, con, judge) |
 | `HeavySwarm` | `heavy_swarm_worker_model_name`, `heavy_swarm_question_agent_model_name` |
@@ -412,8 +413,8 @@ Internal helpers used during `setup()` for shared-memory activation, rules injec
 | `RoundRobin` | `agents` (≥2) |
 | `MultiAgentRouter` | `agents` |
 | `PlannerWorkerSwarm` | `agents` (workers); planner is created automatically |
-| `AutoSwarmBuilder` | `description` (used as the build spec) |
-| `auto` | `agents`; the type is selected via embedding similarity |
+| `AutoSwarmBuilder` | *Reserved — not dispatched by the current factory (raises `ValueError` at run)* |
+| `auto` | *Reserved — not dispatched by the current factory (raises `ValueError` at run)* |
 
 ## Autosave layout
 
