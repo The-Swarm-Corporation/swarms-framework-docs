@@ -24,7 +24,7 @@ agent = Agent(
     model_name="claude-sonnet-4-6",
     system_prompt="Search the web when you need current information. Cite sources.",
     tools=[],  # add swarms_tools search callables here
-    max_loops="auto",
+    max_loops=3,
 )
 
 result = agent.run("What are the latest developments in multi-agent AI frameworks?")
