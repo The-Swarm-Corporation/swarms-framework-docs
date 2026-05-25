@@ -1,0 +1,42 @@
+---
+title: "Search Tools"
+description: "Web and news search tools for Swarms agents via swarms-tools"
+icon: "magnifying-glass"
+---
+
+Search tools connect agents to web and news APIs (for example Exa, Serper, or similar providers supported in `swarms-tools`).
+
+## Setup
+
+```bash
+pip install -U swarms-tools
+```
+
+Set API keys in `.env` for your chosen search provider (e.g. `EXA_API_KEY`, `SERPER_API_KEY`).
+
+## Example agent
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="claude-sonnet-4-6",
+    system_prompt="Search the web when you need current information. Cite sources.",
+    tools=[],  # add swarms_tools search callables here
+    max_loops="auto",
+)
+
+result = agent.run("What are the latest developments in multi-agent AI frameworks?")
+print(result)
+```
+
+## Related examples
+
+- [Exa search integration](/examples/integrations/exa-search)
+- [Browser automation](/examples/integrations/browser-use)
+
+## Related
+
+- [Swarms Tools overview](/integrations/swarms-tools/overview)
+- [Integrations tools](/integrations/tools)

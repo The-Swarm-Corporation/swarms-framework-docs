@@ -1,0 +1,42 @@
+---
+title: "swarms-rs Overview"
+description: "Enterprise-grade multi-agent orchestration in Rust with high performance and MCP support"
+icon: "rust"
+---
+
+## Overview
+
+**swarms-rs** is a production-ready multi-agent orchestration framework built in Rust. It targets workloads that need low latency, fearless concurrency, and strong typing at scale.
+
+<CardGroup cols={2}>
+  <Card title="GitHub" icon="github" href="https://github.com/The-Swarm-Corporation/swarms-rs">
+    Source code and issues
+  </Card>
+  <Card title="Crates.io" icon="box" href="https://crates.io/crates/swarm-rs">
+    Install via Cargo
+  </Card>
+  <Card title="API docs" icon="book" href="https://docs.rs/swarm-rs/latest/swarm_rs/">
+    Rust API reference on docs.rs
+  </Card>
+</CardGroup>
+
+## Key benefits
+
+- **Multi-threaded architecture** — uses modern multi-core CPUs efficiently
+- **Low overhead** — zero-cost abstractions and minimal runtime cost
+- **Production-oriented** — suitable for real-time and high-throughput systems
+- **MCP integration** — STDIO and SSE Model Context Protocol servers for tools
+
+## When to use Rust vs Python Swarms
+
+| Use swarms-rs | Use Python `swarms` |
+| --- | --- |
+| Latency-sensitive services | Fastest iteration and largest feature surface |
+| Rust-native deployments | Jupyter, scripts, and most examples in this docs site |
+| Embedded or systems teams | Full multi-agent catalog (GraphWorkflow, HeavySwarm, etc.) |
+
+## Next steps
+
+<Card title="Rust agents guide" icon="robot" href="/swarms-rs/agents">
+  Installation, quick start, MCP tools, and configuration
+</Card>

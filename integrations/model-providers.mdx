@@ -196,6 +196,95 @@ agent = Agent(
 )
 ```
 
+### Azure OpenAI
+
+Enterprise-hosted OpenAI models via Azure:
+
+```bash
+# .env
+AZURE_API_KEY=your_key
+AZURE_API_BASE=https://your-resource.openai.azure.com/
+AZURE_API_VERSION=2024-02-15-preview
+```
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Azure-Agent",
+    model_name="azure/your-deployment-name",
+    max_loops=1,
+)
+```
+
+### XAI (Grok)
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Grok-Agent",
+    model_name="xai/grok-beta",
+    max_loops=1,
+)
+```
+
+Set `XAI_API_KEY` in your environment.
+
+### LiteLLM passthrough
+
+Any LiteLLM-supported model string works:
+
+```python
+agent = Agent(
+    agent_name="LiteLLM-Agent",
+    model_name="claude-sonnet-4-6",
+    max_loops=1,
+)
+```
+
+### Custom base URL and API key
+
+Use OpenAI-compatible endpoints (OpenRouter, Together, local gateways):
+
+```python
+import os
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Custom-Endpoint-Agent",
+    model_name="openrouter/anthropic/claude-sonnet-4-6",
+    llm_base_url="https://openrouter.ai/api/v1",
+    llm_api_key=os.getenv("OPENROUTER_API_KEY"),
+    max_loops=1,
+)
+```
+
+### vLLM (custom `llm` wrapper)
+
+Pass a class with a `run(task)` method for local vLLM:
+
+```python
+from vllm import LLM, SamplingParams
+
+class VLLMWrapper:
+    def __init__(self, model_name: str):
+        self.llm = LLM(model=model_name)
+        self.params = SamplingParams(temperature=0.7, max_tokens=2048)
+
+    def run(self, task: str, **kwargs) -> str:
+        outputs = self.llm.generate([task], self.params)
+        return outputs[0].outputs[0].text
+
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Local-vLLM-Agent",
+    llm=VLLMWrapper("meta-llama/Llama-2-7b-chat-hf"),
+    max_loops=1,
+)
+```
+
 ## Model Naming Convention
 
 Swarms uses the following naming pattern for models:

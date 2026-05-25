@@ -111,7 +111,11 @@
               "integrations/model-providers",
               "integrations/mcp",
               "integrations/tools",
-              "integrations/marketplace"
+              "integrations/marketplace",
+              "integrations/swarms-tools/overview",
+              "integrations/swarms-tools/finance",
+              "integrations/swarms-tools/search",
+              "integrations/swarms-tools/twitter"
             ]
           },
           {
@@ -120,13 +124,26 @@
               "cli/overview",
               "cli/tutorial",
               "cli/commands",
-              "cli/configuration"
+              "cli/configuration",
+              "cli/examples"
             ]
           },
           {
             "group": "Changelog",
             "pages": [
               "changelog/swarms-v12"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Swarms Rust",
+        "groups": [
+          {
+            "group": "Rust SDK",
+            "pages": [
+              "swarms-rs/overview",
+              "swarms-rs/agents"
             ]
           }
         ]
@@ -209,7 +226,8 @@
               "api/tools",
               "api/prompts",
               "api/schemas",
-              "api/utils"
+              "api/utils",
+              "api/transforms"
             ]
           },
           {
@@ -268,7 +286,8 @@
               "examples/group-chat-example",
               "examples/swarm-router-example",
               "examples/multi-agent/aop-medical",
-              "examples/multi-agent/debate-quickstart"
+              "examples/multi-agent/debate-quickstart",
+              "examples/social-swarm-patterns"
             ]
           },
           {
@@ -365,7 +384,8 @@
               "community/contributing",
               "community/contributing-to-docs",
               "community/code-of-conduct",
-              "community/development-setup"
+              "community/development-setup",
+              "community/bounty-program"
             ]
           },
           {
