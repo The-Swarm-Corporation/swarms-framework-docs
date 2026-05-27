@@ -178,13 +178,13 @@ The `SequentialWorkflow` executes agents in order, creating a pipeline where eac
 - Any task with clear sequential dependencies
 
 <Info>
-  Want to run agents in parallel instead? Check out [ConcurrentWorkflow](https://docs.swarms.world/en/latest/swarms/structs/concurrent_workflow/) for simultaneous execution.
+  Want to run agents in parallel instead? Check out [ConcurrentWorkflow](/architectures/concurrent-workflow) for simultaneous execution.
 </Info>
 
 ## What You Can Do Next
 
 <CardGroup cols={2}>
-  <Card title="Add Tools to Your Agent" icon="wrench" href="https://docs.swarms.world/en/latest/swarms/examples/agent_with_tools/">
+  <Card title="Add Tools to Your Agent" icon="wrench" href="/examples/agent-with-tools">
     Extend your agent's capabilities with external tools and APIs
   </Card>
   
@@ -192,11 +192,11 @@ The `SequentialWorkflow` executes agents in order, creating a pipeline where eac
     Learn about HierarchicalSwarm, ConcurrentWorkflow, MixtureOfAgents, and more
   </Card>
   
-  <Card title="Use Different Model Providers" icon="microchip" href="https://docs.swarms.world/en/latest/swarms/examples/model_providers/">
+  <Card title="Use Different Model Providers" icon="microchip" href="/integrations/model-providers">
     Connect to OpenAI, Anthropic, Groq, Cohere, and other LLM providers
   </Card>
   
-  <Card title="Build Production Applications" icon="rocket" href="https://docs.swarms.world/en/latest/swarms/structs/aop/">
+  <Card title="Build Production Applications" icon="rocket" href="/deployment/agent-orchestration-protocol">
     Deploy agents as distributed services with Agent Orchestration Protocol
   </Card>
 </CardGroup>
@@ -261,7 +261,7 @@ results = concurrent_workflow.run(
   </Accordion>
   
   <Accordion title="Model not found error">
-    Verify that you're using a valid model name. See the [Model Providers documentation](https://docs.swarms.world/en/latest/swarms/examples/model_providers/) for supported models.
+    Verify that you're using a valid model name. See the [Model Providers documentation](/integrations/model-providers) for supported models.
   </Accordion>
   
   <Accordion title="Rate limit errors">
