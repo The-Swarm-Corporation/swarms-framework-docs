@@ -80,10 +80,10 @@ workflow = SequentialWorkflow(
 ### With Shared Memory
 
 ```python
-from swarms.memory.langtrace_memory import LangTrace
+from swarms_memory import ChromaDB
 
-# Initialize shared memory
-shared_memory = LangTrace()
+# Initialize shared memory (vector store reused across agents)
+shared_memory = ChromaDB(metric="cosine", output_dir="workflow_rag")
 
 workflow = SequentialWorkflow(
     agents=[researcher, writer, editor],
