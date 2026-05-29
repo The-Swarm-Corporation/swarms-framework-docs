@@ -163,6 +163,133 @@ def batched_run(self, tasks: List[str]) -> List[Any]
 
 **Returns:** List of results, one per task
 
+## Return Types
+
+The PGE harness produces three structured return types that are also re-exported from `swarms.structs` so you can type-annotate against them.
+
+### StepContract
+
+A negotiated agreement between the Generator and the Evaluator for one step of the plan — the title and acceptance criteria the Generator commits to, plus an `approved` flag and any `amendments` the Evaluator pushed back with.
+
+```python
+from swarms import StepContract
+
+contract = StepContract(
+    step_number=1,
+    title="Draft outline",
+    acceptance_criteria="Three sections, each with bullet points",
+    approved=True,
+    amendments="",
+)
+```
+
+<ParamField path="step_number" type="int" required>
+  1-indexed position in the plan.
+</ParamField>
+
+<ParamField path="title" type="str" default='""'>
+  Short step title.
+</ParamField>
+
+<ParamField path="acceptance_criteria" type="str" default='""'>
+  What the Generator's output must satisfy for the Evaluator to approve.
+</ParamField>
+
+<ParamField path="approved" type="bool" default="False">
+  Whether the Evaluator approved this contract.
+</ParamField>
+
+<ParamField path="amendments" type="str" default='""'>
+  Evaluator-suggested changes when not approved.
+</ParamField>
+
+### EvaluationReport
+
+Per-step evaluation produced by the Evaluator agent — criterion scores, threshold checks, pass/fail, and feedback used to drive retries.
+
+```python
+from swarms import EvaluationReport
+
+report = EvaluationReport(
+    step_number=1,
+    criterion_scores={"completeness": 0.9, "accuracy": 0.85},
+    criterion_thresholds={"completeness": 0.8, "accuracy": 0.8},
+    passed=True,
+    actionable_feedback="Tighten the second paragraph for clarity",
+    summary="Meets thresholds; minor stylistic notes",
+    raw_evaluation="...",
+)
+```
+
+<ParamField path="step_number" type="int" required>
+  Step this report belongs to.
+</ParamField>
+
+<ParamField path="criterion_scores" type="Dict[str, float] | None" default="None">
+  Map of criterion name to score, typically in `[0, 1]`.
+</ParamField>
+
+<ParamField path="criterion_thresholds" type="Dict[str, float] | None" default="None">
+  Minimum scores needed to pass each criterion.
+</ParamField>
+
+<ParamField path="passed" type="bool" default="False">
+  Whether the step met every threshold.
+</ParamField>
+
+<ParamField path="actionable_feedback" type="str" default='""'>
+  Specific, retry-targeted feedback for the Generator.
+</ParamField>
+
+<ParamField path="summary" type="str" default='""'>
+  Short prose summary of the evaluation.
+</ParamField>
+
+<ParamField path="raw_evaluation" type="str" default='""'>
+  Unparsed Evaluator output, retained for debugging.
+</ParamField>
+
+### HarnessResult
+
+Final result container — populated after `run()` and accessible via `harness.last_result`.
+
+```python
+from swarms import HarnessResult
+
+result = HarnessResult(
+    output_path="runs/2026-05-28/plan.md",
+    plan="...",
+    step_logs=[{"step": 1, "passed": True}, ...],
+    total_duration=42.7,
+    total_steps_completed=3,
+    total_retries=1,
+)
+```
+
+<ParamField path="output_path" type="str" default='""'>
+  Where the harness wrote artifacts (plan, logs, final output).
+</ParamField>
+
+<ParamField path="plan" type="str" default='""'>
+  The full plan the harness executed against.
+</ParamField>
+
+<ParamField path="step_logs" type="List[Dict[str, Any]] | None" default="None">
+  Per-step structured log: which Generator/Evaluator turns ran, scores, retries.
+</ParamField>
+
+<ParamField path="total_duration" type="float" default="0.0">
+  Wall-clock seconds for the full run.
+</ParamField>
+
+<ParamField path="total_steps_completed" type="int" default="0">
+  Number of steps that hit `passed=True`.
+</ParamField>
+
+<ParamField path="total_retries" type="int" default="0">
+  Total retries across all steps.
+</ParamField>
+
 ## Usage Examples
 
 ### Basic Usage

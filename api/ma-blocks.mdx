@@ -1,0 +1,189 @@
+---
+title: "Multi-Agent Blocks"
+description: "Small building blocks for multi-agent workflows: aggregate concurrent runs, run a single agent safely, find an agent by name"
+icon: "cubes"
+---
+
+## Overview
+
+`swarms.structs.ma_blocks` is a tiny set of helper functions for composing multi-agent workflows without instantiating a full swarm class. Three functions:
+
+| Function | What it does |
+|---|---|
+| `aggregate` | Run a list of agents concurrently on the same task, then synthesize via an aggregator agent |
+| `run_agent` | Run a single agent with argument validation and error wrapping |
+| `find_agent_by_name` | Look up an agent by `.name` in a list |
+
+Reach for these when you want quick composability — a function call instead of `ConcurrentWorkflow(...).run(...)`.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## aggregate()
+
+Run every worker on the same task concurrently, then hand the combined transcript to an aggregator agent for synthesis.
+
+```python
+def aggregate(
+    workers: List[Callable],
+    task: str = None,
+    type: HistoryOutputType = "all",
+    aggregator_model_name: str = "anthropic/claude-3-sonnet-20240229",
+)
+```
+
+<ParamField path="workers" type="List[Callable]" required>
+  Agents (or any callables matching the `Agent` interface) to run on the task.
+</ParamField>
+
+<ParamField path="task" type="str" required>
+  Task passed to every worker.
+</ParamField>
+
+<ParamField path="type" type="HistoryOutputType" default='"all"'>
+  Output format passed to `history_output_formatter`.
+</ParamField>
+
+<ParamField path="aggregator_model_name" type="str" default='"anthropic/claude-3-sonnet-20240229"'>
+  Model used by the synthesizing aggregator agent.
+</ParamField>
+
+**Raises:** `ValueError` if `task` is `None`, `workers` is `None`, or `workers` is not a list of callables.
+
+**Behavior:**
+
+1. All workers run concurrently via `run_agents_concurrently`.
+2. Each worker's result is added to a shared `Conversation`, keyed by `worker.agent_name`.
+3. A new `Aggregator` agent runs with `AGGREGATOR_SYSTEM_PROMPT` and produces a ~3,000-word synthesis of the worker outputs.
+4. The aggregator's response is appended to the conversation.
+5. The full conversation is returned formatted per `type`.
+
+## run_agent()
+
+Run a single agent on a task with type-checking and error wrapping. Thin convenience over `agent.run(task)`.
+
+```python
+def run_agent(
+    agent: Agent,
+    task: str,
+    type: HistoryOutputType = "all",
+    *args,
+    **kwargs,
+)
+```
+
+<ParamField path="agent" type="Agent" required>
+  Must be an instance of `swarms.structs.agent.Agent`.
+</ParamField>
+
+<ParamField path="task" type="str" required>
+  Task passed to the agent.
+</ParamField>
+
+<ParamField path="type" type="HistoryOutputType" default='"all"'>
+  Accepted but not currently consumed beyond the call — present for API parity with `aggregate`.
+</ParamField>
+
+**Raises:**
+
+| Exception | Condition |
+|---|---|
+| `ValueError` | `agent` or `task` is `None` |
+| `TypeError` | `agent` is not an `Agent` instance |
+| `RuntimeError` | Any exception raised by `agent.run()` is wrapped and re-raised |
+
+**Returns:** Whatever `agent.run(task)` returns.
+
+## find_agent_by_name()
+
+Linear search for an agent by its `.name` attribute.
+
+```python
+def find_agent_by_name(
+    agents: List[Union[Agent, Callable]],
+    agent_name: str,
+) -> Agent
+```
+
+<ParamField path="agents" type="List[Union[Agent, Callable]]" required>
+  Non-empty list of agent-like objects.
+</ParamField>
+
+<ParamField path="agent_name" type="str" required>
+  Name to match against `agent.name` (note: `.name`, not `.agent_name`).
+</ParamField>
+
+**Raises:**
+
+| Exception | Condition |
+|---|---|
+| `ValueError` | `agents` is empty, `agent_name` is empty/whitespace, or no match found |
+| `TypeError` | `agent_name` is not a string |
+| `RuntimeError` | Any inner exception is wrapped and re-raised |
+
+## Usage Examples
+
+### Aggregate Concurrent Analyses
+
+```python
+from swarms import Agent
+from swarms.structs.ma_blocks import aggregate
+
+analysts = [
+    Agent(agent_name="Bull-Case", model_name="claude-sonnet-4-6", max_loops=1,
+          system_prompt="Argue the bull case using data."),
+    Agent(agent_name="Bear-Case", model_name="claude-sonnet-4-6", max_loops=1,
+          system_prompt="Argue the bear case using data."),
+    Agent(agent_name="Macro-Lens", model_name="claude-sonnet-4-6", max_loops=1,
+          system_prompt="Frame the question in macro context."),
+]
+
+result = aggregate(
+    workers=analysts,
+    task="Is now a good time to invest in industrial automation stocks?",
+)
+```
+
+The returned value is the full conversation — three analyst responses plus the aggregator's synthesis.
+
+### Safe Single-Agent Run
+
+```python
+from swarms import Agent
+from swarms.structs.ma_blocks import run_agent
+
+agent = Agent(
+    agent_name="Drafter",
+    model_name="claude-sonnet-4-6",
+    max_loops=1,
+)
+
+# Raises TypeError if the first argument isn't an Agent
+result = run_agent(agent, "Write a release-note bullet for the v12.1 streaming API")
+```
+
+### Look Up an Agent by Name
+
+```python
+from swarms import Agent
+from swarms.structs.ma_blocks import find_agent_by_name
+
+agents = [
+    Agent(agent_name="Researcher", model_name="claude-sonnet-4-6"),
+    Agent(agent_name="Writer", model_name="claude-sonnet-4-6"),
+    Agent(agent_name="Editor", model_name="claude-sonnet-4-6"),
+]
+
+# .name (not .agent_name) is what's matched
+agents[1].name = "Writer"
+writer = find_agent_by_name(agents, "Writer")
+```
+
+`find_agent_by_name` matches against the `.name` attribute, not `.agent_name`. Set `.name` explicitly when you intend to look agents up this way.
+
+## Source Code
+
+View the [source on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/ma_blocks.py).

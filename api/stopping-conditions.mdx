@@ -1,0 +1,132 @@
+---
+title: "Stopping Conditions"
+description: "Substring-based predicates and a dispatcher for detecting completion signals in agent output"
+icon: "circle-stop"
+---
+
+## Overview
+
+`swarms.structs.stopping_conditions` is a small collection of substring predicates used to detect when an agent is signaling that its work is done. Each function takes a string and returns a `bool`; the `check_stopping_conditions` dispatcher runs all of them and returns a human-readable message indicating which one triggered (or `None`).
+
+These are not full-blown completion classifiers — they're cheap heuristics suitable for `Agent(stopping_condition=...)` and similar hooks where you want a quick "is the agent done?" decision based on the last response.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Predicates
+
+All predicates have the same signature and are case-sensitive substring matches against the agent's output.
+
+```python
+def check_<keyword>(s: str) -> bool
+```
+
+| Function | Returns `True` when output contains |
+|---|---|
+| `check_done` | `<DONE>` |
+| `check_finished` | `finished` |
+| `check_complete` | `complete` |
+| `check_success` | `success` |
+| `check_failure` | `failure` |
+| `check_error` | `error` |
+| `check_stopped` | `stopped` |
+| `check_cancelled` | `cancelled` |
+| `check_exit` | `exit` |
+| `check_end` | `end` |
+
+`check_done` is the only one looking for an explicit sentinel (`<DONE>`); the others match plain keywords and will fire on incidental occurrences (e.g. "the function ended normally" satisfies `check_end`). Prefer `check_done` when you want a controlled stop signal.
+
+## check_stopping_conditions()
+
+Dispatcher that runs every predicate in order and returns a descriptive string for the first hit, or `None`.
+
+```python
+def check_stopping_conditions(input: str) -> str
+```
+
+<ParamField path="input" type="str" required>
+  String to check against all predicates.
+</ParamField>
+
+**Returns:** One of the following messages, or `None` if no predicate matched:
+
+| Predicate that fired | Returned message |
+|---|---|
+| `check_done` | `"Task is done"` |
+| `check_finished` | `"Task is finished"` |
+| `check_complete` | `"Task is complete"` |
+| `check_success` | `"Task succeeded"` |
+| `check_failure` | `"Task failed"` |
+| `check_error` | `"Task encountered an error"` |
+| `check_stopped` | `"Task was stopped"` |
+| `check_cancelled` | `"Task was cancelled"` |
+| `check_exit` | `"Task exited"` |
+| `check_end` | `"Task ended"` |
+
+Order matters — `check_done` is evaluated first, so a `<DONE>` sentinel will always win even if the same output also contains "complete".
+
+## Usage Examples
+
+### Stopping an Agent on a Sentinel
+
+```python
+from swarms import Agent
+from swarms.structs.stopping_conditions import check_done
+
+agent = Agent(
+    agent_name="Researcher",
+    model_name="claude-sonnet-4-6",
+    system_prompt=(
+        "Research the topic. When you have nothing more to add, "
+        "emit the literal token <DONE> on its own line."
+    ),
+    max_loops=10,
+    stopping_condition=check_done,
+)
+
+result = agent.run("Survey the state of agent benchmarks")
+```
+
+### Classifying the Outcome
+
+```python
+from swarms.structs.stopping_conditions import check_stopping_conditions
+
+outputs = [
+    "The job finished without issue.",
+    "<DONE>",
+    "Encountered an error halfway through.",
+    "Continuing to the next step...",
+]
+
+for o in outputs:
+    msg = check_stopping_conditions(o)
+    print(msg or "(no stop signal)")
+```
+
+```text
+Task is finished
+Task is done
+Task is finished
+(no stop signal)
+```
+
+Note that `"The job finished without issue."` triggers `check_finished` before `check_error` is evaluated; the dispatcher returns on the first match.
+
+### Custom Stop Predicate
+
+These are plain functions — combine or replace them freely.
+
+```python
+from swarms.structs.stopping_conditions import check_done
+
+def my_stop(s: str) -> bool:
+    return check_done(s) or "no further action required" in s.lower()
+```
+
+## Source Code
+
+View the [source on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/stopping_conditions.py).

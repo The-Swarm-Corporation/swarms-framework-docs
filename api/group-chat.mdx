@@ -126,6 +126,30 @@ group_chat = GroupChat(
 )
 ```
 
+### Direct Function Imports
+
+The string identifiers above (`"round-robin-speaker"`, etc.) dispatch to plain functions in `swarms.structs.groupchat`. You can import them directly when you want to compose them or pass them as the `speaker_function=` argument without the string indirection.
+
+```python
+from swarms import (
+    round_robin_speaker,
+    random_speaker,
+    priority_speaker,
+    random_dynamic_speaker,
+    expertise_based,
+)
+```
+
+| Function | Signature | Returns |
+|---|---|---|
+| `round_robin_speaker` | `(agents: List[str], current_index: int = 0)` | `str` — next agent name |
+| `random_speaker` | `(agents: List[str], **kwargs)` | `str` — randomly chosen agent name |
+| `priority_speaker` | `(agents: List[str], priorities: dict, **kwargs)` | `str` — weighted-random agent name |
+| `random_dynamic_speaker` | `(agents: List[str], response: str = "", strategy: str = "parallel", **kwargs)` | `str` or `List[str]` — agents from `@mentions` in the last response |
+| `expertise_based` | `(history: List[str], agent: Agent)` | `bool` — whether this agent should speak based on system-prompt match |
+
+`expertise_based` is shaped differently from the others — it's a per-agent filter rather than a selector. Use it when you want every agent to self-decide whether to participate based on the topic of the last message.
+
 ## Methods
 
 ### `run()`
