@@ -267,6 +267,7 @@
               "examples/hierarchical-swarm-example",
               "examples/group-chat-example",
               "examples/swarm-router-example",
+              "examples/multi-agent/advisor-swarm-example",
               "examples/multi-agent/aop-medical",
               "examples/multi-agent/debate-quickstart"
             ]
