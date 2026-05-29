@@ -1,6 +1,6 @@
 ---
 title: "Swarming Architectures"
-description: "Topology functions describing how agents pass tasks among each other — circular, grid, star, mesh, pyramid, one-to-one, and broadcast"
+description: "Topology functions describing how agents pass tasks among each other — circular, grid, one-to-one, and broadcast"
 icon: "share-nodes"
 ---
 
@@ -14,9 +14,6 @@ These are functional building blocks — no shared class, no orchestration objec
 |---|---|---|
 | `circular_swarm` | Ring — every agent processes every task in order | `(agents, tasks)` |
 | `grid_swarm` | Agents laid out in a √N×√N grid; one task per cell | `(agents, tasks)` |
-| `star_swarm` | Center agent processes each task first, others follow | `(agents, tasks)` |
-| `mesh_swarm` | Agents pull from a shared task queue round-robin until drained | `(agents, tasks)` |
-| `pyramid_swarm` | Triangular layout; rows fill top-down | `(agents, tasks)` |
 | `one_to_one` | A → B handoff for `max_loops` turns | `(sender, receiver, task)` |
 | `broadcast` | One sender → many receivers, async | `(sender, agents, task)` |
 
@@ -67,52 +64,6 @@ def grid_swarm(
 ```
 
 Best when `len(agents)` is a perfect square and `len(tasks)` matches the cell count. Extra tasks are dropped; extra agents are idle.
-
-## star_swarm()
-
-`agents[0]` is the center — it processes each task first, then every other agent processes the same task in turn.
-
-```python
-def star_swarm(
-    agents: AgentListType,
-    tasks: List[str],
-    output_type: OutputType = "dict",
-) -> Union[Dict[str, Any], List[str]]
-```
-
-The center sees the full conversation context (`conversation.get_str()`); the satellite agents see only the raw task.
-
-**Raises:** `ValueError` if `agents` or `tasks` is empty.
-
-## mesh_swarm()
-
-Agents pull from a shared task queue until empty. Each agent works on whichever task it grabs next — no coordination, no order guarantees beyond round-robin.
-
-```python
-def mesh_swarm(
-    agents: AgentListType,
-    tasks: List[str],
-    output_type: OutputType = "dict",
-) -> Union[Dict[str, Any], List[str]]
-```
-
-**Raises:** `ValueError` if `agents` or `tasks` is empty.
-
-## pyramid_swarm()
-
-Agents arranged in a triangle: row 1 has 1 cell, row 2 has 2, row 3 has 3, etc. Tasks pop off the front of the list and fill cells top-down, left-to-right.
-
-```python
-def pyramid_swarm(
-    agents: AgentListType,
-    tasks: List[str],
-    output_type: OutputType = "dict",
-) -> Union[Dict[str, Any], List[str]]
-```
-
-Number of levels is computed from `len(agents)` via the triangular-number formula. Pass enough agents to fill complete rows.
-
-**Raises:** `ValueError` if `agents` or `tasks` is empty.
 
 ## one_to_one()
 
@@ -191,39 +142,6 @@ result = circular_swarm(
 
 Each reviewer sees the running conversation, so later reviewers can build on earlier comments.
 
-### Star: Triage First, Then Specialists
-
-```python
-from swarms import Agent
-from swarms.structs.swarming_architectures import star_swarm
-
-triage = Agent(agent_name="Triage", model_name="claude-sonnet-4-6", max_loops=1)
-specialists = [
-    Agent(agent_name="Backend", model_name="claude-sonnet-4-6", max_loops=1),
-    Agent(agent_name="Frontend", model_name="claude-sonnet-4-6", max_loops=1),
-    Agent(agent_name="DevOps", model_name="claude-sonnet-4-6", max_loops=1),
-]
-
-result = star_swarm(
-    agents=[triage, *specialists],
-    tasks=["Investigate the prod latency spike from 09:00–09:15"],
-)
-```
-
-### Mesh: Drain a Work Queue
-
-```python
-from swarms import Agent
-from swarms.structs.swarming_architectures import mesh_swarm
-
-workers = [Agent(agent_name=f"Worker-{i}", model_name="claude-sonnet-4-6", max_loops=1) for i in range(4)]
-tasks = [f"Summarize document {i}" for i in range(20)]
-
-result = mesh_swarm(agents=workers, tasks=tasks)
-```
-
-Round-robin distribution means each worker handles ~5 docs.
-
 ### One-to-One: Generator/Critic Loop
 
 ```python
@@ -269,9 +187,6 @@ result = asyncio.run(
 |---|---|
 | `circular_swarm` | Each agent should see every task and the accumulating context |
 | `grid_swarm` | Tasks map cleanly to a 2D layout you already have |
-| `star_swarm` | One central reviewer/triage agent gates the work |
-| `mesh_swarm` | Embarrassingly parallel work, no coordination needed |
-| `pyramid_swarm` | Tiered processing where later rows fill from earlier output |
 | `one_to_one` | Two-agent loops — generator/critic, proposer/judge |
 | `broadcast` | Fan-out where one message needs to reach many workers |
 

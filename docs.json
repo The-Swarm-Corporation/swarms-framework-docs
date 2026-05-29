@@ -213,8 +213,7 @@
               "api/schemas",
               "api/utils",
               "api/async-subagent",
-              "api/ma-blocks",
-              "api/stopping-conditions"
+              "api/ma-blocks"
             ]
           },
           {
