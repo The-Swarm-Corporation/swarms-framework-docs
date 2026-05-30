@@ -138,6 +138,7 @@
             "group": "Core Classes",
             "pages": [
               "api/agent",
+              "api/agent-loader",
               "api/base-swarm",
               "api/base-structure",
               "api/conversation"
@@ -200,7 +201,8 @@
               "api/hierarchical-communication-framework",
               "api/hhcs",
               "api/multi-agent-execution-utilities",
-              "api/social-algorithms"
+              "api/social-algorithms",
+              "api/swarming-architectures"
             ]
           },
           {
@@ -209,7 +211,9 @@
               "api/tools",
               "api/prompts",
               "api/schemas",
-              "api/utils"
+              "api/utils",
+              "api/async-subagent",
+              "api/ma-blocks"
             ]
           },
           {

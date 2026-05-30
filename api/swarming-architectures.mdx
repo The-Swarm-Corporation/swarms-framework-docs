@@ -1,0 +1,197 @@
+---
+title: "Swarming Architectures"
+description: "Topology functions describing how agents pass tasks among each other — circular, grid, one-to-one, and broadcast"
+icon: "share-nodes"
+---
+
+## Overview
+
+`swarms.structs.swarming_architectures` is a set of lightweight functions implementing common message-passing topologies between agents. Each function takes a list of `Agent` objects, a task or task list, and an `output_type`, then drives the agents through the topology and returns a formatted conversation history.
+
+These are functional building blocks — no shared class, no orchestration object. Reach for them when you want a one-off interaction pattern without instantiating a full swarm class.
+
+| Function | Topology | Per-call shape |
+|---|---|---|
+| `circular_swarm` | Ring — every agent processes every task in order | `(agents, tasks)` |
+| `grid_swarm` | Agents laid out in a √N×√N grid; one task per cell | `(agents, tasks)` |
+| `one_to_one` | A → B handoff for `max_loops` turns | `(sender, receiver, task)` |
+| `broadcast` | One sender → many receivers, async | `(sender, agents, task)` |
+
+All functions return whatever shape `output_type` selects via `history_output_formatter` — `"dict"` (default), `"list"`, `"str"`, etc.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## circular_swarm()
+
+Every agent runs every task, in order. Each agent sees the running conversation context.
+
+```python
+def circular_swarm(
+    agents: AgentListType,
+    tasks: List[str],
+    output_type: OutputType = "dict",
+) -> Union[Dict[str, Any], List[str]]
+```
+
+<ParamField path="agents" type="AgentListType" required>
+  Flat list of `Agent` instances (or list-of-lists; the function flattens once).
+</ParamField>
+
+<ParamField path="tasks" type="List[str]" required>
+  Tasks processed sequentially. Each agent runs each task.
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default='"dict"'>
+  Format for the returned conversation history.
+</ParamField>
+
+**Raises:** `ValueError` if `agents` or `tasks` is empty.
+
+## grid_swarm()
+
+Place agents in a √N×√N grid, pop tasks one by one, assign to cells row-by-row.
+
+```python
+def grid_swarm(
+    agents: AgentListType,
+    tasks: List[str],
+    output_type: OutputType = "dict",
+) -> Union[Dict[str, Any], List[str]]
+```
+
+Best when `len(agents)` is a perfect square and `len(tasks)` matches the cell count. Extra tasks are dropped; extra agents are idle.
+
+## one_to_one()
+
+Two-agent handoff: `sender` processes the task, `receiver` processes the sender's output, repeat for `max_loops`.
+
+```python
+def one_to_one(
+    sender: Agent,
+    receiver: Agent,
+    task: str,
+    max_loops: int = 1,
+    output_type: OutputType = "dict",
+) -> Union[Dict[str, Any], List[str]]
+```
+
+<ParamField path="sender" type="Agent" required>
+  Agent that processes the task first each loop.
+</ParamField>
+
+<ParamField path="receiver" type="Agent" required>
+  Agent that processes the sender's output.
+</ParamField>
+
+<ParamField path="task" type="str" required>
+  Task for the sender on the first turn.
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Number of sender→receiver round trips.
+</ParamField>
+
+## broadcast()
+
+**Async function.** One sender produces a message based on the conversation context; every agent in `agents` then processes the sender's broadcast independently.
+
+```python
+async def broadcast(
+    sender: Agent,
+    agents: AgentListType,
+    task: str,
+    output_type: OutputType = "dict",
+) -> Union[Dict[str, Any], List[str]]
+```
+
+Must be awaited:
+
+```python
+import asyncio
+result = asyncio.run(broadcast(sender, agents, task))
+```
+
+**Raises:** `ValueError` if `sender`, `agents`, or `task` is empty.
+
+## Usage Examples
+
+### Circular: Every Agent Reviews Every Document
+
+```python
+from swarms import Agent
+from swarms.structs.swarming_architectures import circular_swarm
+
+reviewers = [
+    Agent(agent_name="Legal", model_name="claude-sonnet-4-6", max_loops=1),
+    Agent(agent_name="Security", model_name="claude-sonnet-4-6", max_loops=1),
+    Agent(agent_name="Privacy", model_name="claude-sonnet-4-6", max_loops=1),
+]
+
+result = circular_swarm(
+    agents=reviewers,
+    tasks=[
+        "Review draft TOS section 4.",
+        "Review draft TOS section 5.",
+    ],
+)
+```
+
+Each reviewer sees the running conversation, so later reviewers can build on earlier comments.
+
+### One-to-One: Generator/Critic Loop
+
+```python
+from swarms import Agent
+from swarms.structs.swarming_architectures import one_to_one
+
+generator = Agent(agent_name="Generator", model_name="claude-sonnet-4-6", max_loops=1)
+critic = Agent(agent_name="Critic", model_name="claude-opus-4-6", max_loops=1)
+
+result = one_to_one(
+    sender=generator,
+    receiver=critic,
+    task="Draft a one-paragraph announcement for v12.1",
+    max_loops=3,
+)
+```
+
+### Broadcast: Notify a Pool of Workers
+
+```python
+import asyncio
+from swarms import Agent
+from swarms.structs.swarming_architectures import broadcast
+
+dispatcher = Agent(agent_name="Dispatcher", model_name="claude-sonnet-4-6", max_loops=1)
+workers = [
+    Agent(agent_name=f"Worker-{i}", model_name="claude-sonnet-4-6", max_loops=1)
+    for i in range(5)
+]
+
+result = asyncio.run(
+    broadcast(
+        sender=dispatcher,
+        agents=workers,
+        task="Status check: report your current workload.",
+    )
+)
+```
+
+## Choosing a Topology
+
+| Pattern | When to use |
+|---|---|
+| `circular_swarm` | Each agent should see every task and the accumulating context |
+| `grid_swarm` | Tasks map cleanly to a 2D layout you already have |
+| `one_to_one` | Two-agent loops — generator/critic, proposer/judge |
+| `broadcast` | Fan-out where one message needs to reach many workers |
+
+For richer orchestration (planning, voting, hierarchies) see [SwarmRouter](/api/swarm-router), [HierarchicalSwarm](/api/hierarchical-swarm), or [MajorityVoting](/api/majority-voting).
+
+## Source Code
+
+View the [source on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py).

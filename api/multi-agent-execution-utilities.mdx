@@ -306,6 +306,52 @@ for i, result in enumerate(results):
     print(f"Result: {result}\n")
 ```
 
+### batch_agent_execution()
+
+Runs a list of agents on a parallel list of tasks. Each `agents[i]` runs `tasks[i]` — unlike `batched_grid_agent_execution` (which runs every agent on every task), pairings are 1:1.
+
+```python
+def batch_agent_execution(
+    agents: List[Union[Agent, Callable]],
+    tasks: List[str] = None,
+    imgs: List[str] = None,
+    max_workers: int = max(1, int(os.cpu_count() * 0.9)),
+) -> List[Any]
+```
+
+**Parameters:**
+- `agents` (List[Agent | Callable]): Agents to run.
+- `tasks` (List[str]): One task per agent. Must have the same length as `agents`.
+- `imgs` (List[str]): One optional image input per agent. Must be the same length as `agents` when provided.
+- `max_workers` (int): Thread pool size. Defaults to ~90% of CPU cores.
+
+**Returns:** List of results in the order the input pairings were submitted; failed tasks yield `None` in that slot.
+
+**Raises:** `BatchAgentExecutionError` wrapping any internal failure. Mismatched `len(agents)` vs `len(tasks)` is wrapped from the inner `ValueError`.
+
+```python
+from swarms import Agent
+from swarms.structs.batch_agent_execution import batch_agent_execution
+
+agents = [
+    Agent(agent_name="Summarizer", model_name="claude-sonnet-4-6", max_loops=1),
+    Agent(agent_name="Translator", model_name="claude-sonnet-4-6", max_loops=1),
+    Agent(agent_name="Classifier", model_name="claude-sonnet-4-6", max_loops=1),
+]
+
+tasks = [
+    "Summarize the article at https://example.com/post.",
+    "Translate 'Bonjour le monde' to English.",
+    "Classify this review as positive, negative, or neutral: 'Loved it!'",
+]
+
+results = batch_agent_execution(agents=agents, tasks=tasks, imgs=[None, None, None])
+for agent, result in zip(agents, results):
+    print(f"{agent.agent_name}: {result}")
+```
+
+Pair this with `run_agents_concurrently` (every agent runs the same task) and `batched_grid_agent_execution` (every agent runs every task) to cover the three common shapes of "run a bunch of agents".
+
 ### run_agents_with_different_tasks()
 
 Runs multiple agents with different tasks concurrently, processing them in batches.
