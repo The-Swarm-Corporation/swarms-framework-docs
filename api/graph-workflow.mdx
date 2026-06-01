@@ -412,27 +412,23 @@ Construct a workflow from a list of agents and connections.
 
 ```python
 from swarms import Agent, GraphWorkflow
-from swarms.models import OpenAIChat
-
-# Initialize LLM
-llm = OpenAIChat(model_name="claude-sonnet-4-6")
 
 # Create agents
 researcher = Agent(
     agent_name="Researcher",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="Research and gather information"
 )
 
 analyzer = Agent(
     agent_name="Analyzer",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="Analyze the research findings"
 )
 
 writer = Agent(
     agent_name="Writer",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="Write based on analysis"
 )
 

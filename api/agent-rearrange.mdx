@@ -260,27 +260,23 @@ Convert all attributes to a dictionary for serialization.
 
 ```python
 from swarms import Agent, AgentRearrange
-from swarms.models import OpenAIChat
-
-# Initialize LLM
-llm = OpenAIChat(model_name="claude-sonnet-4-6")
 
 # Create agents
 researcher = Agent(
     agent_name="researcher",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="You are a research specialist."
 )
 
 writer = Agent(
     agent_name="writer",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="You are a content writer."
 )
 
 editor = Agent(
     agent_name="editor",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="You are an editor."
 )
 
