@@ -273,32 +273,28 @@ Validates the workflow configuration and prepares agents for execution.
 
 ```python
 from swarms import Agent, SequentialWorkflow
-from swarms.models import OpenAIChat
-
-# Initialize the language model
-llm = OpenAIChat(
-    model_name="claude-sonnet-4-6",
-    temperature=0.5,
-)
 
 # Create specialized agents
 researcher = Agent(
     agent_name="Researcher",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are a research specialist. Gather and analyze information."
 )
 
 writer = Agent(
     agent_name="Writer",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are a content writer. Create engaging content based on research."
 )
 
 editor = Agent(
     agent_name="Editor",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are an editor. Review and polish the content."
 )

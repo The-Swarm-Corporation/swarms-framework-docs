@@ -205,32 +205,28 @@ Display real-time dashboard showing agent status and outputs.
 
 ```python
 from swarms import Agent, ConcurrentWorkflow
-from swarms.models import OpenAIChat
-
-# Initialize the language model
-llm = OpenAIChat(
-    model_name="claude-sonnet-4-6",
-    temperature=0.5,
-)
 
 # Create specialized agents with different perspectives
 technical_analyst = Agent(
     agent_name="Technical-Analyst",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are a technical analyst. Analyze from a technical perspective."
 )
 
 business_analyst = Agent(
     agent_name="Business-Analyst",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are a business analyst. Analyze from a business perspective."
 )
 
 user_researcher = Agent(
     agent_name="User-Researcher",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are a user researcher. Analyze from a user experience perspective."
 )
@@ -311,21 +307,18 @@ for i, (task, result) in enumerate(zip(tasks, results), 1):
 ### With Image Input
 
 ```python
-from swarms import Agent
-from swarms.models import GPT4VisionAPI
+from swarms import Agent, ConcurrentWorkflow
 
-# Create vision-capable agents
-vision_llm = GPT4VisionAPI()
-
+# claude-sonnet-4-6 is vision-capable — no separate vision wrapper needed
 image_analyst1 = Agent(
     agent_name="Image-Analyst-1",
-    llm=vision_llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="Analyze images for technical details"
 )
 
 image_analyst2 = Agent(
     agent_name="Image-Analyst-2",
-    llm=vision_llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="Analyze images for aesthetic quality"
 )
 
