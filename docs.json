@@ -84,6 +84,7 @@
             "group": "Multi-Agent Architectures",
             "pages": [
               "architectures/overview",
+              "architectures/structures-catalog",
               "architectures/sequential-workflow",
               "architectures/concurrent-workflow",
               "architectures/agent-rearrange",

@@ -1,45 +1,47 @@
 ---
 title: Heavy Swarm
-description: Sophisticated 5-phase analysis workflow with specialized agents for comprehensive research and insights
+description: Multi-phase orchestration that decomposes a task into specialized questions, runs them through expert agents in parallel, and synthesizes a final answer
 ---
 
-The `HeavySwarm` implements a sophisticated 5-phase workflow inspired by X.AI's Grok heavy implementation. It uses intelligent question generation and specialized agents (Research, Analysis, Alternatives, Verification) to provide comprehensive task analysis through multiple perspectives.
+The `HeavySwarm` is a multi-agent orchestration system inspired by X.AI's Grok Heavy implementation. It decomposes a task into role-specific questions, runs those questions through specialized expert agents in parallel, and then synthesizes the outputs into a single comprehensive answer. The exact set of experts is controlled by the `variant` parameter.
 
 ## When to Use
 
-- **Complex research tasks**: In-depth investigation and analysis
-- **Financial analysis**: Investment decisions requiring multiple viewpoints
-- **Strategic planning**: Comprehensive evaluation of options
-- **Due diligence**: Thorough verification and risk assessment
-- **Multi-faceted problems**: Issues requiring research, analysis, and synthesis
+- **Complex research tasks** — in-depth investigation across multiple angles
+- **Financial analysis** — investment decisions requiring multiple viewpoints
+- **Strategic planning** — comprehensive evaluation of options and trade-offs
+- **Due diligence** — thorough verification and risk assessment
+- **Multi-faceted problems** — issues that need research, analysis, and synthesis combined
 
 ## Key Features
 
-- Intelligent question generation for specialized roles
-- 4 specialized expert agents
-- True parallel execution
-- Synthesis agent for integration
-- Optional real-time dashboard
-- Multi-loop iterative refinement
-- Configurable agent loops
-- Tool integration support
+- Intelligent question generation tailored to each agent role
+- Three preset variants — `default` (5 agents), `medium` (4 Grok-style agents), `heavy` (16 agents)
+- True parallel execution via a `ThreadPoolExecutor`
+- Synthesis agent that integrates expert outputs into a final answer
+- Optional real-time `rich` dashboard
+- Multi-loop iterative refinement (each loop builds on the previous result)
+- Tool integration through `worker_tools`
+- Inherits `SerializableMixin` — `to_dict()` is available for telemetry / persistence
 
-## Architecture Phases
+## Architecture
 
 ```
 1. Question Generation
-   - Analyze task
-   - Generate specialized questions for each agent role
-   
-2. Parallel Expert Execution
-   - Research Agent: Gather comprehensive information
-   - Analysis Agent: Analyze patterns and data
-   - Alternatives Agent: Explore different approaches
-   - Verification Agent: Validate and assess feasibility
-   
+   - Director model analyzes the task
+   - Emits a JSON schema with one question per expert role
+
+2. Parallel Expert Execution (variant-dependent)
+   - default : Research, Analysis, Alternatives, Verification
+   - medium  : Captain + Harper, Benjamin, Lucas
+   - heavy   : Grok captain + 15 domain specialists
+
 3. Synthesis
-   - Synthesis Agent: Integrate all expert outputs
-   - Generate comprehensive final report
+   - Synthesis agent integrates all expert outputs
+   - Produces the final report
+
+4. Optional Multi-Loop Refinement
+   - Each subsequent loop receives the previous synthesis as context
 ```
 
 ## Basic Example
@@ -47,7 +49,6 @@ The `HeavySwarm` implements a sophisticated 5-phase workflow inspired by X.AI's 
 ```python
 from swarms import HeavySwarm
 
-# Create HeavySwarm
 swarm = HeavySwarm(
     name="Investment-Research-Team",
     description="Comprehensive investment analysis",
@@ -57,27 +58,26 @@ swarm = HeavySwarm(
     max_loops=1,
 )
 
-# Execute comprehensive analysis
 result = swarm.run(
     "Should we invest in NVIDIA stock? Provide detailed analysis."
 )
 print(result)
 ```
 
-## With Tools Integration
+## With Tool Integration
 
 ```python
 from swarms import HeavySwarm
-from swarms_tools import exa_search  # Web search tool
+from swarms_tools import exa_search
 
 swarm = HeavySwarm(
     name="Market-Research-Team",
     description="Research team with web search capabilities",
     question_agent_model_name="gpt-5.4",
     worker_model_name="claude-sonnet-4-20250514",
-    worker_tools=[exa_search],  # Add tools to all workers
+    worker_tools=[exa_search],   # tools available to every worker
     show_dashboard=True,
-    max_loops=2,  # Multiple refinement loops
+    max_loops=2,                 # iterative refinement
 )
 
 result = swarm.run(
@@ -85,11 +85,26 @@ result = swarm.run(
 )
 ```
 
-## Specialized Agents
+## Selecting a Variant
+
+The `variant` parameter controls which agents are instantiated.
+
+```python
+# Five-agent default (Research / Analysis / Alternatives / Verification + Synthesis)
+swarm = HeavySwarm(variant="default")
+
+# Four-agent Grok-style team (Captain + Harper, Benjamin, Lucas)
+swarm = HeavySwarm(variant="medium")
+
+# Sixteen-agent deep team (Grok captain + 15 domain specialists)
+swarm = HeavySwarm(variant="heavy")
+```
+
+`SwarmVariant` is exported from `swarms.agents.heavy_swarm_agents`. Passing an unknown variant raises `ValueError` during initialization.
+
+## Specialized Agents (default variant)
 
 ### Research Agent
-
-Expert in:
 - Comprehensive information gathering
 - Data collection and validation
 - Source verification
@@ -97,8 +112,6 @@ Expert in:
 - Statistical data interpretation
 
 ### Analysis Agent
-
-Expert in:
 - Pattern recognition
 - Statistical analysis
 - Predictive modeling
@@ -106,8 +119,6 @@ Expert in:
 - Performance metrics
 
 ### Alternatives Agent
-
-Expert in:
 - Strategic thinking
 - Creative problem-solving
 - Option generation
@@ -115,8 +126,6 @@ Expert in:
 - Scenario planning
 
 ### Verification Agent
-
-Expert in:
 - Fact-checking
 - Feasibility assessment
 - Risk analysis
@@ -124,8 +133,6 @@ Expert in:
 - Quality assurance
 
 ### Synthesis Agent
-
-Expert in:
 - Multi-perspective integration
 - Comprehensive analysis
 - Executive summary creation
@@ -135,70 +142,81 @@ Expert in:
 ## Key Parameters
 
 <ParamField path="name" type="str" default="HeavySwarm">
-  Name for the swarm instance
+  Identifier for the swarm instance.
 </ParamField>
 
 <ParamField path="description" type="str">
-  Description of the swarm's purpose
+  Description of the swarm's purpose.
+</ParamField>
+
+<ParamField path="timeout" type="int" default="900">
+  Maximum execution time per agent in seconds.
 </ParamField>
 
 <ParamField path="question_agent_model_name" type="str" default="gpt-5.4">
-  Model for question generation agent
+  Model used by the question-generation agent.
 </ParamField>
 
 <ParamField path="worker_model_name" type="str" default="gpt-5.4">
-  Model for all specialized worker agents
+  Model used by every specialized worker agent.
 </ParamField>
 
-<ParamField path="loops_per_agent" type="int" default="1">
-  Number of loops each worker agent executes
+<ParamField path="verbose" type="bool" default="False">
+  Enable detailed logging output.
 </ParamField>
 
 <ParamField path="show_dashboard" type="bool" default="False">
-  Enable real-time progress dashboard
+  Enable the real-time `rich` progress dashboard.
 </ParamField>
 
 <ParamField path="agent_prints_on" type="bool" default="False">
-  Enable individual agent output printing
-</ParamField>
-
-<ParamField path="worker_tools" type="List[Callable]">
-  Tools available to worker agents
-</ParamField>
-
-<ParamField path="max_loops" type="int" default="1">
-  Maximum swarm execution loops for iterative refinement
-</ParamField>
-
-<ParamField path="random_loops_per_agent" type="bool" default="False">
-  Randomize loops per agent (1-10 range)
+  Print each agent's individual output.
 </ParamField>
 
 <ParamField path="output_type" type="str" default="dict-all-except-first">
-  Output format type
+  Format of the returned conversation history.
+</ParamField>
+
+<ParamField path="worker_tools" type="Optional[tool_type]">
+  Tools made available to all worker agents.
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Number of full swarm iterations. Each loop refines the previous synthesis.
+</ParamField>
+
+<ParamField path="variant" type='Literal["default", "medium", "heavy"]' default='"default"'>
+  Which agent line-up to instantiate. See **Selecting a Variant** above.
 </ParamField>
 
 ## Methods
 
-### run()
+### `run(task, img=None)`
 
-Execute the complete 5-phase workflow.
+Execute the full multi-phase workflow.
 
 ```python
 result = swarm.run(
     task="Analyze cryptocurrency market trends",
-    img=None,  # Optional image input
+    img=None,   # optional image input
 )
+```
+
+### `to_dict()`
+
+Inherited from `SerializableMixin`. Returns a JSON-friendly snapshot of the swarm's config. The `agents`, `conversation`, `dashboard`, and `worker_tools` attributes are excluded via `_to_dict_exclude` to keep the snapshot lightweight.
+
+```python
+snapshot = swarm.to_dict()
 ```
 
 ## Question Generation
 
-The question agent generates specialized questions:
+The question agent emits a JSON object whose schema depends on the variant. For the default variant it looks like:
 
 ```python
-# Internal schema for question generation
 {
-    "thinking": "Reasoning for how to break down task",
+    "thinking": "Reasoning for how to break down the task",
     "research_question": "Question for Research Agent",
     "analysis_question": "Question for Analysis Agent",
     "alternatives_question": "Question for Alternatives Agent",
@@ -206,7 +224,7 @@ The question agent generates specialized questions:
 }
 ```
 
-Example generated questions for "Invest in NVIDIA?":
+Example generated questions for *"Invest in NVIDIA?"*:
 
 ```json
 {
@@ -220,47 +238,44 @@ Example generated questions for "Invest in NVIDIA?":
 
 ## Multi-Loop Refinement
 
-With `max_loops > 1`, the swarm iterates for deeper analysis:
+With `max_loops > 1` the swarm iterates, each loop feeding the previous synthesis back as context:
 
 ```python
 swarm = HeavySwarm(
     name="Deep-Analysis-Team",
     worker_model_name="claude-sonnet-4-20250514",
-    max_loops=3,  # Three rounds of analysis
+    max_loops=3,
 )
 
 result = swarm.run("Complex strategic decision")
 ```
 
-Each loop:
-1. Loop 1: Initial analysis with original task
-2. Loop 2: Refine based on Loop 1 results + original task
-3. Loop 3: Final refinement with complete context
+Per-loop semantics:
+
+1. Loop 1: original task only
+2. Loop 2: `"Previous loop results: <output> | Original task: <task>"`
+3. Loop 3: same shape — refine, fill gaps, deepen the analysis
 
 ## Dashboard Features
 
-When `show_dashboard=True`:
+When `show_dashboard=True`, the `HeavySwarmDashboard` renders rich progress panels:
 
 **Configuration Panel:**
 - Swarm name and description
-- Model configurations
-- Timeout and loop settings
-- Worker count
+- Model configuration (question + worker)
+- Timeout and worker counts
 
 **Reliability Check Phase:**
 - Animated progress bars
-- Validation status for each component
-- System ready confirmation
+- Per-component validation status
 
 **Question Generation Phase:**
 - Real-time generation progress
-- Success confirmation
 
 **Agent Execution Phase:**
-- Individual progress bars per agent
-- Status updates (INITIALIZING, PROCESSING, GENERATING, COMPLETE)
-- Animated indicators
-- Error detection
+- Per-agent progress bars
+- Status (INITIALIZING, PROCESSING, GENERATING, COMPLETE)
+- Variant-aware agent labels
 
 **Synthesis Phase:**
 - Integration progress
@@ -285,7 +300,7 @@ analysis = swarm.run(
 )
 ```
 
-### Market Research
+### Market Research with Live Web Data
 
 ```python
 from swarms_tools import exa_search
@@ -294,7 +309,7 @@ swarm = HeavySwarm(
     name="Market-Intel-Team",
     worker_model_name="gpt-5.4",
     worker_tools=[exa_search],
-    loops_per_agent=2,
+    max_loops=2,
 )
 
 research = swarm.run(
@@ -320,61 +335,40 @@ strategy = swarm.run(
 )
 ```
 
-### Due Diligence
+### Heavy Variant for Deep Research
 
 ```python
 swarm = HeavySwarm(
-    name="Due-Diligence-Team",
+    name="Deep-Research-Team",
     worker_model_name="gpt-5.4",
-    loops_per_agent=3,  # Thorough investigation
+    variant="heavy",       # 16 agents
+    max_loops=2,
 )
 
 report = swarm.run(
-    "Conduct due diligence on acquiring Company X: "
-    "financials, legal, operations, technology, culture fit."
+    "Build a long-form briefing on the global AI compute supply chain, "
+    "covering geopolitics, fabrication capacity, chip design, and downstream demand."
 )
 ```
 
-## Performance Optimization
+## Performance Notes
 
 ### Parallel Execution
 
-All 4 expert agents execute simultaneously:
+All workers fan out via `concurrent.futures.ThreadPoolExecutor`. `max_workers` defaults to roughly `0.9 * os.cpu_count()`.
 
 ```python
-# Uses ThreadPoolExecutor for true parallel execution
 with concurrent.futures.ThreadPoolExecutor(
-    max_workers=max_workers
+    max_workers=max_workers,
 ) as executor:
     futures = [executor.submit(execute_agent, task) for task in agent_tasks]
-```
-
-### Agent Loop Configuration
-
-```python
-# Fixed loops per agent
-swarm = HeavySwarm(loops_per_agent=3)
-
-# Random loops (1-10) per agent
-swarm = HeavySwarm(random_loops_per_agent=True)
-```
-
-## Advanced Configuration
-
-### Custom Aggregation
-
-```python
-swarm = HeavySwarm(
-    aggregation_strategy="synthesis",  # Default
-    # Future: "voting", "consensus", "weighted"
-)
 ```
 
 ### Timeout Management
 
 ```python
 swarm = HeavySwarm(
-    timeout=300,  # 5 minutes per agent
+    timeout=900,   # 15 minutes per agent (default)
 )
 ```
 
@@ -382,68 +376,67 @@ swarm = HeavySwarm(
 
 ```python
 swarm = HeavySwarm(
-    verbose=True,  # Detailed execution logs
-    agent_prints_on=True,  # Individual agent outputs
+    verbose=True,
+    agent_prints_on=True,
 )
 ```
 
 ## Output Structure
 
-The swarm returns formatted conversation history:
+The swarm returns the conversation history formatted by `output_type`. With the default `"dict-all-except-first"`:
 
 ```python
-# With output_type="dict-all-except-first"
 {
     "Question Generator Agent": "<generated questions>",
     "Research-Agent": "<research findings>",
     "Analysis-Agent": "<analysis insights>",
     "Alternatives-Agent": "<alternative options>",
     "Verification-Agent": "<verification results>",
-    "Synthesis-Agent": "<comprehensive synthesis>"
+    "Synthesis Agent": "<comprehensive synthesis>"
 }
 ```
 
 ## Best Practices
 
 <Note>
-  **Model Selection**: Use stronger models (Claude Sonnet, GPT-4) for worker agents on complex tasks
+  **Model Selection:** use stronger models (Claude Sonnet, GPT-5.4) for worker agents on complex tasks.
 </Note>
 
-1. **Question Quality**: Stronger model for question generation = better agent coordination
-2. **Worker Models**: Balance cost vs quality for worker agents
-3. **Loop Count**: Start with 1, add more only for complex tasks
-4. **Dashboard**: Enable for demos and debugging, disable for production
-5. **Tools**: Provide tools when real-time data is needed
+1. **Question Quality** — a stronger question-generation model produces tighter, less overlapping expert questions.
+2. **Worker Models** — balance cost vs quality for the worker pool; mixing providers via LiteLLM works out of the box.
+3. **Loop Count** — start at `max_loops=1`. Add more only when the synthesis clearly needs refinement.
+4. **Variant Choice** — `default` covers most tasks; reach for `heavy` only when you genuinely benefit from 15+ specialist perspectives.
+5. **Dashboard** — leave on for demos and debugging; off for production.
+6. **Tools** — supply `worker_tools` when the task requires real-time data (search, web fetch, etc.).
 
 <Warning>
-  HeavySwarm is resource-intensive: 4 agents + synthesis + question generation per loop
+  HeavySwarm is resource-intensive. Each loop runs N expert agents + a question generator + a synthesizer. Token costs scale roughly linearly with both `variant` and `max_loops`.
 </Warning>
 
 ## Reliability Checks
 
-The swarm validates configuration:
+`reliability_check()` runs automatically during `__init__`:
 
 ```python
-# Automatic validation:
-# - loops_per_agent > 0
-# - worker_model_name is set
-# - question_agent_model_name is set
+# Validation:
+# - worker_model_name must be set
+# - question_agent_model_name must be set
+# - variant must be one of {default, medium, heavy}
 
 try:
-    swarm = HeavySwarm(loops_per_agent=0)
+    swarm = HeavySwarm(worker_model_name=None)
 except ValueError as e:
     print(e)
-    # "loops_per_agent must be greater than 0"
 ```
+
+When `show_dashboard=True`, the validation steps animate through the dashboard. Otherwise a single confirmation panel prints.
 
 ## Conversation History
 
-Access complete analysis history:
+Access the full transcript through the conversation object:
 
 ```python
 result = swarm.run("Task")
-
-# Access conversation
 history = swarm.conversation.conversation_history
 
 # Format:
@@ -453,7 +446,7 @@ history = swarm.conversation.conversation_history
 #  {"role": "Analysis-Agent", "content": "..."},
 #  {"role": "Alternatives-Agent", "content": "..."},
 #  {"role": "Verification-Agent", "content": "..."},
-#  {"role": "Synthesis-Agent", "content": "..."}]
+#  {"role": "Synthesis Agent", "content": "..."}]
 ```
 
 ## Error Handling
@@ -465,12 +458,13 @@ except TimeoutError:
     print("Agent execution exceeded timeout")
 except Exception as e:
     print(f"Swarm execution failed: {e}")
-    # Individual agent errors are logged but don't stop other agents
+    # Individual agent errors are logged but do not abort the entire swarm
 ```
 
 ## Related Architectures
 
-- [Mixture of Agents](/architectures/mixture-of-agents) - Similar parallel expert pattern
-- [Hierarchical Swarm](/architectures/hierarchical-swarm) - Director-worker coordination
-- [Concurrent Workflow](/architectures/concurrent-workflow) - Simple parallel execution
-- [Agent Rearrange](/architectures/agent-rearrange) - Custom flow patterns
+- [Mixture of Agents](/architectures/mixture-of-agents) — parallel experts + aggregator (lighter weight)
+- [Hierarchical Swarm](/architectures/hierarchical-swarm) — director-worker delegation pattern
+- [Concurrent Workflow](/architectures/concurrent-workflow) — simpler parallel execution
+- [Agent Rearrange](/architectures/agent-rearrange) — custom flow patterns
+- [Structures Catalog](/architectures/structures-catalog) — full enumeration of every multi-agent structure
