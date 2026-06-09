@@ -1,0 +1,517 @@
+---
+title: 'Claude Fable 5'
+description: 'Use Anthropic Claude Fable 5 (and Mythos 5) inside Swarms agents and multi-agent systems.'
+icon: 'sparkles'
+---
+
+Claude **Fable 5** and **Mythos 5** are Anthropic's latest frontier models, and both are supported in Swarms from day one. There are no migrations, no infrastructure changes, and no special configuration — switching to Fable 5 is a single line change:
+
+```python
+model_name = "anthropic/claude-fable-5"
+```
+
+This tutorial walks through everything you need to build, configure, and scale agents and multi-agent systems on Fable 5.
+
+## What's new
+
+- **Fable 5** — state-of-the-art on nearly all tested benchmarks, with exceptional performance in software engineering, knowledge work, scientific research, and vision. The longer and more complex the task, the larger Fable 5's lead over earlier Claude models.
+- **Mythos 5** — the same underlying model as Fable 5, but with safeguards lifted in some areas. Restricted to Glasswing partners (defensive cybersecurity and biomedical research). For most users, Fable 5 is the right default.
+- **Built-in safeguards** — Fable 5 detects requests in narrow risk areas (cybersecurity, biology, chemistry, distillation) and quietly falls back to Opus 4.8 on those queries. Fallbacks happen in under 5% of sessions on average, and users are informed when they occur.
+
+<Tip>
+Fable 5 is automatically routed through LiteLLM by Swarms. As long as your `ANTHROPIC_API_KEY` is set, no other configuration is needed.
+</Tip>
+
+<Warning>
+**Two important limitations:**
+
+- **Tools / function calling are not supported on Fable 5.** Leave `tools=None` and `tools_list_dictionary=None` on every Fable 5 agent. If you need tool use, route those calls to a different model (e.g. `claude-sonnet-4-6` or `gpt-4.1`) and use Fable 5 as the reasoning/synthesis layer.
+- **`temperature` is not supported.** Always pass `temperature=None`. Setting a numeric value will be ignored at best and rejected at worst — the model uses its own internal sampling.
+
+`top_p` should likewise be left as `None`.
+</Warning>
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+Set your Anthropic API key:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+Or create a `.env` file:
+
+```env
+ANTHROPIC_API_KEY="sk-ant-..."
+WORKSPACE_DIR="agent_workspace"
+```
+
+## Quick Start
+
+The minimum needed to run a Fable 5 agent:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Fable-5-Agent",
+    model_name="anthropic/claude-fable-5",
+    max_loops=1,
+)
+
+print(agent.run("Explain how transformer attention works in three paragraphs."))
+```
+
+That's it. Every Swarms feature — tools, streaming, multi-agent orchestration, MCP, vision — works against Fable 5 with no additional setup.
+
+## Complete Example: Quantitative Trading Agent
+
+Here is a fully-configured Fable 5 agent tuned for finance research. This is a good template to copy for serious workloads — it uses extended thinking, high reasoning effort, and a detailed system prompt:
+
+```python
+from swarms import Agent
+
+system_prompt = (
+    "You are Quantitative-Trading-Agent, an advanced AI assistant specializing in quantitative finance, "
+    "trading, and algorithmic analysis. You have deep expertise in analyzing financial instruments, "
+    "with a focus on exchange-traded funds (ETFs), equities, derivatives, and portfolio construction. "
+    "You always provide thorough, data-driven, and well-cited analysis suitable for both institutional "
+    "and individual investors, incorporating recent performance metrics, expense ratios, portfolio holdings, "
+    "liquidity considerations, risk factors, and competitive landscape insights. When responding, organize "
+    "information clearly, use tables or bullet points where appropriate, and explain your reasoning process "
+    "explicitly. Proactively mention relevant industry trends and regulatory context as needed. Avoid making "
+    "financial recommendations, but focus on providing comparative research to empower decision-making. Use "
+    "plain language to explain technical topics, and cite reputable public sources when possible. Your "
+    "responses should reflect professionalism, accuracy, and a collaborative, respectful tone."
+)
+
+agent = Agent(
+    agent_name="Quantitative-Trading-Agent",
+    agent_description="Advanced quantitative trading and algorithmic analysis agent",
+    system_prompt=system_prompt,
+    model_name="anthropic/claude-fable-5",
+    max_loops=1,
+    top_p=None,
+    thinking_tokens=1024,
+    reasoning_effort="high",
+    temperature=None,
+    tools_list_dictionary=None,
+)
+
+out = agent.run(
+    task=(
+        "Analyze the best semiconductor ETFs and provide a detailed comparison. "
+        "Include metrics such as performance, expense ratio, holdings, and any notable strategies."
+    ),
+)
+
+print(out)
+```
+
+### Why these parameter choices?
+
+| Parameter | Value | Why |
+|---|---|---|
+| `model_name` | `"anthropic/claude-fable-5"` | The LiteLLM-prefixed name for Fable 5. |
+| `max_loops` | `1` | One LLM call per `run()`. Bump to `"auto"` for autonomous loops. |
+| `thinking_tokens` | `1024` | Enables Anthropic extended thinking; gives the model a private scratchpad before responding. |
+| `reasoning_effort` | `"high"` | Tells the model to favor depth over speed. Use `"low"`/`"medium"` for cheaper, faster runs. |
+| `temperature` | `None` | **Required.** Fable 5 does not support `temperature` — the model uses its own internal sampling. Always pass `None`. |
+| `top_p` | `None` | **Required.** Same as `temperature` — leave as `None`. |
+| `tools_list_dictionary` | `None` | **Required.** Tool / function calling is not supported on Fable 5. Always pass `None`. |
+
+## Extended Thinking & Reasoning Effort
+
+Fable 5 supports Anthropic's extended thinking. Swarms exposes this through two parameters:
+
+```python
+agent = Agent(
+    agent_name="Deep-Thinker",
+    model_name="anthropic/claude-fable-5",
+    thinking_tokens=4096,        # private thinking budget per response
+    reasoning_effort="high",     # "low" | "medium" | "high"
+    max_loops=1,
+)
+```
+
+- **`thinking_tokens`** — the maximum number of tokens the model can spend on internal reasoning before producing its final answer. Larger budgets help on multi-step problems (proofs, code refactors, deep research) at the cost of latency and tokens.
+- **`reasoning_effort`** — a coarse dial. `"low"` is roughly chat-quality, `"medium"` is the default for analytical work, `"high"` is best for hard problems where you want the model to think before answering.
+
+<Note>
+When `thinking_tokens` is set, Swarms automatically filters the redundant `think` tool out of its planning tools list (the model is already reasoning). You don't need to configure anything to get this behavior.
+</Note>
+
+### Choosing budgets
+
+| Task class | `thinking_tokens` | `reasoning_effort` |
+|---|---|---|
+| Casual chat / short Q&A | not set | `"low"` or unset |
+| Standard analytical work | `1024` | `"medium"` |
+| Long-form research, multi-file code review, hard math | `4096`–`16000` | `"high"` |
+| Multi-hour autonomous loops | `8192`+ | `"high"` |
+
+## Streaming
+
+Stream tokens straight to stdout:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-Fable-5",
+    model_name="anthropic/claude-fable-5",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Write a 300-word essay on why Rust is gaining adoption in systems programming.")
+```
+
+Or pipe tokens to your own callback (useful for dashboards, websockets, or audio synthesis):
+
+```python
+def on_token(token: str) -> None:
+    print(token, end="", flush=True)
+
+agent = Agent(
+    agent_name="Callback-Fable-5",
+    model_name="anthropic/claude-fable-5",
+    streaming_callback=on_token,
+    max_loops=1,
+)
+
+agent.run("Explain quantum entanglement in plain English.")
+```
+
+For async streaming, use `arun_stream`:
+
+```python
+import asyncio
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Async-Fable-5",
+    model_name="anthropic/claude-fable-5",
+    streaming_on=True,
+)
+
+async def main():
+    async for token in agent.arun_stream("Walk me through async/await in Python."):
+        print(token, end="", flush=True)
+
+asyncio.run(main())
+```
+
+## Tools (Not Supported)
+
+Fable 5 **does not support function calling / tool use**. Passing `tools=[...]` or `tools_list_dictionary=[...]` to a Fable 5 agent will not work.
+
+If your workflow needs tools, the recommended pattern is to split responsibilities across two agents — a tool-calling model gathers the data, and Fable 5 does the reasoning over it:
+
+```python
+from swarms import Agent, SequentialWorkflow
+import yfinance as yf
+
+def get_stock_price(ticker: str) -> str:
+    """Fetch the current stock price for a given ticker symbol."""
+    data = yf.Ticker(ticker)
+    price = data.fast_info["last_price"]
+    return f"{ticker}: ${price:.2f}"
+
+# Step 1: a tool-capable model gathers the raw data
+data_collector = Agent(
+    agent_name="Data-Collector",
+    model_name="claude-sonnet-4-6",   # Sonnet supports tools
+    tools=[get_stock_price],
+    max_loops=3,
+)
+
+# Step 2: Fable 5 does the deep analysis on the collected data
+analyst = Agent(
+    agent_name="Fable-5-Analyst",
+    model_name="anthropic/claude-fable-5",
+    thinking_tokens=4096,
+    reasoning_effort="high",
+    temperature=None,
+    top_p=None,
+    tools_list_dictionary=None,
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[data_collector, analyst], max_loops=1)
+print(pipeline.run("Compare NVDA, AMD, and INTC, then deeply analyze the implications."))
+```
+
+This pattern keeps Fable 5 focused on what it does best — reasoning, synthesis, and writing — while letting another model handle the I/O.
+
+## Vision
+
+Fable 5 has strong vision capabilities. Pass an image path, URL, or base64 string to `run()`:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Chart-Analyst",
+    model_name="anthropic/claude-fable-5",
+    max_loops=1,
+)
+
+result = agent.run(
+    task="Describe the trend in this chart and call out anything unusual.",
+    img="path/to/chart.png",
+)
+print(result)
+```
+
+## Autonomous Loops
+
+For agents that should plan, execute, and reflect until done, set `max_loops="auto"`:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Autonomous-Fable-5",
+    model_name="anthropic/claude-fable-5",
+    max_loops="auto",
+    thinking_tokens=4096,
+    reasoning_effort="high",
+    persistent_memory=True,
+    context_compression=True,
+    context_length=200_000,
+)
+
+agent.run(
+    "Research the top 5 vector databases used in production AI systems in 2026, "
+    "compare them on latency, recall, and pricing, and write the report to report.md."
+)
+```
+
+Fable 5 is particularly well-suited to autonomous loops — the longer the task, the larger its lead. Combine it with `persistent_memory=True` and `context_compression=True` for long-running production agents.
+
+## Multi-Agent Systems with Fable 5
+
+Every Swarms multi-agent structure works with Fable 5 the same way it works with any other model — just set `model_name="anthropic/claude-fable-5"` on the agents.
+
+<Note>
+The examples below omit `temperature=None`, `top_p=None`, and `tools_list_dictionary=None` for readability, but every Fable 5 agent you create still needs them. If you want a tool-calling agent in the mix, give that role to a different model (e.g. `claude-sonnet-4-6`) and let Fable 5 do the reasoning.
+</Note>
+
+### Sequential Workflow
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="anthropic/claude-fable-5",
+    system_prompt="You research topics thoroughly with citations.",
+    thinking_tokens=2048,
+    max_loops=1,
+)
+
+analyst = Agent(
+    agent_name="Analyst",
+    model_name="anthropic/claude-fable-5",
+    system_prompt="You analyze research and identify key insights.",
+    thinking_tokens=2048,
+    max_loops=1,
+)
+
+writer = Agent(
+    agent_name="Writer",
+    model_name="anthropic/claude-fable-5",
+    system_prompt="You write clear, engaging executive summaries.",
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[researcher, analyst, writer], max_loops=1)
+print(pipeline.run("Impact of GPU shortages on AI training costs in 2026."))
+```
+
+### Concurrent Workflow
+
+Run several Fable 5 agents in parallel:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+agents = [
+    Agent(
+        agent_name=f"Expert-{topic}",
+        model_name="anthropic/claude-fable-5",
+        system_prompt=f"You are an expert on {topic}.",
+        thinking_tokens=1024,
+        max_loops=1,
+    )
+    for topic in ["Hardware", "Software", "Economics", "Policy"]
+]
+
+workflow = ConcurrentWorkflow(agents=agents)
+results = workflow.run("How will export controls reshape the global AI chip market?")
+
+for name, response in results.items():
+    print(f"\n=== {name} ===\n{response}")
+```
+
+### Mixture of Agents
+
+Fable 5 also makes an excellent aggregator on top of cheaper worker models — let smaller models propose ideas in parallel and have Fable 5 synthesize the final answer:
+
+```python
+from swarms import Agent, MixtureOfAgents
+
+workers = [
+    Agent(
+        agent_name="Worker-Haiku",
+        model_name="claude-haiku-4-5",
+        max_loops=1,
+    ),
+    Agent(
+        agent_name="Worker-Sonnet",
+        model_name="claude-sonnet-4-6",
+        max_loops=1,
+    ),
+    Agent(
+        agent_name="Worker-GPT",
+        model_name="gpt-4.1",
+        max_loops=1,
+    ),
+]
+
+aggregator = Agent(
+    agent_name="Fable-5-Aggregator",
+    model_name="anthropic/claude-fable-5",
+    system_prompt="Synthesize the worker responses into one coherent answer.",
+    thinking_tokens=4096,
+    reasoning_effort="high",
+    max_loops=1,
+)
+
+moa = MixtureOfAgents(
+    agents=workers,
+    aggregator_agent=aggregator,
+    layers=2,
+)
+
+print(moa.run("What are the best practices for securing a Kubernetes cluster?"))
+```
+
+### Hierarchical Swarm
+
+Make Fable 5 the director and let cheaper models be the workers:
+
+```python
+from swarms import Agent, HierarchicalSwarm
+
+director = Agent(
+    agent_name="Fable-5-Director",
+    model_name="anthropic/claude-fable-5",
+    system_prompt="You break complex tasks into subtasks and delegate them.",
+    thinking_tokens=4096,
+    reasoning_effort="high",
+    max_loops=1,
+)
+
+workers = [
+    Agent(agent_name=f"Worker-{i}", model_name="claude-haiku-4-5", max_loops=1)
+    for i in range(4)
+]
+
+swarm = HierarchicalSwarm(director=director, agents=workers, max_loops=2)
+print(swarm.run("Produce a competitive analysis of the AI inference chip market."))
+```
+
+## Safety Fallbacks
+
+Fable 5 detects requests in a narrow set of high-risk topic areas (cybersecurity, biology, chemistry, distillation-style extraction) and silently routes those queries to Opus 4.8 instead. Anthropic reports that fallbacks happen in under 5% of sessions on average, and the user is informed whenever a fallback occurs.
+
+For Swarms users this means:
+
+- **You don't need to do anything.** Fallback is handled inside the Anthropic API; Swarms surfaces the response normally.
+- **Your agent may occasionally return text noting that a different model answered.** This is expected behavior, not an error.
+- **If your domain is consistently flagged** (e.g. legitimate defensive cybersecurity work), apply for access to Mythos 5 — see below.
+
+## Mythos 5 (Restricted Access)
+
+**Mythos 5** is the same underlying model as Fable 5, but with safeguards lifted in some areas. It is currently restricted to Glasswing partners working on defensive cybersecurity and biomedical research. Anthropic plans to expand access through a broader trusted-access program.
+
+If you have access, use it the same way as Fable 5:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Mythos-5-Agent",
+    model_name="anthropic/claude-mythos-5",
+    thinking_tokens=4096,
+    reasoning_effort="high",
+    temperature=None,
+    top_p=None,
+    tools_list_dictionary=None,    # tools are not supported on Mythos 5 either
+    max_loops=1,
+)
+
+print(agent.run("Run a defensive analysis of this network traffic capture."))
+```
+
+If you receive an authentication or access error, your API key is not yet whitelisted for Mythos 5 — contact Anthropic to apply.
+
+## Production Best Practices
+
+When deploying Fable 5 agents to production, these defaults work well:
+
+```python
+agent = Agent(
+    agent_name="Production-Fable-5",
+    model_name="anthropic/claude-fable-5",
+    max_loops=1,
+    thinking_tokens=2048,
+    reasoning_effort="medium",
+    temperature=None,              # required — Fable 5 does not support temperature
+    top_p=None,                    # required — leave as None
+    tools_list_dictionary=None,    # required — tools are not supported on Fable 5
+    persistent_memory=True,        # survive process restarts
+    context_compression=True,      # auto-summarize at 90% of context
+    context_length=200_000,
+    autosave=True,                 # snapshot agent state after each run
+    retry_attempts=3,
+    print_on=False,                # silence console output in services
+    verbose=False,
+)
+```
+
+### Cost Controls
+
+- **Tier reasoning effort to task complexity** — `"low"` for triage and routing, `"high"` only for the work that needs it.
+- **Cap `thinking_tokens` per agent** — start at `1024` and only increase if quality demands it.
+- **Use Fable 5 as the aggregator, not every worker** — Mixture of Agents and Hierarchical Swarms get most of the benefit when only the top of the hierarchy runs on Fable 5.
+- **Set `max_loops` explicitly** — avoid `"auto"` in production unless you have a hard timeout or token budget elsewhere.
+
+### Observability
+
+Set `verbose=True` and `autosave=True` during development so you can inspect every loop. In production, prefer your own logging via `streaming_callback` rather than stdout.
+
+## Troubleshooting
+
+**`AuthenticationError`** — your `ANTHROPIC_API_KEY` isn't set or doesn't have access to Fable 5. Run `echo $ANTHROPIC_API_KEY` and confirm.
+
+**Empty responses on reasoning tasks** — if you previously hit a regression where non-OpenAI providers returned empty strings when `reasoning_effort` was set, this was fixed in Swarms v12. Make sure you're on the latest release: `pip install -U swarms`.
+
+**Slow responses** — Fable 5 with `thinking_tokens=16000` and `reasoning_effort="high"` is deliberately slow because the model is reasoning before answering. Drop both to `1024` / `"medium"` for routine tasks.
+
+**Mythos 5 returns access errors** — your API key isn't whitelisted for Mythos 5. Apply through Anthropic's trusted access program or stay on Fable 5.
+
+## Next Steps
+
+- [Agent API Reference](/api/agent) — every parameter Fable 5 agents accept.
+- [Model Providers](/integrations/model-providers) — using other providers alongside Fable 5.
+- [Multi-Agent Architectures](/architectures/overview) — composing Fable 5 agents into swarms.
+- [Production Best Practices](/deployment/production-best-practices) — running Fable 5 agents at scale.
