@@ -1,0 +1,163 @@
+---
+title: 'Building Agents with OpenRouter'
+description: 'One API key, hundreds of models — use OpenRouter to access models from every major provider through a single interface.'
+icon: 'route'
+---
+
+[OpenRouter](https://openrouter.ai) is a unified API gateway to hundreds of models from every major provider (Anthropic, OpenAI, Google, Mistral, Meta, DeepSeek, and more). One API key, one billing relationship, hundreds of models.
+
+This is the right pick when you want to A/B test models freely, avoid lock-in, or simplify procurement.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export OPENROUTER_API_KEY="sk-or-..."
+```
+
+Get an API key at [openrouter.ai/keys](https://openrouter.ai/keys).
+
+## Quick Start
+
+OpenRouter model names follow the pattern `openrouter/<provider>/<model>`:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="OpenRouter-Agent",
+    model_name="openrouter/anthropic/claude-3.5-sonnet",
+    max_loops=1,
+)
+
+print(agent.run("Summarize the case for API gateways in three paragraphs."))
+```
+
+## Popular Model Names
+
+| Model | `model_name` |
+|---|---|
+| Claude 3.5 Sonnet | `"openrouter/anthropic/claude-3.5-sonnet"` |
+| Claude Opus 4.8 | `"openrouter/anthropic/claude-opus-4-8"` |
+| GPT-4.1 | `"openrouter/openai/gpt-4.1"` |
+| GPT-5.4 | `"openrouter/openai/gpt-5.4"` |
+| Gemini 2.5 Pro | `"openrouter/google/gemini-2.5-pro"` |
+| Llama 3.3 70B | `"openrouter/meta-llama/llama-3.3-70b-instruct"` |
+| Qwen 2.5 72B | `"openrouter/qwen/qwen-2.5-72b-instruct"` |
+| DeepSeek R1 | `"openrouter/deepseek/deepseek-r1"` |
+| Mistral Large | `"openrouter/mistralai/mistral-large"` |
+
+Browse the [full catalog](https://openrouter.ai/models) for hundreds more.
+
+## Tool Use
+
+Tools work on OpenRouter for any underlying model that supports function calling:
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="OpenRouter-Assistant",
+    model_name="openrouter/anthropic/claude-3.5-sonnet",
+    tools=[get_weather],
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## Streaming
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-OpenRouter",
+    model_name="openrouter/openai/gpt-4.1",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Walk me through how a B-tree index works in a relational database.")
+```
+
+## A/B Testing Models
+
+Because every model is available through the same key, OpenRouter is ideal for running side-by-side comparisons:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+candidates = [
+    "openrouter/anthropic/claude-3.5-sonnet",
+    "openrouter/openai/gpt-4.1",
+    "openrouter/google/gemini-2.5-pro",
+    "openrouter/meta-llama/llama-3.3-70b-instruct",
+]
+
+agents = [
+    Agent(
+        agent_name=name.split("/")[-1],
+        model_name=name,
+        system_prompt="Answer in under 150 words.",
+        max_loops=1,
+    )
+    for name in candidates
+]
+
+workflow = ConcurrentWorkflow(agents=agents)
+results = workflow.run("What are the most underrated trade-offs in monolithic vs. microservice architectures?")
+
+for name, response in results.items():
+    print(f"\n=== {name} ===\n{response}")
+```
+
+## Provider Routing
+
+OpenRouter automatically routes between provider hosts for the same model. You can pin to a specific provider or let OpenRouter pick the cheapest/fastest:
+
+```python
+from swarms import Agent
+
+# Let OpenRouter route automatically
+agent = Agent(
+    agent_name="Auto-Routed",
+    model_name="openrouter/meta-llama/llama-3.3-70b-instruct",
+    max_loops=1,
+)
+
+# See https://openrouter.ai/docs#provider-routing for advanced provider preferences
+```
+
+## Production Defaults
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-OpenRouter",
+    model_name="openrouter/anthropic/claude-3.5-sonnet",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    context_length=128_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with Anthropic](/examples/model-providers/anthropic) — direct Anthropic integration
+- [Building Agents with OpenAI](/examples/model-providers/openai) — direct OpenAI integration
+- [Model Providers Overview](/integrations/model-providers)

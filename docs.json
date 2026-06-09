@@ -110,7 +110,6 @@
             "group": "Integrations",
             "pages": [
               "integrations/model-providers",
-              "integrations/claude-fable-5",
               "integrations/mcp",
               "integrations/tools",
               "integrations/marketplace"
@@ -243,6 +242,23 @@
               "examples/vision-agent",
               "examples/streaming",
               "examples/agent-streaming-example"
+            ]
+          },
+          {
+            "group": "Model Providers",
+            "pages": [
+              "examples/model-providers/anthropic",
+              "examples/model-providers/openai",
+              "examples/model-providers/gemini",
+              "examples/model-providers/claude-fable-5",
+              "examples/model-providers/groq",
+              "examples/model-providers/cerebras",
+              "examples/model-providers/deepseek",
+              "examples/model-providers/xai",
+              "examples/model-providers/ollama",
+              "examples/model-providers/vllm",
+              "examples/model-providers/openrouter",
+              "examples/model-providers/azure-openai"
             ]
           },
           {

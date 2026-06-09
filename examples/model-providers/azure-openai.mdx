@@ -1,0 +1,180 @@
+---
+title: 'Building Agents with Azure OpenAI'
+description: 'Build Swarms agents on Azure OpenAI — enterprise-grade GPT models through Microsoft Azure.'
+icon: 'microsoft'
+---
+
+Azure OpenAI provides OpenAI's GPT models through Microsoft's cloud infrastructure, with enhanced security, compliance certifications (SOC 2, HIPAA, FedRAMP), private networking, and enterprise SLAs. This is the right pick for regulated industries and large-org deployments.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+Azure OpenAI requires three environment variables (not just an API key):
+
+```bash
+export AZURE_API_KEY="your-azure-openai-key"
+export AZURE_API_BASE="https://your-resource-name.openai.azure.com/"
+export AZURE_API_VERSION="2024-08-01-preview"
+```
+
+These come from your Azure OpenAI resource in the [Azure Portal](https://portal.azure.com/).
+
+<Tip>
+The model name you pass to Swarms must match your **deployment name** in Azure, not the underlying model name. Deployments are created in the Azure AI Foundry portal.
+</Tip>
+
+## Quick Start
+
+Azure deployments use the `azure/` prefix followed by your deployment name:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Azure-Agent",
+    model_name="azure/gpt-4.1",         # your Azure deployment name
+    max_loops=1,
+)
+
+print(agent.run("Summarize the case for private cloud AI in three paragraphs."))
+```
+
+## Common Deployment Patterns
+
+| Underlying model | Typical Azure `model_name` |
+|---|---|
+| GPT-5.4 | `"azure/gpt-5.4"` |
+| GPT-4.1 | `"azure/gpt-4.1"` |
+| GPT-4o | `"azure/gpt-4o"` |
+| GPT-4o Mini | `"azure/gpt-4o-mini"` |
+| o3 | `"azure/o3"` |
+
+The exact name depends on what you named your deployment in Azure.
+
+## Tool Use
+
+Tools work the same as on OpenAI directly:
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="Azure-Assistant",
+    model_name="azure/gpt-4.1",
+    tools=[get_weather],
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## Streaming
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-Azure",
+    model_name="azure/gpt-4.1",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Walk me through how Azure Active Directory federates with Okta.")
+```
+
+## Multiple Deployments
+
+Many organizations create separate deployments for different workloads (e.g., one with a 50K TPM quota for production, one with 5K TPM for dev). Swarms can target any of them by deployment name:
+
+```python
+from swarms import Agent
+
+prod_agent = Agent(
+    agent_name="Prod",
+    model_name="azure/gpt-4-prod-50k",
+    max_loops=1,
+)
+
+dev_agent = Agent(
+    agent_name="Dev",
+    model_name="azure/gpt-4-dev-5k",
+    max_loops=1,
+)
+```
+
+## Private Networking
+
+If your Azure OpenAI resource is behind a private endpoint, set `AZURE_API_BASE` to the internal URL and ensure your runtime has network access:
+
+```bash
+export AZURE_API_BASE="https://private-endpoint.privatelink.openai.azure.com/"
+```
+
+No code changes needed.
+
+## Multi-Agent Pipeline
+
+The same composition patterns work on Azure:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+triage = Agent(
+    agent_name="Triage",
+    model_name="azure/gpt-4o-mini",         # cheap deployment
+    system_prompt="Classify and route the request.",
+    max_loops=1,
+)
+
+analyst = Agent(
+    agent_name="Analyst",
+    model_name="azure/gpt-4.1",             # workhorse deployment
+    system_prompt="Produce a detailed analysis.",
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[triage, analyst], max_loops=1)
+print(pipeline.run("Evaluate whether we should migrate our auth provider from Okta to Entra ID."))
+```
+
+## Production Defaults
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-Azure",
+    model_name="azure/gpt-4.1",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    context_length=128_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Troubleshooting
+
+**`InvalidRequestError: Resource not found`** — your `model_name` doesn't match a deployment in your Azure resource. Check the Deployments tab in Azure AI Foundry.
+
+**`AuthenticationError`** — your `AZURE_API_KEY`, `AZURE_API_BASE`, or `AZURE_API_VERSION` is missing or wrong. All three are required.
+
+**Rate-limit errors** — Azure deployments have hard TPM/RPM quotas set in the portal. Request a quota increase or split traffic across multiple deployments.
+
+## Next Steps
+
+- [Building Agents with OpenAI](/examples/model-providers/openai) — direct OpenAI alternative
+- [Model Providers Overview](/integrations/model-providers)
+- [Production Best Practices](/deployment/production-best-practices)

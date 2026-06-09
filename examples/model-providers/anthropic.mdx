@@ -1,0 +1,290 @@
+---
+title: 'Building Agents with Anthropic'
+description: 'Build Swarms agents on Anthropic Claude models — Fable 5, Opus, Sonnet, and Haiku.'
+icon: 'anthropic'
+---
+
+Anthropic Claude models are first-class citizens in Swarms. Every Claude model — Fable 5, Opus 4.8, Sonnet 4.6, Haiku 4.5, and older Claude 3.x — works through the same `Agent` interface with no extra setup.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+Or in a `.env` file:
+
+```env
+ANTHROPIC_API_KEY="sk-ant-..."
+WORKSPACE_DIR="agent_workspace"
+```
+
+## Quick Start
+
+The minimum needed to run a Claude agent:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Claude-Agent",
+    model_name="claude-sonnet-4-6",
+    max_loops=1,
+)
+
+print(agent.run("Summarize the history of the transformer architecture in three paragraphs."))
+```
+
+## Model Names
+
+Swarms passes model names straight through to LiteLLM. Use the canonical Anthropic identifier:
+
+| Model | `model_name` | Best for |
+|---|---|---|
+| Claude Fable 5 | `"anthropic/claude-fable-5"` | Frontier reasoning, long autonomous tasks |
+| Claude Opus 4.8 | `"claude-opus-4-8"` | Deep analysis, complex problem-solving |
+| Claude Sonnet 4.6 | `"claude-sonnet-4-6"` | General-purpose work, tool use |
+| Claude Haiku 4.5 | `"claude-haiku-4-5"` | High-volume tasks, low latency |
+| Claude 3.5 Sonnet | `"claude-3-5-sonnet-20240620"` | Legacy production workloads |
+
+<Tip>
+For Fable 5 specifically, see the dedicated [Claude Fable 5 tutorial](/examples/model-providers/claude-fable-5) — it documents the model's specific constraints (no tools, no `temperature`).
+</Tip>
+
+## Fable 5 — Frontier Reasoning
+
+Fable 5 is Anthropic's state-of-the-art model. It excels at long, complex tasks but does **not** support tools or `temperature`.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Fable-5-Researcher",
+    model_name="anthropic/claude-fable-5",
+    thinking_tokens=4096,
+    reasoning_effort="high",
+    temperature=None,              # required
+    top_p=None,                    # required
+    tools_list_dictionary=None,    # required — tools not supported
+    max_loops=1,
+)
+
+print(agent.run("Compare the architectural choices behind Mamba, RWKV, and Transformer++."))
+```
+
+## Sonnet 4.6 — The Workhorse
+
+Sonnet is the right default for most production agents. It supports tools, vision, streaming, and runs cheaper than Opus or Fable 5.
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="Sonnet-Assistant",
+    model_name="claude-sonnet-4-6",
+    tools=[get_weather],
+    temperature=0.5,
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## Haiku 4.5 — Fast & Cheap
+
+Haiku is the right pick for triage, routing, and high-volume work where latency and cost matter.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Haiku-Classifier",
+    model_name="claude-haiku-4-5",
+    system_prompt="Classify each input as one of: support, sales, billing, other. Reply with the label only.",
+    max_loops=1,
+)
+
+print(agent.run("My subscription renewed but I was charged twice."))
+```
+
+## Extended Thinking
+
+All recent Claude models support extended thinking. Swarms exposes it via two parameters:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Deep-Thinker",
+    model_name="claude-opus-4-8",
+    thinking_tokens=8192,        # private reasoning budget
+    reasoning_effort="high",     # "low" | "medium" | "high"
+    max_loops=1,
+)
+
+print(agent.run("Prove that the sum of the first n odd integers equals n²."))
+```
+
+<Note>
+When `thinking_tokens` is set, Swarms automatically filters the redundant `think` tool out of autonomous planning — the model is already reasoning internally.
+</Note>
+
+## Streaming
+
+Stream tokens straight to stdout:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-Claude",
+    model_name="claude-sonnet-4-6",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Write a 200-word explanation of how diffusion models work.")
+```
+
+Or pipe tokens through your own callback:
+
+```python
+def on_token(token: str) -> None:
+    print(token, end="", flush=True)
+
+agent = Agent(
+    agent_name="Callback-Claude",
+    model_name="claude-sonnet-4-6",
+    streaming_callback=on_token,
+    max_loops=1,
+)
+
+agent.run("Explain WebAssembly to a backend engineer.")
+```
+
+## Vision
+
+Claude has strong vision capabilities. Pass an image path, URL, or base64 string:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Claude-Vision",
+    model_name="claude-sonnet-4-6",
+    max_loops=1,
+)
+
+result = agent.run(
+    task="What's in this image? Be specific.",
+    img="path/to/photo.jpg",
+)
+print(result)
+```
+
+## Tool Use
+
+Most Claude models (Sonnet, Haiku, Opus) handle long, structured tool-call sequences well:
+
+```python
+import yfinance as yf
+from swarms import Agent
+
+def get_stock_price(ticker: str) -> str:
+    """Fetch the current stock price for a given ticker symbol."""
+    data = yf.Ticker(ticker)
+    return f"{ticker}: ${data.fast_info['last_price']:.2f}"
+
+def get_market_cap(ticker: str) -> str:
+    """Fetch the market capitalization for a given ticker."""
+    data = yf.Ticker(ticker)
+    cap = data.fast_info.get("market_cap")
+    return f"{ticker} cap: ${cap:,.0f}" if cap else f"{ticker}: unavailable"
+
+agent = Agent(
+    agent_name="Equity-Researcher",
+    model_name="claude-sonnet-4-6",
+    tools=[get_stock_price, get_market_cap],
+    max_loops=3,
+)
+
+print(agent.run("Compare NVDA, AMD, and INTC on price and market cap."))
+```
+
+<Warning>
+Fable 5 does **not** support tools. Use Sonnet or Opus for tool-calling agents.
+</Warning>
+
+## Multi-Model Patterns
+
+Different Claude models for different jobs in the same workflow:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+triage = Agent(
+    agent_name="Triage",
+    model_name="claude-haiku-4-5",                 # cheap & fast
+    system_prompt="Classify and route the user request.",
+    max_loops=1,
+)
+
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="claude-sonnet-4-6",                # balanced
+    system_prompt="Gather all relevant context and data.",
+    max_loops=2,
+)
+
+synthesizer = Agent(
+    agent_name="Synthesizer",
+    model_name="anthropic/claude-fable-5",         # frontier reasoning
+    thinking_tokens=4096,
+    reasoning_effort="high",
+    temperature=None,
+    top_p=None,
+    tools_list_dictionary=None,
+    system_prompt="Synthesize the research into a definitive answer.",
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[triage, researcher, synthesizer], max_loops=1)
+print(pipeline.run("Evaluate the case for moving our backend from Postgres to a distributed SQL engine."))
+```
+
+## Production Defaults
+
+For Claude agents in production:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-Claude",
+    model_name="claude-sonnet-4-6",
+    max_loops=1,
+    persistent_memory=True,        # survive process restarts
+    context_compression=True,      # auto-summarize at 90% of context
+    context_length=200_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,                # silence console output in services
+)
+```
+
+## Next Steps
+
+- [Building Agents with OpenAI](/examples/model-providers/openai)
+- [Building Agents with Gemini](/examples/model-providers/gemini)
+- [Claude Fable 5 Deep Dive](/examples/model-providers/claude-fable-5)
+- [Model Providers Overview](/integrations/model-providers)

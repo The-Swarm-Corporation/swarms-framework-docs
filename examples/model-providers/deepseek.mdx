@@ -1,0 +1,177 @@
+---
+title: 'Building Agents with DeepSeek'
+description: 'Build Swarms agents on DeepSeek — including the DeepSeek Reasoner (R1) chain-of-thought model.'
+icon: 'brain'
+---
+
+DeepSeek's models — particularly the R1 reasoner — are state-of-the-art on math, code, and multi-step reasoning at a fraction of the cost of comparable frontier models.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export DEEPSEEK_API_KEY="..."
+```
+
+Get an API key at [platform.deepseek.com](https://platform.deepseek.com/).
+
+## Quick Start
+
+Every DeepSeek model uses the `deepseek/` prefix:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="DeepSeek-Agent",
+    model_name="deepseek/deepseek-chat",
+    max_loops=1,
+)
+
+print(agent.run("Summarize the architectural ideas behind mixture-of-experts in three paragraphs."))
+```
+
+## Model Names
+
+| Model | `model_name` | Best for |
+|---|---|---|
+| DeepSeek Chat | `"deepseek/deepseek-chat"` | General-purpose, very cheap |
+| DeepSeek Reasoner (R1) | `"deepseek/deepseek-reasoner"` | Hard reasoning, math, code, planning |
+
+## DeepSeek Chat — The Cheap Workhorse
+
+For day-to-day agents where cost matters:
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="DeepSeek-Assistant",
+    model_name="deepseek/deepseek-chat",
+    tools=[get_weather],
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## DeepSeek Reasoner (R1) — Hard Reasoning
+
+R1 is purpose-built for chain-of-thought reasoning. It's slower than DeepSeek Chat but punches well above its price class on math, code, and planning tasks:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="R1-Mathematician",
+    model_name="deepseek/deepseek-reasoner",
+    system_prompt="You are a mathematics tutor. Show your full reasoning before each answer.",
+    max_loops=1,
+)
+
+print(agent.run(
+    "Prove that the square root of 2 is irrational. Be rigorous and clear."
+))
+```
+
+R1 is particularly strong on:
+
+- Mathematical proofs and derivations
+- Code refactoring and bug-finding across multiple files
+- Multi-step planning where each step constrains the next
+- Logic puzzles and constraint satisfaction
+
+## Autonomous Loops with R1
+
+R1 excels in autonomous loops where each iteration builds on the last:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="R1-Researcher",
+    model_name="deepseek/deepseek-reasoner",
+    max_loops="auto",
+    persistent_memory=True,
+    context_compression=True,
+    context_length=64_000,
+)
+
+agent.run(
+    "Research the top 5 vector databases used in production, compare them on "
+    "latency, recall, and pricing, and write the report to report.md."
+)
+```
+
+## Streaming
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-DeepSeek",
+    model_name="deepseek/deepseek-chat",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Explain how Raft consensus works.")
+```
+
+## Multi-Model Pipelines
+
+A common pattern: use cheap DeepSeek Chat for I/O and the expensive R1 only when reasoning is needed:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+gatherer = Agent(
+    agent_name="Data-Gatherer",
+    model_name="deepseek/deepseek-chat",     # cheap & fast
+    system_prompt="Gather facts and quotes from the input. Don't reason.",
+    max_loops=1,
+)
+
+reasoner = Agent(
+    agent_name="R1-Reasoner",
+    model_name="deepseek/deepseek-reasoner",  # expensive but smart
+    system_prompt="Given the facts, reason step-by-step to the final answer.",
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[gatherer, reasoner], max_loops=1)
+print(pipeline.run("Should we adopt CRDTs for our collaborative editor?"))
+```
+
+## Production Defaults
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-DeepSeek",
+    model_name="deepseek/deepseek-chat",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    context_length=64_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with Groq](/examples/model-providers/groq) — R1 distillations at Groq speed
+- [Building Agents with OpenAI](/examples/model-providers/openai) — o3 as an alternative reasoning model
+- [Model Providers Overview](/integrations/model-providers)

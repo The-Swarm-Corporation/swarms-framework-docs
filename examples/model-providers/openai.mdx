@@ -1,0 +1,291 @@
+---
+title: 'Building Agents with OpenAI'
+description: 'Build Swarms agents on OpenAI GPT and o-series models — GPT-5.4, GPT-4.1, o3, and o3-mini.'
+icon: 'openai'
+---
+
+OpenAI models are the most common default for Swarms agents. The full GPT and o-series lineup — GPT-5.4, GPT-4.1, GPT-4o, o3, and o3-mini — works through the same `Agent` interface with no extra setup.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+Or in a `.env` file:
+
+```env
+OPENAI_API_KEY="sk-..."
+WORKSPACE_DIR="agent_workspace"
+```
+
+## Quick Start
+
+The minimum needed to run a GPT agent:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="OpenAI-Agent",
+    model_name="gpt-4.1",
+    max_loops=1,
+)
+
+print(agent.run("Summarize the architectural shift from monoliths to microservices in three paragraphs."))
+```
+
+## Model Names
+
+| Model | `model_name` | Best for |
+|---|---|---|
+| GPT-5.4 | `"gpt-5.4"` | Frontier reasoning, complex agentic work |
+| GPT-5.4 Mini | `"gpt-5.4-mini"` | Cost-optimized GPT-5.4 |
+| GPT-4.1 | `"gpt-4.1"` | The workhorse — strong quality, broad tool support |
+| GPT-4o | `"gpt-4o"` | Multimodal (vision, audio) |
+| GPT-4o Mini | `"gpt-4o-mini"` | Cheap multimodal triage |
+| o3 | `"o3"` | Deep reasoning, math, coding |
+| o3-mini | `"o3-mini"` | Cheaper reasoning model |
+| o1 | `"o1"` | Legacy reasoning model |
+
+## GPT-4.1 — The Workhorse
+
+The right default for most production agents. Strong quality, full tool/vision/streaming support, predictable cost.
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="GPT4-Assistant",
+    model_name="gpt-4.1",
+    tools=[get_weather],
+    temperature=0.5,
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## GPT-5.4 — Frontier Reasoning
+
+For your hardest reasoning, planning, and coding tasks. GPT-5.4 supports the full Agent feature set including tools and streaming.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="GPT5-Architect",
+    model_name="gpt-5.4",
+    system_prompt="You are a senior systems architect. Reason carefully and cite tradeoffs.",
+    reasoning_effort="high",
+    max_loops=1,
+)
+
+print(agent.run(
+    "Design the data layer for a multi-tenant SaaS handling 10M events/day with sub-100ms p99 reads."
+))
+```
+
+## o3 — Reasoning Models
+
+The o-series models (`o3`, `o3-mini`, `o1`) are optimized for chain-of-thought reasoning. They're slower and pricier per token but deliver dramatically better results on math, code, and multi-step planning.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="o3-Prover",
+    model_name="o3",
+    reasoning_effort="high",     # "low" | "medium" | "high"
+    max_loops=1,
+)
+
+print(agent.run(
+    "Prove that for any integer n ≥ 1, the sum of the cubes of the first n positive integers "
+    "equals the square of their sum."
+))
+```
+
+<Note>
+For reasoning models, set `reasoning_effort` and leave `temperature` at its default. The model's internal chain-of-thought is not exposed in the response — only the final answer.
+</Note>
+
+## GPT-4o — Vision & Multimodal
+
+GPT-4o is OpenAI's multimodal model. Pass an image path, URL, or base64 string:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Vision-Agent",
+    model_name="gpt-4o",
+    max_loops=1,
+)
+
+result = agent.run(
+    task="Describe what's in this chart and call out anything unusual.",
+    img="path/to/chart.png",
+)
+print(result)
+```
+
+## Streaming
+
+Stream tokens straight to stdout:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-GPT",
+    model_name="gpt-4.1",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Write a 200-word explanation of how the GIL affects Python concurrency.")
+```
+
+Or pipe tokens through your own callback:
+
+```python
+def on_token(token: str) -> None:
+    print(token, end="", flush=True)
+
+agent = Agent(
+    agent_name="Callback-GPT",
+    model_name="gpt-4.1",
+    streaming_callback=on_token,
+    max_loops=1,
+)
+
+agent.run("Explain WebAssembly to a backend engineer.")
+```
+
+## Tool Use
+
+GPT-4.1 and GPT-5.4 handle long, parallel tool-call sequences extremely well:
+
+```python
+import yfinance as yf
+from swarms import Agent
+
+def get_stock_price(ticker: str) -> str:
+    """Fetch the current stock price for a given ticker symbol."""
+    data = yf.Ticker(ticker)
+    return f"{ticker}: ${data.fast_info['last_price']:.2f}"
+
+def get_market_cap(ticker: str) -> str:
+    """Fetch the market capitalization for a given ticker."""
+    data = yf.Ticker(ticker)
+    cap = data.fast_info.get("market_cap")
+    return f"{ticker} cap: ${cap:,.0f}" if cap else f"{ticker}: unavailable"
+
+agent = Agent(
+    agent_name="Equity-Researcher",
+    model_name="gpt-4.1",
+    tools=[get_stock_price, get_market_cap],
+    max_loops=3,
+)
+
+print(agent.run("Compare NVDA, AMD, and INTC on price and market cap."))
+```
+
+## Structured Outputs
+
+GPT models support structured JSON outputs via Pydantic schemas:
+
+```python
+from pydantic import BaseModel
+from swarms import Agent
+from swarms.tools.pydantic_to_json import base_model_to_openai_function
+
+class ETFReport(BaseModel):
+    ticker: str
+    expense_ratio: float
+    aum_billions: float
+    one_year_return: float
+    notes: str
+
+schema = base_model_to_openai_function(ETFReport)
+
+agent = Agent(
+    agent_name="ETF-Analyst",
+    model_name="gpt-4.1",
+    tools_list_dictionary=[schema],
+    max_loops=1,
+)
+
+print(agent.run("Produce an ETF report for SOXX."))
+```
+
+## Mixing Models in a Workflow
+
+Different OpenAI models for different jobs:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+triage = Agent(
+    agent_name="Triage",
+    model_name="gpt-4o-mini",            # cheap & fast
+    system_prompt="Classify and route the user request.",
+    max_loops=1,
+)
+
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="gpt-4.1",                # balanced
+    system_prompt="Gather all relevant context and data.",
+    max_loops=2,
+)
+
+reasoner = Agent(
+    agent_name="Reasoner",
+    model_name="o3",                     # deep reasoning
+    reasoning_effort="high",
+    system_prompt="Reason carefully from the research and produce the final answer.",
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[triage, researcher, reasoner], max_loops=1)
+print(pipeline.run("Should we adopt Rust for our streaming data pipeline?"))
+```
+
+## Production Defaults
+
+For GPT agents in production:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-GPT",
+    model_name="gpt-4.1",
+    max_loops=1,
+    persistent_memory=True,        # survive process restarts
+    context_compression=True,      # auto-summarize at 90% of context
+    context_length=128_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with Anthropic](/examples/model-providers/anthropic)
+- [Building Agents with Gemini](/examples/model-providers/gemini)
+- [Model Providers Overview](/integrations/model-providers)
+- [Structured Outputs Guide](/agents/structured-outputs)

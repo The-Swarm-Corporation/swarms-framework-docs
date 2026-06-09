@@ -1,0 +1,149 @@
+---
+title: 'Building Agents with xAI (Grok)'
+description: 'Build Swarms agents on xAI Grok models — Grok 4 and earlier.'
+icon: 'x'
+---
+
+xAI's Grok models are frontier reasoning models with strong real-time knowledge, long context windows, and good tool-use performance. Grok 4 is the right pick when you need an alternative to GPT-5.4 or Claude Opus with comparable capability.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export XAI_API_KEY="xai-..."
+```
+
+Get an API key at [console.x.ai](https://console.x.ai/).
+
+## Quick Start
+
+xAI models use the `xai/` prefix:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Grok-Agent",
+    model_name="xai/grok-4-0709",
+    max_loops=1,
+)
+
+print(agent.run("Summarize the case for first-principles thinking in three paragraphs."))
+```
+
+## Model Names
+
+| Model | `model_name` | Best for |
+|---|---|---|
+| Grok 4 | `"xai/grok-4-0709"` or `"grok-4"` | Frontier reasoning, default |
+| Grok 2 | `"xai/grok-2-1212"` | Earlier generation, cheaper |
+| Grok Beta | `"xai/grok-beta"` | Legacy |
+
+## Grok 4 — Frontier Reasoning
+
+For your hardest analytical and planning tasks:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Grok-Strategist",
+    model_name="xai/grok-4-0709",
+    system_prompt="You are a senior strategy consultant. Reason first-principles and cite trade-offs.",
+    max_loops=1,
+)
+
+print(agent.run(
+    "Should a B2B SaaS startup with $5M ARR build an in-house data warehouse or use Snowflake?"
+))
+```
+
+## Tool Use
+
+Grok supports function calling:
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="Grok-Assistant",
+    model_name="xai/grok-4-0709",
+    tools=[get_weather],
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## Streaming
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-Grok",
+    model_name="xai/grok-4-0709",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Walk me through how proof-of-stake differs from proof-of-work.")
+```
+
+## Multi-Provider Pipeline
+
+Mix Grok with other models — for example, Grok for research and Claude for synthesis:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+researcher = Agent(
+    agent_name="Grok-Researcher",
+    model_name="xai/grok-4-0709",
+    system_prompt="Gather facts and quotes with citations.",
+    max_loops=2,
+)
+
+writer = Agent(
+    agent_name="Claude-Writer",
+    model_name="claude-sonnet-4-6",
+    system_prompt="Write a clear executive summary from the research.",
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[researcher, writer], max_loops=1)
+print(pipeline.run("Impact of AI on the global semiconductor supply chain in 2026."))
+```
+
+## Production Defaults
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-Grok",
+    model_name="xai/grok-4-0709",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    context_length=128_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with OpenAI](/examples/model-providers/openai)
+- [Building Agents with Anthropic](/examples/model-providers/anthropic)
+- [Model Providers Overview](/integrations/model-providers)
