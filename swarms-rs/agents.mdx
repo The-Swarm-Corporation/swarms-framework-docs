@@ -90,8 +90,11 @@ let agent = client
 ### Setup helpers
 
 ```bash
-# uv (package runner)
-curl -sSf https://astral.sh/uv/install.sh | sh
+# uv (package runner) — download and review the script before running,
+# or use a package manager (see https://docs.astral.sh/uv/getting-started/installation/)
+curl -sSf https://astral.sh/uv/install.sh -o install-uv.sh
+less install-uv.sh
+sh install-uv.sh
 
 # Example STDIO server
 uvx install mcp-hn
