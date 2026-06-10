@@ -250,6 +250,10 @@ result = asyncio.run(
 )
 ```
 
+<Note>
+  `asyncio.run()` raises `RuntimeError` if an event loop is already running (notebooks, some REPLs, async frameworks). In those environments, `await swarm.arun(...)` directly instead.
+</Note>
+
 Use `arun()` when integrating the swarm into an existing async application:
 
 ```python
@@ -351,6 +355,9 @@ When enabled, after worker outputs are gathered a dedicated judge agent scores e
 **Output schema:**
 
 ```python
+from typing import List
+from pydantic import BaseModel
+
 class AgentScore(BaseModel):
     agent_name: str
     score: int          # 0–10 composite
