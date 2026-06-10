@@ -141,7 +141,7 @@ swarm = HeavySwarm(variant="heavy")
 
 ## Specialized Agents (medium variant)
 
-The `medium` variant is inspired by the Grok Heavy architecture and decomposes work by **thinking style** — each agent applies a fundamentally different cognitive approach.
+The `medium` variant is inspired by the [Grok 4.20 Heavy architecture](https://x.com/elonmusk/status/2034710771075273177) (X.AI's multi-agent system) and decomposes work by **thinking style** — each agent applies a fundamentally different cognitive approach.
 
 | Agent | Specialization | Thinking style |
 |-------|---------------|----------------|
@@ -154,7 +154,7 @@ The `medium` variant is inspired by the Grok Heavy architecture and decomposes w
 
 ## Specialized Agents (heavy variant)
 
-The `heavy` variant mirrors the Grok Heavy 16-agent system and decomposes work by **domain expertise** — each agent is a specialist in a distinct field.
+The `heavy` variant mirrors the [Grok 4.20 Heavy 16-agent system](https://x.com/xai/status/2024121909286494435) and decomposes work by **domain expertise** — each agent is a specialist in a distinct field.
 
 | Agent | Domain | Specialization |
 |-------|--------|----------------|
@@ -284,7 +284,13 @@ print(questions["lucas_question"])     # creative / contrarian
 
 ### `get_questions_as_list(task)`
 
-Same as `get_questions_only()`, but returns the questions as an ordered list — 4 items for `default`, 3 for `medium`, 15 for `heavy`.
+Same as `get_questions_only()`, but returns the questions as an ordered list. The order is fixed per variant, matching the agent tables above:
+
+- **`default`** (4 items) — research, analysis, alternatives, verification
+- **`medium`** (3 items) — Harper, Benjamin, Lucas
+- **`heavy`** (15 items) — Harper, Benjamin, Lucas, Olivia, James, Charlotte, Henry, Mia, William, Sebastian, Jack, Owen, Luna, Elizabeth, Noah
+
+On error, returns a single-item list containing the error message.
 
 ```python
 questions = swarm.get_questions_as_list("Optimize supply chain efficiency")
@@ -294,11 +300,21 @@ for i, question in enumerate(questions):
 
 ### `create_agents()`
 
-Create and return the variant's agents as a dictionary of named `Agent` instances (called automatically during initialization). For `default` the keys are `research`, `analysis`, `alternatives`, `verification`, `synthesis`; for `medium` and `heavy` the keys are `captain` plus one key per specialist.
+Create and return the variant's agents as a dictionary of named `Agent` instances (called automatically during initialization). All keys are lowercase:
+
+- **`default`** — `research`, `analysis`, `alternatives`, `verification`, `synthesis`
+- **`medium`** — `captain` (agent named *Captain-Swarm*), `harper`, `benjamin`, `lucas`
+- **`heavy`** — `captain` (agent named *Grok*), plus one first-name key per specialist: `harper`, `benjamin`, `lucas`, `olivia`, `james`, `charlotte`, `henry`, `mia`, `william`, `sebastian`, `jack`, `owen`, `luna`, `elizabeth`, `noah`
+
+Note the coordinator's key is always `captain`, even though the agent's display name differs by variant (*Captain-Swarm* in `medium`, *Grok* in `heavy`).
 
 ```python
 agents = swarm.create_agents()
 print(agents["research"].agent_name)
+
+heavy = HeavySwarm(variant="heavy")
+print(len(heavy.create_agents()))            # 16
+print(heavy.create_agents()["captain"].agent_name)  # Grok
 ```
 
 ### `show_swarm_info()`
