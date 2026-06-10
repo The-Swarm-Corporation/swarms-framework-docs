@@ -17,7 +17,7 @@ The underlying swarm is built lazily on the first `run()` call and cached on the
 
 ## Key Features
 
-- 15 swarm types supported through a single interface
+- 15 swarm types dispatched by the current factory through a single interface
 - Factory pattern with O(1) lookup and per-instance swarm cache
 - Pre-flight reliability checks
 - Optional autosave of `config.json` / `state.json` / `metadata.json`
@@ -35,7 +35,7 @@ from swarms.structs.swarm_router import SwarmRouter
 
 router = SwarmRouter(
     swarm_type="SequentialWorkflow",  # any value from the table below
-    agents=agents,
+    agents=[agent1, agent2],          # your Agent instances
 )
 ```
 
@@ -58,7 +58,7 @@ router = SwarmRouter(
 | `"PlannerWorkerSwarm"` | A planner decomposes work for worker agents |
 
 <Note>
-  `"auto"` and `"AutoSwarmBuilder"` are also defined in the `SwarmType` Literal, but the current factory does not dispatch them — selecting either passes construction validation and then fails at run time. Use one of the 15 values above.
+  `"auto"` and `"AutoSwarmBuilder"` are also defined in the `SwarmType` Literal, but the current factory does not dispatch them — selecting either passes construction validation and then raises a `ValueError` ("Invalid swarm type ...") from the factory lookup on the first `run()` call. Use one of the 15 values above.
 </Note>
 
 ## Basic Example
