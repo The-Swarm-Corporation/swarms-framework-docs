@@ -413,6 +413,9 @@ def custom_dynamic_speaker(
     **kwargs,
 ) -> Union[str, List[str]]:
     """Follow @mentions in the previous response."""
+    if not agents:
+        raise ValueError("No agents available for speaker selection")
+
     mentions = re.findall(r"@(\w+)", response)
     valid_mentions = [m for m in mentions if m in agents]
 
@@ -421,7 +424,7 @@ def custom_dynamic_speaker(
             return valid_mentions[0]
         return valid_mentions  # parallel
 
-    return agents[0] if agents else None
+    return agents[0]
 
 chat = GroupChat(
     agents=agents,
