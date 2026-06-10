@@ -1,0 +1,181 @@
+---
+title: "Social Swarm Patterns"
+description: "Broadcast, circular, mesh, grid, star, pyramid, one-to-one, and aggregate communication patterns"
+icon: "diagram-project"
+---
+
+Low-level **social algorithms** in `swarms.structs.swarming_architectures` and `swarms.structs.ma_blocks` compose custom multi-agent flows before you reach full workflows like `SequentialWorkflow` or `GraphWorkflow`.
+
+```bash
+pip install -U swarms
+```
+
+<Tip>
+  For higher-level orchestration, see [Social Algorithms](/architectures/social-algorithms) and [Agent Rearrange](/architectures/agent-rearrange).
+</Tip>
+
+<Tabs>
+  <Tab title="Broadcast">
+    One sender broadcasts; all receivers process the shared context (`broadcast` is async):
+
+    ```python
+    import asyncio
+    from swarms import Agent
+    from swarms.structs.swarming_architectures import broadcast
+
+    sender = Agent(agent_name="Announcer", model_name="claude-sonnet-4-6", max_loops=1)
+    receivers = [
+        Agent(agent_name="Analyst-A", model_name="claude-sonnet-4-6", max_loops=1),
+        Agent(agent_name="Analyst-B", model_name="claude-sonnet-4-6", max_loops=1),
+    ]
+
+    async def main():
+        results = await broadcast(
+            sender=sender,
+            agents=receivers,
+            task="Summarize Q4 priorities for your domain.",
+        )
+        print(results)
+
+    asyncio.run(main())
+    ```
+  </Tab>
+
+  <Tab title="Circular">
+    Agents pass work in a ring with shared conversation history:
+
+    ```python
+    from swarms import Agent
+    from swarms.structs.swarming_architectures import circular_swarm
+
+    agents = [
+        Agent(agent_name="Researcher", model_name="claude-sonnet-4-6", max_loops=1),
+        Agent(agent_name="Analyst", model_name="claude-sonnet-4-6", max_loops=1),
+        Agent(agent_name="Writer", model_name="claude-sonnet-4-6", max_loops=1),
+    ]
+
+    result = circular_swarm(agents=agents, tasks=["Draft a one-page market brief."])
+    print(result)
+    ```
+  </Tab>
+
+  <Tab title="Mesh">
+    Shared task queue; workers drain tasks in round-robin order:
+
+    ```python
+    from swarms import Agent
+    from swarms.structs.swarming_architectures import mesh_swarm
+
+    agents = [
+        Agent(agent_name=f"Worker-{i}", model_name="claude-sonnet-4-6", max_loops=1)
+        for i in range(3)
+    ]
+    tasks = ["Task A", "Task B", "Task C", "Task D"]
+
+    results = mesh_swarm(agents=agents, tasks=tasks)
+    print(results)
+    ```
+  </Tab>
+
+  <Tab title="Grid">
+    Agents in a square grid (list length should be a perfect square, e.g. 4 or 9):
+
+    ```python
+    from swarms import Agent
+    from swarms.structs.swarming_architectures import grid_swarm
+
+    agents = [
+        Agent(agent_name=f"A-{i}", model_name="claude-sonnet-4-6", max_loops=1)
+        for i in range(4)
+    ]
+    result = grid_swarm(agents=agents, tasks=["Grid task 1", "Grid task 2"])
+    print(result)
+    ```
+  </Tab>
+
+  <Tab title="Star">
+    First agent is the hub; it processes each task before the others:
+
+    ```python
+    from swarms import Agent
+    from swarms.structs.swarming_architectures import star_swarm
+
+    agents = [
+        Agent(agent_name="Hub", model_name="claude-sonnet-4-6", max_loops=1),
+        Agent(agent_name="Spoke-1", model_name="claude-sonnet-4-6", max_loops=1),
+        Agent(agent_name="Spoke-2", model_name="claude-sonnet-4-6", max_loops=1),
+    ]
+
+    result = star_swarm(agents=agents, tasks=["Coordinate subtasks and merge."])
+    print(result)
+    ```
+  </Tab>
+
+  <Tab title="Pyramid">
+    Agents arranged in a pyramid; tasks flow level by level:
+
+    ```python
+    from swarms import Agent
+    from swarms.structs.swarming_architectures import pyramid_swarm
+
+    agents = [
+        Agent(agent_name="Director", model_name="claude-sonnet-4-6", max_loops=1),
+        Agent(agent_name="Worker-1", model_name="claude-sonnet-4-6", max_loops=1),
+        Agent(agent_name="Worker-2", model_name="claude-sonnet-4-6", max_loops=1),
+    ]
+    result = pyramid_swarm(agents=agents, tasks=["Planning task"])
+    print(result)
+    ```
+  </Tab>
+
+  <Tab title="One-to-one">
+    Sender and receiver alternate on a single task:
+
+    ```python
+    from swarms import Agent
+    from swarms.structs.swarming_architectures import one_to_one
+
+    sender = Agent(agent_name="Sender", model_name="claude-sonnet-4-6", max_loops=1)
+    receiver = Agent(agent_name="Receiver", model_name="claude-sonnet-4-6", max_loops=1)
+
+    result = one_to_one(sender=sender, receiver=receiver, task="Review this draft section.")
+    print(result)
+    ```
+  </Tab>
+
+  <Tab title="Aggregate">
+    Run workers concurrently, then synthesize with an aggregator agent:
+
+    ```python
+    from swarms import Agent
+    from swarms.structs.ma_blocks import aggregate
+
+    workers = [
+        Agent(agent_name=f"Expert-{i}", model_name="claude-sonnet-4-6", max_loops=1)
+        for i in range(3)
+    ]
+
+    merged = aggregate(workers=workers, task="Give one bullet each on risk, then merge.")
+    print(merged)
+    ```
+  </Tab>
+</Tabs>
+
+## Choosing a pattern
+
+| Pattern | Best for |
+| --- | --- |
+| Broadcast | One announcement, many parallel responses |
+| Circular | Sequential refinement with shared history |
+| Mesh | Many independent tasks, worker pool |
+| Grid | Local neighbor collaboration |
+| Star | Central coordinator + specialists |
+| Pyramid | Layered command structure |
+| One-to-one | Single handoff between two agents |
+| Aggregate | Fan-in synthesis of parallel outputs |
+
+## Related
+
+- [Social Algorithms](/api/social-algorithms)
+- [Custom architectures](/concepts/custom-architectures)
+- [Multi-agent overview](/examples/overviews/multi-agent-overview)
