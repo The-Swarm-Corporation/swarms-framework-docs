@@ -112,7 +112,11 @@
               "integrations/model-providers",
               "integrations/mcp",
               "integrations/tools",
-              "integrations/marketplace"
+              "integrations/marketplace",
+              "integrations/swarms-tools/overview",
+              "integrations/swarms-tools/finance",
+              "integrations/swarms-tools/search",
+              "integrations/swarms-tools/twitter"
             ]
           },
           {

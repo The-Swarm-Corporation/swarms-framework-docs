@@ -1,0 +1,41 @@
+---
+title: "Twitter / X Tools"
+description: "Social media tools for Swarms agents via swarms-tools"
+icon: "twitter"
+---
+
+Twitter/X tools let agents read or post content when you provide valid API credentials.
+
+## Setup
+
+```bash
+pip install -U swarms-tools
+```
+
+Configure Twitter/X API credentials in `.env` per the `swarms-tools` documentation for your API tier.
+
+<Warning>
+  Posting automation must comply with platform terms of service and rate limits. Use read-only tools first in development.
+</Warning>
+
+## Example agent
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Social-Agent",
+    model_name="claude-sonnet-4-6",
+    system_prompt="You help draft and review social posts. Use tools only when asked.",
+    tools=[],  # add swarms_tools Twitter callables here
+    max_loops=2,
+)
+
+result = agent.run("Summarize trending topics in AI agents this week.")
+print(result)
+```
+
+## Related
+
+- [Swarms Tools overview](/integrations/swarms-tools/overview)
+- [Search tools](/integrations/swarms-tools/search)
