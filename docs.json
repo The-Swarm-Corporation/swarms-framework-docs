@@ -121,7 +121,8 @@
               "cli/overview",
               "cli/tutorial",
               "cli/commands",
-              "cli/configuration"
+              "cli/configuration",
+              "cli/examples"
             ]
           },
           {
