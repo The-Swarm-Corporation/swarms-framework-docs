@@ -203,7 +203,7 @@ Enterprise-hosted OpenAI models via Azure:
 ```bash
 # .env
 AZURE_API_KEY=your_key
-AZURE_API_BASE=https://your-resource.openai.azure.com/
+AZURE_API_BASE=https://your-resource.openai.azure.com
 AZURE_API_VERSION=2024-02-15-preview
 ```
 
@@ -233,15 +233,17 @@ Set `XAI_API_KEY` in your environment.
 
 ### LiteLLM passthrough
 
-Any LiteLLM-supported model string works:
+Any LiteLLM-supported model string works, including provider-qualified strings:
 
 ```python
 agent = Agent(
     agent_name="LiteLLM-Agent",
-    model_name="claude-sonnet-4-6",
+    model_name="anthropic/claude-sonnet-4-6",  # provider/model
     max_loops=1,
 )
 ```
+
+Well-known model names like `claude-sonnet-4-6` or `gpt-4.1` also work without the provider prefix — LiteLLM resolves the provider automatically.
 
 ### Custom base URL and API key
 

@@ -22,18 +22,24 @@ Configure Twitter/X API credentials in `.env` per the `swarms-tools` documentati
 
 ```python
 from swarms import Agent
+from swarms_tools.social_media.twitter_tool import (
+    get_metrics,
+    post_tweet,
+)
 
 agent = Agent(
     agent_name="Social-Agent",
     model_name="claude-sonnet-4-6",
     system_prompt="You help draft and review social posts. Use tools only when asked.",
-    tools=[],  # add swarms_tools Twitter callables here
+    tools=[get_metrics, post_tweet],
     max_loops=2,
 )
 
-result = agent.run("Summarize trending topics in AI agents this week.")
+result = agent.run("Check our account metrics and draft a post about AI agents.")
 print(result)
 ```
+
+Other available callables in `swarms_tools.social_media.twitter_tool`: `reply_tweet`, `like_tweet`, `quote_tweet`.
 
 ## Related
 
