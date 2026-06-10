@@ -139,6 +139,65 @@ swarm = HeavySwarm(variant="heavy")
 - Strategic alignment
 - Actionable recommendations
 
+## Specialized Agents (medium variant)
+
+The `medium` variant is inspired by the Grok Heavy architecture and decomposes work by **thinking style** — each agent applies a fundamentally different cognitive approach.
+
+| Agent | Specialization | Thinking style |
+|-------|---------------|----------------|
+| **Captain Swarm** | Orchestration, task decomposition, conflict resolution, final synthesis | Structured, managerial |
+| **Harper** | Research and facts, evidence gathering, source verification, data grounding | Empirical, evidence-based |
+| **Benjamin** | Logic, math, and code — rigorous reasoning, numerical verification, stress-testing | Rigorous, analytical |
+| **Lucas** | Creative and divergent thinking, contrarian analysis, blind-spot detection, bias identification | Divergent, lateral |
+
+**Flow:** Captain Swarm decomposes → Harper, Benjamin, Lucas work in parallel → Captain Swarm mediates conflicts and synthesizes.
+
+## Specialized Agents (heavy variant)
+
+The `heavy` variant mirrors the Grok Heavy 16-agent system and decomposes work by **domain expertise** — each agent is a specialist in a distinct field.
+
+| Agent | Domain | Specialization |
+|-------|--------|----------------|
+| **Grok** (Captain) | Orchestration | Leads, coordinates, synthesizes all 15 specialist outputs |
+| **Harper** | Creative Writing | Storytelling, narrative framing, communication strategy |
+| **Benjamin** | Finance | Data analysis, financial modeling, economic forecasting |
+| **Lucas** | Technology | Coding, programming, software architecture, technical builds |
+| **Olivia** | Culture | Literature, arts, cultural context, humanistic perspectives |
+| **James** | History | Historical analysis, political science, philosophical frameworks |
+| **Charlotte** | Mathematics | Statistical analysis, formal logic, mathematical proofs |
+| **Henry** | Engineering | Robotics, hardware, innovation, systems engineering |
+| **Mia** | Medicine | Biology, health sciences, clinical research, public health |
+| **William** | Business | Strategy, entrepreneurship, market analysis, competitive intelligence |
+| **Sebastian** | Physics | Astronomy, hard sciences, fundamental research |
+| **Jack** | Psychology | Human behavior, cognitive science, decision-making |
+| **Owen** | Environment | Sustainability, climate science, global systems |
+| **Luna** | Space | Space exploration, futurism, emerging frontiers |
+| **Elizabeth** | Ethics | Policy analysis, ethical frameworks, critical thinking |
+| **Noah** | Systems | Long-term innovation, systems thinking, civilizational impact |
+
+**Flow:** Grok decomposes the task into 15 domain-specific questions → 15 specialists work in parallel → Grok synthesizes with cross-domain convergence analysis.
+
+<Note>
+  Harper, Benjamin, and Lucas have different roles in the `heavy` variant compared to `medium`. In `medium` they represent thinking styles (facts / logic / creativity); in `heavy` they represent domain expertise (creative writing / finance / technology).
+</Note>
+
+## Variant Comparison
+
+| Aspect | `default` | `medium` | `heavy` |
+|--------|-----------|----------|---------|
+| **Decomposition** | By task phase (research → analyze → verify) | By thinking style (facts vs logic vs creativity) | By domain expertise (15 specialist fields) |
+| **Agent count** | 5 (4 workers + 1 synthesizer) | 4 (3 specialists + 1 captain) | 16 (15 specialists + 1 captain) |
+| **Synthesis** | Generic integration agent | Captain Swarm mediates conflicts | Grok synthesizes with cross-domain convergence |
+| **Contrarian check** | Not present | Lucas challenges assumptions | Elizabeth provides ethical/critical analysis |
+| **Question schema** | 4 questions | 3 questions | 15 questions |
+| **Best for** | Systematic, phased analysis | Debate-style reasoning | Deep multi-domain analysis |
+
+**When to use which:**
+
+- **`default`** — systematic, phased analysis where each step builds on the previous one (research reports, market studies, compliance audits). The dedicated Verification Agent provides stronger validation coverage.
+- **`medium`** — tasks requiring debate-style analysis where facts, logic, and creative thinking need to be weighed against each other (strategic decisions, investment analysis, policy evaluation). Captain Swarm's conflict mediation is especially valuable when perspectives disagree.
+- **`heavy`** — complex multi-domain tasks that benefit from deep specialist expertise across many fields (civilizational impact analysis, comprehensive policy evaluation, cross-disciplinary research).
+
 ## Key Parameters
 
 <ParamField path="name" type="str" default="HeavySwarm">
@@ -201,6 +260,50 @@ result = swarm.run(
     img=None,   # optional image input
 )
 ```
+
+### `get_questions_only(task)`
+
+Generate and return only the specialized questions, without executing the swarm. The dictionary keys depend on the variant:
+
+- **`default`** — `research_question`, `analysis_question`, `alternatives_question`, `verification_question`
+- **`medium`** — `harper_question`, `benjamin_question`, `lucas_question`
+- **`heavy`** — one `{name}_question` key per specialist (`harper_question`, `benjamin_question`, `lucas_question`, `olivia_question`, … `noah_question`)
+
+On failure, the dictionary contains a single `error` key.
+
+```python
+swarm = HeavySwarm(variant="medium")
+
+questions = swarm.get_questions_only(
+    "Should we migrate from PostgreSQL to CockroachDB?"
+)
+print(questions["harper_question"])    # facts
+print(questions["benjamin_question"])  # logic
+print(questions["lucas_question"])     # creative / contrarian
+```
+
+### `get_questions_as_list(task)`
+
+Same as `get_questions_only()`, but returns the questions as an ordered list — 4 items for `default`, 3 for `medium`, 15 for `heavy`.
+
+```python
+questions = swarm.get_questions_as_list("Optimize supply chain efficiency")
+for i, question in enumerate(questions):
+    print(f"Agent {i + 1}: {question}")
+```
+
+### `create_agents()`
+
+Create and return the variant's agents as a dictionary of named `Agent` instances (called automatically during initialization). For `default` the keys are `research`, `analysis`, `alternatives`, `verification`, `synthesis`; for `medium` and `heavy` the keys are `captain` plus one key per specialist.
+
+```python
+agents = swarm.create_agents()
+print(agents["research"].agent_name)
+```
+
+### `show_swarm_info()`
+
+Display the swarm's configuration (models, timeout, loop settings) in a `rich`-styled dashboard table. Called automatically when `show_dashboard=True`.
 
 ### `to_dict()`
 
@@ -332,6 +435,31 @@ swarm = HeavySwarm(
 strategy = swarm.run(
     "Should our company enter the AI agent services market? "
     "Analyze market, competition, requirements, risks, and alternatives."
+)
+```
+
+### Medium Variant for Strategic Decisions
+
+```python
+def web_search(query: str) -> str:
+    """Search the web for information."""
+    ...
+
+swarm = HeavySwarm(
+    name="Strategic-Intel-Team",
+    worker_model_name="gpt-5.4",
+    variant="medium",          # Captain + Harper, Benjamin, Lucas
+    worker_tools=[web_search],
+    show_dashboard=True,
+)
+
+# Harper gathers real-time facts, Benjamin stress-tests the strategy
+# mathematically, Lucas hunts for blind spots and contrarian angles,
+# and Captain Swarm mediates conflicts in the final synthesis.
+result = swarm.run(
+    "Should our company enter the Southeast Asian market in 2026? "
+    "Consider regulatory environment, competitive landscape, "
+    "logistics costs, and consumer behavior patterns."
 )
 ```
 

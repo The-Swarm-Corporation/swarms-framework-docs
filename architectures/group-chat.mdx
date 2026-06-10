@@ -227,6 +227,39 @@ result = chat.run(
 )
 ```
 
+### batched_run()
+
+Run multiple tasks in sequence, one complete conversation per task.
+
+```python
+tasks = [
+    "Analyze tech sector trends",
+    "Evaluate real estate market",
+    "Review commodity prices",
+]
+
+results = chat.batched_run(tasks)
+```
+
+### concurrent_run()
+
+Run multiple tasks in parallel using threads — one conversation per task, executed simultaneously.
+
+```python
+tasks = [
+    "Analyze tech sector trends",
+    "Evaluate real estate market",
+    "Review commodity prices",
+    "Assess global economic indicators",
+]
+
+results = chat.concurrent_run(tasks)
+
+for task, result in zip(tasks, results):
+    print(f"\nAnalysis for: {task}")
+    print(result)
+```
+
 ### start_interactive_session()
 
 Start an interactive REPL session.
@@ -364,6 +397,35 @@ def expertise_based_speaker(agents: List[str], last_response: str = "", **kwargs
 chat = GroupChat(
     agents=agents,
     speaker_function=expertise_based_speaker,
+)
+```
+
+For dynamic behavior that follows @mentions, a custom function can return a list of agents:
+
+```python
+from typing import List, Union
+import re
+
+def custom_dynamic_speaker(
+    agents: List[str],
+    response: str = "",
+    strategy: str = "sequential",
+    **kwargs,
+) -> Union[str, List[str]]:
+    """Follow @mentions in the previous response."""
+    mentions = re.findall(r"@(\w+)", response)
+    valid_mentions = [m for m in mentions if m in agents]
+
+    if valid_mentions:
+        if strategy == "sequential":
+            return valid_mentions[0]
+        return valid_mentions  # parallel
+
+    return agents[0] if agents else None
+
+chat = GroupChat(
+    agents=agents,
+    speaker_function=custom_dynamic_speaker,
 )
 ```
 
