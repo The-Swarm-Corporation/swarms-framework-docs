@@ -17,7 +17,7 @@ The underlying swarm is built lazily on the first `run()` call and cached on the
 
 ## Key Features
 
-- 17 swarm types supported (plus `"auto"` for automatic routing)
+- 15 swarm types supported through a single interface
 - Factory pattern with O(1) lookup and per-instance swarm cache
 - Pre-flight reliability checks
 - Optional autosave of `config.json` / `state.json` / `metadata.json`
@@ -28,28 +28,38 @@ The underlying swarm is built lazily on the first `run()` call and cached on the
 
 ## Supported Swarm Types
 
-```python
-from swarms.structs.swarm_router import SwarmType
+`swarm_type` takes a **string** value. `SwarmType` is a `typing.Literal`, so pass the string directly:
 
-# SwarmType is a Literal — pass the matching string:
-"SequentialWorkflow"
-"ConcurrentWorkflow"
-"AgentRearrange"
-"MixtureOfAgents"
-"GroupChat"
-"MultiAgentRouter"
-"AutoSwarmBuilder"
-"HierarchicalSwarm"
-"MajorityVoting"
-"CouncilAsAJudge"
-"HeavySwarm"
-"BatchedGridWorkflow"
-"LLMCouncil"
-"DebateWithJudge"
-"RoundRobin"
-"PlannerWorkerSwarm"
-"auto"             # let the router decide
+```python
+from swarms.structs.swarm_router import SwarmRouter
+
+router = SwarmRouter(
+    swarm_type="SequentialWorkflow",  # any value from the table below
+    agents=agents,
+)
 ```
+
+| Value | Description |
+|---|---|
+| `"SequentialWorkflow"` | Run agents one after another, passing context forward |
+| `"ConcurrentWorkflow"` | Run all agents in parallel on the same task |
+| `"AgentRearrange"` | Custom flow defined by a `rearrange_flow` string |
+| `"MixtureOfAgents"` | Workers run, then the last agent aggregates their output |
+| `"GroupChat"` | Agents converse, ordered by a speaker-selection function |
+| `"HierarchicalSwarm"` | A director delegates subtasks to worker agents |
+| `"HeavySwarm"` | Question agent + specialized workers + synthesis |
+| `"MajorityVoting"` | Agents answer independently; the majority wins |
+| `"CouncilAsAJudge"` | A council evaluates output against a judge model |
+| `"LLMCouncil"` | Council members deliberate under a chairman |
+| `"DebateWithJudge"` | Pro and con agents debate; a judge decides |
+| `"MultiAgentRouter"` | Routes each task to the best-matched agent |
+| `"RoundRobin"` | Cycles through agents in turn |
+| `"BatchedGridWorkflow"` | Runs a grid of tasks across agents |
+| `"PlannerWorkerSwarm"` | A planner decomposes work for worker agents |
+
+<Note>
+  `"auto"` and `"AutoSwarmBuilder"` are also defined in the `SwarmType` Literal, but the current factory does not dispatch them — selecting either passes construction validation and then fails at run time. Use one of the 15 values above.
+</Note>
 
 ## Basic Example
 
@@ -329,6 +339,110 @@ Inherited from `SerializableMixin`. Returns a JSON-friendly snapshot of the rout
 
 ## Use Cases
 
+### AgentRearrange — Custom Multi-Step Flows
+
+```python
+rearrange_router = SwarmRouter(
+    name="TaskOptimizer",
+    description="Optimize agent order for multi-step tasks",
+    agents=[data_extractor, analyzer, summarizer],
+    swarm_type="AgentRearrange",
+    rearrange_flow=f"{data_extractor.agent_name} -> {analyzer.agent_name} -> {summarizer.agent_name}",
+)
+
+result = rearrange_router.run("Analyze and summarize the quarterly financial report")
+```
+
+### GroupChat — Simulated Group Discussion
+
+```python
+group_chat_router = SwarmRouter(
+    name="GroupChat",
+    description="Simulate a group discussion with multiple agents",
+    max_loops=10,
+    agents=[financial_analyst, market_researcher, competitor_analyst],
+    swarm_type="GroupChat",
+    speaker_function="round-robin-speaker",  # or "random-speaker", "priority-speaker", "random-dynamic-speaker"
+)
+
+result = group_chat_router.run("Discuss the pros and cons of expanding into the Asian market")
+```
+
+### MultiAgentRouter — Route Tasks to the Best Agent
+
+```python
+multi_agent_router = SwarmRouter(
+    name="MultiAgentRouter",
+    description="Route tasks to specialized agents",
+    agents=[financial_analyst, market_researcher, competitor_analyst],
+    swarm_type="MultiAgentRouter",
+)
+
+result = multi_agent_router.run("Analyze the competitive landscape for our new product")
+```
+
+### MajorityVoting — Consensus Decision-Making
+
+```python
+voting_router = SwarmRouter(
+    name="MajorityVoting",
+    description="Make decisions using consensus among agents",
+    agents=[analyst1, analyst2, analyst3, consensus_agent],
+    swarm_type="MajorityVoting",
+)
+
+result = voting_router.run("Should we invest in Company X based on the available data?")
+```
+
+### LLMCouncil — Peer Review and Synthesis
+
+```python
+llm_council_router = SwarmRouter(
+    name="LLMCouncil",
+    description="Collaborative council of LLM agents with peer review",
+    swarm_type="LLMCouncil",
+    chairman_model="gpt-5.1",
+    output_type="dict",
+)
+
+result = llm_council_router.run(
+    "What are the top five best energy stocks across nuclear, solar, gas, and other energy sources?"
+)
+```
+
+The council members each independently respond to the query, evaluate and rank each other's anonymized responses, and a Chairman synthesizes everything into a final answer. `LLMCouncil` uses default council members and doesn't require the `agents` parameter.
+
+### DebateWithJudge — Structured Adversarial Refinement
+
+```python
+debate_router = SwarmRouter(
+    name="DebateWithJudge",
+    description="Structured debate with Pro/Con agents and a Judge",
+    swarm_type="DebateWithJudge",
+    agents=[pro_agent, con_agent, judge_agent],  # exactly 3, in this order
+    max_loops=3,  # number of debate rounds
+)
+
+result = debate_router.run(
+    "Should artificial intelligence development be regulated by governments?"
+)
+```
+
+Each round, the Pro agent argues in favor, the Con agent presents counter-arguments, and the Judge evaluates and synthesizes — progressively refining the answer across `max_loops` rounds.
+
+### BatchedGridWorkflow — Parallel Task Grid
+
+```python
+batched_grid_router = SwarmRouter(
+    name="BatchedGridWorkflow",
+    description="Process multiple tasks in parallel batches",
+    agents=[agent1, agent2, agent3],
+    swarm_type="BatchedGridWorkflow",
+)
+
+result = batched_grid_router.run(tasks=["Task 1", "Task 2", "Task 3"])
+```
+
 ### Strategy Comparison
 
 ```python
@@ -408,8 +522,7 @@ self._swarm_factory = {
     "HierarchicalSwarm":  self._create_hierarchical_swarm,
     "GroupChat":          self._create_group_chat,
     "HeavySwarm":         self._create_heavy_swarm,
-    # ... one entry per SwarmType ...
-    "auto":               self._create_auto,
+    # ... one entry per supported swarm type ...
 }
 
 # First run() builds, subsequent runs reuse:
