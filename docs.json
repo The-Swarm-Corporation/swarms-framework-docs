@@ -210,7 +210,8 @@
               "api/tools",
               "api/prompts",
               "api/schemas",
-              "api/utils"
+              "api/utils",
+              "api/transforms"
             ]
           },
           {

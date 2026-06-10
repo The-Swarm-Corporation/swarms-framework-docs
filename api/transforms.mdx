@@ -1,0 +1,244 @@
+---
+title: "Message Transforms"
+description: "Intelligent context compression for long agent conversations using middle-out message transforms"
+icon: "compress"
+---
+
+## Overview
+
+The message transforms system manages context size for long agent conversations. When history approaches a model's token or message limits, it compresses the middle of the conversation while preserving system messages, the start of the thread, and recent turns.
+
+Use transforms via the `Agent` `transforms` parameter or directly with `MessageTransforms` from `swarms.structs.transforms`.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Key Features
+
+- **Automatic context management** — compresses when token or message limits are exceeded
+- **Middle-out compression** — keeps system messages, conversation start, and recent messages
+- **Model-aware limits** — built-in context windows for GPT-4, Claude, and other common models
+- **Flexible configuration** — `TransformConfig` dataclass or plain dict on `Agent`
+- **Compression metadata** — `TransformResult` reports counts, ratios, and whether compression ran
+
+## Core Components
+
+### TransformConfig
+
+Configuration for transform behavior:
+
+```python
+from swarms.structs.transforms import TransformConfig
+
+config = TransformConfig(
+    enabled=True,
+    method="middle-out",
+    max_tokens=None,
+    max_messages=None,
+    model_name="claude-sonnet-4-6",
+    preserve_system_messages=True,
+    preserve_recent_messages=2,
+)
+```
+
+<ParamField path="enabled" type="bool" default="False">
+  Enable or disable transforms
+</ParamField>
+
+<ParamField path="method" type="str" default="middle-out">
+  Compression strategy (currently `middle-out`)
+</ParamField>
+
+<ParamField path="max_tokens" type="Optional[int]" default="None">
+  Override the model's default context token limit
+</ParamField>
+
+<ParamField path="max_messages" type="Optional[int]" default="None">
+  Override the model's maximum message count
+</ParamField>
+
+<ParamField path="model_name" type="str" default="gpt-4">
+  Model used to resolve default context and message limits
+</ParamField>
+
+<ParamField path="preserve_system_messages" type="bool" default="True">
+  Always retain system-role messages
+</ParamField>
+
+<ParamField path="preserve_recent_messages" type="int" default="2">
+  Number of trailing messages to keep uncompressed
+</ParamField>
+
+### TransformResult
+
+Returned by `MessageTransforms.transform_messages()`:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `messages` | `List[Dict]` | Transformed message list |
+| `original_token_count` | `int` | Token count before compression |
+| `compressed_token_count` | `int` | Token count after compression |
+| `original_message_count` | `int` | Message count before compression |
+| `compressed_message_count` | `int` | Message count after compression |
+| `compression_ratio` | `float` | Ratio of compressed to original size |
+| `was_compressed` | `bool` | Whether any compression was applied |
+
+### MessageTransforms
+
+Main transformation engine:
+
+```python
+from swarms.structs.transforms import MessageTransforms, TransformConfig
+
+transforms = MessageTransforms(TransformConfig(enabled=True, model_name="claude-sonnet-4-6"))
+
+result = transforms.transform_messages(messages, target_model="claude-sonnet-4-6")
+```
+
+## Usage with Agent
+
+### TransformConfig
+
+```python
+from swarms import Agent
+from swarms.structs.transforms import TransformConfig
+
+agent = Agent(
+    agent_name="Trading-Agent",
+    agent_description="Financial analysis agent",
+    model_name="claude-sonnet-4-6",
+    max_loops=1,
+    transforms=TransformConfig(
+        enabled=True,
+        method="middle-out",
+        model_name="claude-sonnet-4-6",
+        preserve_system_messages=True,
+        preserve_recent_messages=3,
+    ),
+)
+
+result = agent.run("Analyze the current market trends...")
+```
+
+### Dictionary configuration
+
+```python
+agent = Agent(
+    agent_name="Analysis-Agent",
+    model_name="claude-sonnet-4-6",
+    transforms={
+        "enabled": True,
+        "method": "middle-out",
+        "model_name": "claude-sonnet-4-6",
+        "preserve_system_messages": True,
+        "preserve_recent_messages": 5,
+        "max_tokens": 100000,
+    },
+)
+```
+
+<Tip>
+  See also the [Agent](/api/agent) reference for the `transforms` constructor parameter.
+</Tip>
+
+## Manual usage
+
+```python
+from swarms.structs.transforms import MessageTransforms, TransformConfig
+
+config = TransformConfig(
+    enabled=True,
+    model_name="claude-sonnet-4-6",
+    preserve_recent_messages=2,
+)
+transforms = MessageTransforms(config)
+
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What's the weather?"},
+]
+
+result = transforms.transform_messages(messages)
+print(f"Compressed {result.original_token_count} -> {result.compressed_token_count} tokens")
+```
+
+## Compression strategy
+
+### Middle-out algorithm
+
+1. **Preserve system messages** at the beginning
+2. **Preserve recent messages** — last N turns (configurable)
+3. **Compress the middle** — truncate or drop middle turns when over limits
+4. **Keep context flow** — compressed history should remain usable for the model
+
+### Token vs message limits
+
+- **Token limits** — from the model context window (e.g. GPT-4, Claude)
+- **Message limits** — some models cap total messages (e.g. Claude family)
+
+Limits can be overridden with `max_tokens` and `max_messages` on `TransformConfig`.
+
+## Helper functions
+
+### create_default_transforms
+
+```python
+from swarms.structs.transforms import create_default_transforms
+
+transforms = create_default_transforms(
+    enabled=True,
+    model_name="claude-sonnet-4-6",
+)
+```
+
+### apply_transforms_to_messages
+
+```python
+from swarms.structs.transforms import apply_transforms_to_messages
+
+result = apply_transforms_to_messages(
+    messages=my_messages,
+    model_name="claude-sonnet-4-6",
+)
+```
+
+### handle_transforms
+
+Integrates with `Conversation` memory inside the agent loop:
+
+```python
+from swarms.structs.transforms import handle_transforms, MessageTransforms, TransformConfig
+
+transforms = MessageTransforms(TransformConfig(enabled=True))
+# Used internally when Agent.transforms is set; formats compressed history for the task prompt
+```
+
+## Best practices
+
+- Enable transforms for **long multi-turn sessions**, research agents, or unpredictable conversation length
+- Start with defaults, then tune `preserve_recent_messages` if follow-up quality drops
+- Check logs when `was_compressed` is true to monitor compression ratios
+- Leave headroom below `max_tokens` so the model has space for its reply
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Transforms not activating">
+    - Set `enabled=True` on `TransformConfig` or in the dict passed to `Agent`
+    - Confirm `model_name` matches a model with known limits in the transforms module
+    - Compression only runs when history exceeds token or message thresholds
+  </Accordion>
+  <Accordion title="Poor quality after compression">
+    - Increase `preserve_recent_messages`
+    - Keep `preserve_system_messages=True`
+    - Review compression ratio in logs
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+- [Agent](/api/agent) — `transforms` parameter on the core agent class
+- [Conversation](/api/conversation) — conversation history used with `handle_transforms`
