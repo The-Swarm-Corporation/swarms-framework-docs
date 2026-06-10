@@ -243,7 +243,7 @@ results = chat.batched_run(tasks)
 
 ### concurrent_run()
 
-Run multiple tasks in parallel using threads — one conversation per task, executed simultaneously.
+Run multiple tasks in parallel using threads — one conversation per task, executed simultaneously. Results are returned in the same order as the input `tasks` (the implementation uses `ThreadPoolExecutor.map`, which preserves input order regardless of completion order), so zipping tasks with results is safe.
 
 ```python
 tasks = [
@@ -400,14 +400,14 @@ chat = GroupChat(
 )
 ```
 
-For dynamic behavior that follows @mentions, a custom function can return a list of agents:
+For dynamic behavior that follows @mentions, a custom function can return a list of agents. Note that speaker functions receive and return **agent names** (`List[str]`), not `Agent` objects — this matches the built-in speaker functions in `swarms.structs.groupchat`:
 
 ```python
 from typing import List, Union
 import re
 
 def custom_dynamic_speaker(
-    agents: List[str],
+    agents: List[str],          # agent names, not Agent objects
     response: str = "",
     strategy: str = "sequential",
     **kwargs,
@@ -431,6 +431,10 @@ chat = GroupChat(
     speaker_function=custom_dynamic_speaker,
 )
 ```
+
+<Note>
+  The `@(\w+)` pattern matches letters, digits, and underscores only — the same regex the built-in `random-dynamic-speaker` uses. Hyphenated agent names like `Financial-Analysis-Agent` won't be detected by @mentions; use underscore or camel-case names when relying on mention-following.
+</Note>
 
 ## Conversation Context
 
