@@ -75,9 +75,17 @@ from swarms.structs.heavy_swarm import HeavySwarm
   Maximum number of execution loops for the entire swarm. Each loop builds upon previous results for iterative refinement
 </ParamField>
 
+<ParamField path="use_grok_agents" type="bool" default="False">
+  Run the Grok 4.20 Heavy four-agent architecture instead of the default roster. Replaces the workers with Captain Swarm (orchestrator) plus Harper, Benjamin, and Lucas. Mutually exclusive with `use_grok_heavy`
+</ParamField>
+
+<ParamField path="use_grok_heavy" type="bool" default="False">
+  Run the 16-agent Grok 4.20 Heavy architecture: a Grok captain decomposes the task into 15 domain-specific questions, 15 specialists answer them in parallel, and the captain synthesizes the result. Mutually exclusive with `use_grok_agents`
+</ParamField>
+
 ## Specialized Agents
 
-The HeavySwarm creates and manages 5 specialized agents:
+By default, the HeavySwarm creates and manages 5 specialized agents:
 
 ### Research Agent
 Expert in comprehensive information gathering, data collection, market research, and source verification. Specializes in systematic literature reviews, competitive intelligence, and statistical data interpretation.
@@ -123,6 +131,81 @@ Expert in multi-perspective integration, comprehensive analysis, and executive s
 - Consensus building
 - Prioritized recommendations
 - Stakeholder communication
+
+## Grok 4.20 Heavy modes
+
+The default roster can be swapped for one of two Grok 4.20 Heavy architectures, inspired by X.AI's Grok heavy implementation. Set exactly one of the two flags — they are mutually exclusive, and enabling both raises a `ValueError`.
+
+### `use_grok_agents=True` — four-agent Grok mode
+
+Captain Swarm orchestrates three focused specialists.
+
+| Agent | Role |
+|-------|------|
+| Captain Swarm | Leader and orchestrator |
+| Harper | Research and facts — evidence gathering and fact verification |
+| Benjamin | Logic, math, and code — rigorous reasoning and computational verification |
+| Lucas | Creative and divergent thinking — contrarian analysis and blind-spot detection |
+
+```python
+from swarms import HeavySwarm
+
+swarm = HeavySwarm(
+    name="Grok Analysis Team",
+    description="Multi-agent analysis with Grok-style agents",
+    worker_model_name="gpt-4.1",
+    question_agent_model_name="gpt-4.1",
+    use_grok_agents=True,
+    show_dashboard=True,
+    loops_per_agent=1,
+)
+
+result = swarm.run(
+    "Should a mid-size SaaS company pursue an IPO or seek acquisition "
+    "in the current market?"
+)
+```
+
+### `use_grok_heavy=True` — 16-agent Grok Heavy mode
+
+A Grok captain decomposes the task into 15 domain-specific questions, the 15 specialists answer them in parallel, then the captain synthesizes a single response.
+
+| Agent | Domain |
+|-------|--------|
+| Grok | Lead coordinator and synthesizer |
+| Harper | Creative writing and storytelling |
+| Benjamin | Data, finance and economics |
+| Lucas | Coding, programming and technical builds |
+| Olivia | Literature, arts and culture |
+| James | History, politics and philosophy |
+| Charlotte | Math, statistics and logic |
+| Henry | Engineering, robotics and innovation |
+| Mia | Biology, health and medicine |
+| William | Business strategy and entrepreneurship |
+| Sebastian | Physics, astronomy and hard sciences |
+| Jack | Psychology and human behavior |
+| Owen | Environment, sustainability and global systems |
+| Luna | Space exploration and futurism |
+| Elizabeth | Ethics, policy and critical thinking |
+| Noah | Long-term innovation and systems thinking |
+
+```python
+from swarms import HeavySwarm
+
+swarm = HeavySwarm(
+    name="Grok Heavy 16-Agent Team",
+    description="16-agent deep multi-domain analysis",
+    worker_model_name="gpt-4.1",
+    question_agent_model_name="gpt-4.1",
+    use_grok_heavy=True,
+    show_dashboard=True,
+    loops_per_agent=1,
+)
+
+result = swarm.run(
+    "What are the best energy stocks fueling AI growth?"
+)
+```
 
 ## Methods
 
@@ -172,6 +255,7 @@ Performs comprehensive reliability and configuration validation checks.
 - loops_per_agent is greater than 0
 - worker_model_name is set
 - question_agent_model_name is set
+- `use_grok_agents` and `use_grok_heavy` are not both enabled
 
 **Raises:**
 - `ValueError`: If any configuration parameter is invalid
