@@ -267,9 +267,25 @@ async def analyze(task: str):
     return {"result": result}
 ```
 
-### `run_stream(task, ...)`
+### `run_stream(task, img=None, with_events=False, ...)`
 
-Stream output tokens as they arrive from the director and workers. Useful for live UI.
+Sync generator that streams tokens as they arrive from the director and workers. Bridges `arun_stream()` onto a background thread, so it can be used outside an async context.
+
+```python
+for agent_name, token in swarm.run_stream(task="Develop product launch strategy"):
+    print(f"\r{agent_name}: {token}", end="", flush=True)
+```
+
+Pass `with_events=True` to receive structured event dicts (`swarm_start`, `director_start`, `token`, `director_end`, `worker_start`, `worker_end`, `aggregator_start`, `aggregator_end`, `swarm_end`) tagged with `role` and `loop` instead of plain `(agent_name, token)` tuples.
+
+### `arun_stream(task, img=None, with_events=False, ...)`
+
+Async generator version of `run_stream()`. Use this directly when you already have a running event loop (e.g. inside a FastAPI handler) — `run_stream()` will raise if called from within an event loop.
+
+```python
+async for agent_name, token in swarm.arun_stream(task="Develop product launch strategy"):
+    print(f"\r{agent_name}: {token}", end="", flush=True)
+```
 
 ### `display_hierarchy()`
 
