@@ -522,7 +522,7 @@ Each loop:
 
 ### Concurrent Execution (default)
 
-Orders for multiple agents run in parallel via `run_agents_concurrently`:
+Orders for multiple agents run in parallel using a `ThreadPoolExecutor` (with `max_workers = max(1, int(os.cpu_count() * 0.75))`):
 
 ```python
 orders = [
@@ -633,14 +633,7 @@ except Exception as e:
 
 ### Parallel Order Execution
 
-`run_agents_concurrently` runs all agents in a loop simultaneously when `parallel_execution=True`:
-
-```python
-results = run_agents_concurrently(
-    agents=agents_to_run,
-    task=self.conversation.get_str(),
-)
-```
+When `parallel_execution=True`, `execute_orders` submits all of a loop's orders to a `ThreadPoolExecutor` (sized to `max(1, int(os.cpu_count() * 0.75))` workers) so they run concurrently, then writes the results back to the conversation in submission order.
 
 ### Per-Loop Overhead
 
