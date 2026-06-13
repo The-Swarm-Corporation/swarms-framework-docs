@@ -204,7 +204,7 @@ The `heavy` variant mirrors the [Grok 4.20 Heavy 16-agent system](https://x.com/
   Identifier for the swarm instance.
 </ParamField>
 
-<ParamField path="description" type="str">
+<ParamField path="description" type="str" default='"A swarm of agents that can analyze a task and generate specialized questions for each agent role"'>
   Description of the swarm's purpose.
 </ParamField>
 
@@ -240,7 +240,7 @@ The `heavy` variant mirrors the [Grok 4.20 Heavy 16-agent system](https://x.com/
   Tools made available to all worker agents.
 </ParamField>
 
-<ParamField path="max_loops" type="int" default="1">
+<ParamField path="max_loops" type="Optional[int]" default="1">
   Number of full swarm iterations. Each loop refines the previous synthesis.
 </ParamField>
 
@@ -372,8 +372,7 @@ result = swarm.run("Complex strategic decision")
 Per-loop semantics:
 
 1. Loop 1: original task only
-2. Loop 2: `"Previous loop results: <output> | Original task: <task>"`
-3. Loop 3: same shape — refine, fill gaps, deepen the analysis
+2. Loop 2+: `"Previous loop results: <output>\n\nOriginal task: <task>\n\nBased on the previous results and analysis, continue with the next iteration. Refine, improve, or complete any remaining aspects of the analysis. Build upon the insights from the previous loop to provide deeper analysis."`
 
 ## Dashboard Features
 
@@ -565,7 +564,6 @@ The swarm returns the conversation history formatted by `output_type`. With the 
 # Validation:
 # - worker_model_name must be set
 # - question_agent_model_name must be set
-# - variant must be one of {default, medium, heavy}
 
 try:
     swarm = HeavySwarm(worker_model_name=None)
