@@ -1,27 +1,26 @@
 ---
 title: Group Chat
-description: Enable collaborative multi-agent conversations with flexible speaker selection and interactive sessions
+description: An asynchronous, self-selecting multi-agent conversation where each agent decides for itself whether to reply
 ---
 
-`GroupChat` creates a conversational environment where multiple agents can interact, discuss, and collaboratively solve problems. Support for various speaker selection strategies and interactive terminal sessions makes it ideal for debate, brainstorming, and complex decision-making.
+`GroupChat` runs an asynchronous conversation where every agent gets its own coroutine. Each agent independently evaluates incoming messages, scores its own desire to respond, and only broadcasts a reply when that score clears a configurable `threshold`. There are no rounds and no speaker-selection function — any agent (or several at once) can chime in whenever it has something useful to add.
 
 ## When to Use
 
 - **Debate and discussion**: Multiple perspectives on complex topics
-- **Collaborative problem-solving**: Agents work together through conversation
+- **Collaborative problem-solving**: Agents work together through open conversation
 - **Brainstorming**: Generate ideas through multi-agent interaction
-- **Contract negotiation**: Back-and-forth discussion with stakeholders
-- **Interactive sessions**: Human-in-the-loop group conversations
+- **Open-ended panels**: Let participants speak only when they have something to add, instead of forcing every agent to respond every round
 
 ## Key Features
 
-- Multiple speaker selection strategies
-- @mention support for agent targeting
-- Interactive REPL terminal sessions
-- Conversation history tracking
-- Collaborative response protocols
-- Dynamic speaker function switching
-- Time-stamped messages
+- Asynchronous, self-selecting participation — no fixed speaking order
+- Each agent scores its own desire to respond (`0..1`) via a forced `respond` tool call
+- Configurable `threshold` for how selective agents are
+- Conversation ends after `idle_timeout` seconds of inactivity or `max_loops` total messages
+- `auto_equip` automatically injects the `respond` tool into every agent
+- Conversation history tracking via `Conversation`
+- Inherits `SerializableMixin` — `to_dict()` is available for telemetry / persistence
 
 ## Basic Example
 
@@ -52,7 +51,8 @@ chat = GroupChat(
     name="AI-Ethics-Debate",
     description="Discussion on AI's societal impact",
     agents=[tech_optimist, tech_critic, moderator],
-    max_loops=6,  # Number of conversation turns
+    max_loops=10,     # hard cap on total posted messages
+    threshold=0.5,    # minimum self-rated score required to speak
 )
 
 # Run the discussion
@@ -62,172 +62,110 @@ result = chat.run(
 print(result)
 ```
 
-## Speaker Selection Strategies
+<Note>
+  `GroupChat` requires at least **two** agents — it raises `ValueError` otherwise.
+</Note>
 
-### Round Robin
+## How Agents Decide to Speak
 
-Agents speak in order, cycling through the list:
+There is no speaker-selection function. Instead, each agent's coroutine:
 
-```python
-chat = GroupChat(
-    agents=[agent1, agent2, agent3],
-    speaker_function="round-robin-speaker",
-)
+1. Waits for a message in its inbox (the initial task, or a broadcast from another agent).
+2. Snapshots the current conversation history.
+3. Is asked — via a forced `respond` tool call — to return a `(score, message)` pair: `score` is `0..1` for how much it wants to reply, and `message` is its reply (or an empty string).
+4. Broadcasts `message` to every other agent's inbox **only if** `score > threshold`.
 
-# Execution: agent1 -> agent2 -> agent3 -> agent1 -> ...
-```
+Multiple agents can score above threshold for the same message and reply concurrently — there's no turn-taking.
 
-### Random Speaker
+The conversation stops when either:
 
-Randomly select one agent per turn:
+- `max_loops` total messages have been posted (the initial task counts as message 1), or
+- `idle_timeout` seconds pass with no new messages.
 
-```python
-chat = GroupChat(
-    agents=[agent1, agent2, agent3],
-    speaker_function="random-speaker",
-)
+### The `respond` tool
 
-# Each turn: randomly pick one agent
-```
-
-### Priority-Based
-
-Select agents based on priority weights:
+`auto_equip=True` (the default) appends `RESPOND_TOOL` to each agent's `tools_list_dictionary` and rebuilds its LLM client so every model call is forced to return a structured score/message decision:
 
 ```python
-chat = GroupChat(
-    agents=[expert, analyst, assistant],
-    speaker_function="priority-speaker",
-    speaker_state={
-        "priorities": {
-            "expert": 5,
-            "analyst": 3,
-            "assistant": 1,
-        }
-    },
-)
+from swarms.structs.groupchat import RESPOND_TOOL
 
-# Higher priority = more likely to speak
+print(RESPOND_TOOL)
+# {
+#     "type": "function",
+#     "function": {
+#         "name": "respond",
+#         "description": "Decide whether to reply in the groupchat. Set score 0..1 ...",
+#         "parameters": {
+#             "type": "object",
+#             "properties": {
+#                 "score": {"type": "number", "minimum": 0, "maximum": 1},
+#                 "message": {"type": "string"},
+#             },
+#             "required": ["score", "message"],
+#         },
+#     },
+# }
 ```
 
-### Random Dynamic
-
-First speaker random, then follows @mentions:
-
-```python
-chat = GroupChat(
-    agents=[agent1, agent2, agent3],
-    speaker_function="random-dynamic-speaker",
-    speaker_state={"strategy": "sequential"},  # or "parallel"
-)
-
-# Agent can mention others: "I think @agent2 should review this"
-```
-
-## @Mention Support
-
-Agents can reference each other using @mentions:
-
-```python
-# Agents automatically learn about @mentions
-chat = GroupChat(
-    agents=[researcher, analyst, writer],
-)
-
-# In responses, agents can use:
-# "Let me ask @researcher to investigate this further"
-# "I agree with @analyst's assessment"
-# "@writer can you summarize our findings?"
-```
-
-When using @mentions:
-- Agents receive collaboration guidelines
-- Mention instructions added to system prompts
-- Context about available agents provided
-
-## Interactive Terminal Sessions
-
-```python
-# Enable interactive mode
-chat = GroupChat(
-    name="Research-Team",
-    agents=[researcher, analyst, writer],
-    interactive=True,
-)
-
-# Start REPL session
-chat.start_interactive_session()
-
-# User can:
-# - Type questions and tasks
-# - Use @mentions to target specific agents
-# - Type 'help' for commands
-# - Type 'speaker' to change speaker function
-# - Type 'exit' to end session
-```
-
-Interactive commands:
-- `help` or `?` - Show help menu
-- `exit` or `quit` - End session
-- `speaker` - Change speaker selection strategy
-- `@agent_name` - Mention specific agents (optional)
+If you set `auto_equip=False`, your agents must already carry a compatible `respond` tool — otherwise their speaking decisions can't be parsed and they'll stay silent for the whole chat.
 
 ## Key Parameters
 
-<ParamField path="name" type="str" default="GroupChat">
-  Name for the group chat
+<ParamField path="name" type="str" default='"dynamic-groupchat"'>
+  Human-readable name used in logs and serialized state.
 </ParamField>
 
-<ParamField path="description" type="str">
-  Description of the group chat's purpose
+<ParamField path="description" type="str" default='"Agents choose whether to speak at any time."'>
+  Short description of the chat's purpose.
 </ParamField>
 
-<ParamField path="agents" type="List[Agent]" required>
-  List of agents participating in the chat
+<ParamField path="agents" type="Optional[List[Agent]]" required>
+  Participating agents. At least 2 are required.
 </ParamField>
 
-<ParamField path="max_loops" type="int" default="1">
-  Maximum number of conversation turns
+<ParamField path="max_loops" type="int" default="20">
+  Maximum number of messages posted before stopping, including the initial task.
 </ParamField>
 
-<ParamField path="speaker_function" type="Union[str, Callable]">
-  Speaker selection strategy ("round-robin-speaker", "random-speaker", etc.)
+<ParamField path="threshold" type="float" default="0.5">
+  Minimum self-rated score (`0..1`) required for an agent's reply to be broadcast. Raise it to make agents more selective; lower it for livelier chats.
 </ParamField>
 
-<ParamField path="speaker_state" type="dict">
-  Configuration for speaker function (e.g., priorities, strategy)
+<ParamField path="idle_timeout" type="float" default="8.0">
+  Seconds of inactivity after which the conversation ends.
 </ParamField>
 
-<ParamField path="output_type" type="str" default="dict">
-  Output format for conversation history
+<ParamField path="output_type" type="str" default='"str-all-except-first"'>
+  Format passed to `history_output_formatter` for the returned conversation history. See [Output Formats](#output-formats).
 </ParamField>
 
-<ParamField path="interactive" type="bool" default="False">
-  Enable interactive terminal session
+<ParamField path="verbose" type="bool" default="False">
+  Emit internal log messages (e.g. injected tools, broadcast activity).
 </ParamField>
 
-<ParamField path="rules" type="str">
-  Rules to add to conversation context
+<ParamField path="print_on" type="bool" default="True">
+  Print each broadcast message to the terminal as it happens, via `formatter.print_panel`.
 </ParamField>
 
-<ParamField path="time_enabled" type="bool" default="True">
-  Include timestamps in messages
+<ParamField path="auto_equip" type="bool" default="True">
+  Automatically inject `RESPOND_TOOL` into every agent's `tools_list_dictionary` and rebuild its LLM client.
 </ParamField>
 
 ## Methods
 
-### run()
+### `run(task)`
 
-Execute the group chat with a task.
+Synchronously run the groupchat until it idles out or hits `max_loops`. Internally wraps the async implementation in `asyncio.run()`.
 
 ```python
-result = chat.run(
-    task="Discuss the future of quantum computing",
-    img=None,  # Optional image
-)
+result = chat.run("Discuss the future of quantum computing")
 ```
 
-### batched_run()
+<Note>
+  Because `run()` calls `asyncio.run()`, it cannot be called from inside an already-running event loop (notebooks, async frameworks). In those contexts, call the internal async implementation directly or run the chat in a separate thread.
+</Note>
+
+### `run_batch(tasks)`
 
 Run multiple tasks in sequence, one complete conversation per task.
 
@@ -238,97 +176,27 @@ tasks = [
     "Review commodity prices",
 ]
 
-results = chat.batched_run(tasks)
+results = chat.run_batch(tasks)
 ```
 
-### concurrent_run()
+### `to_dict()`
 
-Run multiple tasks in parallel using threads — one conversation per task, executed simultaneously. Results are returned in the same order as the input `tasks` (the implementation uses `ThreadPoolExecutor.map`, which preserves input order regardless of completion order), so zipping tasks with results is safe.
-
-```python
-tasks = [
-    "Analyze tech sector trends",
-    "Evaluate real estate market",
-    "Review commodity prices",
-    "Assess global economic indicators",
-]
-
-results = chat.concurrent_run(tasks)
-
-for task, result in zip(tasks, results):
-    print(f"\nAnalysis for: {task}")
-    print(result)
-```
-
-### start_interactive_session()
-
-Start an interactive REPL session.
-
-```python
-chat = GroupChat(
-    agents=agents,
-    interactive=True,
-)
-
-chat.start_interactive_session()
-```
-
-### set_speaker_function()
-
-Dynamically change speaker selection:
-
-```python
-chat.set_speaker_function(
-    speaker_function="priority-speaker",
-    speaker_state={"priorities": {"expert": 5, "novice": 1}},
-)
-```
-
-### get_available_speaker_functions()
-
-List all available speaker strategies:
-
-```python
-functions = chat.get_available_speaker_functions()
-print(functions)
-# ['round-robin-speaker', 'random-speaker', 'priority-speaker', 'random-dynamic-speaker']
-```
-
-## Collaborative Response Protocol
-
-Agents automatically receive collaboration guidelines:
-
-**Response Structure:**
-1. **ACKNOWLEDGE**: Reference other agents' contributions
-2. **BUILD**: Add perspective while building on insights
-3. **CONTRIBUTE**: Provide unique expertise
-4. **COLLABORATE**: Use @mentions when needed
-5. **COMPLETE**: Indicate task status
-6. **SYNTHESIZE**: Combine insights
-
-**Example Good Collaboration:**
-```
-"I've reviewed @analyst's data analysis and @researcher's market insights. 
-The data shows strong growth potential, and I agree with @researcher that we 
-should focus on emerging markets. Let me add that from a content perspective, 
-we should ask @writer to create targeted messaging. I have completed my market 
-analysis. The task now requires @writer to develop content."
-```
+Inherited from `SerializableMixin`. Returns a JSON-friendly snapshot of the chat configuration (excludes `agents` and `conversation`).
 
 ## Use Cases
 
 ### Debate System
 
 ```python
-pro_agent = Agent(agent_name="ProAI", system_prompt="Argue for AI benefits", ...)
-con_agent = Agent(agent_name="ConAI", system_prompt="Argue AI risks", ...)
-judge = Agent(agent_name="Judge", system_prompt="Evaluate arguments", ...)
+pro_agent = Agent(agent_name="ProAI", system_prompt="Argue for AI benefits", model_name="gpt-5.4")
+con_agent = Agent(agent_name="ConAI", system_prompt="Argue AI risks", model_name="gpt-5.4")
+judge = Agent(agent_name="Judge", system_prompt="Evaluate arguments", model_name="gpt-5.4")
 
 debate = GroupChat(
     name="AI-Debate",
     agents=[pro_agent, con_agent, judge],
-    max_loops=9,  # 3 rounds each
-    speaker_function="round-robin-speaker",
+    max_loops=12,
+    threshold=0.6,  # judge and debaters should be selective
 )
 
 verdict = debate.run("Should AI development be regulated?")
@@ -337,248 +205,90 @@ verdict = debate.run("Should AI development be regulated?")
 ### Research Collaboration
 
 ```python
-literature_expert = Agent(agent_name="LitExpert", ...)
-data_scientist = Agent(agent_name="DataSci", ...)
-statistician = Agent(agent_name="Stats", ...)
-writer = Agent(agent_name="Writer", ...)
+literature_expert = Agent(agent_name="LitExpert", model_name="gpt-5.4")
+data_scientist = Agent(agent_name="DataSci", model_name="gpt-5.4")
+statistician = Agent(agent_name="Stats", model_name="gpt-5.4")
+writer = Agent(agent_name="Writer", model_name="gpt-5.4")
 
 research_chat = GroupChat(
     name="Research-Collaboration",
     agents=[literature_expert, data_scientist, statistician, writer],
-    speaker_function="random-dynamic-speaker",
-    speaker_state={"strategy": "sequential"},
+    max_loops=20,
+    idle_timeout=15.0,  # give agents more time to think between contributions
 )
 
-paper = research_chat.run("Collaborate on research paper about machine learning")
+paper = research_chat.run("Collaborate on a research paper about machine learning")
 ```
 
 ### Customer Service Team
 
 ```python
-technical_support = Agent(agent_name="TechSupport", ...)
-billing_specialist = Agent(agent_name="Billing", ...)
-product_expert = Agent(agent_name="ProductExpert", ...)
-escalation_manager = Agent(agent_name="Manager", ...)
+technical_support = Agent(agent_name="TechSupport", model_name="gpt-5.4")
+billing_specialist = Agent(agent_name="Billing", model_name="gpt-5.4")
+product_expert = Agent(agent_name="ProductExpert", model_name="gpt-5.4")
+escalation_manager = Agent(agent_name="Manager", model_name="gpt-5.4")
 
 support_team = GroupChat(
     name="Support-Team",
     agents=[technical_support, billing_specialist, product_expert, escalation_manager],
-    speaker_function="priority-speaker",
-    speaker_state={
-        "priorities": {
-            "Manager": 5,
-            "ProductExpert": 3,
-            "TechSupport": 2,
-            "Billing": 2,
-        }
-    },
-    interactive=True,
+    max_loops=15,
 )
 
-support_team.start_interactive_session()
-```
-
-## Custom Speaker Functions
-
-```python
-def expertise_based_speaker(agents: List[str], last_response: str = "", **kwargs) -> str:
-    """Select agent based on expertise keywords in last response"""
-    if not last_response:
-        return random.choice(agents)
-    
-    # Check for expertise keywords
-    if "technical" in last_response.lower():
-        return "TechExpert"
-    elif "legal" in last_response.lower():
-        return "Lawyer"
-    else:
-        return random.choice(agents)
-
-chat = GroupChat(
-    agents=agents,
-    speaker_function=expertise_based_speaker,
-)
-```
-
-For dynamic behavior that follows @mentions, a custom function can return a list of agents. Note that speaker functions receive and return **agent names** (`List[str]`), not `Agent` objects — this matches the built-in speaker functions in `swarms.structs.groupchat`:
-
-```python
-from typing import List, Union
-import re
-
-def custom_dynamic_speaker(
-    agents: List[str],          # agent names, not Agent objects
-    response: str = "",
-    strategy: str = "sequential",
-    **kwargs,
-) -> Union[str, List[str]]:
-    """Follow @mentions in the previous response."""
-    if not agents:
-        raise ValueError("No agents available for speaker selection")
-
-    mentions = re.findall(r"@(\w+)", response)
-    valid_mentions = [m for m in mentions if m in agents]
-
-    if valid_mentions:
-        if strategy == "sequential":
-            return valid_mentions[0]
-        return valid_mentions  # parallel
-
-    return agents[0]
-
-chat = GroupChat(
-    agents=agents,
-    speaker_function=custom_dynamic_speaker,
-)
-```
-
-<Note>
-  The `@(\w+)` pattern matches letters, digits, and underscores only — the same regex the built-in `random-dynamic-speaker` uses. Hyphenated agent names like `Financial-Analysis-Agent` won't be detected by @mentions; use underscore or camel-case names when relying on mention-following.
-</Note>
-
-## Conversation Context
-
-Agents receive complete context:
-
-```python
-# Each agent sees:
-# 1. Group chat name and description
-# 2. List of all participants
-# 3. @mention instructions
-# 4. Collaboration guidelines
-# 5. Complete conversation history
-# 6. Task completion guidelines
-```
-
-## Agent Context Prompt
-
-Automatic prompt augmentation:
-
-```python
-# Added to each agent's system prompt:
-"""
-You are part of a group chat named '{name}' with description: {description}
-
-Other participants:
-- @agent1: {description}
-- @agent2: {description}
-
-You can mention other agents using @agent_name to request input.
-
-COLLABORATIVE RESPONSE PROTOCOL:
-1. FIRST: Read all previous responses
-2. ACKNOWLEDGE: Reference other agents' contributions
-3. BUILD UPON: Add your perspective
-4. MENTION: Use @agent_name when needed
-5. COMPLETE: Indicate when done
-"""
-```
-
-## Sequential vs Parallel Strategies
-
-### Sequential Strategy
-
-One mentioned agent responds at a time:
-
-```python
-chat = GroupChat(
-    agents=agents,
-    speaker_function="random-dynamic-speaker",
-    speaker_state={"strategy": "sequential"},
-)
-
-# If agent says "@agent2 @agent3 please review"
-# Executes: agent2 -> agent3
-```
-
-### Parallel Strategy
-
-All mentioned agents respond simultaneously:
-
-```python
-chat = GroupChat(
-    agents=agents,
-    speaker_function="random-dynamic-speaker",
-    speaker_state={"strategy": "parallel"},
-)
-
-# If agent says "@agent2 @agent3 please review"
-# Executes: agent2 and agent3 in parallel
+result = support_team.run("Customer reports their account was charged twice this month.")
 ```
 
 ## Output Formats
 
+`output_type` is passed straight to `history_output_formatter`. Common values:
+
 ```python
-# Dictionary format
-chat_dict = GroupChat(agents=agents, output_type="dict")
+# Plain string, excluding the first (task) message — the default
+chat = GroupChat(agents=agents, output_type="str-all-except-first")
 
-# String format
-chat_str = GroupChat(agents=agents, output_type="str")
+# Full conversation as a dict
+chat = GroupChat(agents=agents, output_type="dict")
 
-# List format
-chat_list = GroupChat(agents=agents, output_type="list")
+# Full conversation as a list
+chat = GroupChat(agents=agents, output_type="list")
+
+# Only the final message
+chat = GroupChat(agents=agents, output_type="final")
 ```
+
+Other accepted values include `"string"`, `"dict-all-except-first"`, `"json"`, `"yaml"`, `"xml"`, and `"all"` — see `swarms.utils.output_types.HistoryOutputType` for the full list.
 
 ## Best Practices
 
 <Note>
-  **Speaker Selection**: Match strategy to task - round robin for equal participation, priority for expert weighting
+  **Threshold tuning**: a higher `threshold` (e.g. `0.6`–`0.8`) produces tighter, more selective conversations; a lower `threshold` (e.g. `0.3`) produces livelier chats where more agents chime in on each message.
 </Note>
 
-1. **Clear Roles**: Give agents distinct perspectives/expertise
-2. **Appropriate Length**: 4-12 turns typically optimal
-3. **Speaker Strategy**: Choose based on desired interaction pattern
-4. **@Mentions**: Enable for targeted collaboration
-5. **Max Loops**: Balance thoroughness with efficiency
+1. **Clear roles** — give agents distinct perspectives/expertise so the `respond` decision (based on relevance to their expertise) is meaningful.
+2. **Set `idle_timeout` deliberately** — too short and slow models won't get a chance to reply; too long and a quiet chat will run until `max_loops`.
+3. **Cap `max_loops`** — this is a hard ceiling on total messages (including the initial task), so set it based on how many exchanges you actually want.
+4. **At least two agents** — `GroupChat` raises `ValueError` with fewer than 2.
+5. **Leave `auto_equip=True`** unless your agents already define a compatible `respond` tool.
 
 <Warning>
-  Conversation length grows linearly with agents and turns - monitor context window limits
+  Conversation length and cost scale with `max_loops` and the number of agents — every agent is asked to score every message that arrives in its inbox, even if it ultimately stays silent.
 </Warning>
-
-## Interactive Session Example
-
-```
-Welcome to Research-Team!
-Description: Collaborative research group
-
-Available agents:
-- @Researcher: Expert in research
-- @Analyst: Data analysis specialist
-- @Writer: Technical writer
-
-Commands:
-- Type 'help' or '?' for help
-- Type 'exit' or 'quit' to end
-- Use @agent_name to mention agents
-
-You: I need help analyzing market data
-
-[Analyst]: I can help with that. Let me analyze the key metrics...
-[Researcher]: I'll gather supporting research...
-[Writer]: I'll document our findings...
-
-You: @Analyst can you focus on growth trends?
-
-[Analyst]: Focusing on growth trends, I see...
-```
 
 ## Error Handling
 
 ```python
 try:
     result = chat.run("Task")
-except GroupChatError as e:
-    print(f"Chat error: {e}")
-except AgentNotFoundError as e:
-    print(f"Agent not found: {e}")
-    # Mentioned agent doesn't exist
-except InvalidSpeakerFunctionError as e:
-    print(f"Invalid speaker function: {e}")
+except ValueError as e:
+    print(f"Configuration error: {e}")
+    # e.g. fewer than 2 agents
+except Exception as e:
+    print(f"Execution error: {e}")
+    # e.g. runtime errors from individual agents
 ```
 
 ## Related Architectures
 
-- [Hierarchical Swarm](/architectures/hierarchical-swarm) - Structured coordination
+- [Hierarchical Swarm](/architectures/hierarchical-swarm) - Structured director/worker coordination
 - [Mixture of Agents](/architectures/mixture-of-agents) - Parallel with synthesis
 - [Social Algorithms](/architectures/social-algorithms) - Custom communication patterns
 - [Agent Rearrange](/architectures/agent-rearrange) - Custom flows
