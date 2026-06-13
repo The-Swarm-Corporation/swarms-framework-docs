@@ -45,7 +45,7 @@ router = SwarmRouter(
 | `"ConcurrentWorkflow"` | Run all agents in parallel on the same task |
 | `"AgentRearrange"` | Custom flow defined by a `rearrange_flow` string |
 | `"MixtureOfAgents"` | Workers run, then the last agent aggregates their output |
-| `"GroupChat"` | Agents converse, ordered by a speaker-selection function |
+| `"GroupChat"` | Agents self-select to speak asynchronously once their desire-to-respond score clears a threshold |
 | `"HierarchicalSwarm"` | A director delegates subtasks to worker agents |
 | `"HeavySwarm"` | Question agent + specialized workers + synthesis |
 | `"MajorityVoting"` | Agents answer independently; the majority wins |
@@ -162,14 +162,6 @@ moa_result = moa.run(task)
   Optional per-agent config overrides.
 </ParamField>
 
-<ParamField path="speaker_fn" type="Callable">
-  Speaker-selection function for `GroupChat`-style swarms.
-</ParamField>
-
-<ParamField path="speaker_function" type="str">
-  Name-based speaker function selector (alternative to passing `speaker_fn`).
-</ParamField>
-
 <ParamField path="telemetry_enabled" type="bool" default="False">
   When `True`, snapshot each agent's config into `self.agent_config`.
 </ParamField>
@@ -196,11 +188,11 @@ router = SwarmRouter(
 
 ### `HeavySwarm`
 
-<ParamField path="heavy_swarm_question_agent_model_name" type="str" default='"gpt-4.1"'>
+<ParamField path="heavy_swarm_question_agent_model_name" type="str" default='"gpt-5.4"'>
   Model for the HeavySwarm question agent.
 </ParamField>
 
-<ParamField path="heavy_swarm_worker_model_name" type="str" default='"gpt-4.1"'>
+<ParamField path="heavy_swarm_worker_model_name" type="str" default='"gpt-5.4"'>
   Model for HeavySwarm workers.
 </ParamField>
 
@@ -362,11 +354,14 @@ group_chat_router = SwarmRouter(
     max_loops=10,
     agents=[financial_analyst, market_researcher, competitor_analyst],
     swarm_type="GroupChat",
-    speaker_function="round-robin-speaker",  # or "random-speaker", "priority-speaker", "random-dynamic-speaker"
 )
 
 result = group_chat_router.run("Discuss the pros and cons of expanding into the Asian market")
 ```
+
+<Note>
+  `GroupChat` is an asynchronous, self-selecting chat — each agent independently scores its own desire to respond and only replies if that score clears `threshold` (default `0.5`). `SwarmRouter` only forwards `name`, `description`, `agents`, `max_loops`, `output_type`, and `verbose` to `GroupChat`; `threshold` and `idle_timeout` use their defaults and aren't currently configurable through `SwarmRouter`. See [Group Chat](/architectures/group-chat) for details.
+</Note>
 
 ### MultiAgentRouter — Route Tasks to the Best Agent
 
