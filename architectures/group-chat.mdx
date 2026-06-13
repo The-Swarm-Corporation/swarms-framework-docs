@@ -227,6 +227,39 @@ result = chat.run(
 )
 ```
 
+### batched_run()
+
+Run multiple tasks in sequence, one complete conversation per task.
+
+```python
+tasks = [
+    "Analyze tech sector trends",
+    "Evaluate real estate market",
+    "Review commodity prices",
+]
+
+results = chat.batched_run(tasks)
+```
+
+### concurrent_run()
+
+Run multiple tasks in parallel using threads — one conversation per task, executed simultaneously. Results are returned in the same order as the input `tasks` (the implementation uses `ThreadPoolExecutor.map`, which preserves input order regardless of completion order), so zipping tasks with results is safe.
+
+```python
+tasks = [
+    "Analyze tech sector trends",
+    "Evaluate real estate market",
+    "Review commodity prices",
+    "Assess global economic indicators",
+]
+
+results = chat.concurrent_run(tasks)
+
+for task, result in zip(tasks, results):
+    print(f"\nAnalysis for: {task}")
+    print(result)
+```
+
 ### start_interactive_session()
 
 Start an interactive REPL session.
@@ -366,6 +399,42 @@ chat = GroupChat(
     speaker_function=expertise_based_speaker,
 )
 ```
+
+For dynamic behavior that follows @mentions, a custom function can return a list of agents. Note that speaker functions receive and return **agent names** (`List[str]`), not `Agent` objects — this matches the built-in speaker functions in `swarms.structs.groupchat`:
+
+```python
+from typing import List, Union
+import re
+
+def custom_dynamic_speaker(
+    agents: List[str],          # agent names, not Agent objects
+    response: str = "",
+    strategy: str = "sequential",
+    **kwargs,
+) -> Union[str, List[str]]:
+    """Follow @mentions in the previous response."""
+    if not agents:
+        raise ValueError("No agents available for speaker selection")
+
+    mentions = re.findall(r"@(\w+)", response)
+    valid_mentions = [m for m in mentions if m in agents]
+
+    if valid_mentions:
+        if strategy == "sequential":
+            return valid_mentions[0]
+        return valid_mentions  # parallel
+
+    return agents[0]
+
+chat = GroupChat(
+    agents=agents,
+    speaker_function=custom_dynamic_speaker,
+)
+```
+
+<Note>
+  The `@(\w+)` pattern matches letters, digits, and underscores only — the same regex the built-in `random-dynamic-speaker` uses. Hyphenated agent names like `Financial-Analysis-Agent` won't be detected by @mentions; use underscore or camel-case names when relying on mention-following.
+</Note>
 
 ## Conversation Context
 
