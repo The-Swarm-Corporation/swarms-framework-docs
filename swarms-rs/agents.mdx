@@ -65,6 +65,7 @@ async fn main() -> Result<()> {
 | `retry_attempts` | Retries on failure | No |
 | `enable_autosave` | Persist state between runs | No |
 | `save_state_dir` | Directory for saved state | No |
+| `enable_plan` | Enable structured planning with a custom planning prompt | No |
 
 <Tip>
   Start with low `max_loops` and increase only when tasks need deeper multi-step reasoning — each loop may add API cost.
@@ -118,6 +119,12 @@ let agent = client
     .enable_autosave()
     .max_loops(3)
     .save_state_dir("./crypto_analysis/")
+    .enable_plan("Break down the crypto analysis into systematic steps:
+        1. Gather market data
+        2. Analyze technical indicators
+        3. Review fundamental factors
+        4. Assess market sentiment
+        5. Provide comprehensive insights".to_owned())
     .build();
 
 let response = agent
