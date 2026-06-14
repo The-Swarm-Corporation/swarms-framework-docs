@@ -11,7 +11,7 @@ This page walks through one runnable example per common `swarm_type`, plus a str
 
 1. **Single interface** — one class, one `run(task)` method, regardless of which architecture you select.
 2. **Strategy via parameter** — set `swarm_type="SequentialWorkflow"`, `"ConcurrentWorkflow"`, `"MixtureOfAgents"`, etc.
-3. **Per-architecture options** — some swarm types accept extra kwargs (e.g. `rearrange_flow`, `aggregator_agent`).
+3. **Per-architecture options** — some swarm types use dedicated router parameters (e.g. `rearrange_flow` for `AgentRearrange`, the `heavy_swarm_*` settings for `HeavySwarm`). For `MixtureOfAgents`, the **last agent in `agents`** is used as the aggregator automatically.
 4. **Same agents everywhere** — define your `Agent` instances once and reuse them across architectures.
 
 ## Basic Example: Switching Architectures Without Rewriting Code
@@ -152,7 +152,7 @@ print(result)
 
 ## Example: Mixture of Agents via SwarmRouter
 
-Workers respond independently, then an aggregator agent synthesizes a final answer. Pass a dedicated `aggregator_agent`.
+Workers respond independently, then an aggregator agent synthesizes a final answer. With `SwarmRouter`, the aggregator is **not** a separate kwarg — it is the **last agent** in the `agents` list.
 
 ```python
 from swarms import Agent
@@ -186,8 +186,8 @@ aggregator = Agent(
 router = SwarmRouter(
     name="multi-provider-ensemble",
     swarm_type="MixtureOfAgents",
-    agents=[worker_gpt, worker_claude, worker_llama],
-    aggregator_agent=aggregator,
+    # The last agent in the list is used as the aggregator automatically.
+    agents=[worker_gpt, worker_claude, worker_llama, aggregator],
 )
 
 result = router.run(
@@ -254,11 +254,9 @@ results = {}
 aggregator = Agent(agent_name="Aggregator", model_name="gpt-5.4")
 
 for strategy in strategies:
-    kwargs = {"swarm_type": strategy, "agents": agents}
-    if strategy == "MixtureOfAgents":
-        kwargs["aggregator_agent"] = aggregator
-
-    router = SwarmRouter(**kwargs)
+    # For MixtureOfAgents, append the aggregator as the last agent.
+    swarm_agents = agents + [aggregator] if strategy == "MixtureOfAgents" else agents
+    router = SwarmRouter(swarm_type=strategy, agents=swarm_agents)
     results[strategy] = router.run(task)
 
 for strategy, output in results.items():
@@ -296,10 +294,9 @@ aggregator = Agent(agent_name="Aggregator", model_name="gpt-5.4")
 
 def route_task(task: str) -> str:
     swarm_type = pick_swarm_type(task)
-    kwargs = {"swarm_type": swarm_type, "agents": agents}
-    if swarm_type == "MixtureOfAgents":
-        kwargs["aggregator_agent"] = aggregator
-    return SwarmRouter(**kwargs).run(task)
+    # MixtureOfAgents uses the last agent in the list as the aggregator.
+    swarm_agents = agents + [aggregator] if swarm_type == "MixtureOfAgents" else agents
+    return SwarmRouter(swarm_type=swarm_type, agents=swarm_agents).run(task)
 
 
 print(route_task("Compare three competing perspectives on AGI timelines."))
@@ -308,22 +305,22 @@ print(route_task("Decompose and delegate: build a fintech compliance checklist."
 
 ## Pattern: Production-Ready Configuration
 
-Combine `rules`, `autosave`, and explicit `output_type` for a deployable router. The router will save its config, state, and metadata after every run.
+Combine `autosave`, the multi-agent collaboration prompt, and an explicit `output_type` for a deployable router. The router will save its config, state, and metadata after every run.
 
 ```python
 from swarms import Agent
 from swarms.structs.swarm_router import SwarmRouter
 
-rules = """
-1. Cite sources for every factual claim.
-2. Prefer concise outputs over verbose ones.
-3. Flag any uncertainty explicitly.
-"""
+# Apply global guardrails through each agent's system prompt.
+SHARED_RULES = (
+    "Always: 1) cite sources for every factual claim, "
+    "2) prefer concise outputs, 3) flag any uncertainty explicitly."
+)
 
 agents = [
-    Agent(agent_name="Analyst", model_name="gpt-5.4"),
-    Agent(agent_name="Writer",  model_name="gpt-5.4"),
-    Agent(agent_name="QA",      model_name="gpt-5.4"),
+    Agent(agent_name="Analyst", model_name="gpt-5.4", system_prompt=SHARED_RULES),
+    Agent(agent_name="Writer",  model_name="gpt-5.4", system_prompt=SHARED_RULES),
+    Agent(agent_name="QA",      model_name="gpt-5.4", system_prompt=SHARED_RULES),
 ]
 
 router = SwarmRouter(
@@ -333,7 +330,6 @@ router = SwarmRouter(
     agents=agents,
     max_loops=1,
     output_type="dict-all-except-first",
-    rules=rules,
     autosave=True,
     autosave_use_timestamp=True,
     multi_agent_collab_prompt=True,
@@ -388,7 +384,8 @@ threaded_result = router.concurrent_run(
 
 ## What to Avoid
 
-- **Don't add the aggregator to `agents`** when using `MixtureOfAgents` — pass it via the dedicated `aggregator_agent` kwarg so it isn't also run as a worker.
+- **Do put the aggregator last in `agents`** when using `MixtureOfAgents` — `SwarmRouter` uses `agents[-1]` as the aggregator. There is no `aggregator_agent` kwarg on the router.
+- **Don't pass unsupported constructor kwargs** (e.g. `rules`, `aggregator_agent`, `speaker_fn`) — the router's `__init__` swallows extra `**kwargs` and silently ignores them. Apply global rules through each agent's `system_prompt` instead.
 - **Don't omit `rearrange_flow`** when using `AgentRearrange` — it is required and validated at construction time.
 - **Don't reuse a SwarmRouter across unrelated tasks expecting clean state** — construct a new one per logical job, or reset its internal conversation between runs.
 
