@@ -19,6 +19,7 @@ description: An asynchronous, self-selecting multi-agent conversation where each
 - Configurable `threshold` for how selective agents are
 - Conversation ends after `idle_timeout` seconds of inactivity or `max_loops` total messages
 - `auto_equip` automatically injects the `respond` tool into every agent
+- Mixed model providers — each agent runs in its own coroutine, so participants can use different LLM providers concurrently
 - Conversation history tracking via `Conversation`
 - Inherits `SerializableMixin` — `to_dict()` is available for telemetry / persistence
 
@@ -268,6 +269,7 @@ Other accepted values include `"string"`, `"dict-all-except-first"`, `"json"`, `
 3. **Cap `max_loops`** — this is a hard ceiling on total messages (including the initial task), so set it based on how many exchanges you actually want.
 4. **At least two agents** — `GroupChat` raises `ValueError` with fewer than 2.
 5. **Leave `auto_equip=True`** unless your agents already define a compatible `respond` tool.
+6. **Per-agent settings** — set `max_loops=1` on each agent so it makes one decision per inbox message, and `persistent_memory=False` so every decision is made fresh from the shared conversation history rather than the agent's own memory.
 
 <Warning>
   Conversation length and cost scale with `max_loops` and the number of agents — every agent is asked to score every message that arrives in its inbox, even if it ultimately stays silent.
