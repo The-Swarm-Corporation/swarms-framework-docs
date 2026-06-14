@@ -71,12 +71,12 @@ pip install -U swarms
   List of agents to execute tasks.
 </ParamField>
 
-<ParamField path="conversation_args" type="dict" default="None">
-  Arguments for the conversation.
-</ParamField>
-
 <ParamField path="max_loops" type="int" default="1">
   Maximum number of execution loops to run (must be >= 1).
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict">
+  Format applied to the conversation history. Options include `"dict"`, `"list"`, `"str"`, `"final"`.
 </ParamField>
 
 ## Methods
@@ -162,7 +162,7 @@ from swarms import Agent, BatchedGridWorkflow
 workflow = BatchedGridWorkflow(
     agents=[agent1, agent2, agent3],
     max_loops=3,
-    conversation_args={"message_id_on": True}
+    output_type="dict",
 )
 
 # Execute tasks with multiple iterations

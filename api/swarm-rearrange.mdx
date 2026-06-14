@@ -56,6 +56,10 @@ pip install -U swarms
   Return results in JSON format.
 </ParamField>
 
+<ParamField path="output_type" type="HistoryOutputType" default="dict-all-except-first">
+  Format applied to the conversation history. Options include `"dict-all-except-first"`, `"dict"`, `"list"`, `"str"`, `"final"`.
+</ParamField>
+
 ## Methods
 
 ### add_swarm()
