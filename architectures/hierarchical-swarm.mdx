@@ -64,6 +64,23 @@ print(result)
 
 ## Architecture Flow
 
+```mermaid
+graph TD
+    A[Task] --> B[Director]
+    B --> C[Plan & Orders]
+    C --> D[Agents]
+    D --> E[Results]
+    E --> F{agent_as_judge?}
+    F -->|Yes| G[Judge Agent — scores outputs]
+    F -->|No| H{director_feedback_on?}
+    H -->|Yes| I[Director Feedback]
+    H -->|No| J{More Loops?}
+    G --> J
+    I --> J
+    J -->|Yes| B
+    J -->|No| K[Output]
+```
+
 ```
 1. User task → Director Agent
 2. (Optional) Director runs a planning pass
@@ -221,9 +238,54 @@ results = swarm.batched_run([
 ])
 ```
 
-### `run_stream(task, ...)`
+### `arun(task, ...)`
 
-Stream output tokens as they arrive from the director and workers. Useful for live UI.
+Async entry point that wraps `run()` in `asyncio.to_thread()`, so the swarm can be awaited without blocking the event loop. Accepts the same parameters as `run()`.
+
+```python
+import asyncio
+
+result = asyncio.run(
+    swarm.arun(task="Summarize recent AI research trends")
+)
+```
+
+<Note>
+  `asyncio.run()` raises `RuntimeError` if an event loop is already running (notebooks, some REPLs, async frameworks). In those environments, `await swarm.arun(...)` directly instead.
+</Note>
+
+Use `arun()` when integrating the swarm into an existing async application:
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.post("/analyze")
+async def analyze(task: str):
+    result = await swarm.arun(task=task)
+    return {"result": result}
+```
+
+### `run_stream(task, img=None, with_events=False, ...)`
+
+Sync generator that streams tokens as they arrive from the director and workers. Bridges `arun_stream()` onto a background thread, so it can be used outside an async context.
+
+```python
+for agent_name, token in swarm.run_stream(task="Develop product launch strategy"):
+    print(f"\r{agent_name}: {token}", end="", flush=True)
+```
+
+Pass `with_events=True` to receive structured event dicts (`swarm_start`, `director_start`, `token`, `director_end`, `worker_start`, `worker_end`, `aggregator_start`, `aggregator_end`, `swarm_end`) tagged with `role` and `loop` instead of plain `(agent_name, token)` tuples.
+
+### `arun_stream(task, img=None, with_events=False, ...)`
+
+Async generator version of `run_stream()`. Use this directly when you already have a running event loop (e.g. inside a FastAPI handler) — `run_stream()` will raise if called from within an event loop.
+
+```python
+async for agent_name, token in swarm.arun_stream(task="Develop product launch strategy"):
+    print(f"\r{agent_name}: {token}", end="", flush=True)
+```
 
 ### `display_hierarchy()`
 
@@ -294,7 +356,46 @@ swarm = HierarchicalSwarm(
 )
 ```
 
-When enabled, after worker outputs are gathered the judge agent emits an `AgentScore` / `JudgeReport` Pydantic object summarizing per-agent quality, which feeds the next loop's director.
+When enabled, after worker outputs are gathered a dedicated judge agent scores every worker's output. This takes priority over `director_feedback_on` — if both are `True`, the judge runs instead of the freeform feedback.
+
+**Scoring dimensions (each 0–10, weighted composite):**
+
+| Dimension | Weight | What it measures |
+|-----------|--------|------------------|
+| Task Adherence | 25% | Did the agent do what it was assigned? |
+| Accuracy & Factual Integrity | 25% | Are claims correct and well-supported? |
+| Depth & Completeness | 20% | Is the response thorough or surface-level? |
+| Clarity & Communication | 15% | Is the output well-structured and actionable? |
+| Contribution to Swarm Goal | 15% | Does the output advance the collective mission? |
+
+**Output schema:**
+
+```python
+from typing import List
+from pydantic import BaseModel
+
+class AgentScore(BaseModel):
+    agent_name: str
+    score: int          # 0–10 composite
+    reasoning: str      # evidence-cited explanation
+    suggestions: str    # concrete, actionable improvements
+
+class JudgeReport(BaseModel):
+    overall_quality: int        # 0–10 collective score
+    scores: List[AgentScore]    # one entry per worker agent
+    summary: str                # names best/worst agent, flags gaps
+```
+
+The `JudgeReport` is added to the conversation under the role `"JudgeAgent"`. With `max_loops > 1`, the director sees the scores on the next loop and can adjust its plan accordingly.
+
+**Difference from `director_feedback_on`:**
+
+| | `director_feedback_on` | `agent_as_judge` |
+|---|---|---|
+| Output format | Unstructured string | Structured `JudgeReport` with typed fields |
+| Numeric scores | No | Yes — per-agent and overall (0–10) |
+| Machine-readable | No | Yes |
+| Multi-loop utility | Director reads its own text feedback | Director reads structured scores and suggestions |
 
 ### Team-Awareness Preamble
 
@@ -421,7 +522,7 @@ Each loop:
 
 ### Concurrent Execution (default)
 
-Orders for multiple agents run in parallel via `run_agents_concurrently`:
+Orders for multiple agents run in parallel using a `ThreadPoolExecutor` (with `max_workers = max(1, int(os.cpu_count() * 0.75))`):
 
 ```python
 orders = [
@@ -469,6 +570,29 @@ swarm = HierarchicalSwarm(
 )
 ```
 
+## Streaming Callbacks
+
+Pass a `streaming_callback` to `run()`, `arun()`, or `batched_run()` to receive token-by-token output from each agent. The callback signature is `(agent_name, chunk, is_final)`.
+
+```python
+def streaming_callback(agent_name: str, chunk: str, is_final: bool) -> None:
+    if chunk.strip():
+        print(f"\r{agent_name}: {chunk}", end="", flush=True)
+    if is_final:
+        print(f"\n{agent_name} done")
+
+result = swarm.run(task="...", streaming_callback=streaming_callback)
+```
+
+## Output Types
+
+| Output type | Description |
+|-------------|-------------|
+| `"dict-all-except-first"` | All conversation history as a dict, excluding the first message (default) |
+| `"dict"` | Full conversation history as a dict |
+| `"str"` | Conversation history as a plain string |
+| `"list"` | Conversation history as a list |
+
 ## Best Practices
 
 <Note>
@@ -509,14 +633,15 @@ except Exception as e:
 
 ### Parallel Order Execution
 
-`run_agents_concurrently` runs all agents in a loop simultaneously when `parallel_execution=True`:
+When `parallel_execution=True`, `execute_orders` submits all of a loop's orders to a `ThreadPoolExecutor` (sized to `max(1, int(os.cpu_count() * 0.75))` workers) so they run concurrently, then writes the results back to the conversation in submission order.
 
-```python
-results = run_agents_concurrently(
-    agents=agents_to_run,
-    task=self.conversation.get_str(),
-)
-```
+### Per-Loop Overhead
+
+| Consideration | Description |
+|---|---|
+| **Judge overhead** | `agent_as_judge=True` adds one extra LLM call per loop; use a small/fast model via `judge_agent_model_name` |
+| **Planning overhead** | `planning_enabled=True` adds one extra director call per loop |
+| **Dashboard impact** | `interactive=True` adds minimal overhead but is not recommended for production |
 
 ### Conversation Context
 
