@@ -136,6 +136,18 @@
         ]
       },
       {
+        "tab": "Swarms Rust",
+        "groups": [
+          {
+            "group": "Rust SDK",
+            "pages": [
+              "swarms-rs/overview",
+              "swarms-rs/agents"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "API Reference",
         "groups": [
           {
