@@ -1,0 +1,59 @@
+---
+title: "Swarms Tools Overview"
+description: "Vertical tool integrations for finance, search, and social media in Swarms agents"
+icon: "toolbox"
+---
+
+**Swarms Tools** (`swarms-tools`) provides ready-made tool integrations you can attach to Python agents — finance data, web search, and social APIs — without writing schemas from scratch.
+
+## Installation
+
+```bash
+pip install -U swarms-tools
+```
+
+Use alongside the core framework:
+
+```bash
+pip install -U swarms swarms-tools
+```
+
+## Available verticals
+
+<CardGroup cols={3}>
+  <Card title="Finance" icon="chart-line" href="/integrations/swarms-tools/finance">
+    Market and finance APIs
+  </Card>
+  <Card title="Search" icon="magnifying-glass" href="/integrations/swarms-tools/search">
+    Web and news search
+  </Card>
+  <Card title="Twitter / X" icon="twitter" href="/integrations/swarms-tools/twitter">
+    Social posting and lookup
+  </Card>
+</CardGroup>
+
+## Basic usage pattern
+
+```python
+from swarms import Agent
+# Import tools from swarms_tools for your vertical (see each guide)
+
+agent = Agent(
+    agent_name="Tool-Agent",
+    model_name="claude-sonnet-4-6",
+    tools=[],  # Add your swarms-tools callables here
+    max_loops=3,
+)
+
+agent.run("Complete the task using available tools.")
+```
+
+<Tip>
+  Tool functions need clear docstrings — Swarms converts them to OpenAI-style function schemas automatically.
+</Tip>
+
+## Related
+
+- [Agent tools](/agents/agent-tools)
+- [Building custom tools](/integrations/tools)
+- [Tools API](/api/tools)
