@@ -1,12 +1,22 @@
 ---
 title: "RoundRobinSwarm"
-description: "A swarm that executes tasks in a randomized round-robin fashion with AutoGen-style agent communication"
+description: "A swarm that executes a task across agents in deterministic round-robin order, each agent building on the shared transcript"
 icon: "rotate"
 ---
 
 ## Overview
 
-The `RoundRobinSwarm` implements an AutoGen-style communication pattern where agents are shuffled randomly each loop for varied interaction patterns. Each agent receives the full conversation context and builds upon others' responses collaboratively.
+`RoundRobinSwarm` visits agents in their **declared insertion order**, cycling through the full roster once per loop. The schedule is deterministic and identical on every loop:
+
+```
+turn t -> agents[t % N]    for t in range(max_loops * N)
+```
+
+Every agent reads the full conversation transcript accumulated by the agents that spoke before it, and each agent receives exactly `max_loops` turns. Before each turn the swarm injects a role header telling the agent its position, the current loop, the previous/next speaker, and the other participants, then asks it to build on the prior contribution.
+
+<Note>
+  Earlier versions of `RoundRobinSwarm` shuffled agents randomly each loop and supported `callback` / `max_retries` parameters. Those are **removed** — the order is now strictly deterministic and those parameters no longer exist.
+</Note>
 
 ## Installation
 
@@ -14,218 +24,219 @@ The `RoundRobinSwarm` implements an AutoGen-style communication pattern where ag
 pip install -U swarms
 ```
 
-## Attributes
+## Import
+
+```python
+from swarms import Agent, RoundRobinSwarm
+```
+
+The per-turn prompt builders are also importable for inspection or reuse:
+
+```python
+from swarms.structs.round_robin import (
+    RoundRobinSwarm,
+    build_turn_header,
+    build_collaborative_task,
+)
+```
+
+## Constructor
+
+```python
+RoundRobinSwarm(
+    name: str = "RoundRobinSwarm",
+    description: str = "A swarm implementation that executes tasks in a round-robin fashion.",
+    agents: List[Agent] = None,
+    verbose: bool = False,
+    max_loops: int = 1,
+    output_type: OutputType = "final",
+)
+```
 
 <ParamField path="name" type="str" default="RoundRobinSwarm">
-  Name of the swarm
+  Name of the swarm. Also used to name the internal conversation.
 </ParamField>
 
-<ParamField path="description" type="str" default="A swarm implementation that executes tasks in a round-robin fashion">
-  Description of the swarm's purpose
+<ParamField path="description" type="str" default="A swarm implementation that executes tasks in a round-robin fashion.">
+  Description of the swarm's purpose.
 </ParamField>
 
 <ParamField path="agents" type="List[Agent]" required>
-  List of agents in the swarm
+  Agents that take turns in declared order. **Required** — constructing the swarm without agents raises `ValueError`.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
-  Flag to enable verbose mode
+  Enable verbose logging of each turn and loop.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
-  Maximum number of loops to run
-</ParamField>
-
-<ParamField path="callback" type="callable" default="None">
-  Callback function to be called after each loop
-</ParamField>
-
-<ParamField path="max_retries" type="int" default="3">
-  Maximum number of retries for agent execution
+  Number of full passes over the roster. Each agent speaks exactly once per loop, so with `N` agents and `max_loops` loops the swarm runs `N * max_loops` turns total.
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default="final">
-  Type of output format ("final", "list", "dict", etc.)
+  Output format applied to the conversation history. Common values: `"final"` (last message only), `"list"`, `"dict"`, `"str"`, `"json"`.
 </ParamField>
 
 ## Methods
 
-### run()
+### `run(task, *args, **kwargs)`
 
-Executes the given task on the agents in a randomized round-robin fashion.
+Execute the task across the agents in deterministic round-robin order. Returns the conversation in the format specified by `output_type`.
 
 ```python
 def run(self, task: str, *args, **kwargs) -> Union[str, dict, list]
 ```
 
-**Parameters:**
-- `task` (str): The task to be executed
+<ParamField path="task" type="str" required>
+  The task to execute. Posted as the opening `User` message that the first agent responds to.
+</ParamField>
 
-**Returns:** The result of the task execution in the specified output format
+`*args` / `**kwargs` are forwarded to each underlying `agent.run()` call.
 
-### run_batch()
+**Returns:** the task result formatted per `output_type`.
 
-Execute multiple tasks sequentially through the round-robin swarm.
+**Raises:** re-raises any exception thrown by an agent during execution.
+
+---
+
+### `run_batch(tasks)`
+
+Execute multiple tasks sequentially. Each task runs through its own full round-robin cycle.
 
 ```python
 def run_batch(self, tasks: List[str]) -> List[Union[str, dict, list]]
 ```
 
-**Parameters:**
-- `tasks` (List[str]): A list of task strings to be executed
+<ParamField path="tasks" type="List[str]" required>
+  Tasks to execute, one full round-robin run per task.
+</ParamField>
 
-**Returns:** List of results, one for each task
+**Returns:** a list of results in the same order as `tasks`.
 
 ## Usage Examples
 
-### Basic Round-Robin Execution
+### Basic round-robin execution
 
 ```python
 from swarms import Agent, RoundRobinSwarm
 
-# Create specialized agents
 agents = [
     Agent(
         agent_name="Analyst",
         system_prompt="You are a data analyst. Analyze information critically.",
-        model_name="openai/gpt-4o",
+        model_name="gpt-5.4",
+        max_loops=1,
     ),
     Agent(
         agent_name="Strategist",
         system_prompt="You are a strategist. Think about long-term implications.",
-        model_name="openai/gpt-4o",
+        model_name="gpt-5.4",
+        max_loops=1,
     ),
     Agent(
         agent_name="Implementer",
         system_prompt="You are an implementer. Focus on practical execution.",
-        model_name="openai/gpt-4o",
+        model_name="gpt-5.4",
+        max_loops=1,
     ),
 ]
 
-# Create swarm
-swarm = RoundRobinSwarm(
-    agents=agents,
-    max_loops=1,
-    verbose=True
-)
+swarm = RoundRobinSwarm(agents=agents, max_loops=1, verbose=True)
 
-# Run a task
 result = swarm.run("How should we approach building a new AI product?")
 print(result)
 ```
 
-### Multiple Loops with Callback
+### Multiple loops
 
 ```python
-def loop_callback(loop_num, result):
-    print(f"Completed loop {loop_num + 1}")
-    print(f"Last result: {result[:100]}...")
-
+# Two full passes: each agent speaks twice, in the same order each loop.
 swarm = RoundRobinSwarm(
     agents=agents,
-    max_loops=3,  # Each agent participates 3 times
-    callback=loop_callback,
-    verbose=True
+    max_loops=2,
+    verbose=True,
 )
 
-result = swarm.run("Develop a comprehensive marketing strategy")
+result = swarm.run("Develop a comprehensive marketing strategy.")
 ```
 
-### Batch Processing
+### Different output types
+
+```python
+# Final message only (default)
+final_swarm = RoundRobinSwarm(agents=agents, output_type="final")
+final_result = final_swarm.run("Analyze this problem.")
+
+# Full conversation as a list of messages
+list_swarm = RoundRobinSwarm(agents=agents, output_type="list")
+list_result = list_swarm.run("Analyze this problem.")
+
+# Full conversation as a dict
+dict_swarm = RoundRobinSwarm(agents=agents, output_type="dict")
+dict_result = dict_swarm.run("Analyze this problem.")
+```
+
+### Batch processing
 
 ```python
 tasks = [
     "Analyze market trends in AI",
     "Develop a product roadmap",
-    "Create a risk assessment"
+    "Create a risk assessment",
 ]
 
 results = swarm.run_batch(tasks)
 
 for i, result in enumerate(results):
-    print(f"\nTask {i+1} Results:")
-    print(result)
-```
-
-### Different Output Types
-
-```python
-# Get final message only
-swarm_final = RoundRobinSwarm(
-    agents=agents,
-    output_type="final"
-)
-final_result = swarm_final.run("Analyze this problem")
-
-# Get full conversation as dict
-swarm_dict = RoundRobinSwarm(
-    agents=agents,
-    output_type="dict"
-)
-dict_result = swarm_dict.run("Analyze this problem")
-
-# Get conversation as list
-swarm_list = RoundRobinSwarm(
-    agents=agents,
-    output_type="list"
-)
-list_result = swarm_list.run("Analyze this problem")
-```
-
-### Custom Agent Configuration
-
-```python
-# Agents with different loop counts (set automatically)
-swarm = RoundRobinSwarm(
-    agents=agents,
-    max_loops=2
-)
-
-# Each agent's max_loops is randomly set between 1-5 internally
-result = swarm.run("Complex collaborative task")
+    print(f"\nTask {i + 1} Result:\n{result}")
 ```
 
 ## How It Works
 
-1. **Initial Task**: User provides a task to the swarm
-2. **Random Shuffling**: Agents are randomly shuffled each loop for varied interactions
-3. **Context Building**: Each agent receives the full conversation history
-4. **Collaborative Prompting**: Agents are prompted to acknowledge and build upon previous responses
-5. **Multiple Loops**: Process repeats for `max_loops` iterations
-6. **Final Output**: Returns formatted output based on `output_type`
+1. **Opening message** — the user task is added to the conversation as the first `User` message.
+2. **Deterministic schedule** — for `max_loops` loops, the swarm iterates `agents` in insertion order: turn `t` goes to `agents[t % N]`.
+3. **Full context** — before each turn, the current full transcript is read and passed to the agent.
+4. **Role header** — a per-turn header (see below) tells the agent its position, loop, previous/next speaker, and peers.
+5. **Collaborative reply** — the agent is asked to build on the prior speaker's contribution (or address the task directly if it opens), and its response is appended to the transcript.
+6. **Formatted output** — after all loops complete, the conversation is returned per `output_type`.
 
-## Collaborative Prompt Format
+## Per-turn prompt
 
-Each agent receives a prompt like:
+Each agent receives the running transcript followed by a generated header and a standing instruction, produced by `build_turn_header` and `build_collaborative_task`:
 
 ```
-[Previous conversation history]
+[Full conversation transcript so far]
 
-As Analyst, you are agent 1 of 3 in this collaborative session. 
-The other agents participating are: Strategist, Implementer.
+You are Analyst, agent 1 of 3 in loop 1 of 2. Previous speaker:
+(none — you open the conversation). Next speaker: Strategist.
+Other participants: Strategist, Implementer.
 
-Please review the conversation history above carefully and build upon 
-the insights shared by other agents. Acknowledge their contributions 
-where relevant and provide your unique perspective and expertise.
+Review the transcript above and build on the prior speaker's contribution.
+Add your own perspective concisely; if you are the opening speaker, address
+the original task directly.
 
 Your response:
 ```
 
 ## Features
 
-- **Randomized Order**: Agents are shuffled each loop for dynamic interactions
-- **Full Context**: Each agent sees the complete conversation history
-- **Collaborative**: Agents are prompted to acknowledge and build on others' work
-- **Retry Logic**: Automatic retries with exponential backoff on failures
-- **Flexible Output**: Multiple output format options
-- **Batch Processing**: Process multiple tasks efficiently
-- **Callback Support**: Execute custom logic after each loop
-- **Error Handling**: Comprehensive error handling and logging
+- **Deterministic order** — agents always speak in declared insertion order, identically every loop.
+- **Full context** — each agent sees the complete transcript accumulated so far.
+- **Collaborative prompting** — agents are told their position and neighbors and asked to build on prior turns.
+- **Flexible output** — choose `"final"`, `"list"`, `"dict"`, `"str"`, or `"json"`.
+- **Batch processing** — `run_batch` runs many tasks, one full cycle each.
+- **Serializable** — inherits `SerializableMixin` for config serialization.
 
 ## Best Practices
 
-1. **Agent Diversity**: Use agents with complementary skills and perspectives
-2. **Clear Prompts**: Give agents specific roles in their system prompts
-3. **Loop Count**: Start with 1-2 loops; increase if deeper collaboration needed
-4. **Output Type**: Use "final" for simple tasks, "dict" for analysis of full conversation
-5. **Verbose Mode**: Enable for debugging and understanding agent interactions
+1. **Order matters** — place agents in the sequence you want them to speak; the opener sets the framing for everyone after.
+2. **Agent diversity** — use complementary roles so each turn adds a distinct perspective.
+3. **Loop count** — start with `max_loops=1`; increase only when deeper back-and-forth is needed (cost scales with `N * max_loops`).
+4. **Output type** — use `"final"` for a single answer, `"list"`/`"dict"` to inspect the whole collaboration.
+5. **Verbose mode** — enable `verbose=True` while debugging to trace each turn.
+
+## Source Code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/round_robin.py).
+</content>
+</invoke>

@@ -28,38 +28,39 @@ description: An asynchronous, self-selecting multi-agent conversation where each
 ```python
 from swarms import Agent, GroupChat
 
-# Create agents with different perspectives
 tech_optimist = Agent(
     agent_name="TechOptimist",
-    system_prompt="Argue for the benefits of AI in society.",
+    system_prompt="You argue for the benefits of AI in society.",
     model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 
 tech_critic = Agent(
     agent_name="TechCritic",
-    system_prompt="Argue against unchecked AI advancement.",
+    system_prompt="You argue against unchecked AI advancement.",
     model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 
-moderator = Agent(
-    agent_name="Moderator",
-    system_prompt="Moderate the discussion and synthesize viewpoints.",
+realist = Agent(
+    agent_name="Realist",
+    system_prompt="You weigh both sides and seek a balanced view.",
     model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 
-# Create group chat
 chat = GroupChat(
     name="AI-Ethics-Debate",
     description="Discussion on AI's societal impact",
-    agents=[tech_optimist, tech_critic, moderator],
+    agents=[tech_optimist, tech_critic, realist],
     max_loops=10,     # hard cap on total posted messages
     threshold=0.5,    # minimum self-rated score required to speak
 )
 
-# Run the discussion
-result = chat.run(
-    "Should we prioritize AI development or AI regulation?"
-)
+result = chat.run("Should we prioritize AI development or AI regulation?")
 print(result)
 ```
 
@@ -186,7 +187,7 @@ Inherited from `SerializableMixin`. Returns a JSON-friendly snapshot of the chat
 
 ## Use Cases
 
-### Debate System
+### Debate
 
 ```python
 pro_agent = Agent(agent_name="ProAI", system_prompt="Argue for AI benefits", model_name="gpt-5.4")
@@ -199,11 +200,10 @@ debate = GroupChat(
     max_loops=12,
     threshold=0.6,  # judge and debaters should be selective
 )
-
 verdict = debate.run("Should AI development be regulated?")
 ```
 
-### Research Collaboration
+### Expert Panel
 
 ```python
 literature_expert = Agent(agent_name="LitExpert", model_name="gpt-5.4")
@@ -274,6 +274,13 @@ Other accepted values include `"string"`, `"dict-all-except-first"`, `"json"`, `
 <Warning>
   Conversation length and cost scale with `max_loops` and the number of agents — every agent is asked to score every message that arrives in its inbox, even if it ultimately stays silent.
 </Warning>
+
+## When NOT to Use
+
+- **Simple tasks** — use a single `Agent`.
+- **Independent analysis** — when agents shouldn't influence each other, use [ConcurrentWorkflow](/architectures/concurrent-workflow).
+- **Strict ordering** — when a fixed sequence is required, use [SequentialWorkflow](/architectures/sequential-workflow).
+- **Director-led delegation** — use [HierarchicalSwarm](/architectures/hierarchical-swarm).
 
 ## Error Handling
 

@@ -92,6 +92,14 @@ pip install -U swarms
   Maximum backoff delay (seconds); must be at least `retry_delay`
 </ParamField>
 
+<ParamField path="additional_kwargs" type="Dict[str, Any]" default="{}">
+  Extra keyword arguments forwarded to the underlying proposer/aggregator agents.
+</ParamField>
+
+<ParamField path="top_p" type="Optional[float]" default="None">
+  Top-p (nucleus) sampling parameter passed to the model. Left unset when `None`.
+</ParamField>
+
 **Raises:**
 - `ValueError` for invalid parameter ranges (e.g., `window_size < 2`, `reserved_slots >= window_size`, temperature outside [0, 2], etc.)
 

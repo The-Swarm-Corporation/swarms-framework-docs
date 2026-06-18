@@ -18,7 +18,6 @@ The `AgentRearrange` system enables sophisticated multi-agent orchestration thro
 - `agent1 -> agent2`: Sequential execution (agent2 runs after agent1)
 - `agent1, agent2`: Concurrent execution (both run simultaneously)
 - `agent1 -> agent2, agent3`: Combined (agent1 first, then agent2 and agent3 in parallel)
-- `H`: Human-in-the-loop (pause for human input)
 
 ## Basic Example
 
@@ -131,10 +130,6 @@ rearrange = AgentRearrange(
   Optional memory system for persistence
 </ParamField>
 
-<ParamField path="human_in_the_loop" type="bool" default="False">
-  Enable human interaction points
-</ParamField>
-
 ## Methods
 
 ### run()
@@ -202,21 +197,6 @@ With team awareness, agents receive context like:
 - "Agent ahead: agent1"
 - "Agent behind: agent3"
 - Sequential flow structure information
-
-## Human-in-the-Loop
-
-```python
-# Pause for human input between agents
-flow = "researcher -> H -> writer"
-
-rearrange = AgentRearrange(
-    agents=[researcher, writer],
-    flow=flow,
-    human_in_the_loop=True,
-)
-
-result = rearrange.run("Create article")
-```
 
 ## Use Cases
 

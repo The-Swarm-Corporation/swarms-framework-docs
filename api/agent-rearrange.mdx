@@ -13,7 +13,6 @@ The `AgentRearrange` class enables complex workflows where multiple agents can w
 - **Flexible Flow Syntax**: Define sequential (`->`) and concurrent (`,`) agent execution in one flow
 - **Custom Flow Patterns**: Mix sequential and concurrent execution patterns
 - **Team Awareness**: Agents can be aware of their position in the workflow
-- **Human-in-the-Loop**: Integrate human review at any point in the workflow (using `H`)
 - **Memory System Support**: Optional persistent memory across agent interactions
 - **Batch Processing**: Process multiple tasks with the same flow
 - **Concurrent Execution**: Run multiple tasks in parallel
@@ -39,16 +38,17 @@ class AgentRearrange:
         max_loops: int = 1,
         verbose: bool = True,
         memory_system: Any = None,
-        human_in_the_loop: bool = False,
-        custom_human_in_the_loop: Optional[Callable[[str], str]] = None,
         output_type: OutputType = "all",
         autosave: bool = True,
-        rules: str = None,
         team_awareness: bool = False,
         time_enabled: bool = False,
         message_id_on: bool = False,
     )
 ```
+
+<Note>
+  Earlier versions accepted `human_in_the_loop`, `custom_human_in_the_loop`, and `rules` parameters (and an `H` token in the flow string for human review steps). These have been **removed** — `AgentRearrange` no longer supports inline human-in-the-loop steps or a `rules` argument.
+</Note>
 
 ## Parameters
 
@@ -85,24 +85,12 @@ class AgentRearrange:
   Optional memory system for persistence across interactions
 </ParamField>
 
-<ParamField path="human_in_the_loop" type="bool" default="False">
-  Whether to enable human interaction points in the workflow
-</ParamField>
-
-<ParamField path="custom_human_in_the_loop" type="Optional[Callable[[str], str]]" default="None">
-  Custom function for handling human interaction. Takes input string, returns response.
-</ParamField>
-
 <ParamField path="output_type" type="OutputType" default="all">
   Format for output results. Options: "all", "final", "list", "dict"
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="True">
   Whether to automatically save execution data
-</ParamField>
-
-<ParamField path="rules" type="str" default="None">
-  System rules and constraints to add to conversation
 </ParamField>
 
 <ParamField path="team_awareness" type="bool" default="False">
@@ -124,7 +112,6 @@ The flow pattern defines how agents execute:
 - **Sequential**: `agent1 -> agent2 -> agent3` (agents run one after another)
 - **Concurrent**: `agent1, agent2, agent3` (agents run simultaneously)
 - **Mixed**: `agent1 -> agent2, agent3 -> agent4` (agent1 first, then agent2 and agent3 concurrently, then agent4)
-- **Human-in-Loop**: `agent1 -> H -> agent2` (agent1, then human input, then agent2)
 
 ## Methods
 
@@ -349,41 +336,6 @@ system = AgentRearrange(
 result = system.run("Analyze the market opportunity for AI assistants")
 ```
 
-### Human-in-the-Loop
-
-```python
-# Include human review in the flow
-flow = "researcher -> writer -> H -> editor"
-
-system = AgentRearrange(
-    agents=[researcher, writer, editor],
-    flow=flow,
-    human_in_the_loop=True
-)
-
-result = system.run("Create a marketing campaign")
-# System will pause for human input after the writer and before the editor
-```
-
-### Custom Human-in-the-Loop Handler
-
-```python
-def custom_human_handler(agent_output: str) -> str:
-    """Custom function to handle human interaction"""
-    print(f"Agent output: {agent_output}")
-    feedback = input("Your feedback: ")
-    return feedback
-
-flow = "agent1 -> H -> agent2"
-
-system = AgentRearrange(
-    agents=[agent1, agent2],
-    flow=flow,
-    human_in_the_loop=True,
-    custom_human_in_the_loop=custom_human_handler
-)
-```
-
 ### Batch Processing
 
 ```python
@@ -487,24 +439,6 @@ result = system.run("Create comprehensive analysis")
 # Each agent will receive information about agents ahead and behind
 ```
 
-### With Rules
-
-```python
-rules = """
-All agents must:
-1. Cite sources
-2. Be objective
-3. Flag uncertainties
-4. Respect data privacy
-"""
-
-system = AgentRearrange(
-    agents=[researcher, writer, editor],
-    flow="researcher -> writer -> editor",
-    rules=rules  # Add system-wide rules
-)
-```
-
 ### Different Output Types
 
 ```python
@@ -571,12 +505,11 @@ except Exception as e:
 
 1. **Flow Design**: Carefully design your flow to match your task requirements
 2. **Team Awareness**: Enable for complex flows where context matters
-3. **Human Review**: Add `H` at critical decision points
-4. **Error Handling**: Always wrap execution in try-except blocks
-5. **Logging**: Enable verbose mode during development
-6. **Memory Systems**: Use for tasks requiring persistent context
-7. **Flow Validation**: Always validate flows before production use
-8. **Agent Naming**: Use clear, descriptive agent names in flows
+3. **Error Handling**: Always wrap execution in try-except blocks
+4. **Logging**: Enable verbose mode during development
+5. **Memory Systems**: Use for tasks requiring persistent context
+6. **Flow Validation**: Always validate flows before production use
+7. **Agent Naming**: Use clear, descriptive agent names in flows
 
 ## Common Flow Patterns
 
@@ -595,7 +528,7 @@ flow = "stage1 -> stage2 -> stage3 -> stage4"
 ### Review Pattern
 ```python
 # Create, review, revise
-flow = "creator -> reviewer -> H -> reviser"
+flow = "creator -> reviewer -> reviser"
 ```
 
 ### Ensemble Pattern
