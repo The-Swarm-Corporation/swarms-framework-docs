@@ -216,7 +216,7 @@ Performs reliability and configuration validation checks.
 - question_agent_model_name is set
 
 **Raises:**
-- `ValueError`: If a required model name is missing, or if `variant` is unknown
+- `ValueError`: If a required model name is missing. (An unknown `variant` raises `ValueError` separately, during agent creation in `__init__`.)
 
 ---
 
@@ -232,7 +232,7 @@ Shows:
 - Swarm identification (name, description)
 - Execution parameters (timeout)
 - Model configurations (question and worker models)
-- Selected variant
+- Performance settings (max workers)
 
 ## Question Generation Schema
 
