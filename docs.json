@@ -121,12 +121,15 @@
               "cli/overview",
               "cli/tutorial",
               "cli/commands",
-              "cli/configuration"
+              "cli/configuration",
+              "cli/examples"
             ]
           },
           {
             "group": "Changelog",
             "pages": [
+              "changelog/overview",
+              "changelog/swarms-v13",
               "changelog/swarms-v12"
             ]
           }
@@ -286,7 +289,8 @@
               "examples/group-chat-example",
               "examples/swarm-router-example",
               "examples/multi-agent/aop-medical",
-              "examples/multi-agent/debate-quickstart"
+              "examples/multi-agent/debate-quickstart",
+              "examples/social-swarm-patterns"
             ]
           },
           {
@@ -383,7 +387,8 @@
               "community/contributing",
               "community/contributing-to-docs",
               "community/code-of-conduct",
-              "community/development-setup"
+              "community/development-setup",
+              "community/bounty-program"
             ]
           },
           {

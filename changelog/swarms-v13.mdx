@@ -1,0 +1,138 @@
+---
+title: Swarms v13
+description: Changelog for Swarms v13
+---
+
+## Overview
+
+Swarms v13 is one of the framework's most consequential releases to date, spanning 49 commits of new features, performance work, and cleanup. The headline change is a complete rewrite of `GroupChat` into a fully asynchronous, self-selecting conversation model where agents decide for themselves when to speak. Alongside it, `GraphWorkflow` becomes truly composable, token streaming arrives across every major workflow, and a deep internals pass makes the whole framework faster and leaner.
+
+## Highlights
+
+* **Async self-selecting GroupChat**: no more rounds or speaker-selection functions; agents listen in parallel and score their own desire to speak.
+* **Nested GraphWorkflow composition**: embed an entire workflow as a single node inside another, with compile-time `validate()` and a `max_parallel_nodes` cap.
+* **Streaming everywhere**: `run_stream` / `arun_stream` for HierarchicalSwarm, AgentRearrange, and SequentialWorkflow, including structured per-agent events.
+* **Smarter AgentRearrange DSL**: pure concurrent flows, an `explain()` method, and team-aware agents.
+* **True RoundRobinSwarm rotation**: deterministic turn order with previous/next speaker awareness.
+* **Performance pass**: cached agent lookups, shared executors, telemetry removed from the hot path, and a reusable `SerializableMixin`.
+* **Friendlier CLI**: rotating tips, LiteLLM-backed model discovery, typo correction, and error hints.
+
+## New Features
+
+### GroupChat: Async, Self-Selecting Conversations
+
+The new `GroupChat` abandons the round-based, speaker-function-driven model entirely. Every agent in the chat listens to the conversation in parallel, and on each message decides whether to contribute via a forced `respond(score, message)` tool call. The agent assigns its own desire-to-speak score between 0 and 1; only replies scoring above a configurable `threshold` are broadcast to the group. The conversation ends naturally, either after `max_loops` total messages or after `idle_timeout` seconds of silence, when no agent feels compelled to speak. The `RESPOND_TOOL` schema is exported from `swarms.structs.groupchat` and is automatically injected into every agent passed to a `GroupChat`, so there is no manual wiring required. The result is a conversation that flows like a real discussion: agents jump in when they have something to add and stay quiet when they don't.
+
+```python
+from swarms import Agent, GroupChat
+
+optimist = Agent(agent_name="Optimist", system_prompt="Argue the upside.", model_name="gpt-4.1", max_loops=1)
+pessimist = Agent(agent_name="Pessimist", system_prompt="Argue the risks.", model_name="gpt-4.1", max_loops=1)
+
+chat = GroupChat(
+    agents=[optimist, pessimist],  # RESPOND_TOOL is auto-injected
+    max_loops=10,       # hard cap on total messages
+    threshold=0.5,      # min desire-to-speak score (0..1) to publish
+    idle_timeout=8.0,   # seconds of silence before the chat ends
+)
+result = chat.run("Should we adopt AI for medical diagnosis?")
+```
+
+### GraphWorkflow: Nested Composition, Validation, and Parallelism Caps
+
+`GraphWorkflow` received three significant upgrades contributed by @adichaudhary across PRs #1620, #1623, and #1605. The biggest is nested subgraph composition: an entire `GraphWorkflow` can now be embedded as a single node inside another workflow, with full spec serialization and nested checkpointing. This makes it possible to build a library of tested sub-workflows, such as a research pipeline or a review loop, and assemble them into larger systems without flattening everything into one giant graph. Alongside composition came `validate(raise_on_error)`, which performs compile-time structural validation to catch cycles, orphaned nodes, and missing entry points before anything runs, and a `max_parallel_nodes` constructor parameter that caps how many nodes execute concurrently. Subgraph execution was also hardened with scoped dictionary flattening, checkpoint isolation, and proper parameter forwarding.
+
+```python
+from swarms import Agent, GraphWorkflow, Node, Edge
+
+inner = GraphWorkflow(name="research")
+inner.add_node(Node.from_agent(Agent(agent_name="Researcher", model_name="gpt-4.1", max_loops=1)))
+
+outer = GraphWorkflow(max_parallel_nodes=4)        # at most 4 nodes run at once
+outer.add_node(Node.from_subgraph(inner))          # nested subgraph node
+outer.add_node(Node.from_agent(Agent(agent_name="Writer", model_name="gpt-4.1", max_loops=1)))
+outer.add_edge(Edge(source="research", target="Writer"))
+
+outer.validate(raise_on_error=True)                # fail fast on structural errors
+result = outer.run(task="Write a brief on AI chips.")
+```
+
+### Streaming Across Every Major Workflow
+
+Token streaming is no longer limited to single agents. `HierarchicalSwarm` gained `arun_stream` and `run_stream` (PR #1611 by @Steve-Dusty) with full token streaming across the director, the workers, and the aggregator. `AgentRearrange` picked up the same pair of methods, and `SequentialWorkflow` can now stream tokens from each agent in turn. The sequential variant goes a step further: passing `with_events=True` yields structured `agent_start`, `token`, and `agent_end` events, which is exactly what you need to drive per-agent panels in a real-time UI rather than dumping one undifferentiated token stream.
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+pipeline = SequentialWorkflow(agents=[
+    Agent(agent_name="Researcher", model_name="gpt-4.1", max_loops=1),
+    Agent(agent_name="Writer", model_name="gpt-4.1", max_loops=1),
+])
+
+# Plain token stream
+for token in pipeline.run_stream("Summarise LLM research this year."):
+    print(token, end="", flush=True)
+
+# Structured events for per-agent UI panels
+for event in pipeline.run_stream("Same task.", with_events=True):
+    ...  # {"type": "agent_start" | "token" | "agent_end", ...}
+```
+
+### AgentRearrange: A Smarter Flow DSL
+
+The flow DSL in `AgentRearrange` learned several new tricks in v13. Flows can now be purely concurrent: a simple comma-separated list of agents with no `->` arrow runs everything in parallel. A new `explain()` method prints the parsed execution plan so you can verify the topology before running anything, and agents are now team-aware: each agent's system prompt tells it who else participates in the flow, giving every participant context about the larger pipeline it belongs to.
+
+```python
+from swarms import Agent, AgentRearrange
+
+a = Agent(agent_name="A", model_name="gpt-4.1", max_loops=1)
+b = Agent(agent_name="B", model_name="gpt-4.1", max_loops=1)
+c = Agent(agent_name="C", model_name="gpt-4.1", max_loops=1)
+
+flow = AgentRearrange(agents=[a, b, c], flow="A, B, C")  # all three run in parallel
+flow.explain()                                            # print the execution plan
+result = flow.run("Brainstorm product names.")
+```
+
+### RoundRobinSwarm: True Rotation with Turn Awareness
+
+v13 rewrote `RoundRobinSwarm` to deliver what the name always promised: deterministic rotation. The previous shuffle-based ordering is gone, replaced with a fixed, predictable turn order. Each agent also receives turn-awareness context (it knows who spoke before it and who speaks next), which produces noticeably more coherent committee-style discussions. The release shipped with three realistic scenario examples to match: an ETF investment committee, a medical tumor board, and an engineering design review.
+
+```python
+from swarms import Agent, RoundRobinSwarm
+
+agents = [Agent(agent_name=f"Handler-{i}", model_name="gpt-4.1", max_loops=1) for i in range(3)]
+rr = RoundRobinSwarm(agents=agents, max_loops=1)  # fixed order: Handler-0 -> Handler-1 -> Handler-2
+result = rr.run("Review this proposal.")          # each agent knows its neighbors in the rotation
+```
+
+### HeavySwarm Variants and a Friendlier CLI
+
+`HeavySwarm` replaced its old grok-specific boolean flags with a clean `variant` parameter accepting `"default"`, `"medium"`, or `"heavy"`, and was modularized internally with question agents and the dashboard extracted into their own modules. The CLI, meanwhile, became markedly more helpful: a rotating `swarms tips` command, LiteLLM-backed model discovery via `swarms models`, typo correction that suggests the closest command, error hints with recovery classification, and contextual next-step tips after `init` and `setup-check`.
+
+```python
+from swarms import HeavySwarm
+
+swarm = HeavySwarm(variant="heavy")  # was: grok-specific boolean flags
+result = swarm.run("Deep analysis of the AI chip market.")
+```
+
+## Improvements
+
+Beyond the headline features, v13 delivered a deep performance and API-cleanliness pass. The speaker-function API was removed from `SwarmRouter` and the package exports entirely, superseded by the self-selecting GroupChat; choosing `swarm_type="GroupChat"` is now all that's needed. `Agent.tools_list_dictionary` defaults to an empty list instead of `None`, eliminating a whole class of None-checks, and `get_all_agent_names` was renamed to `return_all_agent_names`. Auto-prompt-engineering logic, the unused `rules` constructor argument, dead human-in-the-loop code, and obsolete stopping-condition helpers were all removed.
+
+Performance work was equally thorough. A shared `find_agent_by_id` helper and a cached name index for `find_agent_by_name` replaced repeated linear scans across `AgentRearrange`, `SwarmRouter`, and `AgentRouter`. Inline thread pools gave way to a shared agent executor, telemetry calls were dropped from the hot `run` path, and an ineffective conversation string cache was reverted. A reusable `SerializableMixin` now provides `to_dict` across multi-agent structures, with `SelfMoA` and `RoundRobinSwarm` refactored to inherit it. Documentation kept pace: GroupChat docs were fully rewritten for the async API, a performance audit document landed in `docs/`, and a new `CLAUDE.md` repository guide helps AI assistants build agents with the framework. Test coverage expanded too, with rewritten GroupChat suites, run tests covering every `SwarmRouter` swarm type, and a new ContextCompressor test suite from @adichaudhary.
+
+## Bug Fixes
+
+* `SwarmRouter` now correctly forwards `output_type` and `verbose` to the underlying `GroupChat`, so both settings actually take effect.
+* `MajorityVoting` streaming callback errors are re-raised instead of being silently swallowed.
+* A brittle `deepcopy` in `AgentRearrange` batch runs was replaced with a safe per-task clone.
+* The thinking panel now respects `print_on=False` and no longer prints when output is suppressed.
+* The `grok_schema` import path was corrected.
+* Byte-identical macOS duplicate files were purged from the examples tree, and `.DS_Store` files are now git-ignored.
+* Integration-test isolation was fixed for the ContextCompressor suite, with stronger archive and `MEMORY.md` assertions.
+
+## Conclusion
+
+Swarms v13 marks a maturation point for the framework. The self-selecting GroupChat replaces mechanical turn-taking with genuinely emergent conversation, nested GraphWorkflows make large agent systems composable rather than monolithic, and universal streaming finally makes responsive multi-agent UIs straightforward. Combined with the aggressive performance work (cached lookups, shared executors, a leaner hot path) and the removal of years of dead code, v13 is faster, cleaner, and more expressive than anything that came before it. Upgrading is straightforward for most users, with the main breaking changes being the removed speaker-function API and the `return_all_agent_names` rename. For anyone building multi-agent systems, this is the release to adopt.

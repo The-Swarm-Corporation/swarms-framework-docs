@@ -84,8 +84,8 @@ from swarms import Agent
   The language model instance to use. If None, a LiteLLM instance will be created
 </ParamField>
 
-<ParamField path="model_name" type="str" default="gpt-4.1">
-  The LiteLLM-compatible model identifier (e.g. `"gpt-4.1"`, `"claude-sonnet-4-6"`, `"groq/llama-3.3-70b-versatile"`).
+<ParamField path="model_name" type="str" default="gpt-5.4">
+  The LiteLLM-compatible model identifier (e.g. `"gpt-5.4"`, `"claude-sonnet-4-6"`, `"groq/llama-3.3-70b-versatile"`).
 </ParamField>
 
 <ParamField path="llm_args" type="dict" default="None">
@@ -1043,7 +1043,7 @@ def terminal(code: str):
 
 agent = Agent(
     agent_name="Terminal-Agent",
-    model_name="claude-sonnet-4-20250514",
+    model_name="claude-sonnet-4-6",
     tools=[terminal],
     system_prompt="You are an agent that can execute terminal commands.",
 )
@@ -1116,7 +1116,7 @@ chromadb = ChromaDB(
 
 agent = Agent(
     agent_name="Financial-Analysis-Agent",
-    model_name="claude-sonnet-4-20250514",
+    model_name="claude-sonnet-4-6",
     long_term_memory=chromadb,
     system_prompt="You are a financial analysis agent with access to long-term memory.",
 )
@@ -1141,7 +1141,7 @@ from swarms import Agent
 # Default: memory survives process restarts
 agent = Agent(
     agent_name="Persistent-Agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     system_prompt="You are a helpful assistant.",
     # persistent_memory=True is the default
 )
@@ -1153,7 +1153,7 @@ agent.run("My name is Alice and I work in finance.")
 # Stateless: no cross-session memory
 stateless_agent = Agent(
     agent_name="Stateless-Agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     system_prompt="You are a helpful assistant.",
     persistent_memory=False,
 )
@@ -1171,7 +1171,7 @@ from swarms import Agent
 # Default: automatic summarisation when the window gets full
 agent = Agent(
     agent_name="Long-Session-Agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     system_prompt="You are a research assistant.",
     max_loops=10,
     context_length=8192,
@@ -1186,7 +1186,7 @@ agent.run("Deep-dive analysis of transformer architecture papers.")
 # Disabled: keep every raw message intact
 audit_agent = Agent(
     agent_name="Audit-Agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     system_prompt="You are a compliance auditor.",
     context_compression=False,
 )
@@ -1200,7 +1200,7 @@ from swarms import Agent
 # Persistent across runs + automatic context management (production default)
 production_agent = Agent(
     agent_name="Production-Agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     system_prompt="You are a customer support assistant.",
     persistent_memory=True,
     context_compression=True,
@@ -1210,7 +1210,7 @@ production_agent = Agent(
 # Stateless + no compression (CI / unit-test friendly)
 test_agent = Agent(
     agent_name="Test-Agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     system_prompt="You are a helpful assistant.",
     persistent_memory=False,
     context_compression=False,
@@ -1306,7 +1306,7 @@ from swarms.structs.agent import Agent
 agent = Agent(
     agent_name="Quantitative-Trading-Agent",
     agent_description="Advanced quantitative trading and algorithmic analysis agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     dynamic_temperature_enabled=True,
     max_loops="auto",
     dynamic_context_window=True,
@@ -1331,7 +1331,7 @@ from swarms.structs.agent import Agent
 coordinator = Agent(
     agent_name="Research-Coordinator",
     agent_description="Coordinates complex research by delegating to specialized sub-agents",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops="auto",
     selected_tools="all",
 )
@@ -1489,7 +1489,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Iterative-Reasoning-Agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=3,
     reasoning_prompt_on=True,
     system_prompt="You are an agent that reasons through problems step by step.",
@@ -1505,7 +1505,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Dynamic-Agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     dynamic_loops=True,
     system_prompt="You are an adaptive agent that adjusts reasoning depth based on task complexity.",
 )
@@ -1536,7 +1536,7 @@ response = agent.run("Write a creative story about space exploration")
 from swarms import Agent
 
 agent = Agent(
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
     stream=True,
 )
@@ -1643,7 +1643,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Interactive-Agent",
-    model_name="claude-sonnet-4-20250514",
+    model_name="claude-sonnet-4-6",
     interactive=True,
     system_prompt="You are an interactive agent. Engage in a conversation with the user.",
 )
@@ -1659,7 +1659,7 @@ from swarms import Agent
 agent = Agent(
     agent_name="Financial-Analysis-Agent",
     system_prompt=None,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
     auto_generate_prompt=True,
 )
@@ -1865,7 +1865,7 @@ agent = Agent(
     show_tool_execution_output=True,
 
     output_type="json",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     temperature=0.3,
     max_tokens=8000,
     top_p=0.95,

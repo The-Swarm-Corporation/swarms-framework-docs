@@ -69,31 +69,22 @@ SwarmRouter(
     swarm_type: SwarmType = "SequentialWorkflow",
     autosave: bool = False,
     rearrange_flow: Optional[str] = None,
-    return_json: bool = False,
-    auto_generate_prompts: bool = False,
     shared_memory_system: Any = None,
-    rules: Optional[str] = None,
-    documents: List[str] = [],
     output_type: OutputType = "dict-all-except-first",
-    speaker_fn: Optional[Callable] = None,
-    load_agents_from_csv: bool = False,
-    csv_file_path: Optional[str] = None,
-    return_entire_history: bool = True,
     multi_agent_collab_prompt: bool = True,
     list_all_agents: bool = False,
     conversation: Any = None,
     agents_config: Optional[Dict[Any, Any]] = None,
-    speaker_function: Optional[str] = None,
-    heavy_swarm_loops_per_agent: int = 1,
-    heavy_swarm_question_agent_model_name: str = "gpt-4.1",
-    heavy_swarm_worker_model_name: str = "gpt-4.1",
+    heavy_swarm_question_agent_model_name: str = "gpt-5.4",
+    heavy_swarm_worker_model_name: str = "gpt-5.4",
     heavy_swarm_swarm_show_output: bool = True,
-    heavy_swarm_use_grok_agents: bool = False,
+    heavy_swarm_variant: SwarmVariant = "default",
+    heavy_swarm_max_loops: int = 1,
+    heavy_swarm_timeout: int = 900,
     telemetry_enabled: bool = False,
     council_judge_model_name: str = "gpt-5.4",
     verbose: bool = False,
     worker_tools: Optional[List[Callable]] = None,
-    aggregation_strategy: str = "synthesis",
     chairman_model: str = "gpt-5.1",
     autosave_use_timestamp: bool = True,
     *args,
@@ -131,34 +122,18 @@ SwarmRouter(
   Output formatter applied to the conversation. One of `'str'`, `'string'`, `'list'`, `'json'`, `'dict'`, `'dict-all-except-first'`, `'yaml'`, `'xml'`.
 </ParamField>
 
-<ParamField path="return_json" type="bool" default="False">
-  When `True`, results are returned as JSON regardless of `output_type`. Useful for downstream parsing.
-</ParamField>
-
-<ParamField path="return_entire_history" type="bool" default="True">
-  Whether the underlying swarm returns the full conversation history or only the final step.
+<ParamField path="telemetry_enabled" type="bool" default="False">
+  When `True`, snapshot each agent's serialized config into `self.agent_config` during the reliability check.
 </ParamField>
 
 ### Behavior modifiers
 
-<ParamField path="rules" type="str" optional>
-  String injected into every agent's system prompt before execution. Useful for global guardrails (citation requirements, tone, format).
-</ParamField>
-
 <ParamField path="multi_agent_collab_prompt" type="bool" default="True">
-  Inject the built-in collaboration prompt into each agent so they understand they are part of a multi-agent team.
-</ParamField>
-
-<ParamField path="auto_generate_prompts" type="bool" default="False">
-  Automatically generate / refine each agent's system prompt before the first run.
+  Inject the built-in collaboration prompt into each agent so they understand they are part of a multi-agent team. Applied during `setup()` via `update_system_prompt_for_agent_in_swarm()`.
 </ParamField>
 
 <ParamField path="shared_memory_system" type="Any" optional>
-  Shared memory backend (e.g. a vector store) made available to all agents.
-</ParamField>
-
-<ParamField path="documents" type="List[str]" default="[]">
-  File paths to documents the router can attach to agent context.
+  Shared memory backend (e.g. a vector store) attached to every agent's `long_term_memory`.
 </ParamField>
 
 <ParamField path="list_all_agents" type="bool" default="False">
@@ -173,20 +148,8 @@ SwarmRouter(
   Per-agent configuration overrides applied during swarm setup.
 </ParamField>
 
-<ParamField path="load_agents_from_csv" type="bool" default="False">
-  When `True`, agents are loaded from `csv_file_path` instead of from the `agents` list.
-</ParamField>
-
-<ParamField path="csv_file_path" type="str" optional>
-  Path used when `load_agents_from_csv=True`.
-</ParamField>
-
 <ParamField path="verbose" type="bool" default="False">
   Emit detailed logs during construction and execution.
-</ParamField>
-
-<ParamField path="telemetry_enabled" type="bool" default="False">
-  Forward telemetry events about this router's runs.
 </ParamField>
 
 ### Autosave
@@ -211,34 +174,32 @@ These are only consulted when the corresponding `swarm_type` is selected.
 
 #### GroupChat
 
-<ParamField path="speaker_fn" type="Callable" optional>
-  Speaker-selection function for `GroupChat`. Receives state and returns the next speaker's name.
-</ParamField>
-
-<ParamField path="speaker_function" type="str" optional>
-  Named speaker function (e.g. `"round_robin"`, `"expertise_based"`).
-</ParamField>
+`GroupChat` is asynchronous and self-selecting — there are **no speaker-selection functions**. The router passes `agents`, `max_loops`, `output_type`, and `verbose` through to it; agents decide on their own whether to speak. See the [GroupChat API reference](/api/group-chat) for `threshold` / `idle_timeout` tuning (configure those by constructing the `GroupChat` directly).
 
 #### HeavySwarm
 
-<ParamField path="heavy_swarm_loops_per_agent" type="int" default="1">
-  Number of reasoning loops per worker agent.
+<ParamField path="heavy_swarm_question_agent_model_name" type="str" default="gpt-5.4">
+  Model used by the question-generation agent.
 </ParamField>
 
-<ParamField path="heavy_swarm_question_agent_model_name" type="str" default="gpt-4.1">
-  Model used by the question-generation captain.
-</ParamField>
-
-<ParamField path="heavy_swarm_worker_model_name" type="str" default="gpt-4.1">
+<ParamField path="heavy_swarm_worker_model_name" type="str" default="gpt-5.4">
   Model used by every worker agent.
 </ParamField>
 
 <ParamField path="heavy_swarm_swarm_show_output" type="bool" default="True">
-  Whether to render the live dashboard during execution.
+  Print per-agent output during execution (`agent_prints_on`). The live dashboard is forced off when `HeavySwarm` is created through the router.
 </ParamField>
 
-<ParamField path="heavy_swarm_use_grok_agents" type="bool" default="False">
-  When `True`, instantiate the 4-agent Grok variant (Captain / Harper / Benjamin / Lucas) instead of the default 5-agent set.
+<ParamField path="heavy_swarm_variant" type='SwarmVariant ("default" | "medium" | "heavy")' default='"default"'>
+  Which agent line-up to instantiate: `"default"` → 5 agents, `"medium"` → 4 agents (Captain + Harper / Benjamin / Lucas), `"heavy"` → 16 agents (Grok captain + 15 specialists). `SwarmVariant` is exported from `swarms.agents.heavy_swarm_agents`.
+</ParamField>
+
+<ParamField path="heavy_swarm_max_loops" type="int" default="1">
+  Number of iterative-refinement loops for `HeavySwarm`.
+</ParamField>
+
+<ParamField path="heavy_swarm_timeout" type="int" default="900">
+  Per-worker wall-clock cap, in seconds, for `HeavySwarm`.
 </ParamField>
 
 <ParamField path="worker_tools" type="List[Callable]" optional>
@@ -253,12 +214,8 @@ These are only consulted when the corresponding `swarm_type` is selected.
 
 #### LLMCouncil
 
-<ParamField path="aggregation_strategy" type="str" default="synthesis">
-  How council member responses are combined into the chairman's final decision.
-</ParamField>
-
 <ParamField path="chairman_model" type="str" default="gpt-5.1">
-  Model used by the chairman.
+  Model used by the chairman that synthesizes the council members' responses.
 </ParamField>
 
 ### Additional kwargs
@@ -390,9 +347,9 @@ Return the underlying conversation as a single formatted string.
 
 ---
 
-### `activate_shared_memory()` · `handle_rules()` · `activate_ape()`
+### `activate_shared_memory()` · `update_system_prompt_for_agent_in_swarm()` · `list_agents_to_eachother()`
 
-Internal helpers used during `setup()` for shared-memory activation, rules injection, and auto-prompt-engineering. Rarely called directly.
+Internal helpers invoked by `setup()`: attach `shared_memory_system` to every agent's `long_term_memory`, append the multi-agent collaboration prompt to each agent, and (when `list_all_agents=True`) add the agent roster to the swarm conversation. `agent_config()` returns a `{agent_name: agent.to_dict()}` snapshot used when `telemetry_enabled=True`. Rarely called directly.
 
 ## Required parameters by `swarm_type`
 
@@ -403,12 +360,12 @@ Internal helpers used during `setup()` for shared-memory activation, rules injec
 | `AgentRearrange` | `agents`, `rearrange_flow` |
 | `MixtureOfAgents` | `agents` (workers + aggregator as the **last** element) |
 | `HierarchicalSwarm` | `agents` (workers); director is created automatically |
-| `GroupChat` | `agents`, `speaker_fn` or `speaker_function` |
+| `GroupChat` | `agents` (≥2; asynchronous, self-selecting — no speaker function) |
 | `MajorityVoting` | `agents` (≥3 recommended) |
 | `CouncilAsAJudge` | `council_judge_model_name` (builds its own agents) |
-| `LLMCouncil` | `agents`, `chairman_model`, `aggregation_strategy` |
+| `LLMCouncil` | `agents` (council members), `chairman_model` |
 | `DebateWithJudge` | `agents` (≥3: pro, con, judge) |
-| `HeavySwarm` | `heavy_swarm_worker_model_name`, `heavy_swarm_question_agent_model_name` |
+| `HeavySwarm` | `heavy_swarm_worker_model_name`, `heavy_swarm_question_agent_model_name`, `heavy_swarm_variant` |
 | `BatchedGridWorkflow` | `agents`, `tasks` passed to `run` |
 | `RoundRobin` | `agents` (≥2) |
 | `MultiAgentRouter` | `agents` |
