@@ -12,7 +12,7 @@ It also handles:
 - Validated construction of the underlying swarm (`reliability_check`)
 - Optional autosave of config / state / metadata to the workspace
 - Multi-agent collaboration prompt injection
-- Optional rules / shared-memory injection
+- Optional shared-memory injection
 - O(1) factory dispatch with internal caching
 
 ## Import
@@ -325,7 +325,7 @@ Validates the configuration (swarm type, per-type required parameters, `max_loop
 
 ### `setup()`
 
-Applies pre-run configuration to the agents: auto-prompt-engineering (`auto_generate_prompts`), shared-memory activation (`shared_memory_system`), rules injection (`rules`), and the multi-agent collaboration prompt (`multi_agent_collab_prompt`). Called automatically during construction via `reliability_check()`. The underlying swarm itself is created lazily on the first `run()`.
+Applies pre-run configuration to the agents: shared-memory activation (`shared_memory_system`), the multi-agent collaboration prompt (`multi_agent_collab_prompt`), and (if `list_all_agents` is enabled) listing every agent to every other agent. Called automatically during construction via `reliability_check()`. The underlying swarm itself is created lazily on the first `run()`.
 
 ---
 
