@@ -1,0 +1,124 @@
+---
+title: "CLI Examples"
+description: "Practical Swarms CLI examples for setup, agents, YAML teams, and troubleshooting"
+icon: "list"
+---
+
+Command reference: [CLI Commands](/cli/commands). Tutorial walkthrough: [CLI Tutorial](/cli/tutorial).
+
+## Getting started
+
+### Help and onboarding
+
+```bash
+swarms --help
+swarms onboarding
+swarms get-api-key
+swarms check-login
+swarms setup-check
+```
+
+`setup-check` validates Python version, package install, API keys, dependencies, and workspace configuration.
+
+## Single-agent examples
+
+### Research agent
+
+```bash
+swarms agent \
+  --name "Research Assistant" \
+  --description "AI research specialist" \
+  --system-prompt "You are an expert research assistant. Provide structured, evidence-based answers." \
+  --task "Summarize key quantum computing breakthroughs from the last two years" \
+  --model-name "claude-sonnet-4-6" \
+  --temperature 0.1 \
+  --max-loops 3
+```
+
+### Code review agent
+
+```bash
+swarms agent \
+  --name "Code Reviewer" \
+  --system-prompt "You are a senior engineer focused on security and best practices." \
+  --task "Review this code for vulnerabilities: def process(data): return eval(data)" \
+  --model-name "claude-sonnet-4-6" \
+  --temperature 0.05 \
+  --max-loops 2 \
+  --verbose
+```
+
+### Agent with MCP
+
+```bash
+swarms agent \
+  --name "MCP Agent" \
+  --system-prompt "Use MCP tools when they help answer the task." \
+  --task "Find recent news about climate policy and summarize findings" \
+  --model-name "claude-sonnet-4-6" \
+  --mcp-url "https://your-mcp-server.example/sse" \
+  --max-loops 5
+```
+
+## Multi-agent from YAML
+
+Create `research_team.yaml`:
+
+```yaml
+agents:
+  - name: "Data Collector"
+    model_name: "claude-sonnet-4-6"
+    system_prompt: "Gather and organize relevant information."
+    temperature: 0.1
+    max_loops: 3
+  - name: "Data Analyzer"
+    model_name: "claude-sonnet-4-6"
+    system_prompt: "Analyze data and extract insights."
+    temperature: 0.2
+    max_loops: 4
+  - name: "Report Writer"
+    model_name: "claude-sonnet-4-6"
+    system_prompt: "Write a clear report from the analysis."
+    temperature: 0.3
+    max_loops: 3
+```
+
+Run:
+
+```bash
+swarms run-agents --yaml-file research_team.yaml
+```
+
+## Load agents from Markdown
+
+```bash
+swarms load-markdown --markdown-path ./agents/ --concurrent
+```
+
+Each `.md` file uses frontmatter for `name`, `model_name`, `temperature`, `max_loops`, and a body used as the system prompt.
+
+## Configuration templates
+
+```yaml
+# simple_agent.yaml
+agents:
+  - name: "Simple Assistant"
+    model_name: "claude-sonnet-4-6"
+    system_prompt: "You are a helpful AI assistant."
+    temperature: 0.7
+    max_loops: 1
+```
+
+## Troubleshooting
+
+| Issue | What to try |
+| --- | --- |
+| Auth errors | `swarms check-login`, verify `.env` API keys |
+| Missing workspace | `export WORKSPACE_DIR=/path/to/workspace` |
+| Command not found | `pip install -U swarms` and confirm CLI on `PATH` |
+
+## Related
+
+- [CLI Commands](/cli/commands)
+- [CLI Configuration](/cli/configuration)
+- [Quickstart tutorial](/examples/cli/quickstart-tutorial)

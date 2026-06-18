@@ -5,7 +5,7 @@ description: A sophisticated multi-agent system that decomposes tasks into speci
 
 ## Overview
 
-The `HeavySwarm` class is a sophisticated multi-agent orchestration system that decomposes complex tasks into specialized questions and executes them using four specialized agents: Research, Analysis, Alternatives, and Verification. Results are then synthesized into a comprehensive response with optional iterative refinement through multiple loops.
+The `HeavySwarm` class is a sophisticated multi-agent orchestration system that decomposes a complex task into specialized questions, runs a team of agents on them in parallel, and synthesizes the results into a comprehensive response. The `variant` parameter selects the agent line-up — from a five-agent default team up to a sixteen-agent deep-research team — and `max_loops` enables iterative refinement.
 
 ## Class Definition
 
@@ -23,16 +23,8 @@ from swarms.structs.heavy_swarm import HeavySwarm
   Description of the swarm's purpose and capabilities
 </ParamField>
 
-<ParamField path="timeout" type="int" default="300">
+<ParamField path="timeout" type="int" default="900">
   Maximum execution time per agent in seconds
-</ParamField>
-
-<ParamField path="aggregation_strategy" type="str" default="synthesis">
-  Strategy for result aggregation. Currently only 'synthesis' is supported
-</ParamField>
-
-<ParamField path="loops_per_agent" type="int" default="1">
-  Number of execution loops each agent should perform. Must be greater than 0
 </ParamField>
 
 <ParamField path="question_agent_model_name" type="str" default="gpt-5.4">
@@ -47,10 +39,6 @@ from swarms.structs.heavy_swarm import HeavySwarm
   Enable detailed logging and debug output
 </ParamField>
 
-<ParamField path="max_workers" type="int" default="int(os.cpu_count() * 0.9)">
-  Maximum concurrent workers for parallel execution. Defaults to 90% of CPU count
-</ParamField>
-
 <ParamField path="show_dashboard" type="bool" default="False">
   Enable rich dashboard with progress visualization
 </ParamField>
@@ -63,21 +51,76 @@ from swarms.structs.heavy_swarm import HeavySwarm
   Output format type for conversation history
 </ParamField>
 
-<ParamField path="worker_tools" type="tool_type" optional>
+<ParamField path="worker_tools" type="Optional[tool_type]" optional>
   Tools available to worker agents for enhanced functionality
-</ParamField>
-
-<ParamField path="random_loops_per_agent" type="bool" default="False">
-  Enable random number of loops per agent (1-10 range)
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
   Maximum number of execution loops for the entire swarm. Each loop builds upon previous results for iterative refinement
 </ParamField>
 
-## Specialized Agents
+<ParamField path="variant" type='Literal["default", "medium", "heavy"]' default='"default"'>
+  Which agent line-up to instantiate. See **Selecting a Variant** below. Passing an unknown variant raises `ValueError` during initialization
+</ParamField>
 
-The HeavySwarm creates and manages 5 specialized agents:
+## Selecting a Variant
+
+The `variant` parameter controls which agents are created and how many specialized questions the task is decomposed into.
+
+```python
+# Five-agent default (Research / Analysis / Alternatives / Verification + Synthesis)
+swarm = HeavySwarm(variant="default")
+
+# Four-agent Grok-style team (Captain + Harper, Benjamin, Lucas)
+swarm = HeavySwarm(variant="medium")
+
+# Sixteen-agent deep team (Grok captain + 15 domain specialists)
+swarm = HeavySwarm(variant="heavy")
+```
+
+`SwarmVariant` is exported from `swarms.agents.heavy_swarm_agents`.
+
+| `variant` | Agents | Questions generated |
+|---|---|---|
+| `"default"` | 5 — Research, Analysis, Alternatives, Verification, Synthesis | 4 |
+| `"medium"` | 4 — Captain Swarm + Harper, Benjamin, Lucas | 3 |
+| `"heavy"` | 16 — Grok captain + 15 domain specialists | 15 |
+
+### `"medium"` roster
+
+| Agent | Role |
+|---|---|
+| Captain Swarm | Leader and orchestrator |
+| Harper | Research and facts — evidence gathering and fact verification |
+| Benjamin | Logic, math, and code — rigorous reasoning and computational verification |
+| Lucas | Creative and divergent thinking — contrarian analysis and blind-spot detection |
+
+### `"heavy"` roster
+
+A Grok captain decomposes the task into 15 domain-specific questions; the 15 specialists answer them in parallel, then the captain synthesizes a single response.
+
+| Agent | Domain |
+|---|---|
+| Grok | Lead coordinator and synthesizer |
+| Harper | Creative writing and storytelling |
+| Benjamin | Data, finance and economics |
+| Lucas | Coding, programming and technical builds |
+| Olivia | Literature, arts and culture |
+| James | History, politics and philosophy |
+| Charlotte | Math, statistics and logic |
+| Henry | Engineering, robotics and innovation |
+| Mia | Biology, health and medicine |
+| William | Business strategy and entrepreneurship |
+| Sebastian | Physics, astronomy and hard sciences |
+| Jack | Psychology and human behavior |
+| Owen | Environment, sustainability and global systems |
+| Luna | Space exploration and futurism |
+| Elizabeth | Ethics, policy and critical thinking |
+| Noah | Long-term innovation and systems thinking |
+
+## Specialized Agents (default variant)
+
+With the default variant, the HeavySwarm creates and manages 5 specialized agents:
 
 ### Research Agent
 Expert in comprehensive information gathering, data collection, market research, and source verification. Specializes in systematic literature reviews, competitive intelligence, and statistical data interpretation.
@@ -147,15 +190,15 @@ Executes the complete HeavySwarm orchestration flow with multi-loop functionalit
 **Returns:**
 
 <ResponseField name="result" type="str">
-  Comprehensive final answer from synthesis agent after all loops complete
+  Comprehensive final answer from the synthesis step after all loops complete
 </ResponseField>
 
 **Workflow:**
 1. For first loop: Execute original task with full orchestration
 2. For subsequent loops: Combine previous results with original task as context
-3. Question generation: Generate specialized questions for each agent role
-4. Parallel execution: Run all 4 specialized agents concurrently
-5. Synthesis: Integrate all agent results into comprehensive response
+3. Question generation: Generate specialized questions for the active variant's agents
+4. Parallel execution: Run the variant's specialized agents concurrently
+5. Synthesis: Integrate all agent results into a comprehensive response
 6. Iteration: Repeat for max_loops, building upon previous results
 
 ---
@@ -166,15 +209,14 @@ Executes the complete HeavySwarm orchestration flow with multi-loop functionalit
 def reliability_check(self) -> None
 ```
 
-Performs comprehensive reliability and configuration validation checks.
+Performs reliability and configuration validation checks.
 
 **Validates:**
-- loops_per_agent is greater than 0
 - worker_model_name is set
 - question_agent_model_name is set
 
 **Raises:**
-- `ValueError`: If any configuration parameter is invalid
+- `ValueError`: If a required model name is missing, or if `variant` is unknown
 
 ---
 
@@ -184,17 +226,17 @@ Performs comprehensive reliability and configuration validation checks.
 def show_swarm_info(self) -> None
 ```
 
-Displays comprehensive swarm configuration information in rich dashboard format.
+Displays swarm configuration information in rich dashboard format.
 
 Shows:
 - Swarm identification (name, description)
-- Execution parameters (timeout, loops per agent)
+- Execution parameters (timeout)
 - Model configurations (question and worker models)
-- Performance settings (max workers, aggregation strategy)
+- Selected variant
 
 ## Question Generation Schema
 
-The HeavySwarm uses structured question generation with the following schema:
+The default variant decomposes the task into four specialized questions:
 
 ```python
 {
@@ -206,12 +248,14 @@ The HeavySwarm uses structured question generation with the following schema:
 }
 ```
 
+The `"medium"` and `"heavy"` variants use their own schemas (3 and 15 questions respectively).
+
 ## Usage Example
 
 ```python
 from swarms.structs.heavy_swarm import HeavySwarm
 
-# Create HeavySwarm with dashboard enabled
+# Default 5-agent variant with dashboard enabled
 swarm = HeavySwarm(
     name="Market-Analysis-Swarm",
     description="Comprehensive market analysis swarm",
@@ -219,7 +263,7 @@ swarm = HeavySwarm(
     worker_model_name="claude-sonnet-4-6",
     show_dashboard=True,
     max_loops=3,
-    verbose=True
+    verbose=True,
 )
 
 # Execute a complex task
@@ -244,7 +288,7 @@ The `max_loops` parameter enables iterative refinement:
 swarm = HeavySwarm(
     name="DeepAnalysis",
     max_loops=3,
-    show_dashboard=True
+    show_dashboard=True,
 )
 
 result = swarm.run("Analyze AI impact on healthcare")
@@ -260,7 +304,7 @@ When `show_dashboard=True`, the HeavySwarm displays:
 1. **Configuration Panel**: Swarm parameters and settings
 2. **Reliability Checks**: Animated validation with progress tracking
 3. **Question Generation**: Real-time progress for specialized questions
-4. **Agent Execution**: Individual progress bars for each of 4 agents
+4. **Agent Execution**: Individual progress bars for each agent
 5. **Synthesis Phase**: Integration and final report generation
 6. **Completion Summary**: Mission accomplished with professional styling
 
@@ -268,10 +312,9 @@ All dashboard elements use Swarms-inspired red/black styling with professional f
 
 ## Performance Optimization
 
-- **Parallel Execution**: All 4 specialized agents run concurrently
-- **Thread Pool**: Configurable max_workers for optimal CPU utilization
+- **Parallel Execution**: The active variant's specialized agents run concurrently
+- **Thread Pool**: Workers run across a pool sized to roughly 90% of the host's CPU cores
 - **Timeout Management**: Per-agent timeout controls
-- **LRU Caching**: Agent instances are cached for reuse
 
 ## Source Code
 

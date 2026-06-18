@@ -1,514 +1,344 @@
 ---
 title: Group Chat Example
-description: Learn how to create conversational collaboration between agents for real-time decision-making and debates
+description: Learn how to run an asynchronous, self-selecting agent groupchat for debates and multi-perspective reasoning
 ---
 
-`GroupChat` creates a conversational environment where multiple agents can interact, discuss, and collaboratively solve a problem. You can define the speaking order or let it be determined dynamically. This architecture is ideal for tasks that benefit from debate and multi-perspective reasoning, such as contract negotiation, brainstorming, or complex decision-making.
+`GroupChat` creates an **asynchronous, self-selecting** room where every agent sees every message and independently decides whether to speak. There is no fixed speaking order — agents chime in only when their self-rated desire to respond clears a threshold. This is ideal for debates, brainstorming, and complex decision-making where you want natural, emergent dialogue rather than a rigid turn order.
+
+<Note>
+  This page reflects the current asynchronous `GroupChat`. The older turn-based design — `speaker_function`, `round-robin`/`random`/`priority` speakers, `@mention` routing, and interactive REPL sessions — has been **removed**. See the [GroupChat API reference](/api/group-chat) for the full parameter list.
+</Note>
 
 ## How Group Chat Works
 
-Group Chat enables agents to have multi-turn conversations:
-
-1. **Conversation Initialization**: Starting topic or prompt is provided
-2. **Turn-Based Discussion**: Agents take turns speaking and responding
-3. **Context Awareness**: Each agent sees the full conversation history
-4. **Dynamic Interaction**: Agents respond to each other's points
-5. **Conversation History**: Complete transcript of all exchanges is maintained
+1. **Seed** — the task is broadcast to every agent's inbox as the first message.
+2. **Self-selection** — for each message, every agent is asked (via a forced `respond(score, message)` tool call) how much it wants to speak, on a `0..1` scale.
+3. **Threshold** — a reply is published only when its `score` exceeds `threshold` and the message is non-empty.
+4. **Concurrent broadcast** — published replies wake every other agent's inbox at once; multiple agents can react to the same message in parallel.
+5. **Stop condition** — the chat ends when `max_loops` total messages have been posted, or no new message arrives for `idle_timeout` seconds.
 
 ### Key Characteristics
 
-- **Conversational Flow**: Natural dialogue between multiple agents
-- **Shared Context**: All agents see the entire conversation
-- **Interactive Reasoning**: Agents build on each other's ideas
-- **Flexible Ordering**: Can be sequential or dynamic
-- **Collaborative Problem-Solving**: Multiple perspectives converge
+- **Asynchronous**: agents listen in parallel; there is no global turn order.
+- **Self-selecting**: silence is the default — agents only speak when they add value.
+- **Shared context**: every agent sees the full transcript before deciding.
+- **Bounded**: `max_loops` caps total messages; `idle_timeout` ends quiet chats.
+- **Auto-equipped**: with `auto_equip=True` (default), the `respond` tool is injected into each agent for you.
+
+## Key Parameters
+
+| Parameter | Purpose |
+|---|---|
+| `agents` | Participating agents (**at least 2 required**). |
+| `max_loops` | Hard cap on total messages posted (the user task counts as the first). Default `20`. |
+| `threshold` | Minimum decision score (`0..1`) to publish a reply. Default `0.5`. Raise for a more selective room. |
+| `idle_timeout` | Seconds of silence before the chat stops. Default `8.0`. |
+| `output_type` | History format. Default `"str-all-except-first"`. Use `"list"` or `"dict"` to iterate messages. |
+| `print_on` | Print each broadcast as a styled panel. Default `True`. |
+| `auto_equip` | Auto-inject the `respond` tool into agents that lack it. Default `True`. |
 
 ## Basic Example: Tech Debate
 
-This example demonstrates a debate about AI's societal impact:
+A two-sided debate about AI's societal impact. Each agent uses `max_loops=1` and `persistent_memory=False` so every speaking decision is a clean single-shot call.
 
 ```python
 from swarms import Agent, GroupChat
 
-# Define agents for a debate
 tech_optimist = Agent(
     agent_name="TechOptimist",
-    system_prompt="Argue for the benefits of AI in society.",
-    model_name="gpt-5.4"
+    system_prompt="You argue for the benefits of AI in society.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 
 tech_critic = Agent(
     agent_name="TechCritic",
-    system_prompt="Argue against the unchecked advancement of AI.",
-    model_name="gpt-5.4"
+    system_prompt="You argue against the unchecked advancement of AI.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 
-# Create the group chat
 chat = GroupChat(
     agents=[tech_optimist, tech_critic],
-    max_loops=4,  # Limit the number of turns in the conversation
+    max_loops=8,       # stop after 8 total messages
+    threshold=0.5,     # publish replies scoring above 0.5
+    idle_timeout=8.0,  # stop after 8s of silence
 )
 
-# Run the chat with an initial topic
-conversation_history = chat.run(
+result = chat.run(
     "Let's discuss the societal impact of artificial intelligence."
 )
-
-# Print the full conversation
-for message in conversation_history:
-    print(f"[{message['agent_name']}]: {message['content']}")
+print(result)
 ```
 
-## How This Example Works
+By default `result` is a formatted string (`output_type="str-all-except-first"`). To iterate over individual messages, set `output_type="list"`:
 
-1. **Topic Introduction**: "Let's discuss the societal impact of artificial intelligence."
-2. **Turn 1 - TechOptimist**: Argues benefits of AI (healthcare advances, efficiency gains)
-3. **Turn 2 - TechCritic**: Counters with concerns (job displacement, bias, privacy)
-4. **Turn 3 - TechOptimist**: Responds to criticism (reskilling programs, regulation)
-5. **Turn 4 - TechCritic**: Final rebuttal (systemic risks, inequality)
-6. **Output**: Complete conversation history with all exchanges
+```python
+chat = GroupChat(
+    agents=[tech_optimist, tech_critic],
+    max_loops=8,
+    output_type="list",
+)
 
-## Conversational Collaboration
+messages = chat.run("Discuss the societal impact of artificial intelligence.")
 
-Group Chat excels at:
+for message in messages:
+    print(f"[{message['role']}]: {message['content']}")
+```
 
-### Multi-Perspective Reasoning
-Agents consider and respond to different viewpoints, leading to more nuanced understanding.
-
-### Debate and Discussion
-Contrary positions are explored through back-and-forth dialogue.
-
-### Collaborative Problem-Solving
-Agents build on each other's ideas to reach better solutions.
-
-### Interactive Refinement
-Ideas are tested, challenged, and improved through conversation.
+Each message dict carries `role` (the agent name, or `"User"` for the seed task) and `content`.
 
 ## Real-World Examples
 
 ### Business Strategy Discussion
 
-Multiple executives debate strategic decisions:
+Executives with distinct mandates weigh in only where they have something to add.
 
 ```python
 from swarms import Agent, GroupChat
 
-# Define business executives with different perspectives
 ceo = Agent(
     agent_name="CEO",
-    system_prompt="Focus on long-term vision, company mission, and stakeholder value. Make final decisions.",
-    model_name="gpt-5.4"
+    system_prompt="Focus on long-term vision, mission, and stakeholder value.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
-
 cfo = Agent(
     agent_name="CFO",
-    system_prompt="Focus on financial viability, costs, revenue implications, and ROI.",
-    model_name="gpt-5.4"
+    system_prompt="Focus on financial viability, costs, revenue, and ROI.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
-
 cto = Agent(
     agent_name="CTO",
-    system_prompt="Focus on technical feasibility, architecture, scalability, and innovation.",
-    model_name="gpt-5.4"
+    system_prompt="Focus on technical feasibility, architecture, and scalability.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
-
 cmo = Agent(
     agent_name="CMO",
-    system_prompt="Focus on market positioning, customer needs, competitive advantage, and brand impact.",
-    model_name="gpt-5.4"
+    system_prompt="Focus on market positioning, customer needs, and brand impact.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 
-# Create executive team chat
 exec_team = GroupChat(
     agents=[ceo, cfo, cto, cmo],
-    max_loops=6,  # Multiple rounds of discussion
+    max_loops=12,      # room for several rounds of contribution
+    threshold=0.6,     # only fairly motivated replies get published
+    idle_timeout=12.0,
 )
 
-# Discuss strategic decision
 discussion = exec_team.run(
-    "Should we pivot from B2C to B2B and rebuild our product for enterprise customers? "
-    "This would require 18 months and $5M investment."
+    "Should we pivot from B2C to B2B and rebuild our product for enterprise "
+    "customers? This would require 18 months and $5M investment."
 )
-
-for message in discussion:
-    print(f"\n[{message['agent_name']}]:")
-    print(message['content'])
-```
-
-### Design Review Session
-
-Design team critiques and improves a concept:
-
-```python
-from swarms import Agent, GroupChat
-
-# Define design team members
-ux_designer = Agent(
-    agent_name="UX-Designer",
-    system_prompt="Evaluate user experience, usability, and interaction design.",
-    model_name="gpt-5.4"
-)
-
-ui_designer = Agent(
-    agent_name="UI-Designer",
-    system_prompt="Evaluate visual design, aesthetics, and design system consistency.",
-    model_name="gpt-5.4"
-)
-
-product_manager = Agent(
-    agent_name="Product-Manager",
-    system_prompt="Evaluate whether design meets product requirements and user needs.",
-    model_name="gpt-5.4"
-)
-
-accessibility_expert = Agent(
-    agent_name="Accessibility-Expert",
-    system_prompt="Evaluate accessibility compliance and inclusive design.",
-    model_name="gpt-5.4"
-)
-
-# Create design review chat
-design_review = GroupChat(
-    agents=[ux_designer, ui_designer, product_manager, accessibility_expert],
-    max_loops=5,
-)
-
-# Review design concept
-review = design_review.run(
-    "Review this new checkout flow design: Single-page checkout with autocomplete, "
-    "social login options, and guest checkout. Feedback on usability, visual design, "
-    "product fit, and accessibility?"
-)
-
-for message in review:
-    print(f"\n[{message['agent_name']}]:")
-    print(message['content'])
+print(discussion)
 ```
 
 ### Legal Contract Negotiation
 
-Lawyers negotiate contract terms:
-
 ```python
 from swarms import Agent, GroupChat
 
-# Define legal representatives
 buyer_attorney = Agent(
     agent_name="Buyer-Attorney",
-    system_prompt="Represent the buyer's interests. Negotiate favorable terms, minimize liability, protect rights.",
-    model_name="gpt-5.4"
+    system_prompt="Represent the buyer. Negotiate favorable terms and minimize liability.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
-
 seller_attorney = Agent(
     agent_name="Seller-Attorney",
-    system_prompt="Represent the seller's interests. Ensure fair payment, limit obligations, protect IP.",
-    model_name="gpt-5.4"
+    system_prompt="Represent the seller. Ensure fair payment and protect IP.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
-
 mediator = Agent(
     agent_name="Mediator",
-    system_prompt="Facilitate fair negotiation. Identify common ground, propose compromises, ensure both parties are heard.",
-    model_name="gpt-5.4"
+    system_prompt="Facilitate fair negotiation. Find common ground and propose compromises.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 
-# Create negotiation chat
 negotiation = GroupChat(
     agents=[buyer_attorney, seller_attorney, mediator],
-    max_loops=8,  # Extended negotiation
+    max_loops=14,
+    threshold=0.5,
 )
 
-# Negotiate contract
 contract_discussion = negotiation.run(
-    "Negotiate software licensing agreement. Key issues: payment terms (buyer wants net-60, seller wants net-30), "
-    "liability cap (buyer wants $1M, seller wants $100K), and IP ownership of customizations."
+    "Negotiate a software licensing agreement. Key issues: payment terms "
+    "(buyer wants net-60, seller wants net-30), liability cap (buyer wants $1M, "
+    "seller wants $100K), and IP ownership of customizations."
 )
-
-for message in contract_discussion:
-    print(f"\n[{message['agent_name']}]:")
-    print(message['content'])
+print(contract_discussion)
 ```
 
 ### Medical Case Conference
 
-Doctors discuss complex diagnosis:
-
 ```python
 from swarms import Agent, GroupChat
 
-# Define medical specialists
-attending_physician = Agent(
+attending = Agent(
     agent_name="Attending-Physician",
-    system_prompt="Present case details and coordinate discussion. Synthesize recommendations.",
-    model_name="gpt-5.4"
+    system_prompt="Present the case and synthesize recommendations.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
-
 cardiologist = Agent(
     agent_name="Cardiologist",
-    system_prompt="Evaluate from cardiovascular perspective. Identify heart-related concerns.",
-    model_name="gpt-5.4"
+    system_prompt="Evaluate from a cardiovascular perspective.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
-
 neurologist = Agent(
     agent_name="Neurologist",
-    system_prompt="Evaluate from neurological perspective. Identify nervous system issues.",
-    model_name="gpt-5.4"
+    system_prompt="Evaluate from a neurological perspective.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
-
 pharmacologist = Agent(
     agent_name="Pharmacologist",
-    system_prompt="Evaluate drug interactions, contraindications, and medication recommendations.",
-    model_name="gpt-5.4"
+    system_prompt="Evaluate drug interactions and medication recommendations.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 
-# Create medical conference chat
 case_conference = GroupChat(
-    agents=[attending_physician, cardiologist, neurologist, pharmacologist],
-    max_loops=6,
+    agents=[attending, cardiologist, neurologist, pharmacologist],
+    max_loops=12,
+    threshold=0.6,  # specialists stay quiet outside their domain
 )
 
-# Discuss complex case
 case_discussion = case_conference.run(
-    "Patient: 68-year-old male with hypertension, diabetes. Presenting symptoms: severe headaches, "
-    "dizziness, elevated BP 180/110, slight confusion. Current medications: metformin, lisinopril, aspirin. "
-    "Discuss diagnosis and treatment plan."
+    "Patient: 68-year-old male with hypertension and diabetes. Symptoms: severe "
+    "headaches, dizziness, BP 180/110, slight confusion. Medications: metformin, "
+    "lisinopril, aspirin. Discuss diagnosis and treatment plan."
 )
-
-for message in case_discussion:
-    print(f"\n[{message['agent_name']}]:")
-    print(message['content'])
+print(case_discussion)
 ```
 
-### Creative Brainstorming Session
+## Tuning the Conversation
 
-Creative team generates ideas:
+Because there is no fixed turn order, you shape the conversation with `threshold`, `max_loops`, and `idle_timeout` rather than a speaker function.
+
+### A livelier room
 
 ```python
-from swarms import Agent, GroupChat
-
-# Define creative team
-copywriter = Agent(
-    agent_name="Copywriter",
-    system_prompt="Generate creative messaging, slogans, and narrative concepts.",
-    model_name="gpt-5.4"
-)
-
-art_director = Agent(
-    agent_name="Art-Director",
-    system_prompt="Generate visual concepts, art direction, and creative executions.",
-    model_name="gpt-5.4"
-)
-
-strategist = Agent(
-    agent_name="Strategist",
-    system_prompt="Ensure ideas align with brand strategy, target audience, and business objectives.",
-    model_name="gpt-5.4"
-)
-
-creative_director = Agent(
-    agent_name="Creative-Director",
-    system_prompt="Guide creative direction, push for breakthrough ideas, elevate concepts.",
-    model_name="gpt-5.4"
-)
-
-# Create brainstorm chat
+# Lower threshold → more agents chime in on each message.
 brainstorm = GroupChat(
     agents=[copywriter, art_director, strategist, creative_director],
-    max_loops=8,  # Extended creative session
+    max_loops=20,
+    threshold=0.4,
+    idle_timeout=10.0,
 )
-
-# Brainstorm campaign
-campaign_ideas = brainstorm.run(
-    "Brainstorm creative campaign for sustainable sneaker brand targeting Gen-Z. "
-    "Brand values: environmental responsibility, transparency, urban style. "
-    "Goal: Launch campaign that goes viral and drives brand awareness."
-)
-
-for message in campaign_ideas:
-    print(f"\n[{message['agent_name']}]:")
-    print(message['content'])
 ```
 
-## Speaker Selection Patterns
-
-### Sequential (Round-Robin)
-
-Default behavior - agents speak in order:
+### A more selective room
 
 ```python
-chat = GroupChat(
-    agents=[agent1, agent2, agent3],
-    max_loops=6,  # Each agent speaks twice (6 turns / 3 agents)
+# Higher threshold → only strongly-motivated, high-value replies are published.
+focused = GroupChat(
+    agents=[expert1, expert2, expert3],
+    max_loops=10,
+    threshold=0.75,
+    idle_timeout=15.0,  # give agents time to deliberate
 )
-
-# Turn order: agent1 → agent2 → agent3 → agent1 → agent2 → agent3
 ```
 
-### Controlled Turn Count
+### Bounding total length
 
-Limit total conversation length:
-
-```python
-# Short discussion (4 turns total)
-quick_chat = GroupChat(agents=[agent1, agent2], max_loops=4)
-
-# Extended discussion (12 turns total)  
-deep_chat = GroupChat(agents=[agent1, agent2, agent3], max_loops=12)
-```
-
-### Two-Party Debate
-
-Simple back-and-forth:
+`max_loops` is the primary cost control — it caps the **total number of messages** posted (the seed task included), not the turns per agent.
 
 ```python
-debate = GroupChat(
-    agents=[proponent, opponent],
-    max_loops=8,  # 4 rounds of back-and-forth
-)
-
-# Conversation flow:
-# Turn 1: proponent makes opening argument
-# Turn 2: opponent counters
-# Turn 3: proponent responds
-# Turn 4: opponent rebuts
-# ... continues for 8 turns total
-```
-
-### Multi-Party Discussion
-
-Multiple agents contribute:
-
-```python
-panel = GroupChat(
-    agents=[expert1, expert2, expert3, moderator],
-    max_loops=12,  # 3 rounds for each agent
-)
-
-# Turn order cycles through all agents:
-# expert1 → expert2 → expert3 → moderator → expert1 → ...
+# At most 6 messages total, then the chat stops.
+quick = GroupChat(agents=[proponent, opponent], max_loops=6)
 ```
 
 ## Best Practices
 
-### 1. Define Clear Agent Roles
+### 1. Give each agent a distinct, specific role
 
 ```python
-# Good: Specific perspective
+# Good: a specific perspective the agent can defend.
 agent = Agent(
     agent_name="Privacy-Advocate",
-    system_prompt="You are a privacy advocate. Always consider data protection, user consent, and privacy implications in your arguments.",
-    model_name="gpt-5.4"
-)
-
-# Avoid: Generic role
-agent = Agent(
-    agent_name="Agent1",
-    system_prompt="You are a helpful agent.",
-    model_name="gpt-5.4"
+    system_prompt="You are a privacy advocate. Always weigh data protection, "
+                  "consent, and privacy implications.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    persistent_memory=False,
 )
 ```
 
-### 2. Set Appropriate Turn Limits
+Distinct roles make the `respond` decision meaningful — agents speak inside their lane and stay quiet outside it.
 
-- **Quick consensus (2-4 turns)**: Simple decisions or clarifications
-- **Standard discussion (4-8 turns)**: Typical debates or reviews  
-- **Extended negotiation (8-12+ turns)**: Complex problem-solving or negotiations
+### 2. Use `max_loops=1` and `persistent_memory=False` per agent
 
-### 3. Provide Rich Context
+Each participating agent should make a clean, single-shot decision per message. Stateful memory across decisions can distort the speaking score.
 
-```python
-conversation = chat.run(
-    """Discuss whether to acquire CompanyX for $50M.
-    
-    Background:
-    - CompanyX: 100 employees, $10M ARR, growing 50% YoY
-    - Technology: Complementary to our platform
-    - Market: Expands us into new vertical
-    - Financials: We have $100M cash, profitable
-    
-    Key considerations:
-    - Strategic fit
-    - Financial return
-    - Integration complexity
-    - Alternative uses of capital
-    
-    Make recommendation: acquire, pass, or counteroffer?
-    """
-)
-```
+### 3. Tune `threshold` to the room size
 
-### 4. Balance Agent Count
+- **Few agents (2–3)**: a lower threshold (`~0.4–0.5`) keeps the dialogue flowing.
+- **Many agents (4+)**: raise it (`~0.6–0.75`) so the room doesn't pile on every message.
 
-- **2 agents**: Clean debates, clear dialogue
-- **3-4 agents**: Rich discussion, multiple perspectives
-- **5+ agents**: Can become chaotic, consider moderator
+### 4. Set `idle_timeout` to match thinking time
 
-### 5. Use Moderators for Large Groups
+Raise it when models need longer to reason; lower it to end quiet chats faster.
 
-```python
-moderator = Agent(
-    agent_name="Moderator",
-    system_prompt="""You are a discussion moderator.
-    - Summarize key points periodically
-    - Identify areas of agreement and disagreement  
-    - Ask clarifying questions
-    - Guide conversation toward conclusion
-    """,
-    model_name="gpt-5.4"
-)
+### 5. Choose the right `output_type`
 
-large_group = GroupChat(
-    agents=[agent1, agent2, agent3, agent4, moderator],
-    max_loops=10,
-)
-```
-
-## Advantages of Group Chat
-
-1. **Natural Interaction**: Mimics human conversation and collaboration
-2. **Diverse Perspectives**: Multiple viewpoints are explored and debated
-3. **Interactive Refinement**: Ideas are tested and improved through dialogue
-4. **Context Building**: Shared conversation history ensures alignment
-5. **Flexible Dynamics**: Can handle debates, brainstorms, negotiations, reviews
-6. **Emergent Insights**: Novel ideas emerge from agent interactions
+- `"str-all-except-first"` (default) — a single readable transcript string.
+- `"list"` / `"dict"` — structured messages you can iterate (`role`, `content`).
 
 ## When to Use Group Chat
 
 Ideal for:
 
-- **Debates and Discussions**: When exploring different viewpoints
-- **Collaborative Decision-Making**: When consensus needed among stakeholders
-- **Brainstorming**: When generating creative ideas through interaction
-- **Negotiation**: When parties need to reach agreement
-- **Peer Review**: When evaluating work from multiple angles
-- **Complex Problem-Solving**: When iterative dialogue adds value
+- **Debates and discussions** — exploring opposing viewpoints.
+- **Collaborative decision-making** — stakeholders converging on consensus.
+- **Brainstorming** — emergent ideas from parallel contributions.
+- **Negotiation** — parties working toward agreement.
+- **Peer review** — evaluating work from multiple angles.
 
 ## When NOT to Use Group Chat
 
-- **Simple Tasks**: Overhead not justified for straightforward work
-- **Independent Analysis**: When agents shouldn't influence each other (use ConcurrentWorkflow)
-- **Linear Workflows**: When clear sequence is needed (use SequentialWorkflow)
-- **Hierarchical Coordination**: When director needed (use HierarchicalSwarm)
-- **Very Long Conversations**: May lose coherence after many turns
+- **Simple tasks** — the coordination overhead isn't justified (use a single `Agent`).
+- **Independent analysis** — when agents shouldn't influence each other (use `ConcurrentWorkflow`).
+- **Strict ordering** — when a fixed sequence is required (use `SequentialWorkflow`).
+- **Hierarchical coordination** — when a director must delegate (use `HierarchicalSwarm`).
 
 ## Comparison with Other Patterns
 
 | Pattern | Interaction Style | Best For |
 |---------|------------------|----------|
-| **GroupChat** | Conversational, back-and-forth dialogue | Debates, brainstorms, negotiations |
-| **MixtureOfAgents** | Parallel → Synthesis | Combining expert analyses |
-| **HierarchicalSwarm** | Director → Workers | Project management, coordination |
+| **GroupChat** | Asynchronous, self-selecting dialogue | Debates, brainstorms, negotiations |
+| **MixtureOfAgents** | Parallel → synthesis | Combining expert analyses |
+| **HierarchicalSwarm** | Director → workers | Project coordination |
 | **SequentialWorkflow** | Linear pipeline | Step-by-step processes |
 | **ConcurrentWorkflow** | Independent parallel | Multi-perspective analysis |
 
 ## Related Architectures
 
-- **[MixtureOfAgents](/examples/mixture-of-agents-example)**: Parallel experts with synthesis
-- **[HierarchicalSwarm](/examples/hierarchical-swarm-example)**: Director-worker coordination
-- **[ConcurrentWorkflow](/examples/concurrent-workflow-example)**: Independent parallel execution
+- **[MixtureOfAgents](/examples/mixture-of-agents-example)**: parallel experts with synthesis
+- **[HierarchicalSwarm](/examples/hierarchical-swarm-example)**: director-worker coordination
+- **[ConcurrentWorkflow](/examples/concurrent-workflow-example)**: independent parallel execution
 
 ## Learn More
 
 - [GroupChat API Reference](/api/group-chat)
-- [GroupChat Examples](/examples/group-chat-example)
-- [Interactive GroupChat](/examples/group-chat-example)
 - [Multi-Agent Architectures Overview](/architectures/overview)
+</content>

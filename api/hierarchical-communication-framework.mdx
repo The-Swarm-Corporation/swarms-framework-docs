@@ -50,8 +50,24 @@ pip install -U swarms
   List of refiner agents for improving content based on feedback
 </ParamField>
 
+<ParamField path="evaluation_supervisor" type="Optional[Union[Agent, Callable, Any]]" default="None">
+  Dedicated supervisor that coordinates the hierarchical evaluation phase. Created automatically if not provided.
+</ParamField>
+
 <ParamField path="max_loops" type="int" default="3">
   Maximum number of refinement loops
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="dict-all-except-first">
+  Format applied to the conversation history.
+</ParamField>
+
+<ParamField path="supervisor_name" type="str" default="Supervisor">
+  Display name for the main supervisor agent.
+</ParamField>
+
+<ParamField path="evaluation_supervisor_name" type="str" default="EvaluationSupervisor">
+  Display name for the evaluation supervisor agent.
 </ParamField>
 
 <ParamField path="enable_structured_communication" type="bool" default="True">
@@ -62,16 +78,28 @@ pip install -U swarms
   Enable hierarchical evaluation with supervisor coordination
 </ParamField>
 
-<ParamField path="shared_memory" type="bool" default="False">
+<ParamField path="shared_memory" type="bool" default="True">
   Enable shared memory between agents
 </ParamField>
 
-<ParamField path="model_name" type="str">
+<ParamField path="model_name" type="str" default="gpt-5.4">
   LLM model name to use for the agents
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
   Enable verbose logging
+</ParamField>
+
+<ParamField path="use_ollama" type="bool" default="False">
+  Route agent calls through a local Ollama server instead of a hosted provider.
+</ParamField>
+
+<ParamField path="ollama_base_url" type="str" default="http://localhost:11434/v1">
+  Base URL for the Ollama server when `use_ollama=True`.
+</ParamField>
+
+<ParamField path="ollama_api_key" type="str" default="ollama">
+  API key sent to the Ollama server when `use_ollama=True`.
 </ParamField>
 
 ## Methods

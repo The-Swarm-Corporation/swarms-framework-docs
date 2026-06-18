@@ -91,6 +91,18 @@ from swarms.structs.hiearchical_swarm import HierarchicalSwarm
   Enable verbose logging output
 </ParamField>
 
+<ParamField path="parallel_execution" type="bool" default="True">
+  When `True`, worker agents assigned in a single director order are executed concurrently; when `False`, they run one after another.
+</ParamField>
+
+<ParamField path="agent_as_judge" type="bool" default="False">
+  When `True`, a judge agent evaluates the worker outputs to inform the director's feedback loop.
+</ParamField>
+
+<ParamField path="judge_agent_model_name" type="str" default="gpt-5.4">
+  Model used by the judge agent when `agent_as_judge=True`.
+</ParamField>
+
 ## Methods
 
 ### `run()`
