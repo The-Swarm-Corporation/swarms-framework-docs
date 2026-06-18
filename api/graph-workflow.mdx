@@ -51,6 +51,9 @@ class GraphWorkflow:
         auto_compile: bool = True,
         verbose: bool = False,
         backend: str = "networkx",
+        checkpoint_dir: Optional[str] = None,
+        on_node_complete: Optional[Callable[[str, Any], None]] = None,
+        max_parallel_nodes: Optional[int] = None,
     )
 ```
 
@@ -102,6 +105,18 @@ class GraphWorkflow:
 
 <ParamField path="backend" type="str" default="networkx">
   Graph backend to use. Options: "networkx", "rustworkx" (Rustworkx is faster for large graphs)
+</ParamField>
+
+<ParamField path="checkpoint_dir" type="Optional[str]" default="None">
+  Directory for writing workflow checkpoints. When set, execution state can be persisted and resumed.
+</ParamField>
+
+<ParamField path="on_node_complete" type="Optional[Callable[[str, Any], None]]" default="None">
+  Callback fired after each node finishes, receiving `(node_id, result)`. Can also be passed per-call to `run()`.
+</ParamField>
+
+<ParamField path="max_parallel_nodes" type="Optional[int]" default="None">
+  Maximum number of nodes to execute concurrently within a layer. Defaults to the framework's worker count when `None`.
 </ParamField>
 
 ## Methods

@@ -74,7 +74,7 @@ swarm = HeavySwarm(
     name="Market-Research-Team",
     description="Research team with web search capabilities",
     question_agent_model_name="gpt-5.4",
-    worker_model_name="claude-sonnet-4-20250514",
+    worker_model_name="claude-sonnet-4-6",
     worker_tools=[exa_search],   # tools available to every worker
     show_dashboard=True,
     max_loops=2,                 # iterative refinement
@@ -362,7 +362,7 @@ With `max_loops > 1` the swarm iterates, each loop feeding the previous synthesi
 ```python
 swarm = HeavySwarm(
     name="Deep-Analysis-Team",
-    worker_model_name="claude-sonnet-4-20250514",
+    worker_model_name="claude-sonnet-4-6",
     max_loops=3,
 )
 
@@ -408,7 +408,7 @@ When `show_dashboard=True`, the `HeavySwarmDashboard` renders rich progress pane
 swarm = HeavySwarm(
     name="Investment-Committee",
     description="Comprehensive investment evaluation team",
-    worker_model_name="claude-sonnet-4-20250514",
+    worker_model_name="claude-sonnet-4-6",
     show_dashboard=True,
 )
 
@@ -442,7 +442,7 @@ research = swarm.run(
 swarm = HeavySwarm(
     name="Strategy-Team",
     description="Strategic planning and analysis",
-    worker_model_name="claude-sonnet-4-20250514",
+    worker_model_name="claude-sonnet-4-6",
     max_loops=2,
     show_dashboard=True,
 )
