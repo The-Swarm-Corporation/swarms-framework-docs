@@ -129,7 +129,7 @@ swarms check-login
 
 ### agent
 
-Create and run a custom agent with specified parameters. The task parameter is optional - if not provided, the agent runs in interactive mode by default.
+Create and run a custom agent with specified parameters. Use `swarms agent` with `--task` for scriptable one-shot work. Use `swarms chat` for a conversational terminal session.
 
 **Usage:**
 ```bash
@@ -147,12 +147,12 @@ swarms agent \
 - `--system-prompt` - System prompt defining agent behavior (can use `--marketplace-prompt-id` instead)
 
 **Optional Parameters:**
-- `--task` - Task to execute (if omitted, runs in interactive mode)
+- `--task` - Task to execute
 - `--model-name` - LLM model to use (default: "gpt-4")
 - `--temperature` - Temperature setting (0.0-2.0)
 - `--max-loops` - Maximum loops (integer or "auto" for autonomous)
-- `--interactive` - Enable interactive mode (default: True)
-- `--no-interactive` - Disable interactive mode
+- `--interactive` - Allow interactive-capable agent behavior
+- `--no-interactive` - Disable interactive-capable agent behavior
 - `--verbose` - Enable verbose output
 - `--streaming-on` - Enable streaming mode
 - `--context-length` - Context window size
@@ -182,11 +182,10 @@ swarms agent \
   --temperature 0.1
 ```
 
-Create an agent in interactive mode (no task):
+For a conversational session, use `swarms chat`:
 ```bash
-swarms agent \
+swarms chat \
   --name "Assistant" \
-  --description "General purpose assistant" \
   --system-prompt "You are a helpful assistant"
 ```
 
