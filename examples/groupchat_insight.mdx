@@ -1,0 +1,661 @@
+---
+title: 'GroupChat Internals: A Technical Analysis'
+description: 'A deep technical analysis of the asynchronous, self-selecting GroupChat module — actor model, correctness proofs, and branching-process dynamics'
+icon: 'diagram-project'
+---
+
+A deep dive into the architecture, formal model, and emergent dynamics of the asynchronous, self-selecting `GroupChat` module.
+
+## Overview
+
+The `GroupChat` module (`swarms/structs/groupchat.py`) implements an
+*asynchronous, self-selecting* group conversation among autonomous language-model
+agents. Unlike round-robin or speaker-selection schemes, where an orchestrator
+picks who talks next, `GroupChat` has no global turn order. Every agent observes
+every message, independently rates how much it wants to respond, and speaks only
+when that desire clears a threshold. The result behaves less like a moderated
+panel and more like an open room: several agents may react to the same remark at
+once, and an agent with nothing to add simply stays quiet.
+
+This document explains the architecture in depth, formalizes the system as a
+concurrent actor model, and proves a sequence of properties: linearizability of
+the shared transcript, guaranteed termination, bounded stop latency, and, most
+interestingly, a *branching-process characterization* of conversation dynamics
+that yields a sharp criticality threshold separating chats that die out from
+chats that run to their hard cap. The final section provides a complete, runnable
+program that exercises the full API.
+
+The design goal is worth stating plainly. Most multi-agent chat frameworks impose
+coordination from the outside: a controller computes a speaking order, or a
+manager agent nominates the next speaker. That central coordinator is a
+bottleneck, a single point of failure, and a source of artificial serialization.
+`GroupChat` removes the coordinator entirely. Coordination becomes *emergent*: it
+arises from many independent local decisions rather than one global schedule. The
+mathematics below is what lets us reason about whether that emergent behavior is
+stable.
+
+---
+
+## Architecture
+
+### The actor model
+
+`GroupChat` is a textbook *actor system*. Each agent is an actor with a private
+mailbox, implemented as an `asyncio.Queue`:
+
+```python
+inboxes = {a.agent_name: asyncio.Queue() for a in self.agents}
+```
+
+The runtime launches one coroutine per agent via `_agent_loop`, plus one
+`_idle_monitor` coroutine. There is no shared mutable conversation pointer passed
+between agents; instead, communication happens exclusively by message passing into
+mailboxes. This is the defining property of the actor model, and it is what makes
+the concurrency tractable. An actor never reaches into another actor's state; it
+only drops a message into a queue.
+
+Shared bookkeeping (the transcript, a message counter, a last-activity timestamp,
+a stop event, and a lock) lives in a single `state` dictionary:
+
+```python
+state = {
+    "lock": asyncio.Lock(),
+    "stop": asyncio.Event(),
+    "last_activity": time.monotonic(),
+    "message_count": 0,
+}
+```
+
+The lifecycle, in `_run_async`, proceeds as follows. First, seed the conversation
+with the user task through `_broadcast` with `score=None` (the seed is attributed
+to the synthetic sender `"User"`). Next, spawn all agent loops and the idle
+monitor as concurrent tasks. Then block on `await state["stop"].wait()`. When the
+stop event fires, cancel every coroutine, gather them with
+`return_exceptions=True` so cancellation does not raise, and return the formatted
+transcript through `history_output_formatter`.
+
+```python
+agent_tasks = [
+    asyncio.create_task(self._agent_loop(a, inboxes[a.agent_name], inboxes, state))
+    for a in self.agents
+]
+monitor_task = asyncio.create_task(self._idle_monitor(state))
+await state["stop"].wait()
+for t in agent_tasks:
+    t.cancel()
+monitor_task.cancel()
+```
+
+### The respond protocol
+
+The central design problem is making a *speaking decision* machine-readable. A
+free-form "should I talk?" answer would require brittle natural-language parsing,
+and any parsing error would corrupt the control flow of the whole room. Instead,
+`GroupChat` forces every agent to emit a structured decision through a
+function-calling schema, `RESPOND_TOOL`:
+
+```python
+RESPOND_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "respond",
+        "description": (
+            "Decide whether to reply in the groupchat. Set score 0..1 for how much "
+            "you want to speak. If you don't want to speak, set message to empty string."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "score":   {"type": "number", "minimum": 0, "maximum": 1},
+                "message": {"type": "string"},
+            },
+            "required": ["score", "message"],
+        },
+    },
+}
+```
+
+The agent returns a pair, a **score** $s \in [0,1]$ measuring how much it wants to
+speak, and the **message** $m$ it would post. Forcing a function call rather than
+reading prose has three benefits. It guarantees a typed, validated payload; it
+separates the *decision* (the score) from the *content* (the message), so the
+runtime can gate on the former without inspecting the latter; and it gives the
+model an explicit, low-friction way to abstain by returning an empty message.
+
+`_ensure_respond_tool` auto-injects this schema into any agent missing it
+(controlled by the `auto_equip` flag) and rebuilds the agent's LLM client so the
+tool is bound at construction time:
+
+```python
+agent.tools_list_dictionary = [*tools, RESPOND_TOOL]
+agent.llm = agent.llm_handling()
+```
+
+The rebuild is necessary because the underlying LLM client bakes its tool list in
+when it is created; appending to `tools_list_dictionary` after the fact would
+otherwise have no effect until the client is regenerated through `llm_handling()`.
+
+The decision prompt, `DECIDE_PROMPT`, is deliberately biased toward silence. It
+opens with "Silence is the default. Most messages do NOT warrant a reply," and it
+enumerates the few conditions that justify a high score (direct expertise, being
+addressed by name, a factual error to correct, a concrete next step) against the
+many that justify staying quiet (off-topic, redundant, mere agreement, piling on a
+converging thread). This bias is not cosmetic. The branching-process analysis
+below proves it is exactly what keeps the system stable.
+
+### Decision extraction
+
+Provider outputs vary. Some return a single tool-call dictionary, some return a
+list of them, and occasionally a model emits malformed JSON in the arguments
+field. `_extract_args` normalizes all of these into a clean $(s, m)$ pair,
+defaulting to the *silent decision* $(0.0, \texttt{""})$ on any malformed output,
+and clamping the score into range:
+
+$$
+s \leftarrow \max\bigl(0,\ \min(1,\ s)\bigr).
+$$
+
+```python
+def _extract_args(tool_output):
+    if isinstance(tool_output, list):
+        tool_output = tool_output[0] if tool_output else None
+    if not tool_output:
+        return 0.0, ""
+    fn = tool_output.get("function") if isinstance(tool_output, dict) else None
+    if not fn:
+        return 0.0, ""
+    args = fn.get("arguments")
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except json.JSONDecodeError:
+            return 0.0, ""
+    if not isinstance(args, dict):
+        return 0.0, ""
+    try:
+        score = float(args.get("score", 0.0))
+    except (TypeError, ValueError):
+        score = 0.0
+    message = str(args.get("message", "")).strip()
+    return max(0.0, min(1.0, score)), message
+```
+
+This is a *total function*: every possible input maps to a valid decision, and the
+failure mode is always silence rather than an exception. That property is what
+makes the termination proofs below clean. A failed or garbled model call degrades
+to an abstention, never to a crash that stalls the room.
+
+---
+
+## Formal model
+
+Let the agent set be $A = \{a_1, \dots, a_N\}$ with $N = |A| \ge 2$. The minimum
+of two is enforced at construction, because each message is broadcast to "other"
+agents and a one-agent room would have no audience:
+
+```python
+if len(self.agents) < 2:
+    raise ValueError("GroupChat requires at least 2 agents.")
+```
+
+Fix the configured parameters:
+
+- threshold $\tau \in [0,1]$ (`threshold`),
+- hard message cap $M \in \mathbb{N}$ (`max_loops`),
+- idle timeout $T > 0$ seconds (`idle_timeout`),
+- inbox poll period $\delta = 0.5$ s and monitor poll period $\rho = 0.5$ s.
+
+A **message** is a tuple $(\text{sender}, \text{content})$. The **transcript**
+$H_t$ is the ordered sequence of all posted messages up to event $t$. The user
+task is the seed message, so $H_0 = \langle(\text{User}, \text{task})\rangle$ and
+$|H_0| = 1$.
+
+**Publication rule.** When agent $a_i$ processes an inbound item and the model
+returns $(s_i, m_i)$, the agent publishes if and only if
+
+$$
+s_i > \tau \quad\wedge\quad m_i \neq \texttt{""}.
+$$
+
+This is exactly the guard in `_agent_loop`:
+
+```python
+if score > self.threshold and reply:
+    await self._broadcast(...)
+```
+
+Publication appends $(a_i, m_i)$ to the transcript and fans the message out to all
+$N-1$ peer inboxes. Note the strict inequality: a score that exactly equals $\tau$
+does *not* publish. The empty-message conjunct means an agent that wants to speak
+($s_i > \tau$) but produces no content still stays silent, which prevents empty
+broadcasts from inflating the message count.
+
+---
+
+## Correctness properties
+
+### Linearizability of the transcript
+
+**Theorem 1 (Serialized history).** *Every transcript append and every read of the
+full history occurs in a total order consistent with real time. No two appends
+interleave, and the message counter is never lost to a race.*
+
+*Proof.* Both the write path (`_broadcast`) and the read path (the history
+snapshot in `_agent_loop`) acquire `state["lock"]`:
+
+```python
+# write path, in _broadcast
+async with state["lock"]:
+    self.conversation.add(role=sender, content=content, metadata=metadata)
+    state["message_count"] += 1
+    state["last_activity"] = time.monotonic()
+    if state["message_count"] >= self.max_loops:
+        state["stop"].set()
+
+# read path, in _agent_loop
+async with state["lock"]:
+    history = self.conversation.return_history_as_string()
+```
+
+Because `asyncio` runs all coroutines on a single event-loop thread, and the lock
+is held across the read-modify-write of `message_count` together with the
+`conversation.add` call, these critical sections are mutually exclusive and
+execute atomically with respect to one another. The lock therefore induces a total
+order on all transcript-mutating sections, which is the definition of linearizable
+history. Crucially, the queue fan-out (`inbox.put`) happens *after* the lock is
+released, so message delivery does not extend the critical section and waiting
+agents proceed concurrently. $\blacksquare$
+
+A subtle and intentional consequence: an agent's history snapshot is a *consistent
+prefix* of the transcript, but not necessarily the most recent one. Another agent
+may publish between the moment a snapshot is taken and the moment the snapshotting
+agent finishes its own decision. This is by design. It is exactly what allows two
+agents to react to the same message genuinely concurrently, instead of forcing one
+to wait for the other.
+
+### Termination
+
+**Theorem 2 (Guaranteed termination).** *For any inputs, `run` halts in finite
+time.*
+
+*Proof.* There are two independent stop guarantees, and either one suffices on its
+own.
+
+*(i) Counter bound.* Every published message increments `message_count` under the
+lock, and the broadcast sets the stop event once the cap is reached. Since the
+counter is monotonically non-decreasing and increments by exactly one per
+publication, after at most $M$ publications the stop event is set. Hence the total
+number of posted messages satisfies the hard bound
+
+$$
+|H_\infty| \le M.
+$$
+
+*(ii) Idle bound.* Suppose fewer than $M$ messages are ever posted. Then there is
+a last publication at wall-clock time $t^\*$, after which `last_activity` is never
+updated again. The `_idle_monitor` wakes every $\rho = 0.5$ s and fires when
+
+$$
+\text{now} - \texttt{last\_activity} > T.
+$$
+
+```python
+async def _idle_monitor(self, state):
+    stop = state["stop"]
+    while not stop.is_set():
+        await asyncio.sleep(0.5)
+        if time.monotonic() - state["last_activity"] > self.idle_timeout:
+            stop.set()
+            return
+```
+
+Thus the stop event is set no later than $t^\* + T + \rho$. In either case
+`state["stop"].wait()` returns and the coroutines are cancelled. $\blacksquare$
+
+**Corollary 2.1 (Stop latency).** The conversation ends within $T + \rho$ seconds
+of the final message. Idle detection latency is bounded by one timeout plus one
+monitor poll period, approximately $T + 0.5$ s.
+
+**Corollary 2.2 (No cancellation deadlock).** Agent loops poll their inboxes with
+a finite timeout and re-check the stop flag on every wakeup:
+
+```python
+try:
+    sender, message = await asyncio.wait_for(inbox.get(), timeout=0.5)
+except asyncio.TimeoutError:
+    continue
+if stop.is_set():
+    return
+```
+
+Because the blocking `get` is wrapped in `wait_for` with timeout $\delta$, no agent
+can be permanently parked on an empty queue. Every agent observes the stop event
+within $\delta$ seconds, so the final `asyncio.gather` over the cancelled tasks
+completes promptly.
+
+---
+
+## Conversation dynamics as a branching process
+
+The richest behavior of `GroupChat` is *amplification*. Each posted message is
+delivered to $N-1$ agents, each of whom may reply, and each reply is itself
+delivered to $N-1$ agents. This recursive fan-out is precisely a **Galton-Watson
+branching process**, and analyzing it tells us when a chat fizzles versus when it
+runs all the way to the cap.
+
+### The reply probability
+
+Model each agent's decision on a given inbound message as an independent Bernoulli
+trial. Let
+
+$$
+p \;=\; \Pr\bigl[\,s_i > \tau \ \wedge\ m_i \neq \texttt{""}\,\bigr]
+$$
+
+be the probability that a single agent publishes in response to a single message.
+Then the number of replies that one message provokes across the room is
+
+$$
+X \sim \mathrm{Binomial}(N-1,\ p), \qquad \mu := \mathbb{E}[X] = (N-1)\,p.
+$$
+
+We call $\mu$ the **branching factor**, the basic reproduction number $R_0$ of the
+conversation. It is the expected number of "child" messages each message produces.
+
+### The criticality threshold
+
+**Theorem 3 (Criticality).** *Treat the conversation, ignoring the cap $M$, as a
+Galton-Watson process seeded by the user task. Then:*
+
+1. *If $\mu < 1$ (subcritical), the conversation goes extinct with probability 1.*
+2. *If $\mu > 1$ (supercritical), it survives forever with positive probability.*
+3. *The critical per-agent reply probability is* $p^\* = \dfrac{1}{N-1}$.
+
+*Proof.* The extinction probability $q$ is the smallest fixed point in $[0,1]$ of
+the offspring generating function
+
+$$
+g(z) \;=\; \mathbb{E}\bigl[z^X\bigr] \;=\; (1 - p + p z)^{N-1}.
+$$
+
+Classical branching-process theory states that $q = 1$ if and only if
+$g'(1) = \mu \le 1$, and $q < 1$ if and only if $\mu > 1$. Setting the branching
+factor to one, $\mu = (N-1)p = 1$, gives the critical probability
+$p^\* = 1/(N-1)$. $\blacksquare$
+
+This is the formal justification for the silence-biased `DECIDE_PROMPT`. Consider
+$N = 5$ agents: the critical reply probability is $p^\* = 1/4$. If the prompt let
+agents reply more than a quarter of the time on average, the room would be
+supercritical. It would generate messages faster than they drain and would
+reliably slam into `max_loops` regardless of whether anything useful was being
+said. By pushing the default decision toward silence, so that the realized $p$
+sits well below $p^\*$, the design keeps the system *subcritical*. Conversations
+then terminate on substance, through the idle timeout, rather than on the
+mechanical hard cap.
+
+### Expected conversation length
+
+**Theorem 4 (Expected message count, subcritical case).** *In the subcritical
+regime $\mu < 1$, ignoring the cap, the expected total number of messages,
+including the seed, is*
+
+$$
+\mathbb{E}\bigl[|H_\infty|\bigr] \;=\; \frac{1}{1 - \mu} \;=\; \frac{1}{1 - (N-1)p}.
+$$
+
+*Proof.* The total progeny $Y$ of a Galton-Watson process started from a single
+individual satisfies $\mathbb{E}[Y] = \sum_{k \ge 0} \mu^k = 1/(1-\mu)$ for
+$\mu < 1$, where the sum counts the root generation. The root here is the user
+task. $\blacksquare$
+
+Reinstating the hard cap, the realized expected length is
+
+$$
+\mathbb{E}\bigl[|H|\bigr] \;\approx\; \min\!\left(\frac{1}{1-(N-1)p},\ M\right),
+$$
+
+so $M$ behaves as a safety valve that binds only when the room is near critical.
+For a concrete feel, take $N = 5$. At $p = 0.15$, below $p^\* = 0.25$, we get
+$\mu = 0.6$ and an average of $1/(1-0.6) = 2.5$ messages, a brief exchange that
+ends by idle timeout. At $p = 0.24$, just under critical, $\mu = 0.96$ and the
+expectation balloons to $25$ messages, the point where `max_loops` finally starts
+doing real work.
+
+### Effect of the threshold and room size
+
+The threshold $\tau$ controls $p$ monotonically. Let $\pi$ be the probability that
+an agent emits a non-empty message at all, and let $F$ be the conditional CDF of
+its score. Then
+
+$$
+p(\tau) \;=\; \pi \cdot \bigl(1 - F(\tau)\bigr),
+$$
+
+which is non-increasing in $\tau$. Raising `threshold` lowers $\mu$ and pushes the
+system deeper into the subcritical (quieter, shorter) regime; lowering it does the
+opposite. The criticality identity $\mu = (N-1)\,p(\tau)$ makes the tradeoff
+explicit, and it exposes a scaling law: **adding agents raises the branching
+factor linearly**. To hold $\mu$ fixed as the room grows, the threshold must rise
+so that $p(\tau) \propto 1/(N-1)$. A threshold tuned for three agents will be too
+permissive for eight.
+
+---
+
+## Concurrency and latency
+
+Each speaking decision is a blocking LLM call dispatched off the event loop:
+
+```python
+score, reply = await asyncio.to_thread(
+    self._decide_sync, agent, sender, message, history
+)
+```
+
+Using `asyncio.to_thread` means up to $N$ decisions evaluate concurrently rather
+than serially, so one slow model call cannot stall the room. If a single decision
+takes wall-clock time $d$ and a message provokes $k \le N-1$ responders, those
+responders' decisions overlap, so one "generation" of the conversation costs
+roughly $d$ rather than $k \cdot d$, provided the thread pool has at least $k$ free
+workers. Python's default executor caps at about $\min(32, \text{cpu}+4)$ threads,
+so for very large rooms the effective concurrency is bounded by that pool and
+generations begin to serialize.
+
+End to end, the subcritical regime has expected branching depth on the order of a
+small constant (since $\mu < 1$), so wall-clock time scales with conversation
+*depth* times $d$, not total message count times $d$. The practical takeaway is
+that latency is governed by how many *rounds* of back-and-forth occur, not by the
+raw number of messages, because messages within a round overlap.
+
+---
+
+## Practical implications
+
+The theory yields concrete tuning guidance.
+
+- **Keep the room subcritical.** Choose $\tau$ and $N$ so that the realized
+  branching factor $\mu = (N-1)\,p(\tau)$ stays below one. This is the difference
+  between a chat that converges and one that stops only because it exhausted
+  `max_loops`.
+- **Scale the threshold with room size.** Because $\mu$ grows linearly in $N$, a
+  threshold that works for three agents will be too permissive for eight. Raise
+  `threshold` as you add participants.
+- **Treat `max_loops` as a circuit breaker, not a length dial.** In the intended
+  subcritical regime it rarely binds. If your chats consistently hit it, your room
+  is supercritical and the fix is a higher threshold, not a larger cap.
+- **Use `idle_timeout` to set tail latency.** By Corollary 2.1, the chat lingers up
+  to $T + 0.5$ s after the final message. Lower $T$ for snappier termination, at the
+  cost of possibly cutting off agents that are still composing a reply.
+- **Disable persistent memory on participants.** Each agent runs many short
+  decision calls; per-agent `persistent_memory=False` and `max_loops=1` keep those
+  calls cheap and stateless, leaving the transcript as the single source of shared
+  context.
+
+---
+
+## Complete worked example
+
+The following program builds a four-agent room, runs a discussion, and inspects
+the result. It is fully runnable once an LLM API key is set in the environment.
+
+```python
+"""
+GroupChat end-to-end example.
+
+Prereqs:
+    pip install swarms
+    export OPENAI_API_KEY="sk-..."   # or any LiteLLM-supported provider
+"""
+
+from swarms import Agent
+from swarms.structs.groupchat import GroupChat, RESPOND_TOOL
+
+
+def build_panel():
+    """Construct four specialists for an open-room discussion.
+
+    Each agent carries RESPOND_TOOL explicitly so it can emit the structured
+    (score, message) decision the chat uses to gate speaking. We also set
+    max_loops=1 and persistent_memory=False so every decision call is cheap
+    and stateless; the GroupChat transcript is the only shared context.
+    """
+    common = dict(
+        model_name="gpt-5.4",
+        max_loops=1,
+        persistent_memory=False,
+        tools_list_dictionary=[RESPOND_TOOL],
+    )
+
+    optimist = Agent(
+        agent_name="Optimist",
+        system_prompt=(
+            "You are a technology optimist. You argue for the upside and the "
+            "opportunities. Speak only when you can add a concrete benefit that "
+            "has not already been raised."
+        ),
+        **common,
+    )
+    skeptic = Agent(
+        agent_name="Skeptic",
+        system_prompt=(
+            "You are a risk-focused skeptic. You surface failure modes, hidden "
+            "costs, and weak assumptions. Speak only to sharpen or correct a "
+            "claim, not merely to disagree."
+        ),
+        **common,
+    )
+    economist = Agent(
+        agent_name="Economist",
+        system_prompt=(
+            "You are an economist. You analyze incentives, markets, and labor "
+            "effects. Speak only when an economic angle is missing from the "
+            "discussion."
+        ),
+        **common,
+    )
+    ethicist = Agent(
+        agent_name="Ethicist",
+        system_prompt=(
+            "You are an ethicist. You raise fairness, consent, and accountability "
+            "concerns. Speak only when a concrete ethical issue is at stake."
+        ),
+        **common,
+    )
+
+    return [optimist, skeptic, economist, ethicist]
+
+
+def main():
+    agents = build_panel()
+
+    # With N = 4 agents the critical reply probability is p* = 1/(N-1) = 1/3.
+    # A threshold of 0.6 holds the realized reply probability well below that,
+    # keeping the room subcritical so it ends on substance, not on max_loops.
+    chat = GroupChat(
+        name="ai-impact-room",
+        description="Open discussion on the societal impact of advanced AI.",
+        agents=agents,
+        max_loops=12,        # hard cap on total posted messages (the circuit breaker)
+        threshold=0.6,       # min score to publish; raise for a quieter room
+        idle_timeout=8.0,    # seconds of silence before stopping
+        output_type="str-all-except-first",
+        verbose=True,        # emit internal log lines
+        print_on=True,       # render each message as a panel as it is posted
+        auto_equip=True,     # inject RESPOND_TOOL into any agent missing it
+    )
+
+    task = (
+        "Should advanced AI systems be allowed to make autonomous decisions in "
+        "high-stakes domains such as healthcare and criminal justice? Discuss the "
+        "tradeoffs."
+    )
+
+    transcript = chat.run(task)
+
+    print("\n" + "=" * 70)
+    print("FINAL TRANSCRIPT")
+    print("=" * 70)
+    print(transcript)
+
+    # Inspect structured history directly off the conversation object. Each
+    # broadcast stored its decision score in message metadata.
+    print("\n" + "=" * 70)
+    print("PER-MESSAGE SCORES")
+    print("=" * 70)
+    for msg in chat.conversation.conversation_history:
+        role = msg.get("role")
+        meta = msg.get("metadata") or {}
+        score = meta.get("score")
+        tag = "seed" if score is None else f"score={score:.2f}"
+        content = str(msg.get("content", ""))
+        preview = content[:80].replace("\n", " ")
+        print(f"[{role:<10}] ({tag}) {preview}")
+
+
+def batch_example():
+    """Run several independent discussions in sequence via run_batch."""
+    agents = build_panel()
+    chat = GroupChat(agents=agents, max_loops=10, threshold=0.6)
+
+    tasks = [
+        "Will open-source models overtake closed models by 2030?",
+        "Is universal basic income a sound response to AI-driven automation?",
+    ]
+    results = chat.run_batch(tasks)
+    for i, result in enumerate(results, start=1):
+        print(f"\n--- Discussion {i} ---\n{result}")
+
+
+if __name__ == "__main__":
+    main()
+    # batch_example()   # uncomment to run the batch variant
+```
+
+### What to expect when you run it
+
+The seed task is posted as `User` and fanned out to all four inboxes. Each agent
+independently asks its model, through the forced `respond` call, how strongly it
+wants to speak. Agents whose score exceeds `0.6` and who produce a non-empty
+message broadcast their reply, which then wakes every other inbox. Because the
+room is subcritical (Theorem 3 with $p^\* = 1/3$ and a selective threshold), the
+discussion will typically run for a handful of substantive exchanges and then go
+quiet. After `idle_timeout` seconds of silence, the idle monitor sets the stop
+event (Corollary 2.1), all coroutines are cancelled, and `run` returns the
+formatted transcript. If the room were tuned to be supercritical instead, the same
+program would terminate by hitting the `max_loops=12` cap rather than by going
+idle.
+
+---
+
+## Summary
+
+`GroupChat` is a single-event-loop actor system whose shared transcript is
+linearizable (Theorem 1) and whose execution always terminates, bounded jointly by
+a message cap and an idle timeout (Theorem 2, with bounded stop latency in
+Corollary 2.1 and no cancellation deadlock in Corollary 2.2). Its emergent
+dynamics are exactly those of a Galton-Watson branching process with branching
+factor $\mu = (N-1)\,p$, which yields a sharp criticality threshold
+$p^\* = 1/(N-1)$ (Theorem 3) and a closed-form expected length $1/(1-\mu)$ in the
+stable regime (Theorem 4). The silence-biased decision prompt is best understood
+not as a stylistic choice but as a control mechanism that holds the system below
+criticality, which is what makes the chat end on substance rather than on a hard
+limit.

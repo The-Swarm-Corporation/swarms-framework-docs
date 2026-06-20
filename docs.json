@@ -316,6 +316,12 @@
             ]
           },
           {
+            "group": "Technical Analysis",
+            "pages": [
+              "examples/groupchat_insight"
+            ]
+          },
+          {
             "group": "Use Cases",
             "pages": [
               "examples/use-cases/research-team",
