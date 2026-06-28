@@ -148,19 +148,14 @@
             ]
           },
           {
-            "group": "Workflows",
+            "group": "Multi-Agent Harnesses",
             "pages": [
+              "api/structs-overview",
               "api/sequential-workflow",
               "api/concurrent-workflow",
               "api/agent-rearrange",
               "api/graph-workflow",
-              "api/batched-grid-workflow"
-            ]
-          },
-          {
-            "group": "Multi-Agent Systems",
-            "pages": [
-              "api/structs-overview",
+              "api/batched-grid-workflow",
               "api/mixture-of-agents",
               "api/hierarchical-swarm",
               "api/heavy-swarm",
@@ -171,35 +166,20 @@
               "api/self-moa-seq",
               "api/advisor-swarm",
               "api/planner-worker-swarm",
-              "api/skill-orchestra"
-            ]
-          },
-          {
-            "group": "Debate & Evaluation",
-            "pages": [
+              "api/skill-orchestra",
               "api/orchestration-methods",
               "api/debate-with-judge",
               "api/majority-voting",
               "api/planner-generator-evaluator",
               "api/llm-council",
-              "api/council-as-judge"
-            ]
-          },
-          {
-            "group": "Routing & Orchestration",
-            "pages": [
+              "api/council-as-judge",
               "api/swarm-router",
               "api/multi-agent-router",
               "api/auto-swarm-builder",
               "api/swarm-rearrange",
               "api/model-router",
               "api/swarm-matcher",
-              "api/agent-router"
-            ]
-          },
-          {
-            "group": "Advanced Architectures",
-            "pages": [
+              "api/agent-router",
               "api/multi-swarm-orchestration",
               "api/hierarchical-communication-framework",
               "api/hhcs",
