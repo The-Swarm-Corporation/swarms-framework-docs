@@ -1,0 +1,44 @@
+---
+title: "Finance Tools"
+description: "Use Swarms finance tools for market data, tickers, and financial analysis agents"
+icon: "chart-line"
+---
+
+Finance tools from `swarms-tools` let agents fetch market data and support analysis workflows.
+
+## Setup
+
+```bash
+pip install -U swarms-tools
+```
+
+Configure any provider keys required by the specific finance integration you use (see package README on [PyPI](https://pypi.org/project/swarms-tools/) or [GitHub](https://github.com/kyegomez/swarms-tools)).
+
+## Example agent
+
+```python
+from swarms import Agent
+
+# Import finance tools from swarms_tools (e.g. price lookup, fundamentals)
+
+agent = Agent(
+    agent_name="Finance-Analyst",
+    model_name="claude-sonnet-4-6",
+    system_prompt="You are a financial analyst. Use tools for live data; cite figures clearly.",
+    tools=[],  # add swarms_tools finance callables here
+    max_loops=3,
+)
+
+result = agent.run("Compare recent performance of AAPL and MSFT.")
+print(result)
+```
+
+## Related examples
+
+- [Financial analysis use case](/examples/use-cases/financial-analysis)
+- [Gold ETF research](/examples/applications/gold-etf-research)
+- [Agentic trading with Gemini](/examples/finance/agentic-trading-gemini)
+
+## Related
+
+- [Swarms Tools overview](/integrations/swarms-tools/overview)
