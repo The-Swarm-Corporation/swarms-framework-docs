@@ -136,7 +136,7 @@ Key flags worth memorizing:
 | `--max-loops auto` | Let the agent decide when it's done (autonomous mode) |
 | `--streaming-on` | Stream tokens to the terminal as they arrive |
 | `--verbose` | Show every internal step the agent takes |
-| `--autosave --saved-state-path ./state.json` | Persist agent memory between runs |
+| `--autosave --saved-state-path <path>` | Save a JSON state snapshot for review |
 | `--mcp-url <url>` | Auto-discover and use tools from an MCP server |
 | `--marketplace-prompt-id <id>` | Pull a pre-built system prompt from the marketplace |
 
@@ -144,7 +144,94 @@ Combine `--streaming-on --verbose` to watch the model think token by token.
 
 ---
 
-## 5. Discover Models: `swarms models`
+## 5. Run repeatable CLI agents
+
+Use a repeatable project layout when an agent needs files, memory, or external tools. This keeps outputs easy to find and makes later runs easier to debug.
+
+Start by creating two directories:
+
+```bash
+mkdir -p ./workspace ./agent-state
+export WORKSPACE_DIR="$(pwd)/workspace"
+export AGENT_STATE_DIR="$(pwd)/agent-state"
+```
+
+`WORKSPACE_DIR` is the directory agents use for local files and persistent `MEMORY.md` files. Put source material, drafts, exports, and generated reports there. Keep state snapshots in a separate `agent-state` directory so you can delete working files without deleting audit snapshots.
+
+If you prefer `.env`, store `WORKSPACE_DIR` and API keys there:
+
+```env
+WORKSPACE_DIR=./workspace
+OPENAI_API_KEY=your-api-key
+```
+
+Use an absolute path for `AGENT_STATE_DIR`. An absolute path prevents the saved JSON snapshot from being nested under a generated agent workspace.
+
+Run `setup-check` before longer jobs:
+
+```bash
+swarms setup-check --verbose
+```
+
+This catches missing API keys, missing workspace directories, and dependency problems before the model starts spending tokens.
+
+For a one-shot task, run `swarms agent` with a task and a named state snapshot path:
+
+```bash
+swarms agent \
+  --name "IncidentResearcher" \
+  --description "Reads workspace files and writes concise incident notes" \
+  --system-prompt "You are a careful incident researcher. Read and write files only under WORKSPACE_DIR." \
+  --task "Read the logs in WORKSPACE_DIR and write a short incident brief." \
+  --model-name "claude-sonnet-4-6" \
+  --max-loops 3 \
+  --streaming-on \
+  --verbose \
+  --autosave \
+  --saved-state-path "${AGENT_STATE_DIR}/incident-researcher.json"
+```
+
+Use `swarms chat` when you want a conversation. Use `swarms agent --task` when you want a scriptable job that starts, completes, and returns control to the shell.
+
+After the run, inspect outputs, persistent memory, and state snapshots:
+
+```bash
+find "$WORKSPACE_DIR" -maxdepth 3 -type f
+find "$AGENT_STATE_DIR" -maxdepth 2 -type f
+```
+
+The CLI writes persistent conversation memory under a stable agent-name path:
+
+```bash
+cat "$WORKSPACE_DIR/agents/IncidentResearcher/MEMORY.md"
+```
+
+Use one agent name per role. A research agent, a code reviewer, and a report writer should each get their own name so their `MEMORY.md` files stay separate. Shared memory can leak irrelevant context into later tasks and make results harder to reproduce.
+
+Treat `--saved-state-path` as a state snapshot for auditing and debugging. The CLI does not expose a separate load-state flag. If you need to load a JSON state file directly, use the Python API and call `Agent.load(path)`.
+
+Add MCP tools only after the base run works:
+
+```bash
+swarms agent \
+  --name "ToolResearcher" \
+  --description "Uses approved MCP tools to inspect project data" \
+  --system-prompt "Use MCP tools when they help. Keep outputs under WORKSPACE_DIR." \
+  --task "Summarize the current project status from the available tool data." \
+  --model-name "claude-sonnet-4-6" \
+  --mcp-url "http://localhost:8000/sse" \
+  --autosave \
+  --saved-state-path "${AGENT_STATE_DIR}/tool-researcher.json" \
+  --verbose
+```
+
+Treat MCP servers as part of the agent's execution boundary. Connect trusted servers, prefer read-only tools for analysis, and keep credentials out of ad-hoc local tool servers. When an MCP run fails, retry with `--verbose`, confirm the server URL, and test the server independently before changing the prompt.
+
+This layout also works well in `tmux`, cron jobs, and CI. Keep the command in a shell script, commit the prompt and expected output path, and leave generated files under `WORKSPACE_DIR` for review.
+
+---
+
+## 6. Discover Models: `swarms models`
 
 Before you change `--model-name`, you need to know what to put there. The CLI ships a model-discovery command backed by the LiteLLM registry, so the list stays current as providers ship new models.
 
@@ -193,7 +280,7 @@ If you mistype a model name, the `--info` command suggests the closest matches.
 
 ---
 
-## 6. Auto-Generate a Swarm: `swarms autoswarm`
+## 7. Auto-Generate a Swarm: `swarms autoswarm`
 
 Don't know which architecture fits your task? Let the CLI design one:
 
@@ -217,7 +304,7 @@ The generated file is plain Python — read it, edit it, version-control it.
 
 ---
 
-## 7. Heavy Analysis: `swarms heavy-swarm`
+## 8. Heavy Analysis: `swarms heavy-swarm`
 
 For research-grade depth, `heavy-swarm` decomposes the task into specialist questions, dispatches them to multiple worker agents in parallel, then synthesizes a final answer:
 
@@ -242,7 +329,7 @@ swarms heavy-swarm \
 
 ---
 
-## 8. Multi-Model Debate: `swarms llm-council`
+## 9. Multi-Model Debate: `swarms llm-council`
 
 `llm-council` runs the same task across multiple models and aggregates their responses. It's the right shape when you want disagreement surfaced — adversarial verification, due-diligence reviews, or "is this consensus actually consensus?" questions:
 
@@ -256,7 +343,7 @@ The council's chairman synthesizes the members' positions, highlighting where th
 
 ---
 
-## 9. Load a Team from a File
+## 10. Load a Team from a File
 
 For repeatable workflows, define agents in a YAML or markdown file and load them with one command.
 
@@ -304,7 +391,7 @@ Markdown loading is the most ergonomic format if you're building a library of re
 
 ---
 
-## 10. The `tips` Engine
+## 11. The `tips` Engine
 
 The CLI ships with ~75 categorized tips covering every command and flag. The banner rotates one per invocation, but you can also pull them on demand:
 
@@ -321,7 +408,7 @@ The prefix labels (`⚡ Pro tip:`, `💡 Did you know:`, `🪄 Hint:`, `🔥 Hot
 
 ---
 
-## 11. Power-User Tricks
+## 12. Power-User Tricks
 
 A few patterns that pay off in real use:
 
@@ -342,12 +429,11 @@ echo "Summarize this for a non-technical audience" | \
 swarms agent ... --streaming-on --verbose
 ```
 
-**Save and resume an agent's memory:**
+**Save a state snapshot for review:**
 
 ```bash
-swarms agent ... --autosave --saved-state-path ./research.json
-# Later, same path
-swarms agent ... --saved-state-path ./research.json
+swarms agent ... --autosave --saved-state-path "${AGENT_STATE_DIR}/research.json"
+# Persistent CLI memory lives under $WORKSPACE_DIR/agents/<agent-name>/MEMORY.md
 ```
 
 **Cap context for long sessions:**
@@ -368,7 +454,7 @@ The agent auto-discovers every tool the server exposes — no Python glue needed
 
 ---
 
-## 12. Errors and Recovery
+## 13. Errors and Recovery
 
 When something goes wrong, the CLI doesn't just dump a stack trace. It classifies the error and prints targeted recovery hints:
 
@@ -393,7 +479,7 @@ This uses Python's `difflib.get_close_matches` against the command list, so corr
 
 ---
 
-## 13. Where to Go Next
+## 14. Where to Go Next
 
 You now have everything you need for daily use. A few directions to grow into:
 
