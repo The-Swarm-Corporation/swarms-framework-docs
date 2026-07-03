@@ -191,6 +191,7 @@
             "group": "Tools & Utilities",
             "pages": [
               "api/tools",
+              "api/computer-use",
               "api/prompts",
               "api/schemas",
               "api/utils"
