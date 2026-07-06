@@ -191,7 +191,6 @@
             "group": "Tools & Utilities",
             "pages": [
               "api/tools",
-              "api/computer-use",
               "api/prompts",
               "api/schemas",
               "api/utils"
@@ -335,6 +334,7 @@
             "group": "Integrations",
             "pages": [
               "examples/overviews/tools-overview",
+              "examples/integrations/computer-use",
               "examples/integrations/exa-search",
               "examples/integrations/browser-use",
               "examples/integrations/mcp-datastax",
