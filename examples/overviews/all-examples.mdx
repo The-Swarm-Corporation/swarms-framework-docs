@@ -1,0 +1,223 @@
+---
+title: 'Overview'
+description: 'A complete, categorized catalog of every hands-on Swarms example in these docs, single agents, multi-agent systems, model providers, integrations, applications, and deployment.'
+icon: 'table-list'
+---
+
+This page is the master catalog of every runnable example in the Swarms documentation, organized by feature. Each entry links to a full walkthrough with copy-paste code. If you're looking for the broader index of community and repository examples, see the [Examples Index](/examples/overviews/examples-index).
+
+## Browse by Category
+
+| Category | What it covers |
+|----------|----------------|
+| [Basics](#basics) | Your first agent, tools, vision, and streaming |
+| [Single-Agent Capabilities](#single-agent-capabilities) | Memory, autonomy, context management, research |
+| [Multi-Agent Architectures](#multi-agent-architectures) | Sequential, concurrent, hierarchical, group chat, routing |
+| [Model Providers](#model-providers) | Run agents on any LLM provider |
+| [Voice Agents](#voice-agents) | Speech-enabled agents with TTS and STT |
+| [Tools & Integrations](#tools--integrations) | Browser use, computer use, web search, MCP, payments |
+| [Applications](#applications) | Full end-to-end swarms for real-world domains |
+| [Use Cases](#use-cases) | Reusable multi-stage workflow patterns |
+| [Finance](#finance) | Trading, prediction markets, and financial research |
+| [Research & Papers](#research--paper-implementations) | Swarms implementations of research papers |
+| [Deployment](#deployment) | Ship agents to production |
+| [CLI](#cli) | Drive agents from the command line |
+
+---
+
+## Basics
+
+Start here. These cover the essentials of building and running a single agent.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Basic Agent** | Create your first autonomous agent with Swarms | [View Example](/examples/basic-agent) |
+| **Agent with Tools** | Enhance agents with external tools and function calling | [View Example](/examples/agent-with-tools) |
+| **Vision Agent** | Create agents that process images and multimodal content | [View Example](/examples/vision-agent) |
+| **Streaming Responses** | Stream agent outputs in real-time for better UX | [View Example](/examples/streaming) |
+| **Agent Streaming Example** | Real-time token streaming with `run_stream` and `arun_stream` | [View Example](/examples/agent-streaming-example) |
+
+---
+
+## Single-Agent Capabilities
+
+Advanced patterns for a single agent — persistence, autonomy, and large-context handling.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Agent Streaming** | Stream agent responses token by token for an interactive UX | [View Example](/examples/agents/agent-streaming) |
+| **Advanced Research** | Orchestrator-worker research system with parallel execution and LLM-as-judge | [View Example](/examples/agents/advanced-research) |
+| **Autonomous Looper with Bash** | An autonomous loop that runs bash commands for long-horizon tasks | [View Example](/examples/agents/autonomous-looper-bash) |
+| **Autonomous Looper with Tools** | An autonomous looping agent that uses tools to iteratively reach a goal | [View Example](/examples/agents/autonomous-looper-tools) |
+| **Persistent Memory** | Persist interaction history to disk and resume across restarts | [View Example](/examples/agents/persistent-memory) |
+| **Context Compression** | Summarize memory near the context limit while archiving the full transcript | [View Example](/examples/agents/context-compression) |
+
+---
+
+## Multi-Agent Architectures
+
+Coordinate many agents. These map directly to the core Swarms multi-agent structures.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Sequential Workflow** | Agents execute tasks in a linear chain | [View Example](/examples/sequential-workflow-example) |
+| **Sequential Workflow Streaming** | Real-time token streaming across a pipeline of agents | [View Example](/examples/sequential-workflow-streaming-example) |
+| **Concurrent Workflow** | Run multiple agents simultaneously for maximum efficiency | [View Example](/examples/concurrent-workflow-example) |
+| **Mixture of Agents (MoA)** | Run expert agents in parallel and synthesize their outputs | [View Example](/examples/mixture-of-agents-example) |
+| **Hierarchical Swarm** | Director-worker pattern for complex project coordination | [View Example](/examples/hierarchical-swarm-example) |
+| **Group Chat** | Asynchronous, self-selecting agent group chat for debate and reasoning | [View Example](/examples/group-chat-example) |
+| **Swarm Router** | Switch between any multi-agent architecture by changing one parameter | [View Example](/examples/swarm-router-example) |
+| **Social Swarm Patterns** | Broadcast, circular, mesh, grid, star, pyramid, and aggregate patterns | [View Example](/examples/social-swarm-patterns) |
+| **Advisor Swarm** | Pair a cheap executor model with a powerful advisor consulted on-demand | [View Example](/examples/multi-agent/advisor-swarm-example) |
+| **Debate Swarm Quickstart** | Specialized agents argue and converge on conclusions | [View Example](/examples/multi-agent/debate-quickstart) |
+| **AOP Medical Swarm** | Medical-grade multi-agent system using the Agent Orchestration Protocol | [View Example](/examples/multi-agent/aop-medical) |
+| **GroupChat Internals** | Deep technical analysis of the async self-selecting GroupChat module | [View Example](/examples/groupchat_insight) |
+
+---
+
+## Model Providers
+
+Run Swarms agents on any LLM provider. See the [Model Providers guide](/integrations/model-providers) for the full reference.
+
+| Provider | Description | Link |
+|----------|-------------|------|
+| **Anthropic** | Claude models — Fable 5, Opus, Sonnet, and Haiku | [View Example](/examples/model-providers/anthropic) |
+| **Claude Fable 5** | Anthropic Claude Fable 5 and Mythos 5 in Swarms | [View Example](/examples/model-providers/claude-fable-5) |
+| **OpenAI** | GPT and o-series models — GPT-5.4, GPT-4.1, o3, o3-mini | [View Example](/examples/model-providers/openai) |
+| **Gemini** | Google Gemini — 2.5 Pro, 2.5 Flash, and Flash-Lite | [View Example](/examples/model-providers/gemini) |
+| **Groq** | Ultra-fast inference — Llama, GPT-OSS, DeepSeek R1, Kimi K2 | [View Example](/examples/model-providers/groq) |
+| **Cerebras** | The fastest open-model inference — 1000+ tokens/sec | [View Example](/examples/model-providers/cerebras) |
+| **DeepSeek** | DeepSeek models, including the DeepSeek Reasoner (R1) | [View Example](/examples/model-providers/deepseek) |
+| **xAI (Grok)** | xAI Grok models — Grok 4 and earlier | [View Example](/examples/model-providers/xai) |
+| **Ollama** | Local models with no API key and no per-token cost | [View Example](/examples/model-providers/ollama) |
+| **vLLM** | Self-host open-source models for high-throughput production inference | [View Example](/examples/model-providers/vllm) |
+| **OpenRouter** | One API key, hundreds of models across providers | [View Example](/examples/model-providers/openrouter) |
+| **OpenRouter Tutorial** | Single agents, group chat, and concurrent workflows via OpenRouter | [View Example](/examples/model-providers/openrouter-tutorial) |
+| **Azure OpenAI** | Enterprise-grade GPT models through Microsoft Azure | [View Example](/examples/model-providers/azure-openai) |
+
+---
+
+## Voice Agents
+
+Speech-enabled agents using streaming TTS, STT input, and per-agent voices. See the [Voice Agents Overview](/examples/voice-agents/overview).
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Basic Speech Agent** | Run an agent, then narrate its final response with text-to-speech | [View Example](/examples/voice-agents/agent-speech) |
+| **Streaming Voice Agent** | Speak each sentence the moment the LLM produces it | [View Example](/examples/voice-agents/agent-with-streaming-speech) |
+| **Autonomous Voice Agent** | An autonomous agent that narrates its plan, tool use, and summary | [View Example](/examples/voice-agents/autonomous-agent-with-speech) |
+| **Voice Debate** | Two agents debate turn-by-turn, each with a distinct voice | [View Example](/examples/voice-agents/debate-with-speech) |
+| **Hierarchical Speech Swarm** | Director and workers each speak with a distinct voice | [View Example](/examples/voice-agents/hierarchical-speech-swarm) |
+
+---
+
+## Tools & Integrations
+
+Connect agents to the outside world — browsers, computers, search, MCP servers, and payments.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Computer Use** | Give an agent safe, sandboxed read/search/edit/shell access | [View Example](/examples/integrations/computer-use) |
+| **Browser Use** | Drive a real browser to automate web workflows end to end | [View Example](/examples/integrations/browser-use) |
+| **Web Scraper Agents** | Navigate sites and extract structured data in parallel | [View Example](/examples/integrations/web-scraper-agents) |
+| **Web Search with Exa** | Give agents real-time web search via the Exa API | [View Example](/examples/integrations/exa-search) |
+| **Firecrawl Tool** | Crawl entire websites and extract structured content | [View Example](/examples/integrations/firecrawl) |
+| **MCP with DataStax** | Connect agents to Astra DB through the Model Context Protocol | [View Example](/examples/integrations/mcp-datastax) |
+| **x402 Discovery Query** | Discover and query x402-enabled services | [View Example](/examples/integrations/x402-discovery) |
+| **x402 Payment Integration** | Let agents transact natively for paid services | [View Example](/examples/integrations/x402-payment) |
+
+---
+
+## Applications
+
+Complete, end-to-end swarms built for a specific domain.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Marketing Team Swarm** | Strategy, copy, design, and analytics handled by agents | [View Example](/examples/applications/marketing-team) |
+| **Hiring Swarm** | Source candidates, screen resumes, run technical evaluations | [View Example](/examples/applications/hiring-swarm) |
+| **Job Finding Swarm** | Discover, filter, and apply to jobs matching a profile | [View Example](/examples/applications/job-finding) |
+| **M&A Swarm** | Deal sourcing, diligence, and valuation for mergers & acquisitions | [View Example](/examples/applications/ma-swarm) |
+| **Real Estate Swarm** | Research, valuation, and deal analysis for properties | [View Example](/examples/applications/realestate-swarm) |
+| **Smart Database Swarm** | An agent-powered database that queries and reasons over data | [View Example](/examples/applications/smart-database) |
+
+---
+
+## Use Cases
+
+Reusable multi-stage workflow patterns you can adapt to your own domain.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Research Team** | An autonomous team that collaborates on comprehensive reports | [View Example](/examples/use-cases/research-team) |
+| **Content Creation Pipeline** | Ideation, writing, editing, and review stages | [View Example](/examples/use-cases/content-creation) |
+| **Data Analysis Swarm** | Collect, analyze, visualize, and report on datasets | [View Example](/examples/use-cases/data-analysis) |
+| **Financial Analysis System** | Market analysis, risk assessment, and investment recommendations | [View Example](/examples/use-cases/financial-analysis) |
+
+---
+
+## Finance
+
+Trading, prediction markets, and financial research.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Gold ETF Research** | Research and analyze gold ETFs with a financial-analysis swarm | [View Example](/examples/applications/gold-etf-research) |
+| **Agentic Trading with Gemini** | An autonomous crypto trading system using the Gemini exchange API | [View Example](/examples/finance/agentic-trading-gemini) |
+| **Prediction Markets: Polymarket** | Agents that discover events, reason, and bet on Polymarket | [View Example](/examples/finance/prediction-markets-polymarket) |
+| **Prediction Markets: Kalshi** | Agents that discover events, reason, and bet on Kalshi | [View Example](/examples/finance/prediction-markets-kalshi) |
+
+---
+
+## Research & Paper Implementations
+
+Swarms implementations of influential AI research papers.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Can AI Agents Agree?** | The Byzantine consensus game from Berdoz, Rugli & Wattenhofer | [View Example](/examples/research/can_agents_agree) |
+| **Open Agent Bazaar** | Measuring economic alignment in multi-agent marketplaces | [View Example](/examples/research/open_agent_bazaar) |
+| **Paper Implementations Index** | The full list of paper implementations | [View Index](/examples/overviews/paper-implementations) |
+
+---
+
+## Deployment
+
+Ship your agents to production.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **Deployment Overview** | Choose the right deployment strategy for your agents | [View Guide](/examples/deployment-overview) |
+| **FastAPI Agent API** | Deploy agents as REST endpoints with FastAPI and Uvicorn | [View Example](/examples/fastapi-agent-api) |
+| **Google Cloud Run** | Deploy a containerized agent REST API with automatic scaling | [View Example](/examples/cloud-run) |
+| **Cloudflare Workers** | Deploy cron-driven agents on Cloudflare's global edge network | [View Example](/examples/cloudflare-workers) |
+| **Phala TEE Deployment** | Deploy inside a Trusted Execution Environment with on-chain attestation | [View Example](/examples/phala-deploy) |
+
+---
+
+## CLI
+
+Drive agents entirely from the command line.
+
+| Example | Description | Link |
+|---------|-------------|------|
+| **CLI Quickstart Tutorial** | Build a multi-agent research-and-writing workflow using only the CLI | [View Example](/examples/cli/quickstart-tutorial) |
+| **Chat Command** | Launch an interactive chat session with an agent | [View Example](/examples/cli/chat-command) |
+| **Multi-Agent CLI Quickstart** | Spin up a multi-agent system from the CLI in under a minute | [View Example](/examples/cli/multi-agent-quickstart) |
+
+---
+
+## More Overviews
+
+Prefer a narrower starting point? These curated overviews go deeper on a single theme:
+
+- [Basic Examples Overview](/examples/overviews/basic-overview)
+- [Multi-Agent Architectures Overview](/examples/overviews/multi-agent-overview)
+- [RAG Examples Overview](/examples/overviews/rag-overview)
+- [Tools & Integrations Overview](/examples/overviews/tools-overview)
+- [AOP Examples Overview](/examples/overviews/aop-overview)
+- [Applications Overview](/examples/overviews/applications-overview)
+- [CLI Guides Overview](/examples/overviews/cli-overview)
+- [Swarms Cookbook](/examples/overviews/cookbook)
+- [Templates & Applications](/examples/overviews/templates)
+- [Community Resources](/examples/overviews/community-resources)
