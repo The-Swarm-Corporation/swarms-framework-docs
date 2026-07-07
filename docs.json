@@ -334,6 +334,7 @@
             "group": "Integrations",
             "pages": [
               "examples/overviews/tools-overview",
+              "examples/integrations/computer-use",
               "examples/integrations/exa-search",
               "examples/integrations/browser-use",
               "examples/integrations/mcp-datastax",

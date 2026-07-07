@@ -1,0 +1,110 @@
+---
+title: 'Give an Agent Safe Computer Access'
+description: 'Build an autonomous agent that can read, search, edit, and run shell commands inside a sandboxed workspace — without escaping it, leaking secrets, or corrupting the host.'
+icon: 'terminal'
+---
+
+Autonomous agents get far more useful once they can touch a real filesystem and shell — read a codebase, edit a config, run a test. But handing an LLM raw `open()` and `subprocess.run` is risky: one wrong path and it reads `/etc/passwd`, one wrong command and it `rm -rf`s your home directory.
+
+The **Computer Use Toolkit** (`swarms.tools.computer_use`) gives you eight ready-made tools — read, list, grep, write, edit, patch, delete, and run-command — that are locked inside a workspace directory, refuse dangerous binaries, strip secrets from the environment, and back up every file before touching it.
+
+## Setup
+
+```bash
+pip install swarms
+export OPENAI_API_KEY="sk-..."   # or any LiteLLM-supported provider
+```
+
+## Step 1 — Create the tools
+
+One factory call, pointed at a workspace directory, returns a dict of eight tool callables — each already sandboxed to that directory.
+
+```python
+from swarms.tools.computer_use import create_computer_use_tools
+
+tools = create_computer_use_tools(workspace_root="/workspace/my_agent")
+
+content = tools["read_file"]("README.md")
+```
+
+The eight keys: `read_file`, `list_directory`, `grep_files`, `write_file`, `edit_file`, `patch_file`, `delete_file`, `run_command`. Every one refuses to operate outside `workspace_root` or on system paths like `/etc` and `/root`.
+
+<Tip>
+Always set `workspace_root` explicitly to a dedicated directory — never `/`, `/home`, or a system dir. It's your primary defense against path traversal.
+</Tip>
+
+## Step 2 — Hand the tools to an agent
+
+They're ordinary callables, so drop them straight into an `Agent` and let it decide when to call each one.
+
+```python
+from swarms import Agent
+from swarms.tools.computer_use import create_computer_use_tools
+
+tools = create_computer_use_tools(workspace_root="/workspace/analysis_agent")
+
+agent = Agent(
+    agent_name="filesystem-agent",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    tools=list(tools.values()),
+    workspace_dir="/workspace/analysis_agent",
+)
+
+agent.run(
+    "Read every Python file in the workspace, count the total lines of code, "
+    "and write a summary to loc_report.txt."
+)
+```
+
+With `max_loops="auto"` the agent plans, then calls `list_directory` → `read_file` → `write_file` on its own. If the model hallucinates a path like `/etc/shadow`, the call is rejected before anything happens.
+
+## Step 3 — Give it only the tools you trust it with
+
+The dict shape makes it trivial to expose a subset. For an agent that should analyze but never mutate, hand over just the read tools:
+
+```python
+read_only = {k: v for k, v in tools.items()
+             if k in ("read_file", "list_directory", "grep_files")}
+
+reader = Agent(
+    agent_name="reader-agent",
+    model_name="gpt-5.4-mini",
+    max_loops=1,
+    tools=list(read_only.values()),
+)
+```
+
+This agent has no *way* to write or delete — the capability isn't in its toolset, which is stronger than asking it not to.
+
+## Step 4 — Harden further with policies
+
+The defaults are already strict (atomic writes with backups, symlink-escape rejection, secret stripping, allowlisted binaries). For untrusted tasks, tighten the shell with a `ShellPolicy`:
+
+```python
+from swarms.tools.computer_use import create_computer_use_tools, ShellPolicy
+
+tools = create_computer_use_tools(
+    workspace_root="/workspace/restricted",
+    shell_policy=ShellPolicy(
+        binary_allowlist=frozenset({"ls", "grep", "rg", "cat", "find"}),
+        argv_substring_denylist=frozenset({"rm -rf", "curl ", "wget ", "| sh"}),
+    ),
+)
+
+tools["run_command"]("ls -la")        # works
+tools["run_command"]("python evil.py")  # raises BinaryNotAllowedError
+```
+
+`run_command` also strips 25+ secret env vars (`OPENAI_API_KEY`, `AWS_SECRET_ACCESS_KEY`, …) from every subprocess. Writes, edits, and deletes back up the original to `.swarm_backups/` first — clean that directory out periodically, since it isn't pruned automatically.
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Autonomous Looper with Tools" icon="screwdriver-wrench" href="/examples/agents/autonomous-looper-tools">
+    Fine-grained control over an autonomous agent's built-in tools
+  </Card>
+  <Card title="Run Bash Tool Tutorial" icon="terminal" href="/examples/agents/autonomous-looper-bash">
+    Give an autonomous agent shell access step by step
+  </Card>
+</CardGroup>
