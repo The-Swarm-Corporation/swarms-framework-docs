@@ -211,7 +211,7 @@
           {
             "group": "Index",
             "pages": [
-              "examples/overviews/all-examples",
+              "examples/overview",
               "examples/overviews/examples-index",
               "examples/overviews/cookbook",
               "examples/overviews/community-resources"
