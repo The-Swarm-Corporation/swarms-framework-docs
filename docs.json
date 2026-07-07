@@ -241,6 +241,7 @@
               "examples/model-providers/ollama",
               "examples/model-providers/vllm",
               "examples/model-providers/openrouter",
+              "examples/model-providers/openrouter-tutorial",
               "examples/model-providers/azure-openai"
             ]
           },
