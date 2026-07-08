@@ -1,0 +1,99 @@
+---
+title: 'Prompt Caching'
+description: 'Cache the large, stable system prompt so repeat Agent calls are re-billed at a discount.'
+icon: 'database'
+---
+
+Repeat Agent calls resend the same large system prompt every time. Set `prompt_caching=True` and Swarms marks the stable prefix so the provider reuses it — you pay full price once, then a discount on every call after.
+
+## When to use it
+
+- A large, reusable system prompt (persona, policies, examples) sent on every call.
+- The same agent runs many times or holds a multi-turn conversation.
+- Tool-heavy agents whose tool schemas stay constant across calls.
+- Long context (docs, transcripts) reused turn after turn.
+
+## Basic usage
+
+Flip on `prompt_caching`. On Anthropic, Swarms adds `cache_control` breakpoints to the stable prefix; on OpenAI, caching is automatic and the flag leaves messages untouched. Caching only kicks in above the provider's token minimum (Opus 4.5+ needs ~4,096 input tokens), so the system prompt must be large — here we repeat a string to cross that bar.
+
+```python
+from swarms import Agent
+
+# A large, stable system prompt is what gets cached.
+system_prompt = "You are a senior financial analyst. " * 400
+
+agent = Agent(
+    agent_name="CachedAnalyst",
+    model_name="claude-opus-4-8",
+    system_prompt=system_prompt,
+    temperature=None,          # Opus 4.7/4.8 reject a temperature value
+    prompt_caching=True,       # the on-switch
+    max_loops=1,
+)
+
+# First call writes the cache.
+agent.run("Summarize the risks of rising interest rates.")
+
+# Second call reuses the cached prefix at a discount.
+agent.run("Now summarize the opportunities.")
+```
+
+1. `prompt_caching=True` marks the system prompt (plus the last message) as cacheable.
+2. The first `run` pays to write the cache.
+3. Every later `run` reads the cached prefix instead of re-billing it.
+
+## Tune it with cache_config
+
+Pass a `cache_config` dict to control caching. The common knob is `ttl` — Anthropic supports a 1-hour cache:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="CachedAnalyst",
+    model_name="claude-opus-4-8",
+    system_prompt="You are a senior financial analyst. " * 400,
+    temperature=None,
+    prompt_caching=True,
+    cache_config={"ttl": "1h"},   # keep the cache warm for an hour
+    max_loops=1,
+)
+
+agent.run("Give me a market outlook for Q3.")
+```
+
+`cache_config` also accepts `cache_system_prompt`, `cache_messages`, `cache_tools`, `override`, and OpenAI's `prompt_cache_key` / `prompt_cache_retention`. See the full [Prompt Caching](/agents/prompt-caching) guide under Agent Development for the complete list.
+
+## Verify it worked
+
+`Agent.run()` returns a formatted string, so to see token usage read from the agent's own underlying LLM (`agent.llm`) with `return_all = True` — that returns the raw response including the usage block. Check the second call for `cache_read_input_tokens` greater than zero:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="CachedAnalyst",
+    model_name="claude-opus-4-8",
+    system_prompt="You are a senior financial analyst. " * 400,
+    temperature=None,
+    prompt_caching=True,
+    max_loops=1,
+)
+
+# Read from the agent's own llm to expose the raw usage block.
+agent.llm.return_all = True
+
+agent.llm.run("First question to write the cache.")   # writes the cache
+resp = agent.llm.run("Second question to read the cache.")  # reads it
+
+usage = resp["usage"] if isinstance(resp, dict) else resp.usage
+print(usage)   # look for cache_read_input_tokens > 0
+```
+
+A non-zero `cache_read_input_tokens` on the second call confirms the cached prefix was reused.
+
+## See also
+
+- [Prompt Caching](/agents/prompt-caching) — Full reference: all `cache_config` keys, provider behavior, and cost details.
+- [Context Compression](/examples/agents/context-compression) — Shrink long transcripts before they hit the context limit.

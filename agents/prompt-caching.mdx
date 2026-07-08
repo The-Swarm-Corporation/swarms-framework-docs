@@ -1,0 +1,399 @@
+---
+title: 'Prompt Caching'
+description: 'Cache the stable prefix of every request — system prompt, tools, and history — to cut cost and latency across providers.'
+icon: 'database'
+---
+
+Prompt caching lets a provider store the **stable prefix** of your request — the tool definitions, system prompt, and earlier conversation turns — and re-bill it at a large discount (typically ~90% cheaper on reads) instead of re-processing it on every call. Because the prefix is served from cache, you also get lower time-to-first-token. In Swarms you turn it on with a single flag, `prompt_caching=True`, and tune it with an optional `cache_config` dictionary.
+
+<Note>
+  Caching is a **prefix match**. Everything up to a cache breakpoint must be byte-for-byte identical between requests for a cache hit. Keep volatile content (timestamps, per-request IDs, changing tool sets) out of the cached prefix.
+</Note>
+
+## Quick start
+
+The minimal setup: flip `prompt_caching=True` on an Anthropic model. Swarms automatically inserts ephemeral `cache_control` breakpoints on the tool block, the system prompt, and the last message.
+
+```python
+from swarms import Agent
+
+# A large, stable system prompt so the prefix clears the provider token minimum.
+SYSTEM_PROMPT = (
+    "You are a senior financial analyst. You produce rigorous, well-sourced "
+    "analysis of public companies, macroeconomic trends, and capital markets. "
+    "Always show your reasoning, cite the metrics you rely on, quantify risk, "
+    "and separate fact from forecast. Cover valuation, growth, margins, balance "
+    "sheet strength, competitive moat, and downside scenarios. "
+) * 40  # repeated to exceed the model's minimum cacheable prefix
+
+agent = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="claude-opus-4-8",
+    temperature=None,        # Opus 4.7+/Sonnet 5 reject a temperature value
+    max_loops=1,
+    prompt_caching=True,     # the on-switch
+)
+
+# First call writes the prefix to cache; later calls with the same prefix read it.
+agent.run("Analyze NVIDIA's competitive moat in AI accelerators.")
+agent.run("Now do the same for AMD.")  # reuses the cached system prefix
+```
+
+## How it works
+
+Prompt caching works on the **stable prefix** of a request. A cache *breakpoint* marks the end of a cacheable span; on the next request the provider compares your prefix against what it stored and, if it matches exactly up to a breakpoint, serves everything before that point from cache.
+
+The request is assembled in this order, which is also the order things get cached:
+
+1. **Tool definitions** (rendered before the system prompt)
+2. **System prompt**
+3. **Conversation messages** (through the last message)
+
+Because it is a strict prefix match, a single changed byte anywhere before a breakpoint invalidates the cache for everything after it.
+
+### Which providers use `cache_control`
+
+Swarms only injects `cache_control` breakpoints for the **Anthropic model family** — any model whose name contains `claude` or `anthropic`. This covers Claude on the Anthropic API, on AWS Bedrock, and on Google Vertex AI.
+
+<CardGroup cols={2}>
+  <Card title="Anthropic (Claude)" icon="anchor">
+    Requires explicit `cache_control` markers. Swarms injects them automatically. Up to **4 breakpoints** per request — the defaults use tools + system + last message = 3.
+  </Card>
+  <Card title="OpenAI & xAI" icon="bolt">
+    Cache **automatically** — no markers needed. Swarms leaves their messages untouched. OpenAI-only routing/retention hints are passed through.
+  </Card>
+  <Card title="Gemini / Google AI Studio" icon="google">
+    Uses a separate context-cache API, not `cache_control`. Injecting markers breaks the request, so Swarms leaves it untouched unless you force `override`.
+  </Card>
+  <Card title="Others" icon="server">
+    Left untouched by default. Use `cache_config={"override": True}` to force marker injection at your own risk.
+  </Card>
+</CardGroup>
+
+<Note>
+  Anthropic allows a maximum of **4 cache breakpoints** per request. The Swarms defaults place breakpoints on the tools block, the system prompt, and the last message (3 total), leaving one spare.
+</Note>
+
+## Parameters
+
+Prompt caching is controlled by two `Agent` constructor parameters.
+
+<ParamField path="prompt_caching" type="bool" default="False">
+  Master on-switch. When `True`, Swarms adds ephemeral `cache_control` breakpoints to the stable prefix of each request (for Anthropic models) so the prefix is cached and re-billed at a discount. When `False`, no caching behavior is added and `cache_config` is ignored.
+</ParamField>
+
+`cache_config` is a dictionary of fine-grained options. It is **only consulted when `prompt_caching=True`**. Every key is optional and falls back to the defaults below.
+
+<ParamField path="cache_config.ttl" type="str" default="5m">
+  Cache lifetime. `"5m"` (default) or `"1h"` for Anthropic's extended one-hour cache. The 1-hour cache costs **2x on writes** but survives longer gaps between requests. The required beta header (`extended-cache-ttl-2025-04-11`) is attached automatically when you select `"1h"`.
+</ParamField>
+
+<ParamField path="cache_config.cache_system_prompt" type="bool" default="True">
+  Cache the system-prompt prefix. Turn off if your system prompt is small or changes every request.
+</ParamField>
+
+<ParamField path="cache_config.cache_messages" type="bool" default="True">
+  Cache through the last message, enabling incremental multi-turn caching where each new turn extends the cached prefix.
+</ParamField>
+
+<ParamField path="cache_config.cache_tools" type="bool" default="True">
+  Cache the tool-definitions block. Tools render before the system prompt, so this is a big win for tool-heavy agents with large schemas.
+</ParamField>
+
+<ParamField path="cache_config.override" type="bool | None" default="None">
+  Force `cache_control` injection on (`True`) or off (`False`) regardless of the detected provider. `None` (default) auto-detects based on the model name. Set to `True` to try injection on providers Swarms would normally skip (e.g. Gemini).
+</ParamField>
+
+<ParamField path="cache_config.prompt_cache_key" type="str">
+  **OpenAI-only** routing hint. Grouping requests under a stable key raises cache hit rates. Passed through to the provider; ignored for Anthropic.
+</ParamField>
+
+<ParamField path="cache_config.prompt_cache_retention" type="str" default="in_memory">
+  **OpenAI-only** cache TTL: `"in_memory"` (default) or `"24h"`. Passed through to the provider; ignored for Anthropic.
+</ParamField>
+
+### Default caching
+
+With `prompt_caching=True` and no `cache_config`, you get the sensible defaults: a 5-minute TTL caching tools, system prompt, and the last message.
+
+```python
+from swarms import Agent
+
+SYSTEM_PROMPT = (
+    "You are a senior financial analyst covering equities, fixed income, and "
+    "macro. Deliver structured, quantitative, source-aware analysis with clear "
+    "assumptions, risk quantification, and explicit forecasts versus facts. "
+) * 40  # large enough to clear the token minimum
+
+agent = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="claude-opus-4-8",
+    temperature=None,
+    max_loops=1,
+    prompt_caching=True,   # defaults: ttl=5m, cache tools + system + messages
+)
+
+agent.run("Summarize the bull and bear case for Apple.")
+```
+
+### `ttl="1h"` — extended one-hour cache
+
+Use the one-hour cache when there are longer gaps between related requests. Writes cost 2x, but the prefix survives well past the default 5-minute window. The beta header is attached for you.
+
+```python
+from swarms import Agent
+
+SYSTEM_PROMPT = (
+    "You are a senior financial analyst. Provide deep, well-cited analysis of "
+    "companies and markets, quantifying risk and separating fact from forecast. "
+) * 40
+
+agent = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="claude-opus-4-8",
+    temperature=None,
+    max_loops=1,
+    prompt_caching=True,
+    cache_config={"ttl": "1h"},   # extended cache; beta header added automatically
+)
+
+agent.run("Give me a full valuation walkthrough for Microsoft.")
+```
+
+### Toggling `cache_system_prompt` and `cache_messages`
+
+You can cache the system prompt but not the running conversation (or vice versa). This is useful when the system prompt is large and stable but each turn's content varies enough that message caching would rarely hit.
+
+```python
+from swarms import Agent
+
+SYSTEM_PROMPT = (
+    "You are a senior financial analyst. Produce rigorous, quantitative, "
+    "well-sourced analysis with explicit assumptions and risk scenarios. "
+) * 40
+
+agent = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="claude-opus-4-8",
+    temperature=None,
+    max_loops=1,
+    prompt_caching=True,
+    cache_config={
+        "cache_system_prompt": True,   # cache the big stable system prefix
+        "cache_messages": False,       # don't cache per-turn messages
+    },
+)
+
+agent.run("What macro risks matter most for semiconductors this quarter?")
+```
+
+### `cache_tools` — caching the tool block
+
+Tool definitions render before the system prompt, so caching them is a big win for tool-heavy agents with large JSON schemas. This example attaches a schema via `tools_list_dictionary` (a plain schema, no callable) so the tool block itself is large and stable.
+
+```python
+from swarms import Agent
+
+SYSTEM_PROMPT = (
+    "You are a senior financial analyst with access to market-data tools. "
+    "Use them to ground every claim in current figures before reasoning. "
+) * 40
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_financials",
+            "description": (
+                "Fetch a comprehensive financial statement bundle for a public "
+                "company: income statement, balance sheet, cash flow, and key "
+                "ratios across multiple reporting periods."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {
+                        "type": "string",
+                        "description": "Stock ticker symbol, e.g. 'AAPL'.",
+                    },
+                    "period": {
+                        "type": "string",
+                        "enum": ["annual", "quarterly"],
+                        "description": "Reporting cadence to return.",
+                    },
+                    "years": {
+                        "type": "integer",
+                        "description": "Number of historical periods to include.",
+                    },
+                },
+                "required": ["ticker"],
+            },
+        },
+    }
+]
+
+agent = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="claude-opus-4-8",
+    temperature=None,
+    max_loops=1,
+    prompt_caching=True,
+    tools_list_dictionary=TOOLS,
+    cache_config={"cache_tools": True},   # cache the tool-definitions block
+)
+
+agent.run("Pull Tesla's last 5 years of financials and assess margin trends.")
+```
+
+### `override` — forcing injection on Gemini
+
+By default Swarms skips `cache_control` for Gemini because it uses a different caching API. Set `override=True` to force marker injection anyway if you want to experiment.
+
+```python
+from swarms import Agent
+
+SYSTEM_PROMPT = (
+    "You are a senior financial analyst. Deliver structured, quantitative "
+    "analysis with clear assumptions, risk quantification, and forecasts. "
+) * 40
+
+agent = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="gemini/gemini-2.5-pro",
+    max_loops=1,
+    prompt_caching=True,
+    cache_config={"override": True},   # force cache_control on a non-Anthropic provider
+)
+
+agent.run("Assess the growth outlook for the cloud infrastructure market.")
+```
+
+<Warning>
+  Forcing `override=True` on a provider that doesn't accept `cache_control` markers can break requests. Gemini normally uses its own context-cache API — only force injection when you are intentionally testing it.
+</Warning>
+
+### OpenAI passthrough — `prompt_cache_key` and `prompt_cache_retention`
+
+OpenAI caches automatically, so Swarms doesn't inject markers. But it does pass through OpenAI's routing and retention hints. Use a stable `prompt_cache_key` to raise hit rates and `prompt_cache_retention` to extend the TTL to 24 hours.
+
+```python
+from swarms import Agent
+
+SYSTEM_PROMPT = (
+    "You are a senior financial analyst. Produce rigorous, well-sourced, "
+    "quantitative analysis separating fact from forecast at every step. "
+) * 40
+
+agent = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="gpt-5.4",
+    max_loops=1,
+    prompt_caching=True,
+    cache_config={
+        "prompt_cache_key": "financial-analyst-v1",  # routing hint for higher hit rates
+        "prompt_cache_retention": "24h",             # extend cache TTL
+    },
+)
+
+agent.run("Compare the capital allocation strategies of Meta and Alphabet.")
+```
+
+### All options — reference config
+
+A single config showing every supported key together.
+
+```python
+from swarms import Agent
+
+SYSTEM_PROMPT = (
+    "You are a senior financial analyst. Deliver deep, quantitative, "
+    "well-cited analysis with explicit assumptions and downside scenarios. "
+) * 40
+
+agent = Agent(
+    agent_name="FinancialAnalyst",
+    system_prompt=SYSTEM_PROMPT,
+    model_name="claude-opus-4-8",
+    temperature=None,
+    max_loops=1,
+    prompt_caching=True,
+    cache_config={
+        "ttl": "1h",                        # 5m (default) or 1h
+        "cache_system_prompt": True,        # cache the system prefix
+        "cache_messages": True,             # incremental multi-turn caching
+        "cache_tools": True,                # cache the tool-definitions block
+        "override": None,                   # None=auto-detect, True/False to force
+        "prompt_cache_key": "analyst-v1",   # OpenAI-only routing hint
+        "prompt_cache_retention": "24h",    # OpenAI-only: in_memory or 24h
+    },
+)
+
+agent.run("Build a full investment thesis for Amazon.")
+```
+
+## Provider support
+
+Caching is **silently skipped** below the provider's minimum cacheable prefix — there is no error, the request simply isn't cached. Make sure your stable prefix (tools + system prompt + history) exceeds the minimum, and verify with the usage fields described below.
+
+| Provider / model | Minimum input tokens |
+| --- | --- |
+| OpenAI | 1,024 |
+| Anthropic Claude 3.x | 1,024 |
+| Anthropic Sonnet / Opus 4.x | 2,048 |
+| Anthropic Haiku 4.5+, Opus 4.5+ | 4,096 |
+| Google Gemini | 1,024 |
+
+**`cache_control` vs. automatic caching:**
+
+- **Anthropic (Claude / Bedrock / Vertex)** — requires explicit `cache_control` breakpoints. Swarms injects them automatically when the model name contains `claude` or `anthropic`. Up to 4 breakpoints per request.
+- **OpenAI and xAI** — cache automatically with no markers. Swarms leaves messages untouched and passes through OpenAI's `prompt_cache_key` / `prompt_cache_retention`.
+- **Gemini / Google AI Studio** — uses a separate context-cache API. Markers would break the request, so Swarms leaves it untouched unless you set `cache_config={"override": True}`.
+
+## Verifying cache hits
+
+`Agent.run()` returns a formatted string, so it won't show token usage. To inspect cache behavior, read from the agent's underlying LLM wrapper directly with `return_all = True`, which returns the raw provider response including the usage block.
+
+```python
+# After building `agent` with prompt_caching=True
+
+agent.llm.return_all = True
+resp = agent.llm.run("Analyze the semiconductor supply chain in 2026.")
+
+usage = resp["usage"] if isinstance(resp, dict) else resp.usage
+print(usage)
+```
+
+**What the usage fields mean:**
+
+<ParamField path="cache_creation_input_tokens" type="int">
+  (Anthropic) Tokens **written** to the cache on this request. Non-zero on the first call that populates a new prefix.
+</ParamField>
+
+<ParamField path="cache_read_input_tokens" type="int">
+  (Anthropic) Tokens **read** from the cache on this request — this is where the savings show up. Should be non-zero on repeat requests with an identical prefix.
+</ParamField>
+
+<ParamField path="prompt_tokens_details.cached_tokens" type="int">
+  (OpenAI-style) Number of prompt tokens served from cache on this request.
+</ParamField>
+
+<Note>
+  If `cache_read_input_tokens` stays `0` across requests that should share a prefix, a **silent invalidator** is breaking the prefix match — usually a timestamp or UUID in the system prompt, or a changing tool set. Check that everything before the breakpoint is byte-for-byte identical.
+</Note>
+
+## Gotchas and best practices
+
+- **Prefix match is exact.** Any byte change before a breakpoint invalidates everything after it. Keep timestamps, per-request IDs, random seeds, and other volatile content out of the system prompt and tool definitions.
+- **Watch for silent invalidators.** Time-enabled conversation history, dynamically reordered tools, or a per-request nonce in the persona will quietly break caching. If `cache_read_input_tokens` is always 0, hunt for one of these.
+- **Clear the token minimum.** Caching is skipped below the provider minimum with no error. If the prefix is too small, make the system prompt larger or accept that small prompts won't cache. The examples repeat the persona to exceed the minimum.
+- **`temperature=None` on newer Anthropic models.** Opus 4.7 / 4.8 and Sonnet 5 reject a `temperature` value — pass `temperature=None` on the Agent for those models (as every Anthropic example above does).
+- **The 1-hour cache costs 2x on writes.** Use `ttl="1h"` only when gaps between related requests exceed the 5-minute default window; otherwise the extra write cost isn't worth it.
+- **Order matters for tool-heavy agents.** Tools render before the system prompt, so a large, stable tool block cached via `cache_tools=True` is often the single biggest saving.
+- **Stay within 4 breakpoints (Anthropic).** The defaults use 3 (tools + system + last message). If you add manual breakpoints elsewhere, keep the total at or below 4.

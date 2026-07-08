@@ -60,6 +60,27 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
+<ParamField path="prompt_caching" type="bool" default="False">
+  Enable provider-side prompt caching. When `True`, the stable prefix of each request (system prompt, tools, and last message) is cached and re-billed at a large discount. Applies to the Anthropic model family (Claude on Anthropic / Bedrock / Vertex); OpenAI and other auto-caching providers are left untouched. See the full [Prompt Caching guide](/agents/prompt-caching).
+
+  ```python
+  agent = Agent(model_name="claude-opus-4-8", prompt_caching=True, temperature=None)
+  ```
+</ParamField>
+
+<ParamField path="cache_config" type="dict" default="None">
+  Fine-grained prompt-caching options; only consulted when `prompt_caching=True`. Keys (all optional): `ttl` (`"5m"` | `"1h"`), `cache_system_prompt` (bool), `cache_messages` (bool), `cache_tools` (bool), `override` (bool | None — force injection on/off), and OpenAI-only `prompt_cache_key` / `prompt_cache_retention` (`"in_memory"` | `"24h"`).
+
+  ```python
+  agent = Agent(
+      model_name="claude-opus-4-8",
+      prompt_caching=True,
+      cache_config={"ttl": "1h", "cache_tools": True},
+      temperature=None,
+  )
+  ```
+</ParamField>
+
 ### Agent Identity
 
 <ParamField path="agent_name" type="str" default="swarm-worker-01">

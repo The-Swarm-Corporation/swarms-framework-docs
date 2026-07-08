@@ -64,7 +64,8 @@
               "agents/agent-memory",
               "agents/agent-tools",
               "agents/agent-skills",
-              "agents/structured-outputs"
+              "agents/structured-outputs",
+              "agents/prompt-caching"
             ]
           },
           {
@@ -255,7 +256,8 @@
               "examples/agents/autonomous-looper-bash",
               "examples/agents/autonomous-looper-tools",
               "examples/agents/persistent-memory",
-              "examples/agents/context-compression"
+              "examples/agents/context-compression",
+              "examples/agents/prompt-caching"
             ]
           },
           {
