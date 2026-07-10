@@ -166,7 +166,7 @@ def run(self, task: str) -> Union[str, List, dict]
 4. **Result Formatting**: Returns the final result formatted according to `output_type`
 
 **Raises:**
-- `ValueError`: If task is None or empty, or if any required agents are None, or if max_rounds is less than 1
+- `ValueError`: If task is None or empty. (Invalid agent configuration or `max_loops < 1` raise `ValueError` at construction time, in `__init__`, not in `run()`.)
 
 ### batched_run()
 

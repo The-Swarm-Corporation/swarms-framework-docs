@@ -20,6 +20,7 @@ The `SequentialWorkflow` orchestrates multiple agents in a linear chain, where e
 - Team awareness capabilities
 - Conversation history tracking
 - Autosave functionality
+- Optional drift detection: a judge agent scores the final output's alignment with the original task and reruns the pipeline if it falls below a threshold
 
 ## Basic Example
 
@@ -92,6 +93,10 @@ workflow = SequentialWorkflow(
 )
 ```
 
+<Note>
+  `shared_memory_system` is currently stored on the workflow instance but is not wired into the underlying `AgentRearrange`/agent execution — passing it does not yet change runtime behavior. Reach for `persistent_memory` on individual agents if you need working memory today.
+</Note>
+
 ## Key Parameters
 
 <ParamField path="name" type="str" default="SequentialWorkflow">
@@ -120,6 +125,18 @@ workflow = SequentialWorkflow(
 
 <ParamField path="autosave" type="bool" default="True">
   Automatically save conversation history
+</ParamField>
+
+<ParamField path="drift_detection" type="bool" default="False">
+  If True, a judge agent scores the final output's semantic alignment with the original task after the pipeline completes, and reruns the pipeline while the score stays below `drift_threshold`
+</ParamField>
+
+<ParamField path="drift_threshold" type="float" default="0.75">
+  Minimum alignment score (0-1) required to accept the output when `drift_detection` is enabled
+</ParamField>
+
+<ParamField path="drift_model" type="str" default="claude-sonnet-4-5">
+  Model used by the drift-detection judge agent
 </ParamField>
 
 ## Methods

@@ -209,9 +209,9 @@ Create a parallel processing chain (full mesh connection).
 
 ### Execution
 
-#### `run(task=None, img=None, *args, **kwargs)`
+#### `run(task=None, img=None, on_node_complete=None, streaming_callback=None, *args, **kwargs)`
 
-Run the workflow graph with optimized parallel agent execution.
+Run the workflow graph with optimized parallel agent execution. When `max_loops > 1`, end-point outputs from each loop are fed as additional context into the next loop so agents can iteratively refine their results.
 
 <ParamField path="task" type="Optional[str]">
   Task to execute. Uses self.task if not provided.
@@ -221,8 +221,16 @@ Run the workflow graph with optimized parallel agent execution.
   Optional image path for multimodal tasks
 </ParamField>
 
+<ParamField path="on_node_complete" type="Optional[Callable[[str, Any], None]]" default="None">
+  Callback fired immediately when each agent finishes, before the layer completes. Receives `(node_id, output)`. Takes precedence over the instance-level callback set in `__init__`.
+</ParamField>
+
+<ParamField path="streaming_callback" type="Optional[Callable[[str, str], None]]" default="None">
+  Callback fired for every token as agents generate output in real time. Receives `(node_id, token)`.
+</ParamField>
+
 <ResponseField name="results" type="Dict[str, Any]">
-  Execution results from all nodes
+  Execution results keyed by node ID. When `max_loops == 1`, returns the single loop's results. When `max_loops > 1`, returns a dict with per-loop results keyed as `{node_id}_loop_{loop_number}` plus the final loop's results under the plain `node_id` keys.
 </ResponseField>
 
 #### `arun(task=None, *args, **kwargs)`
@@ -379,16 +387,77 @@ Load a workflow from a JSON file.
 
 ### Validation
 
-#### `validate(auto_fix=False)`
+#### `validate(auto_fix=False, raise_on_error=False)`
 
-Validate the workflow structure.
+Validate the workflow structure, checking for isolated nodes, cyclic dependencies, unreachable nodes, dead-end nodes, and missing entry/end points.
 
 <ParamField path="auto_fix" type="bool" default="False">
-  Whether to automatically fix simple issues
+  Whether to automatically fix simple issues (e.g. auto-setting missing entry/exit points, adding unreachable nodes to entry points)
+</ParamField>
+
+<ParamField path="raise_on_error" type="bool" default="False">
+  When `True`, raises a `ValueError` if validation determines the workflow is invalid. Defaults to `False` so existing callers that inspect the returned dict are unaffected.
 </ParamField>
 
 <ResponseField name="validation_result" type="Dict[str, Any]">
-  Dictionary containing validation results, including validity, warnings and errors
+  Dictionary containing `is_valid`, `errors`, `warnings`, `fixed`, and (when cycles are found) `cycles`
+</ResponseField>
+
+### Checkpoints and Spec Serialization
+
+#### `clear_checkpoints(task)`
+
+Delete all checkpoint files written for a specific task. Call after a workflow run completes successfully to reclaim disk space. Requires `checkpoint_dir` to have been set.
+
+<ParamField path="task" type="str" required>
+  The task string whose checkpoints should be removed; must match the string passed to `run()` exactly
+</ParamField>
+
+<ResponseField name="deleted_count" type="int">
+  Number of checkpoint files deleted
+</ResponseField>
+
+**Raises:**
+- `ValueError`: If `checkpoint_dir` was not set on this workflow instance
+
+#### `to_spec()`
+
+Serialize the workflow topology to a lightweight plain-dict spec. Unlike `to_json()`, this does not serialize the Agent objects themselves — it only records each agent's `agent_name`, so the spec can be version-controlled and shared.
+
+<ResponseField name="spec" type="Dict[str, Any]">
+  Dict with `name`, `description`, `max_loops`, `nodes`, `edges`, `entry_points`, `end_points`
+</ResponseField>
+
+#### `save_spec(path)`
+
+Save the topology spec produced by `to_spec()` to a JSON file.
+
+<ParamField path="path" type="str" required>
+  Filesystem path to write the JSON file to
+</ParamField>
+
+#### `from_topology_spec(spec, agent_registry, **kwargs)` (classmethod)
+
+Reconstruct a `GraphWorkflow` from a topology spec (as produced by `to_spec()`/`save_spec()`) and an agent registry supplying the live `Agent` objects for each node.
+
+<ParamField path="spec" type="Dict[str, Any]" required>
+  A topology spec as returned by `to_spec()` or loaded from a file written by `save_spec()`
+</ParamField>
+
+<ParamField path="agent_registry" type="Dict[str, Agent]" required>
+  Mapping from `agent_name` to live `Agent` instance
+</ParamField>
+
+<ResponseField name="workflow" type="GraphWorkflow">
+  A new GraphWorkflow instance
+</ResponseField>
+
+#### `export_summary()`
+
+Generate a human-readable summary of the workflow structure for inspection.
+
+<ResponseField name="summary" type="Dict[str, Any]">
+  Summary dictionary describing the workflow's nodes, edges, and layers
 </ResponseField>
 
 ### Factory Method
@@ -684,7 +753,7 @@ print(text_viz)
 ### Node
 
 ```python
-from swarms.structs.graph_workflow import Node, NodeType
+from swarms import Node, NodeType
 
 # Create node from agent
 node = Node.from_agent(agent)
@@ -701,7 +770,7 @@ node = Node(
 ### Edge
 
 ```python
-from swarms.structs.graph_workflow import Edge
+from swarms import Edge
 
 # Create edge from nodes
 edge = Edge.from_nodes(source_agent, target_agent)

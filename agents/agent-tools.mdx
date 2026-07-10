@@ -301,20 +301,9 @@ agent = Agent(
   ```
 </ParamField>
 
-<ParamField path="tool_choice" type="str" default="auto">
-  Control when tools are used. Options: "auto", "required", "none".
-  
-  ```python
-  # Auto - Model decides when to use tools
-  agent = Agent(tools=[my_tool], tool_choice="auto")
-  
-  # Required - Model must use a tool
-  agent = Agent(tools=[my_tool], tool_choice="required")
-  
-  # None - Disable tool usage
-  agent = Agent(tools=[my_tool], tool_choice="none")
-  ```
-</ParamField>
+<Note>
+  `tool_choice` is **not** an `Agent` constructor parameter. Whenever `tools` (or MCP tools) are configured, the agent always sends `tool_choice="auto"` to the underlying LLM call — passing `tool_choice=...` to `Agent(...)` is silently absorbed into `**kwargs` and has no effect.
+</Note>
 
 <ParamField path="show_tool_execution_output" type="bool" default="True">
   Display tool execution results.
@@ -455,12 +444,13 @@ Model Context Protocol (MCP) enables connecting to external tool servers:
 
 ```python
 from swarms.schemas.mcp_schemas import MCPConnection
+from swarms import Agent
 
-# Connect to MCP server
+# Connect to MCP server over HTTP (MCPConnection is URL/transport based,
+# not a local command+args launcher)
 mcp_config = MCPConnection(
-    name="weather-server",
-    command="node",
-    args=["/path/to/weather-server/index.js"],
+    url="http://localhost:8000/mcp",
+    transport="streamable_http",
 )
 
 agent = Agent(
@@ -471,6 +461,16 @@ agent = Agent(
 
 # Agent can now use all tools from the MCP server
 response = agent.run("What's the weather in Paris?")
+```
+
+Simpler alternative for a single server — pass the URL directly with `mcp_url`:
+
+```python
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="claude-sonnet-4-6",
+    mcp_url="http://localhost:8000/mcp",
+)
 ```
 
 ## Best Practices
@@ -582,6 +582,6 @@ def get_user_info(user_id: str) -> str:
 
 ## Reference
 
-- Tool handling: `swarms/structs/agent.py:972-1059`
+- Tool handling: `swarms/structs/agent.py:954-1038` (`tool_handling`)
 - BaseTool class: `swarms/tools/base_tool.py:69`
 - Function schema generation: `swarms/tools/py_func_to_openai_func_str.py`

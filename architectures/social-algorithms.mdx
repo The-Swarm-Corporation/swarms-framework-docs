@@ -197,8 +197,12 @@ def consensus_algorithm(agents, task, threshold=0.7, **kwargs):
   List of agents that will participate
 </ParamField>
 
-<ParamField path="social_algorithm" type="Callable" required>
-  Function defining the communication pattern (agents, task, **kwargs) -> Any
+<ParamField path="social_algorithm" type="Callable" default="None">
+  Function defining the communication pattern (agents, task, **kwargs) -> Any. Optional at construction time, but `run()` raises `InvalidAlgorithmError` if it is still `None` when called.
+</ParamField>
+
+<ParamField path="algorithm_id" type="str">
+  Unique identifier for the algorithm instance. Auto-generated as a UUID if omitted.
 </ParamField>
 
 <ParamField path="max_execution_time" type="float" default="300.0">
@@ -215,6 +219,10 @@ def consensus_algorithm(agents, task, threshold=0.7, **kwargs):
 
 <ParamField path="parallel_execution" type="bool" default="False">
   Enable parallel execution where possible
+</ParamField>
+
+<ParamField path="max_workers" type="int">
+  Maximum number of workers to use for parallel execution.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -260,10 +268,15 @@ Dynamic agent management.
 # Add new agent
 new_agent = Agent(agent_name="NewExpert", ...)
 social_alg.add_agent(new_agent)
-
-# Remove agent
-social_alg.remove_agent("OldAgent")
 ```
+
+<Warning>
+  `remove_agent(agent_name: str)` is currently broken in the installed version: it calls `del self.agents[agent_name]`, but `self.agents` is a `list`, not a dict — passing a string name raises `TypeError: list indices must be integers or slices, not str`, regardless of whether an agent with that name exists. Until this is fixed upstream, remove an agent manually instead:
+
+```python
+social_alg.agents = [a for a in social_alg.agents if a.agent_name != "OldAgent"]
+```
+</Warning>
 
 ### get_communication_history()
 
@@ -507,8 +520,9 @@ except Exception as e:
 ## Agent Management
 
 ```python
-# Get agent names
-names = social_alg.get_agent_names()
+# Get agent names (no dedicated get_agent_names() method exists;
+# read agent_names from get_algorithm_info() or list agents directly)
+names = [agent.agent_name for agent in social_alg.agents]
 
 # Get algorithm info
 info = social_alg.get_algorithm_info()

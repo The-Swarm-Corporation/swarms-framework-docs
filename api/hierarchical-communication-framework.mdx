@@ -26,7 +26,6 @@ pip install -U swarms
 ### Main Framework
 
 - `HierarchicalStructuredCommunicationFramework` - Main orchestrator class
-- `HierarchicalStructuredCommunicationSwarm` - Convenience alias
 
 ## Attributes
 
@@ -34,20 +33,20 @@ pip install -U swarms
   Name of the framework instance
 </ParamField>
 
-<ParamField path="supervisor" type="HierarchicalStructuredCommunicationSupervisor">
-  Main supervisor agent that coordinates the workflow
+<ParamField path="supervisor" type="Optional[Union[Agent, Callable, Any]]" default="None">
+  Main supervisor agent that coordinates the workflow. If not provided, a default `Agent` supervisor is created automatically.
 </ParamField>
 
-<ParamField path="generators" type="List[HierarchicalStructuredCommunicationGenerator]" required>
-  List of generator agents for creating initial content
+<ParamField path="generators" type="Optional[List[Union[Agent, Callable, Any]]]" default="None">
+  List of generator agents for creating initial content. If not provided, a single default generator agent is created automatically.
 </ParamField>
 
-<ParamField path="evaluators" type="List[HierarchicalStructuredCommunicationEvaluator]" required>
-  List of evaluator agents for assessing content quality
+<ParamField path="evaluators" type="Optional[List[Union[Agent, Callable, Any]]]" default="None">
+  List of evaluator agents for assessing content quality. If not provided (and `enable_hierarchical_evaluation=True`), a single default evaluator agent is created automatically.
 </ParamField>
 
-<ParamField path="refiners" type="List[HierarchicalStructuredCommunicationRefiner]" required>
-  List of refiner agents for improving content based on feedback
+<ParamField path="refiners" type="Optional[List[Union[Agent, Callable, Any]]]" default="None">
+  List of refiner agents for improving content based on feedback. If not provided, a single default refiner agent is created automatically.
 </ParamField>
 
 <ParamField path="evaluation_supervisor" type="Optional[Union[Agent, Callable, Any]]" default="None">
@@ -106,48 +105,75 @@ pip install -U swarms
 
 ### run()
 
-Execute the complete workflow for a given task.
+Execute the complete workflow for a given task, looping up to `max_loops` times (set at construction).
 
 ```python
-def run(self, task: str, max_loops: int = None) -> dict
+def run(self, task: str, img: str = None, *args, **kwargs) -> dict
 ```
 
 **Parameters:**
 - `task` (str): The task to execute
-- `max_loops` (int, optional): Override the default max_loops for this run
+- `img` (str, optional): Optional image input
 
-**Returns:** A dictionary containing the workflow results, including `final_result`
+**Returns:** A dictionary containing `final_result`, `total_loops`, `conversation_history`, `evaluation_results`, and `intermediate_outputs`
+
+<Note>
+`run()` does not accept a `max_loops` override — the number of refinement loops is fixed by the `max_loops` value passed to the constructor.
+</Note>
 
 ### step()
 
-Execute a single workflow step.
+Execute a single workflow step (generate, evaluate, refine).
 
 ```python
-def step(self, task: str) -> dict
+def step(self, task: str, img: str = None, *args, **kwargs) -> dict
 ```
 
 **Parameters:**
 - `task` (str): The task to execute for one step
+- `img` (str, optional): Optional image input
 
-**Returns:** Result of a single step
+**Returns:** A dictionary with `generator_result`, `evaluation_results`, `refined_result`, and `conversation_history` (or an `error` key on failure)
 
 ### send_structured_message()
 
-Send a structured communication message between agents.
+Send a structured communication message between agents, following the Message (M_ij) / Background (B_ij) / Intermediate Output (I_ij) protocol.
 
 ```python
-def send_structured_message(self) -> None
+def send_structured_message(
+    self,
+    sender: str,
+    recipient: str,
+    message: str,
+    background: str = "",
+    intermediate_output: str = "",
+) -> StructuredMessage
 ```
+
+**Parameters:**
+- `sender` (str): Name of the sending agent
+- `recipient` (str): Name of the receiving agent
+- `message` (str): Specific task message (M_ij)
+- `background` (str, optional): Background context (B_ij)
+- `intermediate_output` (str, optional): Intermediate output (I_ij)
+
+**Returns:** The `StructuredMessage` that was appended to `conversation_history`
 
 ### run_hierarchical_evaluation()
 
 Run the hierarchical evaluation system with supervisor coordination.
 
 ```python
-def run_hierarchical_evaluation(self) -> dict
+def run_hierarchical_evaluation(
+    self, content: str, evaluation_criteria: List[str] = None
+) -> List[EvaluationResult]
 ```
 
-**Returns:** Evaluation results
+**Parameters:**
+- `content` (str): Content to evaluate
+- `evaluation_criteria` (List[str], optional): Criteria to evaluate against. Defaults to `["accuracy", "completeness", "clarity", "relevance"]`.
+
+**Returns:** A list of `EvaluationResult` objects, one per evaluator
 
 ## Usage Examples
 
@@ -240,32 +266,9 @@ framework = HierarchicalStructuredCommunicationFramework(
     verbose=True
 )
 
-# Run with custom parameters
+# Run the task (loops up to the max_loops set above)
 result = framework.run(
-    "Analyze the impact of climate change on global agriculture",
-    max_loops=3
-)
-```
-
-### Integration with Other Swarms
-
-```python
-from swarms.structs.hierarchical_structured_communication_framework import (
-    HierarchicalStructuredCommunicationFramework
-)
-from swarms import AutoSwarmBuilder
-
-# Use HierarchicalStructuredCommunicationFramework for content generation
-framework = HierarchicalStructuredCommunicationFramework(
-    max_loops=2,
-    verbose=True
-)
-
-# Integrate with AutoSwarmBuilder
-builder = AutoSwarmBuilder()
-swarm = builder.create_swarm(
-    swarm_type="HierarchicalStructuredCommunicationFramework",
-    task="Generate a comprehensive business plan"
+    "Analyze the impact of climate change on global agriculture"
 )
 ```
 

@@ -184,6 +184,65 @@ formatter.print_agent_dashboard(
   Whether this is the final update
 </ParamField>
 
+## Data Structure Formatting
+
+### format_dict_to_string
+
+Recursively format a dictionary into a readable, multi-line string.
+
+```python
+from swarms.utils import format_dict_to_string
+
+text = format_dict_to_string({"name": "Agent", "config": {"loops": 3}})
+print(text)
+```
+
+<ParamField path="data" type="dict" required>
+  The dictionary to format
+</ParamField>
+
+<ParamField path="indent_level" type="int" default="0">
+  Current indentation level for nested structures
+</ParamField>
+
+<ParamField path="use_colon" type="bool" default="True">
+  If `True`, use `"key: value"` formatting; if `False`, use `"key value"`
+</ParamField>
+
+### format_data_structure
+
+Format any Python data structure (dict, list, tuple, set, or object) into a readable, indented, multi-line string.
+
+```python
+from swarms.utils import format_data_structure
+
+text = format_data_structure({"agents": ["A", "B"], "count": 2})
+print(text)
+```
+
+<ParamField path="data" type="any" required>
+  The data structure to format
+</ParamField>
+
+<ParamField path="indent_level" type="int" default="0">
+  Current indentation level
+</ParamField>
+
+<ParamField path="max_depth" type="int" default="10">
+  Maximum depth to recurse
+</ParamField>
+
+### exists
+
+Check if a value is not `None`.
+
+```python
+from swarms.utils import exists
+
+exists(None)  # False
+exists("value")  # True
+```
+
 ## File Processing
 
 ### create_file_in_folder
@@ -306,60 +365,6 @@ zip_folders(
   Output zip file path
 </ParamField>
 
-## Data Conversion
-
-### csv_to_text
-
-Convert CSV data to formatted text.
-
-```python
-from swarms.utils import csv_to_text
-
-text = csv_to_text("data.csv")
-print(text)
-```
-
-### json_to_text
-
-Convert JSON data to formatted text.
-
-```python
-from swarms.utils import json_to_text
-
-text = json_to_text("config.json")
-print(text)
-```
-
-### data_to_text
-
-Universal data-to-text converter supporting multiple formats.
-
-```python
-from swarms.utils import data_to_text
-
-text = data_to_text("report.xlsx")
-print(text)
-```
-
-### pdf_to_text
-
-Extract text from PDF files.
-
-```python
-from swarms.utils import pdf_to_text
-
-text = pdf_to_text("document.pdf")
-print(text)
-```
-
-<ParamField path="pdf_path" type="str" required>
-  Path to PDF file
-</ParamField>
-
-<ResponseField name="return" type="str">
-  Extracted text content
-</ResponseField>
-
 ## Token Management
 
 ### count_tokens
@@ -381,24 +386,34 @@ print(f"Tokens: {token_count}")
   Text to count tokens for
 </ParamField>
 
-<ParamField path="model" type="str" default="gpt-3.5-turbo">
+<ParamField path="model" type="str" default="gpt-5.4">
   Model to use for tokenization
+</ParamField>
+
+<ParamField path="default_encoder" type="str" default="gpt-5.4">
+  Fallback encoder used if tokenizing with `model` fails
 </ParamField>
 
 <ResponseField name="return" type="int">
   Number of tokens in the text
 </ResponseField>
 
-### check_all_model_max_tokens
+**Raises:** `ValueError` if both the primary model and the fallback encoder fail to tokenize the text.
 
-Check maximum token limits for available models.
+### get_supported_models
+
+Get the list of models supported by LiteLLM.
 
 ```python
-from swarms.utils import check_all_model_max_tokens
+from swarms.utils.litellm_tokenizer import get_supported_models
 
-max_tokens = check_all_model_max_tokens("gpt-4")
-print(f"Max tokens: {max_tokens}")
+models = get_supported_models()
+print(models)
 ```
+
+<ResponseField name="return" type="list">
+  List of supported model name strings
+</ResponseField>
 
 ## Code Processing
 
@@ -471,53 +486,62 @@ agent = loader.load("agent_config.md")
 
 ### dynamic_auto_chunking
 
-Automatically chunk text based on context window limits.
+Truncate text from the beginning so the remainder fits within a token budget, using a binary search over token counts. Note this returns a single trimmed string (the tail of the input that fits), not a list of chunks.
 
 ```python
 from swarms.utils import dynamic_auto_chunking
 
 long_text = "...very long document..."
-chunks = dynamic_auto_chunking(
-    text=long_text,
-    max_tokens=4000,
-    model="gpt-4"
+trimmed = dynamic_auto_chunking(
+    content=long_text,
+    context_length=4000,
+    tokenizer_model_name="gpt-5.4",
 )
 
-for i, chunk in enumerate(chunks):
-    print(f"Chunk {i}: {len(chunk)} chars")
+print(f"Trimmed length: {len(trimmed)} chars")
 ```
 
-<ParamField path="text" type="str" required>
+<ParamField path="content" type="str" required>
   Text to chunk
 </ParamField>
 
-<ParamField path="max_tokens" type="int" default="4000">
-  Maximum tokens per chunk
+<ParamField path="context_length" type="int" default="8192">
+  Maximum number of tokens allowed
 </ParamField>
 
-<ParamField path="model" type="str" default="gpt-3.5-turbo">
+<ParamField path="tokenizer_model_name" type="str" default="gpt-5.4">
   Model to use for token counting
 </ParamField>
 
-<ResponseField name="return" type="List[str]">
-  List of text chunks
+<ResponseField name="return" type="str">
+  The trimmed text that fits within `context_length` tokens. Returns the original `content` unchanged if it already fits, or if chunking fails.
 </ResponseField>
 
 ## Output History Formatting
 
 ### history_output_formatter
 
-Format agent conversation history for display.
+Format a `Conversation` object's history into one of several output formats.
 
 ```python
 from swarms.utils import history_output_formatter
 
 formatted = history_output_formatter(
-    history=conversation_history,
-    format_type="markdown"
+    conversation=conversation_history,
+    type="str",
 )
 print(formatted)
 ```
+
+<ParamField path="conversation" type="Conversation" required>
+  A conversation object exposing methods like `return_messages_as_list()`, `to_dict()`, `get_str()`, etc.
+</ParamField>
+
+<ParamField path="type" type="HistoryOutputType" default="list">
+  Output format. One of: `"list"`, `"dict"`/`"dictionary"`, `"string"`/`"str"`, `"final"`/`"last"`, `"json"`, `"all"`, `"yaml"`, `"xml"`, `"dict-all-except-first"`, `"str-all-except-first"`, `"dict-final"`, `"list-final"`
+</ParamField>
+
+**Raises:** `ValueError` if `type` is not one of the supported values.
 
 ## LiteLLM Wrapper
 
@@ -569,12 +593,12 @@ except LiteLLMException as e:
 ```python
 from swarms.utils import (
     initialize_logger,
-    Formatter,
     create_file_in_folder,
     count_tokens,
     extract_code_from_markdown,
     sanitize_file_path
 )
+from swarms.utils.formatter import Formatter
 
 # Initialize logging
 logger = initialize_logger("my_app")

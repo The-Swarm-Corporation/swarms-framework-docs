@@ -52,7 +52,10 @@ graph TD
 | Method | Parameters | Returns |
 |--------|------------|---------|
 | `process(query)` | `query: str` | `Dict[str, Any]` — full processing results |
-| `run(queries, detailed_output?)` | `queries: List[str]`, `detailed_output: bool` | `Union[List[str], List[Dict[str, Any]]]` |
+| `run(task)` | `task: str` | `str` — the final answer to a single task |
+| `__call__(task)` | `task: str` | `str` — alias for `run(task)` |
+
+`run()` only accepts a single task string (it internally calls the private `_run([task])[0]`). There is no public batch-processing method that accepts a list of tasks; process each task with a separate `run()` call if you need to handle multiple queries.
 
 ### KnowledgeGenerator
 
@@ -80,7 +83,7 @@ graph TD
 ## Example
 
 ```python
-from swarms.agents.gkp_agent import GKPAgent
+from swarms import GKPAgent
 
 agent = GKPAgent(
     agent_name="gkp-agent",
@@ -88,15 +91,12 @@ agent = GKPAgent(
     num_knowledge_items=6,
 )
 
-queries = [
-    "What are the implications of quantum entanglement on information theory?",
-]
+query = "What are the implications of quantum entanglement on information theory?"
 
-results = agent.run(queries)
+result = agent.run(query)
 
-for i, result in enumerate(results):
-    print(f"\nQuery {i+1}: {queries[i]}")
-    print(f"Answer: {result}")
+print(f"Query: {query}")
+print(f"Answer: {result}")
 ```
 
 ## Best Practices

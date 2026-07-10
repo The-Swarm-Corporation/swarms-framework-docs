@@ -10,7 +10,7 @@ The `HierarchicalSwarm` class implements a hierarchical architecture where a dir
 ## Class Definition
 
 ```python
-from swarms.structs.hiearchical_swarm import HierarchicalSwarm
+from swarms import HierarchicalSwarm
 ```
 
 ## Parameters
@@ -192,6 +192,72 @@ Executes a single step of the hierarchical swarm workflow.
 
 ---
 
+### `arun()`
+
+```python
+async def arun(
+    self,
+    task: Optional[str] = None,
+    img: Optional[str] = None,
+    streaming_callback: Optional[Callable[[str, str, bool], None]] = None,
+    *args,
+    **kwargs,
+) -> Any
+```
+
+Async entry point that wraps the synchronous `run()` in `asyncio.to_thread()`. Accepts the same parameters as `run()` and returns the same result.
+
+---
+
+### `batched_run()`
+
+```python
+def batched_run(
+    self,
+    tasks: List[str],
+    img: str = None,
+    streaming_callback: Optional[Callable[[str, str, bool], None]] = None,
+    *args,
+    **kwargs,
+) -> list
+```
+
+Executes the hierarchical swarm for multiple tasks in sequence, calling `run()` once per task and returning a list of results (one per task).
+
+---
+
+### `arun_stream()`
+
+```python
+async def arun_stream(
+    self,
+    task: Optional[str] = None,
+    img: Optional[str] = None,
+    with_events: bool = False,
+    **kwargs,
+)
+```
+
+Async generator that streams tokens from every phase of the swarm — director planning, worker execution, and feedback/judge aggregation. When `with_events=False` (default) it yields `(agent_name, token)` tuples; when `True` it yields structured event dicts tagged with `role` (`director` / `worker` / `aggregator` / `swarm`) and `loop` index, with event types `swarm_start`, `director_start`, `token`, `director_end`, `worker_start`, `worker_end`, `aggregator_start`, `aggregator_end`, `swarm_end`.
+
+---
+
+### `run_stream()`
+
+```python
+def run_stream(
+    self,
+    task: Optional[str] = None,
+    img: Optional[str] = None,
+    with_events: bool = False,
+    **kwargs,
+)
+```
+
+Synchronous generator version of `arun_stream()`. Bridges the async generator to a sync iterator using a background thread. Use `arun_stream()` directly when already inside a running event loop (e.g. a FastAPI handler).
+
+---
+
 ### `display_hierarchy()`
 
 ```python
@@ -238,6 +304,23 @@ class SwarmSpec(BaseModel):
     orders: List[HierarchicalOrder]     # Task assignments to agents
 ```
 
+### JudgeReport
+
+Used when `agent_as_judge=True`. A one-shot judge agent scores each worker agent's output instead of the director issuing free-form feedback.
+
+```python
+class AgentScore(BaseModel):
+    agent_name: str
+    score: int          # 0-10
+    reasoning: str
+    suggestions: str
+
+class JudgeReport(BaseModel):
+    overall_quality: int    # 0-10
+    scores: List[AgentScore]
+    summary: str
+```
+
 ## Interactive Dashboard
 
 When `interactive=True`, the HierarchicalSwarm displays a real-time dashboard with:
@@ -252,8 +335,7 @@ The dashboard uses Swarms Corporation styling with red/black color scheme and pr
 ## Usage Example
 
 ```python
-from swarms.structs.agent import Agent
-from swarms.structs.hiearchical_swarm import HierarchicalSwarm
+from swarms import Agent, HierarchicalSwarm
 
 # Create worker agents
 research_agent = Agent(

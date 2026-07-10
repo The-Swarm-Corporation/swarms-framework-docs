@@ -137,7 +137,6 @@ class CustomSwarm(BaseSwarm):
             id=f"swarm_{name}_{int(time.time())}",
             name=f"{name}_conversation",
             autosave=autosave_conversation,
-            save_enabled=True,
             time_enabled=True,
             **conversation_config
         )
@@ -594,8 +593,7 @@ def create_multi_domain_swarm() -> CustomSwarm:
 
     # Configure conversation settings
     conversation_config = {
-        "backend": "sqlite",  # Use SQLite for persistent storage
-        "db_path": f"conversations/swarm_conversations.db",
+        "conversations_dir": "conversations",  # Directory for exported conversation files
         "time_enabled": True,
         "token_count": True,
     }
@@ -681,7 +679,7 @@ The swarm uses the Swarms framework's [Conversation structure](/api/conversation
 
 ### Key Features
 
-- **Persistent Storage**: Multiple backend options (SQLite, Redis, Supabase, etc.)
+- **Persistent Storage**: Autosave conversation history to disk (JSON or YAML) via `save_filepath`/`conversations_dir`
 - **Message Categorization**: Organize messages by type (input, output, error, etc.)
 - **Token Tracking**: Monitor token usage across conversations
 - **Export/Import**: Save and load conversation histories
@@ -691,21 +689,15 @@ The swarm uses the Swarms framework's [Conversation structure](/api/conversation
 
 ```python
 conversation_config = {
-    # Backend storage options
-    "backend": "sqlite",  # or "redis", "supabase", "duckdb", "in-memory"
-
     # File-based storage
-    "db_path": "conversations/swarm_data.db",
-
-    # Redis configuration (if using Redis backend)
-    "redis_host": "localhost",
-    "redis_port": 6379,
+    "conversations_dir": "conversations",  # Directory for exported conversation files
+    "save_filepath": "conversations/swarm_data.json",  # Explicit autosave path
+    "export_method": "json",  # or "yaml"
 
     # Features
     "time_enabled": True,     # Add timestamps to messages
     "token_count": True,      # Track token usage
     "autosave": True,         # Automatically save conversations
-    "save_enabled": True,     # Enable saving functionality
 }
 ```
 

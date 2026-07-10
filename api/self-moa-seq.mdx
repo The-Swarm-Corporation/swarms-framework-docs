@@ -77,23 +77,23 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="max_retries" type="int" default="3">
-  Max retry attempts for key operations (`_generate_samples`, `_aggregate_window`, `run`). Must be at least 0.
+  Stored and range-validated (must be at least 0) at construction time. Not currently applied to retry any operation.
 </ParamField>
 
 <ParamField path="retry_delay" type="float" default="1.0">
-  Initial delay before first retry (seconds). Must be at least 0.
+  Stored and range-validated (must be at least 0) at construction time. Not currently applied to retry any operation.
 </ParamField>
 
 <ParamField path="retry_backoff_multiplier" type="float" default="2.0">
-  Exponential backoff multiplier; must be at least 1
+  Stored and range-validated (must be at least 1) at construction time. Not currently applied to retry any operation.
 </ParamField>
 
 <ParamField path="retry_max_delay" type="float" default="60.0">
-  Maximum backoff delay (seconds); must be at least `retry_delay`
+  Stored and range-validated (must be at least `retry_delay`) at construction time. Not currently applied to retry any operation.
 </ParamField>
 
 <ParamField path="additional_kwargs" type="Dict[str, Any]" default="{}">
-  Extra keyword arguments forwarded to the underlying proposer/aggregator agents.
+  Accepted by the constructor but not currently stored or forwarded to the proposer/aggregator agents.
 </ParamField>
 
 <ParamField path="top_p" type="Optional[float]" default="None">
@@ -129,7 +129,7 @@ def run(self, task: str) -> Dict[str, Any]
 
 **Raises:**
 - `ValueError` if `task` is not a non-empty string
-- Propagates any exceptions from generation/aggregation; both are retried according to the instance retry configuration
+- Propagates any exceptions from generation/aggregation without retrying
 
 ### get_metrics()
 
@@ -140,6 +140,16 @@ def get_metrics(self) -> Dict[str, Any]
 ```
 
 **Returns:** A copy of the current metrics dictionary
+
+### to_dict()
+
+Inherited from `SerializableMixin`. Serializes the instance's `__dict__` into a JSON-friendly dictionary (callables are represented by name/docstring, nested objects with their own `to_dict()` are recursed into, non-serializable values are stringified).
+
+```python
+def to_dict(self) -> Dict[str, Any]
+```
+
+**Returns:** A dictionary representation of the instance's attributes
 
 ### Internal Methods
 
@@ -191,23 +201,12 @@ def _aggregate_window(self, task: str, window_samples: List[str], best_so_far: O
 
 **Returns:** The synthesized output for this window
 
-### _log_summary()
-
-Log a brief summary of the run when `verbose=True`.
-
-```python
-def _log_summary(self, result: Dict[str, Any]) -> None
-```
-
-**Parameters:**
-- `result` (Dict[str, Any]): The run result bundle returned by `run`
-
 ## Usage Examples
 
 ### Basic Usage
 
 ```python
-from swarms.structs.self_moa_seq import SelfMoASeq
+from swarms import SelfMoASeq
 
 # Initialize
 moa_seq = SelfMoASeq(
@@ -233,7 +232,7 @@ print(result)
 This example demonstrates using SelfMoASeq for a complex medical diagnosis task with a larger number of samples for comprehensive analysis.
 
 ```python
-from swarms.structs.self_moa_seq import SelfMoASeq
+from swarms import SelfMoASeq
 
 # Initialize with medical-focused configuration
 medical_moa = SelfMoASeq(
@@ -280,7 +279,7 @@ print(f"Execution time: {result['metrics']['execution_time_seconds']:.2f} second
 This example shows how to use different models for the proposer and aggregator, with a creative writing task.
 
 ```python
-from swarms.structs.self_moa_seq import SelfMoASeq
+from swarms import SelfMoASeq
 
 # Initialize with different models for proposer and aggregator
 creative_moa = SelfMoASeq(
@@ -320,14 +319,9 @@ print(f"\nWriting samples generated: {len(result['all_samples'])}")
 print(f"Synthesis iterations: {result['aggregation_steps']}")
 ```
 
-## Retry Behavior
+## Retry Configuration
 
-Key methods (`_generate_samples`, `_aggregate_window`, and `run`) are wrapped with an instance-configurable retry policy:
-
-- **stop**: Up to `max_retries + 1` total attempts
-- **wait**: Exponential backoff with `retry_backoff_multiplier`, min `retry_delay`, and max `retry_max_delay` seconds
-- **retry on**: Any `Exception`
-- **before sleep**: Logs a warning before each retry
+The constructor accepts `max_retries`, `retry_delay`, `retry_backoff_multiplier`, and `retry_max_delay`, and validates them in `setup()` (e.g. `max_retries >= 0`, `retry_backoff_multiplier >= 1`, `retry_max_delay >= retry_delay`). These values are stored on the instance but are not currently used to retry `run()`, `_generate_samples()`, or `_aggregate_window()` — exceptions from those methods are logged and re-raised immediately without a retry loop.
 
 ## When to Choose SelfMoASeq
 

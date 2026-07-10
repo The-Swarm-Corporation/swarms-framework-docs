@@ -238,10 +238,9 @@ from swarms.schemas.mcp_schemas import MCPConnection
 
 # Connect to MCP server
 mcp_connection = MCPConnection(
-    name="file-server",
-    transport_type="stdio",
-    command="npx",
-    args=["-y", "@modelcontextprotocol/server-filesystem", "/Users/workspace"],
+    url="http://localhost:8000/mcp",
+    timeout=10,
+    # headers={"Authorization": "Bearer <token>"},  # optional auth
 )
 
 # Agent automatically discovers and uses MCP tools
@@ -478,7 +477,6 @@ agent = Agent(
     tools=[tool1, tool2, tool3],
     
     # Tool execution settings
-    tool_choice="auto",  # "auto", "required", or specific tool name
     tool_retry_attempts=3,  # Retry failed tool executions
     show_tool_execution_output=True,  # Display tool outputs
     tool_call_summary=True,  # Summarize tool calls

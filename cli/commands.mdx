@@ -129,7 +129,7 @@ swarms check-login
 
 ### agent
 
-Create and run a custom agent with specified parameters. The task parameter is optional - if not provided, the agent runs in interactive mode by default.
+Create and run a custom agent with specified parameters. The task parameter is optional - if not provided, the CLI creates the agent and prints its configuration without running it (it does not start an interactive REPL). Use `swarms chat` if you want a live interactive session.
 
 **Usage:**
 ```bash
@@ -147,11 +147,11 @@ swarms agent \
 - `--system-prompt` - System prompt defining agent behavior (can use `--marketplace-prompt-id` instead)
 
 **Optional Parameters:**
-- `--task` - Task to execute (if omitted, runs in interactive mode)
-- `--model-name` - LLM model to use (default: "gpt-4")
+- `--task` - Task to execute (if omitted, the agent is created but not run)
+- `--model-name` - LLM model to use (default: "gpt-5.4", the `Agent` class default)
 - `--temperature` - Temperature setting (0.0-2.0)
 - `--max-loops` - Maximum loops (integer or "auto" for autonomous)
-- `--interactive` - Enable interactive mode (default: True)
+- `--interactive` - Enable interactive mode (default: False)
 - `--no-interactive` - Disable interactive mode
 - `--verbose` - Enable verbose output
 - `--streaming-on` - Enable streaming mode
@@ -216,6 +216,7 @@ swarms chat [OPTIONS]
 - `--name` - Agent name (default: "Swarms Agent")
 - `--description` - Agent description (default: "A Swarms agent that can chat with the user")
 - `--system-prompt` - Custom system prompt
+- `--model-name` - LLM model to use
 - `--task` - Initial task/message to start the conversation
 
 **Examples:**
@@ -311,11 +312,25 @@ swarms autoswarm --task <task> --model <model>
 - `--task` - Task description for the swarm
 - `--model` - Model name for swarm generation (e.g., "gpt-4")
 
+**Optional Parameters:**
+- `-o`, `--output` - Output file path for the generated Python script
+- `-d`, `--output-dir` - Directory to create the generated Python script in
+- `--no-run` - Only write the generated Python file; do not execute the swarm
+
 **Example:**
 ```bash
 swarms autoswarm \
   --task "Analyze customer feedback and generate insights" \
   --model "gpt-4"
+```
+
+Write the generated swarm to disk without running it:
+```bash
+swarms autoswarm \
+  --task "Build a multi-agent customer support pipeline" \
+  --model "gpt-4o" \
+  --no-run \
+  -o ./customer_support_swarm.py
 ```
 
 ---
@@ -372,7 +387,7 @@ swarms llm-council --task <task> [--verbose]
 - `--task` - Task or question for the council to process
 
 **Optional Parameters:**
-- `--verbose` - Show verbose output (default: True)
+- `--verbose` - Show verbose output (default: False; the CLI's `--verbose` flag is off unless passed, regardless of `LLMCouncil`'s own internal default)
 
 **Examples:**
 
@@ -512,12 +527,13 @@ This executes: `pip install --upgrade swarms`
 
 ## Global Help
 
-Every command supports `--help`:
+`-h`/`--help` is available on the CLI as a whole:
 
 ```bash
-swarms --help              # top-level help
-swarms agent --help        # flags for one command
+swarms --help              # full command and flag reference
 ```
+
+The CLI uses a single flat argument parser (not per-command subparsers), so `swarms <command> --help` prints the same full reference table rather than a filtered, command-specific view.
 
 ## Common Flags
 

@@ -4,6 +4,10 @@ description: "Automatically match tasks to the most appropriate swarm type using
 icon: "bullseye"
 ---
 
+<Warning>
+`SwarmMatcher` has been removed from the `swarms` package (`swarms/structs/swarm_matcher.py` was deleted, along with its `torch`/`sentence-transformers` dependencies) and migrated to a separate, not-yet-published `swarms-utils` package. As of the current codebase, `from swarms.structs.swarm_matcher import SwarmMatcher` will raise `ModuleNotFoundError` — the class is not importable from `swarms` at all. The parameter and method reference below reflects the last known implementation prior to removal and cannot be verified against current source. Treat this page as historical until `SwarmMatcher` is reintroduced or its replacement package is published.
+</Warning>
+
 ## Overview
 
 The `SwarmMatcher` utilizes transformer-based embeddings to determine the best swarm architecture for a given task. By analyzing the semantic meaning of task descriptions and comparing them to known swarm types, it can intelligently select the optimal swarm configuration for any task.

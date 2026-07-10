@@ -362,9 +362,9 @@ The client automatically detects the appropriate transport from the URL:
 ```python
 from swarms.tools.mcp_client_tools import auto_detect_transport
 
-# Detects 'streamable-http' from https:// scheme
+# Detects 'streamable_http' from https:// scheme
 transport = auto_detect_transport("https://api.example.com/mcp")
-print(transport)  # 'streamable-http'
+print(transport)  # 'streamable_http'
 
 # Detects 'stdio' from empty scheme
 transport = auto_detect_transport("stdio://local-mcp")

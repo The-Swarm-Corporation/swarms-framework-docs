@@ -264,15 +264,29 @@ prompt = get_autonomous_agent_prompt()
 
 #### get_autonomous_agent_prompt_with_context
 
-Generate an autonomous agent prompt with additional context.
+Generate an autonomous agent prompt customized with agent identity and available tools.
 
 ```python
 from swarms.prompts import get_autonomous_agent_prompt_with_context
 
 prompt = get_autonomous_agent_prompt_with_context(
-    context="Analyze financial markets with focus on tech stocks"
+    agent_name="MarketAnalyst",
+    agent_description="Analyzes financial markets with a focus on tech stocks",
+    available_tools=["search_web", "get_stock_price"],
 )
 ```
+
+<ParamField path="agent_name" type="str" default="None">
+  Name of the agent to embed in the prompt
+</ParamField>
+
+<ParamField path="agent_description" type="str" default="None">
+  Description of the agent's role to embed in the prompt
+</ParamField>
+
+<ParamField path="available_tools" type="list" default="None">
+  List of tool names available to the agent
+</ParamField>
 
 ## Example: Complete Prompt Management
 

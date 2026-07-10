@@ -388,7 +388,6 @@ agent = Agent(
     agent_name="KnowledgeAgent",
     model_name="claude-sonnet-4-6",
     long_term_memory=vector_db,
-    rag_every_loop=False,
     max_loops=1,
 )
 
@@ -397,16 +396,12 @@ response = agent.run(
 )
 ```
 
-<ParamField path="long_term_memory" type="BaseVectorDatabase" default="None">
-  Vector database used for document retrieval.
-</ParamField>
+<ParamField path="long_term_memory" type="Union[Callable, Any]" default="None">
+  Vector database (or callable) attached to the agent for long-term storage.
 
-<ParamField path="rag_every_loop" type="bool" default="False">
-  Query long-term memory on every loop iteration instead of only at the beginning.
-</ParamField>
-
-<ParamField path="memory_chunk_size" type="int" default="2000">
-  Chunk size used when processing memory documents for retrieval.
+  <Note>
+    In the current release, `long_term_memory` is persisted via `.save()` when `autosave` writes agent state to disk, but `agent.run()` does not automatically query it for retrieval-augmented context — there is no built-in `rag_every_loop` or `memory_chunk_size` parameter, and no automatic `.query()` call in the run loop. If you need RAG-style retrieval inside the loop, wire the vector database up as a [tool](/agents/agent-tools) instead of relying on `long_term_memory` alone.
+  </Note>
 </ParamField>
 
 ## Best practices

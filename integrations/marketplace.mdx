@@ -176,7 +176,7 @@ agent = Agent(
     
     Provide evidence-based recommendations following medical best practices.
     """,
-    description="Expert medical diagnosis and treatment planning agent",
+    agent_description="Expert medical diagnosis and treatment planning agent",
     use_cases=[
         {
             "title": "Differential Diagnosis",
@@ -187,8 +187,8 @@ agent = Agent(
             "description": "Interpret X-rays, CT scans, and MRI results"
         },
     ],
-    tags="medical,healthcare,diagnosis,treatment",
-    category="healthcare",
+    tags=["medical", "healthcare", "diagnosis", "treatment"],
+    capabilities=["diagnosis", "medical-imaging"],
     publish_to_marketplace=True,  # Auto-publish on initialization
 )
 
@@ -198,6 +198,10 @@ agent = Agent(
 <Warning>
 Make sure to set the `SWARMS_API_KEY` environment variable before publishing. Get your API key at [swarms.world/platform/api-keys](https://swarms.world/platform/api-keys)
 </Warning>
+
+<Note>
+When publishing via `publish_to_marketplace=True`, use the Agent's real constructor parameters: `agent_description` (not `description`) and `tags` as a `List[str]`. There is currently no `category` parameter on `Agent` — auto-published agents are always filed under the `"research"` category server-side, regardless of the agent's actual domain. Also note that `tags` combine with `capabilities` internally, so `capabilities` should be set alongside `tags` or publishing will fail. To control the category or publish without this constraint, use `add_prompt_to_marketplace` directly instead.
+</Note>
 
 ## API Configuration
 

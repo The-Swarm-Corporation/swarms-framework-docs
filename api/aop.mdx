@@ -108,6 +108,22 @@ aop = AOP(
   Logging level
 </ParamField>
 
+<ParamField path="network_timeout" type="float" default="30.0">
+  Network connection timeout in seconds
+</ParamField>
+
+<ParamField path="lifespan" type="Callable" default="None">
+  Optional FastMCP lifespan context manager factory, passed through to the underlying `FastMCP` server
+</ParamField>
+
+<ParamField path="auth" type="AuthSettings" default="None">
+  Optional FastMCP auth settings, passed through to the underlying `FastMCP` server
+</ParamField>
+
+<ParamField path="transport_security" type="TransportSecuritySettings" default="None">
+  Optional FastMCP transport security settings, passed through to the underlying `FastMCP` server
+</ParamField>
+
 ## Methods
 
 ### add_agent

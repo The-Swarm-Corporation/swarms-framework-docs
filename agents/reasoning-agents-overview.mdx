@@ -208,7 +208,7 @@ graph TD
 The `ReasoningAgentRouter` provides a centralized interface for accessing all reasoning agent implementations:
 
 ```python
-from swarms.agents import ReasoningAgentRouter
+from swarms import ReasoningAgentRouter
 
 # Initialize router with specific reasoning strategy
 router = ReasoningAgentRouter(
@@ -228,7 +228,7 @@ print(result)
 ### Direct Agent Implementation
 
 ```python
-from swarms.agents import SelfConsistencyAgent, ReasoningDuo, ReflexionAgent
+from swarms import SelfConsistencyAgent, ReasoningDuo, ReflexionAgent
 
 # Self-Consistency Agent for high-accuracy requirements
 consistency_agent = SelfConsistencyAgent(

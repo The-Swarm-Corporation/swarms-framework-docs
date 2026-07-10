@@ -102,8 +102,8 @@ Each layer:
   List of expert agents to run in parallel
 </ParamField>
 
-<ParamField path="aggregator_agent" type="Agent" required>
-  Agent that synthesizes expert outputs
+<ParamField path="aggregator_agent" type="Agent" default="None">
+  Agent that synthesizes expert outputs. If omitted, a default aggregator is created automatically from `aggregator_system_prompt` and `aggregator_model_name`.
 </ParamField>
 
 <ParamField path="layers" type="int" default="3">

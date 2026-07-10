@@ -10,7 +10,7 @@ The `AutoSwarmBuilder` class automatically builds and manages swarms of AI agent
 ## Class Definition
 
 ```python
-from swarms.structs.auto_swarm_builder import AutoSwarmBuilder
+from swarms import AutoSwarmBuilder
 ```
 
 ## Parameters
@@ -31,7 +31,7 @@ from swarms.structs.auto_swarm_builder import AutoSwarmBuilder
   Maximum number of execution loops. Must be greater than 0
 </ParamField>
 
-<ParamField path="model_name" type="str" default="gpt-4.1">
+<ParamField path="model_name" type="str" default="gpt-5.4">
   The LLM model to use for the boss agent that designs the swarm architecture
 </ParamField>
 
@@ -255,6 +255,48 @@ Lists all available execution types.
   List of available execution types
 </ResponseField>
 
+---
+
+### `initialize_swarm_router()`
+
+```python
+def initialize_swarm_router(self, agents: List[Agent], task: str) -> Any
+```
+
+Builds a `SwarmRouterConfig` for the task via the boss agent, then constructs and runs a `SwarmRouter` with the given agents. Not called automatically by `run()` for any `execution_type` — call it directly if you want `AutoSwarmBuilder` to both design agents (via `create_agents`) and immediately execute them through a `SwarmRouter`.
+
+**Parameters:**
+
+<ParamField path="agents" type="List[Agent]" required>
+  Agents to pass to the constructed `SwarmRouter`
+</ParamField>
+
+<ParamField path="task" type="str" required>
+  The task used to derive the `SwarmRouter` configuration and to execute
+</ParamField>
+
+**Returns:** Result of `swarm_router.run(task)`
+
+**Raises:** `Exception` if router config generation or execution fails
+
+---
+
+### `dict_to_agent()`
+
+```python
+def dict_to_agent(self, output: dict) -> List[Agent]
+```
+
+Alternate helper that builds `Agent` objects directly from a raw `{"agents": [...]}` dictionary via `Agent(**agent_config)`, without the field-name mapping (`description` → `agent_description`) that `create_agents_from_specs()` performs.
+
+**Parameters:**
+
+<ParamField path="output" type="dict" required>
+  Dictionary containing an `"agents"` list of agent configuration dicts
+</ParamField>
+
+**Returns:** `List[Agent]`
+
 ## Data Models
 
 ### AgentSpec
@@ -264,7 +306,7 @@ class AgentSpec(BaseModel):
     agent_name: Optional[str]              # Agent's unique name
     description: Optional[str]             # Detailed agent description
     system_prompt: Optional[str]           # Complete system prompt
-    model_name: Optional[str] = "gpt-4.1" # LLM model name
+    model_name: Optional[str] = "gpt-5.4" # LLM model name
     auto_generate_prompt: Optional[bool] = False
     max_tokens: Optional[int] = 8192
     temperature: Optional[float] = 0.5
@@ -302,7 +344,7 @@ The AutoSwarmBuilder uses a sophisticated boss agent with expertise in:
 ### Basic Agent Creation
 
 ```python
-from swarms.structs.auto_swarm_builder import AutoSwarmBuilder
+from swarms import AutoSwarmBuilder
 
 # Create swarm builder
 builder = AutoSwarmBuilder(

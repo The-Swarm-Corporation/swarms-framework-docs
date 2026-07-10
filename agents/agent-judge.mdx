@@ -84,7 +84,7 @@ results = judge.run_batched(tasks: List[str]) -> List[Union[str, int]]
 ### Basic Evaluation
 
 ```python
-from swarms.agents.agent_judge import AgentJudge
+from swarms import AgentJudge
 
 judge = AgentJudge(
     agent_name="quality-judge",
@@ -100,7 +100,7 @@ evaluations = judge.run(task=agent_output)
 ### Custom Evaluation Criteria
 
 ```python
-from swarms.agents.agent_judge import AgentJudge
+from swarms import AgentJudge
 
 judge = AgentJudge(
     agent_name="technical-judge",
@@ -121,7 +121,7 @@ evaluations = judge.run(task=technical_output)
 ### Scoring Mode
 
 ```python
-from swarms.agents.agent_judge import AgentJudge
+from swarms import AgentJudge
 
 judge = AgentJudge(
     agent_name="scoring-judge",
@@ -136,7 +136,7 @@ score = judge.run(task="This is a correct and well-explained answer.")
 ### Batch Processing
 
 ```python
-from swarms.agents.agent_judge import AgentJudge
+from swarms import AgentJudge
 
 judge = AgentJudge()
 

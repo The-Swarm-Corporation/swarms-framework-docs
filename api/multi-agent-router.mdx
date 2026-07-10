@@ -16,6 +16,10 @@ pip install -U swarms
 
 ## Attributes
 
+<ParamField path="id" type="str" default="generate_api_key(prefix='multi-agent-router')">
+  Unique identifier for the router instance
+</ParamField>
+
 <ParamField path="name" type="str" default="swarm-router">
   The name of the router
 </ParamField>
@@ -24,7 +28,7 @@ pip install -U swarms
   A description of the router's purpose
 </ParamField>
 
-<ParamField path="agents" type="List[Agent]" default="None">
+<ParamField path="agents" type="List[Callable]" default="None">
   A list of agents to be managed by the router
 </ParamField>
 
@@ -104,6 +108,21 @@ def concurrent_batch_run(self, tasks: List[str] = []) -> list
 - `tasks` (List[str]): List of tasks to route
 
 **Returns:** List of routing results from concurrent execution
+
+### query_ragent()
+
+Query the router's `shared_memory_system` directly.
+
+```python
+def query_ragent(self, task: str) -> str
+```
+
+**Parameters:**
+- `task` (str): The query string to forward to `shared_memory_system`
+
+**Returns:** The response returned by the shared memory system
+
+**Raises:** `AttributeError` if no `shared_memory_system` was configured on the router
 
 ## Usage Examples
 

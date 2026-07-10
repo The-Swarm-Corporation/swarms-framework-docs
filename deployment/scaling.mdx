@@ -18,7 +18,6 @@ Swarms offers multiple execution patterns for different scaling scenarios:
 | **Async** | High-throughput async operations | Configurable | Event loop |
 | **Batch** | Large-scale processing | Configurable | Batched |
 | **Grid** | Different tasks per agent | 90% of CPU cores | Thread-based |
-| **UVLoop** | Ultra-high performance async | 95% of CPU cores | Optimized event loop |
 
 ## Concurrent Execution
 
@@ -27,8 +26,7 @@ Swarms offers multiple execution patterns for different scaling scenarios:
 Run multiple agents on the same task concurrently using `ThreadPoolExecutor`:
 
 ```python
-from swarms import Agent
-from swarms.structs.multi_agent_exec import run_agents_concurrently
+from swarms import Agent, run_agents_concurrently
 
 # Create multiple agents
 agents = [
@@ -73,7 +71,7 @@ for agent_name, output in results_dict.items():
 ### Concurrent with Images
 
 ```python
-from swarms.structs.multi_agent_exec import run_agents_concurrently
+from swarms import run_agents_concurrently
 
 # Process image across multiple agents
 results = run_agents_concurrently(
@@ -90,7 +88,7 @@ results = run_agents_concurrently(
 
 ```python
 import asyncio
-from swarms.structs.multi_agent_exec import (
+from swarms import (
     run_agent_async,
     run_agents_concurrently_async,
 )
@@ -113,26 +111,36 @@ async def process_tasks():
 results = asyncio.run(process_tasks())
 ```
 
-### High-Performance with UVLoop
+### High-Performance Async with uvloop
 
-For maximum async performance, use uvloop (Linux/macOS) or winloop (Windows):
+`swarms` does not ship a dedicated uvloop-specific execution function. For maximum async
+throughput on Linux/macOS, install `uvloop` yourself and install it as the event loop
+policy before calling the standard async helpers (`run_agents_concurrently_async`,
+`run_agent_async`):
 
 ```python
-from swarms.structs.multi_agent_exec import run_agents_concurrently_uvloop
+import asyncio
+from swarms import Agent, run_agents_concurrently_async
 
-# Automatically uses uvloop on Unix, winloop on Windows
-results = run_agents_concurrently_uvloop(
-    agents=agents,
-    task="High-throughput task processing",
-    max_workers=None,  # Uses 95% of CPU cores
-)
+try:
+    import uvloop
 
-# Also supports different tasks per agent
-results = run_agents_with_tasks_uvloop(
-    agents=agents,
-    tasks=[f"Task {i}" for i in range(len(agents))],
-    max_workers=10,
-)
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+except ImportError:
+    pass  # Falls back to the default asyncio event loop
+
+async def main():
+    agents = [
+        Agent(agent_name=f"Async-Agent-{i}", model_name="gpt-5.4")
+        for i in range(10)
+    ]
+    results = await run_agents_concurrently_async(
+        agents=agents,
+        task="High-throughput task processing",
+    )
+    return results
+
+results = asyncio.run(main())
 ```
 
 ## Batch Processing
@@ -142,9 +150,7 @@ results = run_agents_with_tasks_uvloop(
 Process agents in batches to avoid resource exhaustion:
 
 ```python
-from swarms.structs.multi_agent_exec import (
-    run_agents_concurrently_multiprocess
-)
+from swarms import run_agents_concurrently_multiprocess
 import os
 
 # Process large number of agents in batches
@@ -162,7 +168,7 @@ results = run_agents_concurrently_multiprocess(
 Run different tasks across different agents:
 
 ```python
-from swarms.structs.multi_agent_exec import batched_grid_agent_execution
+from swarms import batched_grid_agent_execution
 
 # Create specialized agents
 agents = [
@@ -194,7 +200,7 @@ for i, result in enumerate(results):
 ### Batch with Agent-Task Pairs
 
 ```python
-from swarms.structs.multi_agent_exec import run_agents_with_different_tasks
+from swarms import run_agents_with_different_tasks
 
 # Create agent-task pairs
 agent_task_pairs = [
@@ -218,8 +224,7 @@ results = run_agents_with_different_tasks(
 For production deployments, use AOP's queue-based execution:
 
 ```python
-from swarms import Agent
-from swarms.structs.aop import AOP
+from swarms import Agent, AOP
 
 # Create agents
 agents = [
@@ -301,17 +306,18 @@ agent = Agent(
 ### Memory Management
 
 ```python
-# Truncate history to prevent memory bloat
+# Bound the context window and let the agent auto-compress near the limit
 agent = Agent(
     agent_name="Memory-Efficient-Agent",
     model_name="claude-sonnet-4-6",
     context_length=4000,
+    context_compression=True,  # Auto-summarize when nearing the limit (default)
 )
 
-# Manual truncation after processing
+# Manual compaction after processing, if needed
 for task in large_task_list:
     result = agent.run(task)
-    agent.truncate_history(max_messages=20)  # Keep only recent messages
+    agent.short_memory.compact(summary="Summary of processed tasks so far.")
 ```
 
 ### Batch Size Tuning
@@ -501,7 +507,7 @@ for task in tasks:
 
 - **I/O-bound tasks** (API calls): Use `run_agents_concurrently` with high worker count
 - **CPU-bound tasks**: Use `run_agents_concurrently` with worker count = CPU cores
-- **Async workloads**: Use `run_agents_concurrently_uvloop`
+- **Async workloads**: Use `run_agents_concurrently_async` (optionally with `uvloop` installed as the event loop policy)
 - **Large scale**: Use AOP with queue-based execution
 - **Mixed tasks**: Use `batched_grid_agent_execution`
 
@@ -562,12 +568,25 @@ def check_resources():
 
 ### 5. Use Appropriate Timeouts
 
+`Agent` itself does not take a `timeout` constructor parameter. Enforce timeouts at the
+execution layer instead — via `AOP.add_agent(..., timeout=...)` when deploying agents as
+services (see [Agent Orchestration Protocol](/deployment/agent-orchestration-protocol)),
+or by bounding a future's result when running concurrently:
+
 ```python
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+
 agent = Agent(
     agent_name="Timeout-Agent",
     model_name="claude-sonnet-4-6",
-    timeout=30,  # Set based on expected task duration
 )
+
+with ThreadPoolExecutor(max_workers=1) as executor:
+    future = executor.submit(agent.run, "Analyze this task")
+    try:
+        result = future.result(timeout=30)  # Set based on expected task duration
+    except TimeoutError:
+        logger.error("Agent run exceeded the 30s timeout")
 ```
 
 ## Related Resources

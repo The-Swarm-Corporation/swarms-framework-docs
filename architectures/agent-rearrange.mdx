@@ -181,6 +181,33 @@ async def main():
 result = asyncio.run(main())
 ```
 
+### run_stream() / arun_stream()
+
+Stream tokens as agents execute, in flow order. Sequential segments (`A -> B`) stream one agent at a time; parallel segments (`A, B`) interleave tokens from concurrent agents fairly.
+
+```python
+# Sync generator
+for agent_name, token in rearrange.run_stream("Analyse quantum computing trends"):
+    print(f"[{agent_name}] {token}", end="", flush=True)
+```
+
+```python
+# Async generator
+import asyncio
+
+async def main():
+    async for agent_name, token in rearrange.arun_stream("Analyse quantum computing trends"):
+        print(f"[{agent_name}] {token}", end="", flush=True)
+
+asyncio.run(main())
+```
+
+Pass `with_events=True` to receive structured `agent_start` / `token` / `agent_end` event dicts instead of `(agent_name, token)` tuples.
+
+<Note>
+  `max_loops > 1` and `custom_tasks` are not supported in streaming mode. Use `run()` for those.
+</Note>
+
 ## Team Awareness
 
 Enable agents to understand their position in the workflow:
@@ -296,7 +323,7 @@ custom_tasks = {
     "researcher": "Focus on recent developments",
 }
 
-result = rearrange._run(
+result = rearrange.run(
     task="Main task",
     custom_tasks=custom_tasks,
 )
@@ -343,18 +370,22 @@ rearrange_list = AgentRearrange(
 
 ## Flow Validation
 
-The system automatically validates flows:
+Construction only checks that `flow` is a non-empty string — it does **not** verify that every agent name in the flow is registered. Call `validate_flow()` explicitly (or `explain()`, which calls it internally) to catch typos before running:
 
 ```python
+rearrange = AgentRearrange(
+    agents=[agent1, agent2],
+    flow="agent1 -> agent3",  # agent3 doesn't exist
+)
+
 try:
-    rearrange = AgentRearrange(
-        agents=[agent1, agent2],
-        flow="agent1 -> agent3",  # agent3 doesn't exist
-    )
+    rearrange.validate_flow()
 except ValueError as e:
     print(f"Invalid flow: {e}")
     # Output: "Agent 'agent3' is not registered."
 ```
+
+`run()` will also raise a similar `ValueError` at execution time if it reaches a step referencing an unregistered agent, so validation happens automatically before any agent work is wasted — just not at construction time.
 
 ## Related Architectures
 

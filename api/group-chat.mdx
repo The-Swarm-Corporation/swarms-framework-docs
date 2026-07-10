@@ -1,43 +1,45 @@
 ---
 title: GroupChat
-description: An asynchronous, self-selecting groupchat where each agent independently decides whether to speak
+description: A turn-based groupchat where every agent bids each turn and the single highest-scoring bidder above threshold speaks
 ---
 
 ## Overview
 
-`GroupChat` runs an **asynchronous, self-selecting** conversation. There are no rounds and no speaker-selection function — every agent listens to every message in parallel and decides on its own whether to chime in.
+`GroupChat` runs a **turn-based, self-selecting** conversation. There is no fixed speaking order and no speaker-selection function, but exactly **one agent speaks per turn**.
 
-For each incoming message, an agent is asked (via a forced `respond(score, message)` function call) how strongly it wants to speak, on a `0..1` scale. Replies whose score clears `threshold` are broadcast to every other agent's inbox, waking them concurrently. The chat ends when either:
+Each turn, every agent is asked concurrently (via a forced `respond(score, message)` function call) how strongly it wants to speak, on a `0..1` scale, together with the reply it would give. The single highest bidder whose score — after a recency adjustment — clears `threshold` takes the floor; only that agent's reply is posted to the shared conversation, and every other bid from that turn is discarded. A `recency_penalty` is subtracted from the score of any agent that spoke within the last `recency_window` turns, so the floor rotates around the room instead of one agent monologuing.
+
+The chat ends when either:
 
 - `max_loops` total messages have been posted (the initial user task counts as the first), or
-- no new message has arrived for `idle_timeout` seconds.
+- no agent's bid clears `threshold` on a turn — a conversational lull.
 
 <Note>
-  This replaces the older speaker-function design. Parameters and methods such as `speaker_function`, `speaker_state`, `set_speaker_function`, `start_interactive_session`, `@mention` routing, and the `round-robin-speaker` / `random-speaker` / `priority-speaker` selectors **no longer exist**. The current API is the asynchronous, threshold-based model documented below.
+  This replaces the older speaker-function design. Parameters and methods such as `speaker_function`, `speaker_state`, `set_speaker_function`, `start_interactive_session`, `@mention` routing, and the `round-robin-speaker` / `random-speaker` / `priority-speaker` selectors **no longer exist**. The current API is the turn-based, bid/threshold model documented below. Note also that `idle_timeout` is accepted for backward compatibility but is **not** used to end the chat — see below.
 </Note>
 
 ## Import
 
 ```python
-from swarms import Agent
-from swarms.structs.groupchat import GroupChat, RESPOND_TOOL
+from swarms import Agent, GroupChat, RESPOND_TOOL
 ```
 
-`GroupChat` is also exported from the top level: `from swarms import GroupChat`.
+Both `GroupChat` and `RESPOND_TOOL` are exported from the top level (the submodule path `from swarms.structs.groupchat import GroupChat, RESPOND_TOOL` also works).
 
 ## Constructor
 
 ```python
 GroupChat(
     name: str = "dynamic-groupchat",
-    description: str = "Agents choose whether to speak at any time.",
+    description: str = "Agents take turns; one speaker per turn.",
     agents: Optional[List[Agent]] = None,
     max_loops: int = 20,
     threshold: float = 0.5,
+    recency_penalty: float = 0.3,
+    recency_window: int = 1,
     idle_timeout: float = 8.0,
     output_type: str = "str-all-except-first",
     verbose: bool = False,
-    print_on: bool = True,
     auto_equip: bool = True,
 )
 ```
@@ -46,12 +48,12 @@ GroupChat(
   Human-readable name used in logs and serialized state.
 </ParamField>
 
-<ParamField path="description" type="str" default="Agents choose whether to speak at any time.">
+<ParamField path="description" type="str" default="Agents take turns; one speaker per turn.">
   Short description of the chat.
 </ParamField>
 
 <ParamField path="agents" type="Optional[List[Agent]]" required>
-  Agents participating in the conversation. **At least two are required** — each message is broadcast to the *other* agents. Fewer than two raises `ValueError`.
+  Agents participating in the conversation. **At least two are required** for a meaningful discussion. Fewer than two raises `ValueError`.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="20">
@@ -59,11 +61,19 @@ GroupChat(
 </ParamField>
 
 <ParamField path="threshold" type="float" default="0.5">
-  Minimum decision score (`0..1`) a reply must exceed to be published. Raise it for a more selective room; lower it for livelier chatter.
+  Minimum (recency-adjusted) bid a reply must exceed to take the floor. Raise it for a more selective room; lower it for livelier chatter. A turn where no agent clears it ends the chat.
+</ParamField>
+
+<ParamField path="recency_penalty" type="float" default="0.3">
+  Amount subtracted from the bid of any agent that spoke within the last `recency_window` turns, so the floor rotates instead of one agent monologuing. Set to `0.0` to disable.
+</ParamField>
+
+<ParamField path="recency_window" type="int" default="1">
+  How many of the most recent speakers are subject to `recency_penalty`.
 </ParamField>
 
 <ParamField path="idle_timeout" type="float" default="8.0">
-  Seconds of silence (no new messages) after which the chat stops. Raise it if agents need more time to think before replying.
+  Accepted for backward compatibility only. **Not used** to end the chat in the current implementation — the chat now ends on a bidding lull (no agent clears `threshold` on a turn) rather than a wall-clock timeout.
 </ParamField>
 
 <ParamField path="output_type" type="str" default="str-all-except-first">
@@ -71,11 +81,7 @@ GroupChat(
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
-  Emit internal log messages (decision scores, broadcasts, idle/stop events).
-</ParamField>
-
-<ParamField path="print_on" type="bool" default="True">
-  Print each broadcast message to the terminal as a styled panel (the user task in green, agent replies in blue with their score).
+  Emit internal log messages (bids, scores, stop events) and print each posted message to the terminal as a styled panel (the user task in green, agent replies in blue with their score).
 </ParamField>
 
 <ParamField path="auto_equip" type="bool" default="True">
@@ -87,8 +93,7 @@ GroupChat(
 Every agent must carry `RESPOND_TOOL` so the chat can force a structured speaking decision instead of parsing free-form text. With `auto_equip=True` this is handled for you; otherwise add it explicitly:
 
 ```python
-from swarms import Agent
-from swarms.structs.groupchat import RESPOND_TOOL
+from swarms import Agent, RESPOND_TOOL
 
 agent = Agent(
     agent_name="Researcher",
@@ -106,20 +111,28 @@ agent = Agent(
 | `score` | number (`0..1`) | How much the agent wants to speak. `0` = stay silent, `1` = strongly wants to. |
 | `message` | string | The reply to broadcast, or an empty string to stay silent. |
 
-A reply is published only when `score > threshold` **and** `message` is non-empty.
+A bid only wins the floor when its (recency-adjusted) `score` clears `threshold` **and** `message` is non-empty — and only the single highest such bid each turn is posted; every other agent's bid for that turn is discarded.
 
 ## Methods
 
-### `run(task)`
+### `run(task, streaming_callback=None)`
 
-Synchronously run the groupchat until it goes idle or hits `max_loops`. Internally seeds every agent's inbox with the task, starts one coroutine per agent plus an idle monitor, and returns the formatted conversation.
+Synchronously run the turn-based groupchat until a lull (no agent's bid clears `threshold`) or until `max_loops` messages have been posted. Posts `task` as the first message, then on each turn collects a concurrent `(score, message)` bid from every agent, lets the single highest (recency-adjusted) bidder speak, and returns the formatted conversation.
 
 ```python
-def run(self, task: str) -> Any
+def run(
+    self,
+    task: str,
+    streaming_callback: Optional[Callable[[str, str, bool], None]] = None,
+) -> Any
 ```
 
 <ParamField path="task" type="str" required>
-  The initial user message that seeds every agent's inbox.
+  The initial user message that seeds the conversation.
+</ParamField>
+
+<ParamField path="streaming_callback" type="Optional[Callable[[str, str, bool], None]]" optional>
+  Optional `(agent_name, chunk, is_final)` callback. Each posted message — the initial task and every winning speaker's reply — is replayed to it as whitespace-chunked tokens, with `is_final=True` marking the end of that speaker's turn. Matches the streaming signature used elsewhere in the framework (`ConcurrentWorkflow`, `HierarchicalSwarm`).
 </ParamField>
 
 **Returns:** the conversation formatted per `output_type`.
@@ -149,8 +162,7 @@ def run_batch(self, tasks: List[str]) -> List[Any]
 ### Basic dynamic groupchat
 
 ```python
-from swarms import Agent
-from swarms.structs.groupchat import GroupChat
+from swarms import Agent, GroupChat
 
 optimist = Agent(
     agent_name="Optimist",
@@ -177,8 +189,7 @@ realist = Agent(
 chat = GroupChat(
     agents=[optimist, pessimist, realist],
     max_loops=10,      # stop after 10 total messages
-    threshold=0.5,     # publish replies scoring above 0.5
-    idle_timeout=8.0,  # stop after 8s of silence
+    threshold=0.5,     # only the single highest bid above 0.5 wins each turn
 )
 
 result = chat.run("Should we adopt AI for medical diagnosis?")
@@ -190,13 +201,14 @@ print(result)
 ### A more selective room
 
 ```python
-# Raise the threshold so only strongly-motivated replies are published,
-# and give agents longer to deliberate before the chat times out.
+# Raise the threshold so only a strongly-motivated bid wins the floor each turn,
+# and widen the recency window so agents rotate speaking turns more aggressively.
 chat = GroupChat(
     agents=[optimist, pessimist, realist],
     max_loops=20,
     threshold=0.7,
-    idle_timeout=15.0,
+    recency_penalty=0.4,
+    recency_window=2,
 )
 
 result = chat.run("Design the architecture for a real-time fraud-detection system.")
@@ -205,8 +217,7 @@ result = chat.run("Design the architecture for a real-time fraud-detection syste
 ### Equipping the tool yourself
 
 ```python
-from swarms import Agent
-from swarms.structs.groupchat import GroupChat, RESPOND_TOOL
+from swarms import Agent, GroupChat, RESPOND_TOOL
 
 agents = [
     Agent(
@@ -229,22 +240,24 @@ result = chat.run("Discuss the tradeoffs of autonomous multi-agent systems.")
 
 ## How It Works
 
-1. **Seed** — the user task is broadcast to every agent's inbox as the first message.
-2. **Listen** — each agent runs its own coroutine, pulling messages from its inbox.
-3. **Decide** — on each message, the agent snapshots the current transcript and is asked, via the forced `respond` tool, for a `(score, message)` decision. Blocking `Agent.run` calls are dispatched with `asyncio.to_thread`, so one slow model call never stalls the room.
-4. **Broadcast** — if `score > threshold` and the message is non-empty, it is recorded and enqueued to every other agent's inbox (waking them concurrently).
-5. **Stop** — the chat ends when `max_loops` messages have been posted or no message arrives within `idle_timeout` seconds. Remaining agent coroutines are cancelled and the formatted transcript is returned.
+1. **Seed** — the user task is posted to the single shared conversation as the first message.
+2. **Bid** — each turn, every agent is run concurrently (via `asyncio.gather` + `asyncio.to_thread`, so one slow model call never stalls the turn) and forced through the `respond` tool to return a `(score, message)` bid against a snapshot of the current transcript.
+3. **Select** — the highest bid wins, after subtracting `recency_penalty` from any agent that spoke within the last `recency_window` turns. Bids with an empty message never win, and the turn ends with no winner if no adjusted score clears `threshold`.
+4. **Post** — only the winning agent's reply is appended to the shared conversation; every other bid from that turn is discarded. All agents see the new message as context on the next turn.
+5. **Stop** — the chat ends when `max_loops` messages have been posted, or a turn passes with no bid clearing `threshold` (a conversational lull), and the formatted transcript is returned. `idle_timeout` is accepted for backward compatibility but no longer used to end the chat.
 
 ## Tuning
 
-- **`threshold`** — higher means fewer, higher-conviction replies; lower means a livelier, chattier room.
+- **`threshold`** — higher means fewer turns get a winning bid (more lulls, shorter chats); lower means livelier back-and-forth.
+- **`recency_penalty`** / **`recency_window`** — control how strongly a recent speaker's next bid is discounted so the floor rotates instead of one agent dominating every turn. Set `recency_penalty=0.0` to disable.
 - **`max_loops`** — the hard ceiling on total messages; the primary cost control.
-- **`idle_timeout`** — raise it when agents need more thinking time, lower it to end quiet chats faster.
+- **`idle_timeout`** — accepted for backward compatibility only; it does **not** end the chat in the current implementation (the chat stops on a bidding lull instead of a wall-clock timeout).
 - **`max_loops=1` per agent** — give each participating `Agent` `max_loops=1` and `persistent_memory=False` so each speaking decision is a clean, single-shot call.
 
 ## Notes
 
 - `GroupChat` inherits `SerializableMixin`; `agents` and `conversation` are excluded from serialized state.
+- Exactly one agent speaks per turn — the highest recency-adjusted bidder above `threshold` — not every agent that clears the bar. This is a turn-based design, not a free-for-all broadcast.
 - There is no human-in-the-loop REPL in this implementation — `run` is fully autonomous and returns when the chat concludes.
 
 ## Source Code

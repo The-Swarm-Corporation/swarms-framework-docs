@@ -421,7 +421,7 @@ Each loop:
 
 ### Concurrent Execution (default)
 
-Orders for multiple agents run in parallel via `run_agents_concurrently`:
+Orders for multiple agents run in parallel via a `ThreadPoolExecutor` (`execute_orders`), one worker thread per order:
 
 ```python
 orders = [
@@ -509,13 +509,18 @@ except Exception as e:
 
 ### Parallel Order Execution
 
-`run_agents_concurrently` runs all agents in a loop simultaneously when `parallel_execution=True`:
+`execute_orders` runs all orders for a loop simultaneously when `parallel_execution=True`, submitting each order to a `ThreadPoolExecutor`:
 
 ```python
-results = run_agents_concurrently(
-    agents=agents_to_run,
-    task=self.conversation.get_str(),
-)
+with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    futures_map = {
+        executor.submit(
+            self.call_single_agent,
+            order.agent_name,
+            order.task,
+        ): order
+        for order in orders
+    }
 ```
 
 ### Conversation Context

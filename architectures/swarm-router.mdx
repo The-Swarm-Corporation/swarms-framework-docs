@@ -17,7 +17,7 @@ The underlying swarm is built lazily on the first `run()` call and cached on the
 
 ## Key Features
 
-- 17 swarm types supported (plus `"auto"` for automatic routing)
+- 16 swarm types supported, plus `"auto"` (17 `SwarmType` values total — see the note below on `"auto"` / `"AutoSwarmBuilder"`)
 - Factory pattern with O(1) lookup and per-instance swarm cache
 - Pre-flight reliability checks
 - Optional autosave of `config.json` / `state.json` / `metadata.json`
@@ -29,7 +29,7 @@ The underlying swarm is built lazily on the first `run()` call and cached on the
 ## Supported Swarm Types
 
 ```python
-from swarms.structs.swarm_router import SwarmType
+from swarms import SwarmType
 
 # SwarmType is a Literal — pass the matching string:
 "SequentialWorkflow"
@@ -48,8 +48,12 @@ from swarms.structs.swarm_router import SwarmType
 "DebateWithJudge"
 "RoundRobin"
 "PlannerWorkerSwarm"
-"auto"             # let the router decide
+"auto"             # accepted by validation, but see warning below
 ```
+
+<Warning>
+  `"auto"` and `"AutoSwarmBuilder"` are valid `SwarmType` strings — they pass `reliability_check()` at construction time — but the router's internal factory table (`_swarm_factory`) currently has **no registered factory** for either one. Calling `router.run()` with `swarm_type="auto"` or `swarm_type="AutoSwarmBuilder"` raises a `ValueError` ("Invalid swarm type ...") at run time. If you want the framework to auto-configure agents and swarm choice for you, instantiate `AutoSwarmBuilder` directly (`from swarms import AutoSwarmBuilder`) instead of going through `SwarmRouter`.
+</Warning>
 
 ## Basic Example
 
@@ -243,10 +247,10 @@ router = SwarmRouter(
 
 ### Shared Memory
 
-```python
-from swarms.memory import ChromaDB
+`shared_memory_system` accepts any object and is assigned directly to every agent's `long_term_memory` attribute (`activate_shared_memory()` in `swarm_router.py`); the router does not ship a built-in backend. Supply your own memory object that satisfies whatever interface your agents expect:
 
-memory = ChromaDB()
+```python
+memory = MyMemoryBackend()  # any object exposing the interface your agents expect
 
 router = SwarmRouter(
     swarm_type="SequentialWorkflow",
@@ -254,6 +258,10 @@ router = SwarmRouter(
     shared_memory_system=memory,
 )
 ```
+
+<Note>
+  `swarms.memory` / `ChromaDB` no longer exist in this version of the framework. For built-in persistence, prefer each agent's own `persistent_memory=True` (writes/reads `MEMORY.md` per agent) instead of a router-level shared backend.
+</Note>
 
 ### Autosave
 
@@ -400,8 +408,9 @@ self._swarm_factory = {
     "HierarchicalSwarm":  self._create_hierarchical_swarm,
     "GroupChat":          self._create_group_chat,
     "HeavySwarm":         self._create_heavy_swarm,
-    # ... one entry per SwarmType ...
-    "auto":               self._create_auto,
+    # ... one entry per factory-backed SwarmType ...
+    # Note: "auto" and "AutoSwarmBuilder" have no entry here — see the
+    # warning under "Supported Swarm Types" above.
 }
 
 # First run() builds, subsequent runs reuse:

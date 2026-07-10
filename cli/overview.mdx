@@ -19,7 +19,7 @@ pip install -U swarms
 To verify the installation:
 
 ```bash
-swarms help
+swarms --help
 ```
 
 ## Quick Start
@@ -56,7 +56,7 @@ swarms chat --name "Assistant" --task "Hello, how can you help me?"
 
 ### Create a Custom Agent
 
-Create and run a custom agent (interactive mode by default):
+Create and run a custom agent:
 
 ```bash
 swarms agent \
@@ -66,12 +66,15 @@ swarms agent \
   --task "Summarize the latest AI trends"
 ```
 
+If `--task` is omitted, the CLI creates the agent and prints its configuration without running it — it does not drop you into a REPL. Use `swarms chat` for an interactive session.
+
 ## Available Commands
 
 The Swarms CLI provides the following command categories:
 
 ### Setup & Configuration
 
+- `init` - Scaffold a new project with .env, workspace directory, and validation
 - `onboarding` - Run environment setup check
 - `setup-check` - Comprehensive environment diagnostics
 - `get-api-key` - Retrieve API keys from the platform
@@ -90,30 +93,21 @@ The Swarms CLI provides the following command categories:
 - `heavy-swarm` - Run HeavySwarm for complex task analysis
 - `llm-council` - Run LLM Council with collaborative agents
 
+### Discovery
+
+- `models` - List, search, and inspect LLM models available via LiteLLM
+- `tips` - Show rotating tips and tricks for the CLI
+
 ### Utilities
 
-- `help` - Display comprehensive command reference
-- `features` - Show all available features
 - `upgrade` - Update Swarms to the latest version
 
 ## Getting Help
 
-For detailed information about any command:
+For the full command and flag reference:
 
 ```bash
-swarms <command> --help
-```
-
-View all available features:
-
-```bash
-swarms features
-```
-
-Access the complete command reference:
-
-```bash
-swarms help
+swarms --help
 ```
 
 ## Environment Variables

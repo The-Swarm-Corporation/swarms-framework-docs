@@ -112,27 +112,9 @@ Your analysis should produce:
 
 ## Using Agent Skills
 
-### Static Loading (Load All Skills)
+### Dynamic Loading (Task-Based, Automatic)
 
-Load all skills from a directory when creating the agent:
-
-```python
-from swarms import Agent
-
-agent = Agent(
-    agent_name="Financial-Analyst",
-    model_name="claude-sonnet-4-6",
-    skills_dir="./skills",  # Load all skills from directory
-    max_loops=1,
-)
-
-# All skills are now available to the agent
-response = agent.run("Perform a DCF valuation of Tesla")
-```
-
-### Dynamic Loading (Task-Based)
-
-Dynamically load only relevant skills based on task similarity:
+Setting `skills_dir` on an agent enables **dynamic, task-based** skill loading automatically. Every call to `agent.run(task)` loads only the skills whose `description` is similar enough to the current task (cosine similarity over term-frequency vectors, threshold `0.3` by default) and appends them to the system prompt for that run. There is no separate "load everything" mode triggered by `run()` — this dynamic path is what fires whenever `skills_dir` is set.
 
 ```python
 from swarms import Agent
@@ -149,6 +131,25 @@ response = agent.run(
     "Analyze the financial statements and create a visualization of the revenue trends"
 )
 # Loads: financial-analysis and data-visualization skills
+```
+
+### Static Loading (Load All Skills)
+
+To force-load every skill in `skills_dir` regardless of task similarity, call `handle_skills()` directly with no `task` argument (e.g. right after construction, before `run()`):
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Financial-Analyst",
+    model_name="claude-sonnet-4-6",
+    skills_dir="./skills",
+    max_loops=1,
+)
+
+agent.handle_skills()  # No task -> loads and appends every skill in skills_dir
+
+response = agent.run("Perform a DCF valuation of Tesla")
 ```
 
 ## Creating Custom Skills
@@ -381,15 +382,17 @@ def function_name(param1: type1, param2: type2) -> return_type:
 ### How Skills are Loaded
 
 ```python
-# Skills are loaded during agent initialization
+# skills_dir is only stored during __init__; skills are actually loaded
+# and injected into the system prompt inside agent.run(task), once per call
 agent = Agent(
     skills_dir="./skills",  # Path to skills directory
     model_name="claude-sonnet-4-6",
 )
 
-# Skills metadata is loaded from SKILL.md frontmatter
-# Skills content is added to system prompt
-# Agent can now use all skills
+response = agent.run("Perform a DCF valuation of Tesla")
+# On this call: skills metadata is loaded from SKILL.md frontmatter,
+# scored against the task by similarity, and relevant skill content
+# is appended to the system prompt
 ```
 
 ### Dynamic Skills Loader
@@ -490,7 +493,7 @@ git clone https://github.com/myorg/agent-skills-library.git skills
 
 ## Reference
 
-- Skills handling: `swarms/structs/agent.py:705-783`
+- Skills handling: `swarms/structs/agent.py:687-764` (`handle_skills`, `_load_static_skills`, `_load_dynamic_skills_for_task`)
 - Dynamic skills loader: `swarms/structs/dynamic_skills_loader.py`
 - Example skills: `examples/single_agent/agent_skill_examples/`
 - Anthropic Agent Skills: [Agent Skills Documentation](/agents/agent-skills)

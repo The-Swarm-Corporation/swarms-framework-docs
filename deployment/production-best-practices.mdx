@@ -206,7 +206,7 @@ agent = Agent(
 )
 
 # Control logging in AOP
-from swarms.structs.aop import AOP
+from swarms import AOP
 
 deployer = AOP(
     server_name="ProductionCluster",
@@ -456,15 +456,17 @@ agent = Agent(
 ### Memory Management
 
 ```python
-# Truncate conversation history to manage memory
+# Bound the context window and let the agent auto-compress near the limit
 agent = Agent(
     agent_name="Memory-Managed-Agent",
     model_name="claude-sonnet-4-6",
-    context_length=8000,  # Context window size
+    context_length=8000,       # Context window size
+    context_compression=True,  # Auto-summarize when nearing the limit (default)
 )
 
-# Manual truncation
-agent.truncate_history(max_messages=50)
+# Manual compaction: collapse history into a single summary message.
+# `agent.short_memory` is the agent's underlying Conversation object.
+agent.short_memory.compact(summary="Summary of the conversation so far.")
 ```
 
 ### Connection Pooling
@@ -501,7 +503,7 @@ agent = Agent(
 
 ```python
 # Save state
-agent.save_state()
+agent.save()
 
 # Load state
 from swarms import Agent

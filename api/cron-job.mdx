@@ -129,6 +129,8 @@ results = cron.batched_run(tasks)
   List of results from each task execution
 </ResponseField>
 
+**Note:** `batched_run` calls `run()` for each task in sequence, and `run()` blocks in an infinite loop (`while True: time.sleep(1)`) until a `KeyboardInterrupt` is received. In practice this means the first task's job is scheduled and `batched_run` blocks there — it does not move on to the next task automatically; a manual interrupt is required to advance.
+
 ### start
 
 Manually start the scheduled job.

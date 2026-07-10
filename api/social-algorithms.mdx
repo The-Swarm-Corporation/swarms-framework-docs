@@ -62,7 +62,7 @@ from swarms import SocialAlgorithms
   Whether to enable verbose logging.
 </ParamField>
 
-<ParamField path="enable_communication_logging" type="bool" default="True">
+<ParamField path="enable_communication_logging" type="bool" default="False">
   Whether to log communication steps.
 </ParamField>
 
@@ -98,10 +98,10 @@ def run(self, task: str, algorithm_args: Optional[Dict[str, Any]] = None, **kwar
 
 ### run_async()
 
-Execute the social algorithm asynchronously.
+Execute the social algorithm asynchronously under the hood (via `asyncio.run`) but exposed as a regular synchronous method — call it directly, do not `await` it.
 
 ```python
-async def run_async(self, task: str, algorithm_args: Optional[Dict[str, Any]] = None, **kwargs) -> SocialAlgorithmResult
+def run_async(self, task: str, algorithm_args: Optional[Dict[str, Any]] = None, **kwargs) -> SocialAlgorithmResult
 ```
 
 **Parameters:**
@@ -139,20 +139,9 @@ def remove_agent(self, agent_name: str) -> None
 **Parameters:**
 - `agent_name` (str): Name of the agent to remove.
 
-**Raises:**
-- `AgentNotFoundError`: If no agent with the given name is found.
-
----
-
-### get_agent_names()
-
-Get a list of all agent names in the algorithm.
-
-```python
-def get_agent_names(self) -> List[str]
-```
-
-**Returns:** List of agent names.
+<Note>
+The current implementation removes via `del self.agents[agent_name]`, which indexes the `agents` list directly rather than looking up an agent by name. Passing a name (rather than a valid list index) will raise a `TypeError`, not `AgentNotFoundError`.
+</Note>
 
 ---
 
@@ -218,19 +207,19 @@ Result of executing a social algorithm.
 | `final_outputs` | `Dict[str, Any]` | The final outputs from the algorithm |
 | `metadata` | `Optional[Dict[str, Any]]` | Additional metadata about the execution |
 
-### SocialAlgorithmType (Enum)
+<Note>
+Only the `SocialAlgorithms` class itself is exported from the top-level `swarms` package. `CommunicationStep`, `SocialAlgorithmResult`, and the exception classes below must be imported from the submodule:
 
-Predefined types of social algorithms.
-
-| Type | Description |
-|------|-------------|
-| `CUSTOM` | Custom user-defined algorithm |
-| `SEQUENTIAL` | Sequential execution pattern |
-| `CONCURRENT` | Concurrent execution pattern |
-| `HIERARCHICAL` | Hierarchical execution pattern |
-| `MESH` | Mesh network pattern |
-| `ROUND_ROBIN` | Round-robin execution pattern |
-| `BROADCAST` | Broadcast communication pattern |
+```python
+from swarms.structs.social_algorithms import (
+    SocialAlgorithmResult,
+    CommunicationStep,
+    SocialAlgorithmError,
+    InvalidAlgorithmError,
+    AgentNotFoundError,
+)
+```
+</Note>
 
 ## Exception Classes
 

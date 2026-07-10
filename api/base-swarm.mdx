@@ -103,7 +103,7 @@ from swarms.structs import BaseSwarm
 
 ### run
 
-Execute the swarm's main task loop.
+Execute the swarm's main task loop. In `BaseSwarm` this is an unimplemented placeholder (`def run(self): ...`, no parameters) — subclasses are expected to override it. `__call__` and the various `*_run`/`*batch*` helpers all invoke `self.run(task, *args, **kwargs)`, so overrides should accept at least a `task` argument.
 
 ```python
 def run(
@@ -163,6 +163,16 @@ def add_agents(
   List of agent instances to add
 </ParamField>
 
+### add_agent_by_id
+
+Look up an agent by ID via `get_agent_by_id` and add it to the swarm.
+
+```python
+def add_agent_by_id(
+    agent_id: str
+) -> None
+```
+
 ### remove_agent
 
 Remove an agent from the swarm.
@@ -209,23 +219,14 @@ def get_agent_by_id(
   The agent instance with matching ID, or None if not found
 </ResponseField>
 
-### agent_exists
+### self_find_agent_by_name / self_find_agent_by_id
 
-Check if an agent exists in the swarm.
+Find an agent within `self.agents` by name or ID. Thin wrappers around the module-level `find_agent_by_name` / `find_agent_by_id` helpers.
 
 ```python
-def agent_exists(
-    name: str
-) -> bool
+def self_find_agent_by_name(name: str) -> Agent
+def self_find_agent_by_id(id: uuid.UUID) -> Agent
 ```
-
-<ParamField path="name" type="str">
-  Name of the agent to check
-</ParamField>
-
-<ResponseField name="return" type="bool">
-  True if agent exists, False otherwise
-</ResponseField>
 
 ## Task Management
 
@@ -263,6 +264,29 @@ def task_assignment_by_name(
     *args,
     **kwargs
 ) -> Any
+```
+
+### task_assignment_by_id
+
+Assign a task to an agent by ID (looked up via `select_agent`, not `get_agent_by_id`).
+
+```python
+def task_assignment_by_id(
+    task: str,
+    agent_id: str,
+    *args,
+    **kwargs
+) -> Any
+```
+
+### get_all_tasks / get_finished_tasks / get_pending_tasks
+
+Placeholder stubs for task-tracking (unimplemented in `BaseSwarm`).
+
+```python
+def get_all_tasks(agent: AgentType, task: Any) -> None
+def get_finished_tasks() -> List[Dict]
+def get_pending_tasks() -> List[Dict]
 ```
 
 ### broadcast
@@ -347,6 +371,10 @@ def concurrent_run(
 <ResponseField name="return" type="List[str]">
   List of responses from each agent
 </ResponseField>
+
+<Note>
+  `concurrent_run` appends to `self.task_history`, which `BaseSwarm.__init__` does not initialize. Calling it on a fresh instance without something else having set `self.task_history` first will raise `AttributeError`.
+</Note>
 
 ### run_all
 
@@ -477,6 +505,10 @@ def reset_all_agents() -> None
 
 ## Scaling
 
+<Note>
+  `scale_up`, `scale_down`, and `scale_to` are unimplemented placeholders in `BaseSwarm` (docstring only, no body) — subclasses must override them to actually add/remove agents.
+</Note>
+
 ### scale_up
 
 Increase the number of agents.
@@ -518,6 +550,35 @@ def scale_to(
 <ParamField path="num_agent" type="int">
   Target number of agents
 </ParamField>
+
+### get_all_agents / get_swarm_size / get_swarm_status / save_swarm_state
+
+Placeholder stubs (unimplemented in `BaseSwarm`) intended for subclasses to override.
+
+```python
+def get_all_agents() -> List[AgentType]
+def get_swarm_size() -> int
+def get_swarm_status() -> Dict
+def save_swarm_state() -> None
+```
+
+### add_llm / remove_llm
+
+Add or remove a callable/agent from `self.agents` (aliases predating the `add_agent`/`remove_agent` naming).
+
+```python
+def add_llm(agent: Callable) -> None
+def remove_llm(agent: Callable) -> None
+```
+
+### loop / aloop
+
+Call `run(task, *args, **kwargs)` repeatedly, `max_loops` times. `aloop` runs `loop` in an executor.
+
+```python
+def loop(task: Optional[str] = None, *args, **kwargs) -> None
+async def aloop(task: Optional[str] = None, *args, **kwargs) -> Any
+```
 
 ## State Management
 
@@ -634,8 +695,8 @@ for i in range(5):
     )
     swarm.add_agent(agent)
 
-# Check if agent exists
-if swarm.agent_exists("Agent-0"):
+# Check if agent exists (container protocol / get_agent_by_name)
+if swarm.get_agent_by_name("Agent-0") is not None:
     print("Agent-0 is in the swarm")
 
 # Get agent by name
@@ -724,6 +785,36 @@ BaseSwarm provides several built-in properties:
 
 - `agents_dict`: Dictionary mapping agent names to agent instances
 - `conversation`: Conversation object for tracking agent interactions
+
+## Sequence/Container Protocol
+
+`BaseSwarm` implements the standard container dunder methods over `self.agents`, so a swarm instance can be used like a list of agents:
+
+```python
+len(swarm)              # __len__  -> number of agents
+swarm[0]                # __getitem__
+swarm[0] = new_agent    # __setitem__
+del swarm[0]            # __delitem__
+for agent in swarm: ... # __iter__
+reversed(swarm)         # __reversed__
+agent in swarm          # __contains__
+repr(swarm) / str(swarm) # __repr__ / __str__
+```
+
+## Registry & Miscellaneous Stubs
+
+The following are unimplemented placeholder methods (docstring only, no body) intended for subclasses that maintain a swarm registry:
+
+```python
+def add_swarm_entry(swarm) -> None
+def add_agent_entry(agent: Agent) -> None
+def retrieve_swarm_information(swarm_id: str)
+def retrieve_joined_agents(agent_id: str) -> List[Agent]
+def join_swarm(from_entity, to_entity: Agent)
+def list_agents() -> None
+def agents_to_dataframe() -> None
+def agent_error_handling_check() -> None  # raises ValueError if self.agents is None
+```
 
 ## Best Practices
 

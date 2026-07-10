@@ -52,9 +52,13 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="context_length" type="int" default="Based on model">
-  Maximum context window size. Automatically set based on the model.
-  
+<ParamField path="context_length" type="int" default="None">
+  Maximum context window size, used as the denominator for the `ContextCompressor` threshold check (see [Agent Memory](/agents/agent-memory)).
+
+  <Note>
+    In the current release, the constructor argument is accepted but the internal `self.context_length` is unconditionally set to `16000` after initialization, regardless of the value passed in. Passing a custom `context_length` currently has no effect on the agent's behavior — this is a known limitation, not documented API behavior.
+  </Note>
+
   ```python
   agent = Agent(model_name="claude-sonnet-4-6", context_length=128000)
   ```
@@ -167,14 +171,6 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="timeout" type="int" default="None">
-  Timeout in seconds for agent execution.
-  
-  ```python
-  agent = Agent(timeout=300)  # 5 minute timeout
-  ```
-</ParamField>
-
 ### Output Configuration
 
 <ParamField path="output_type" type="str" default="str-all-except-first">
@@ -284,14 +280,14 @@ asyncio.run(main())
 
 ### Memory and History
 
-<ParamField path="return_history" type="bool" default="False">
-  Return full conversation history instead of just final response.
-  
+<Note>
+  To get the full conversation history instead of just the final response, use the `output_type` parameter (e.g. `output_type="list"` or `output_type="dict"`) rather than a dedicated history flag — see [Structured Outputs](/agents/structured-outputs).
+
   ```python
-  agent = Agent(return_history=True)
-  response = agent.run("Hello")  # Returns full conversation
+  agent = Agent(output_type="list")
+  response = agent.run("Hello")  # Returns full conversation as a list of messages
   ```
-</ParamField>
+</Note>
 
 <ParamField path="user_name" type="str" default="Human">
   Name to use for user messages in conversation history.
@@ -355,6 +351,10 @@ asyncio.run(main())
 
 <ParamField path="saved_state_path" type="str" default="Auto-generated">
   Path to save agent state.
+
+  <Note>
+    In the current release, this constructor argument is accepted but `self.saved_state_path` is unconditionally overwritten during initialization with an auto-generated `{api_key}_state.json` filename. A custom `saved_state_path` passed at construction time currently has no effect — this is a known limitation, not documented API behavior.
+  </Note>
   
   ```python
   agent = Agent(
@@ -402,8 +402,8 @@ asyncio.run(main())
   ```
 </ParamField>
 
-<ParamField path="top_p" type="float" default="0.90">
-  Nucleus sampling parameter for model generation.
+<ParamField path="top_p" type="float" default="None">
+  Nucleus sampling parameter for model generation. When left as `None`, no `top_p` value is sent in the request and the provider's own default applies.
   
   ```python
   agent = Agent(top_p=0.95)
@@ -425,7 +425,6 @@ production_agent = Agent(
     max_tokens=4096,
     retry_attempts=5,
     retry_interval=2,
-    timeout=300,
     autosave=True,
     verbose=True,
     dynamic_context_window=True,
@@ -443,7 +442,6 @@ research_agent = Agent(
     temperature=0.5,
     reasoning_prompt_on=True,
     verbose=True,
-    return_history=True,
 )
 ```
 
@@ -474,4 +472,4 @@ batch_agent = Agent(
 
 ## Reference
 
-Location in source: `swarms/structs/agent.py:352-454`
+Location in source: `swarms/structs/agent.py:348-438` (the `Agent.__init__` signature)

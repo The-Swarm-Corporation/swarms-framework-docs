@@ -9,7 +9,7 @@ Swarms v13 is one of the framework's most consequential releases to date, spanni
 
 ## Highlights
 
-* **Async self-selecting GroupChat**: no more rounds or speaker-selection functions; agents listen in parallel and score their own desire to speak.
+* **Async self-selecting GroupChat**: no more speaker-selection functions; every agent privately bids on each turn via `respond(score, message)`, and the highest (recency-adjusted) bidder above `threshold` takes the floor.
 * **Nested GraphWorkflow composition**: embed an entire workflow as a single node inside another, with compile-time `validate()` and a `max_parallel_nodes` cap.
 * **Streaming everywhere**: `run_stream` / `arun_stream` for HierarchicalSwarm, AgentRearrange, and SequentialWorkflow, including structured per-agent events.
 * **Smarter AgentRearrange DSL**: pure concurrent flows, an `explain()` method, and team-aware agents.
@@ -21,7 +21,7 @@ Swarms v13 is one of the framework's most consequential releases to date, spanni
 
 ### GroupChat: Async, Self-Selecting Conversations
 
-The new `GroupChat` abandons the round-based, speaker-function-driven model entirely. Every agent in the chat listens to the conversation in parallel, and on each message decides whether to contribute via a forced `respond(score, message)` tool call. The agent assigns its own desire-to-speak score between 0 and 1; only replies scoring above a configurable `threshold` are broadcast to the group. The conversation ends naturally, either after `max_loops` total messages or after `idle_timeout` seconds of silence, when no agent feels compelled to speak. The `RESPOND_TOOL` schema is exported from `swarms.structs.groupchat` and is automatically injected into every agent passed to a `GroupChat`, so there is no manual wiring required. The result is a conversation that flows like a real discussion: agents jump in when they have something to add and stay quiet when they don't.
+The new `GroupChat` abandons the fixed speaker-function-driven model entirely. On each turn, every agent in the chat privately bids on whether to speak via a forced `respond(score, message)` tool call, assigning its own desire-to-speak score between 0 and 1. Only the single highest (recency-adjusted) bidder above a configurable `threshold` takes the floor, and its reply is the only message posted that turn — a `recency_penalty` discourages the same agent from taking consecutive turns, so the floor moves around the room. The conversation ends when `max_loops` total messages have been posted, or when no agent clears `threshold` for a turn (a conversational lull). The `RESPOND_TOOL` schema is exported from `swarms.structs.groupchat` and is automatically injected into every agent passed to a `GroupChat`, so there is no manual wiring required. The result mirrors human turn-taking: everyone listens, the most motivated participant jumps in, and the rest stay silent unless they have something better to add.
 
 ```python
 from swarms import Agent, GroupChat
@@ -31,12 +31,18 @@ pessimist = Agent(agent_name="Pessimist", system_prompt="Argue the risks.", mode
 
 chat = GroupChat(
     agents=[optimist, pessimist],  # RESPOND_TOOL is auto-injected
-    max_loops=10,       # hard cap on total messages
-    threshold=0.5,      # min desire-to-speak score (0..1) to publish
-    idle_timeout=8.0,   # seconds of silence before the chat ends
+    max_loops=10,           # hard cap on total messages
+    threshold=0.5,          # min recency-adjusted bid to take the floor
+    recency_penalty=0.3,    # discourages back-to-back turns from one agent
 )
 result = chat.run("Should we adopt AI for medical diagnosis?")
 ```
+
+> Note: `GroupChat` was revised further after the initial v13 release to this
+> turn-based, single-speaker-per-turn bidding model (one agent takes the floor
+> each turn rather than several replying in parallel). The `idle_timeout`
+> parameter is now deprecated and unused — the chat ends on a bidding lull
+> instead of a wall-clock timeout.
 
 ### GraphWorkflow: Nested Composition, Validation, and Parallelism Caps
 
@@ -135,4 +141,4 @@ Performance work was equally thorough. A shared `find_agent_by_id` helper and a 
 
 ## Conclusion
 
-Swarms v13 marks a maturation point for the framework. The self-selecting GroupChat replaces mechanical turn-taking with genuinely emergent conversation, nested GraphWorkflows make large agent systems composable rather than monolithic, and universal streaming finally makes responsive multi-agent UIs straightforward. Combined with the aggressive performance work (cached lookups, shared executors, a leaner hot path) and the removal of years of dead code, v13 is faster, cleaner, and more expressive than anything that came before it. Upgrading is straightforward for most users, with the main breaking changes being the removed speaker-function API and the `return_all_agent_names` rename. For anyone building multi-agent systems, this is the release to adopt.
+Swarms v13 marks a maturation point for the framework. The self-selecting GroupChat replaces fixed speaker-selection functions with agents that bid for the floor themselves, nested GraphWorkflows make large agent systems composable rather than monolithic, and universal streaming finally makes responsive multi-agent UIs straightforward. Combined with the aggressive performance work (cached lookups, shared executors, a leaner hot path) and the removal of years of dead code, v13 is faster, cleaner, and more expressive than anything that came before it. Upgrading is straightforward for most users, with the main breaking changes being the removed speaker-function API and the `return_all_agent_names` rename. For anyone building multi-agent systems, this is the release to adopt.

@@ -17,7 +17,7 @@ Based on the research paper: [Self-Consistency Improves Chain of Thought Reasoni
 | `name` | `str` | `"Self-Consistency-Agent"` | Name of the agent |
 | `description` | `str` | `"An agent that uses self consistency..."` | Description of the agent's purpose |
 | `system_prompt` | `str` | `CONSISTENCY_SYSTEM_PROMPT` | System prompt for the reasoning agent |
-| `model_name` | `str` | Required | The underlying language model to use |
+| `model_name` | `str` | `"gpt-5.4"` | The underlying language model to use |
 | `num_samples` | `int` | `5` | Number of independent responses to generate |
 | `max_loops` | `int` | `1` | Maximum number of reasoning loops per sample |
 | `majority_voting_prompt` | `Optional[str]` | `majority_voting_prompt` | Custom prompt for majority voting aggregation |
@@ -30,16 +30,17 @@ Based on the research paper: [Self-Consistency Improves Chain of Thought Reasoni
 | Method | Description | Returns |
 |--------|-------------|---------|
 | `run(task, img?, answer?)` | Generates multiple responses and aggregates them | `Union[str, Dict[str, Any]]` |
-| `aggregation_agent(responses, prompt?, model_name?)` | Aggregates responses via majority voting | `str` |
 | `check_responses_for_answer(responses, answer)` | Checks if an answer appears in any response | `bool` |
 | `batched_run(tasks)` | Run the agent on multiple tasks in batch | `List[Union[str, Dict[str, Any]]]` |
+
+`aggregation_agent(responses, prompt?, model_name?)` is a module-level helper function (not a method on `SelfConsistencyAgent`) used internally to synthesize the final answer via majority voting. Import it separately as `from swarms.agents.consistency_agent import aggregation_agent` if you need it directly.
 
 ## Examples
 
 ### Basic Usage
 
 ```python
-from swarms.agents.consistency_agent import SelfConsistencyAgent
+from swarms import SelfConsistencyAgent
 
 agent = SelfConsistencyAgent(
     name="Math-Reasoning-Agent",
@@ -56,7 +57,7 @@ print("Final aggregated answer:", final_answer)
 ### Evaluation Mode
 
 ```python
-from swarms.agents.consistency_agent import SelfConsistencyAgent
+from swarms import SelfConsistencyAgent
 
 agent = SelfConsistencyAgent(
     name="Validation-Agent",
@@ -75,7 +76,7 @@ else:
 ### Random Models for Diversity
 
 ```python
-from swarms.agents.consistency_agent import SelfConsistencyAgent
+from swarms import SelfConsistencyAgent
 
 agent = SelfConsistencyAgent(
     name="Diverse-Reasoning-Agent",
@@ -91,7 +92,7 @@ print("Diverse reasoning result:", result)
 ### Batch Processing
 
 ```python
-from swarms.agents.consistency_agent import SelfConsistencyAgent
+from swarms import SelfConsistencyAgent
 
 agent = SelfConsistencyAgent(
     name="Batch-Processing-Agent",

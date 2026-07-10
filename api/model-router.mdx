@@ -63,6 +63,19 @@ GOOGLE_API_KEY=your_google_api_key
 
 ## Methods
 
+### step()
+
+Runs a single routing step: selects a model/provider for the task, executes it, and returns the output. `run()` calls this internally in a loop up to `max_loops` times.
+
+```python
+def step(self, task: str) -> str
+```
+
+**Parameters:**
+- `task` (str): The task to be executed
+
+**Returns:** `str` - The result of the single routing step
+
 ### run()
 
 Executes a single task through the model router with memory and refinement capabilities.

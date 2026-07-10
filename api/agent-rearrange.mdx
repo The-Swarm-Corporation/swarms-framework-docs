@@ -203,6 +203,14 @@ Add an agent to the swarm.
   The agent to be added
 </ParamField>
 
+### `add_agents(agents)`
+
+Add multiple agents to the swarm at once.
+
+<ParamField path="agents" type="List[Agent]" required>
+  A list of Agent objects to be added
+</ParamField>
+
 ### `remove_agent(agent_name)`
 
 Remove an agent from the swarm.
@@ -210,6 +218,62 @@ Remove an agent from the swarm.
 <ParamField path="agent_name" type="str" required>
   The name of the agent to be removed
 </ParamField>
+
+### `explain(return_str=False)`
+
+Print (or return) the resolved execution plan for the current flow, listing every step in order and marking each as sequential or parallel. Does not invoke any agents or LLMs. Validates the flow first and raises if it is invalid.
+
+<ParamField path="return_str" type="bool" default="False">
+  When `True`, returns the plan as a string instead of printing it
+</ParamField>
+
+<ResponseField name="plan" type="Optional[str]">
+  The plan string if `return_str=True`; otherwise `None`
+</ResponseField>
+
+### `get_agent_sequential_awareness(agent_name)`
+
+Get the sequential awareness information (agents immediately ahead/behind) for a specific agent in the current flow.
+
+<ParamField path="agent_name" type="str" required>
+  The name of the agent to get awareness for
+</ParamField>
+
+<ResponseField name="awareness" type="str">
+  A string describing the agents ahead and behind in the sequence
+</ResponseField>
+
+### `get_sequential_flow_structure()`
+
+Get a string describing the complete sequential flow structure (step-by-step breakdown of the flow).
+
+<ResponseField name="structure" type="str">
+  A string describing the overall sequential flow structure
+</ResponseField>
+
+### `run_stream(task=None, img=None, with_events=False, **kwargs)`
+
+Sync generator that streams tokens from each agent in flow order as they are generated. Sequential segments stream one agent at a time; parallel (comma) segments interleave tokens fairly across concurrent agents.
+
+<ParamField path="task" type="str" default="None">
+  Initial task fed into the first agent in the flow
+</ParamField>
+
+<ParamField path="img" type="Optional[str]" default="None">
+  Optional image input forwarded to every agent
+</ParamField>
+
+<ParamField path="with_events" type="bool" default="False">
+  When `False`, yields `(agent_name, token)` tuples. When `True`, yields structured event dicts (`agent_start`, `token`, `agent_end`)
+</ParamField>
+
+<Note>
+  Not yet supported in streaming mode: `max_loops > 1`, `custom_tasks`. Use `run()` for those.
+</Note>
+
+### `arun_stream(task=None, img=None, with_events=False, **kwargs)`
+
+Async generator version of `run_stream`, with the same parameters and yield semantics.
 
 ### `validate_flow()`
 
@@ -237,7 +301,7 @@ Convert all attributes to a dictionary for serialization.
 | `id` | str | Unique identifier for the system |
 | `name` | str | Human-readable name |
 | `description` | str | Description of the system's purpose |
-| `agents` | Dict[str, Agent] | Dictionary mapping agent names to Agent objects |
+| `agents` | List[Union[Agent, Callable]] | List of agents or callables in the system |
 | `flow` | str | Flow pattern defining agent execution order |
 | `conversation` | Conversation | Conversation history management |
 

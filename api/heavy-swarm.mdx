@@ -10,7 +10,7 @@ The `HeavySwarm` class is a sophisticated multi-agent orchestration system that 
 ## Class Definition
 
 ```python
-from swarms.structs.heavy_swarm import HeavySwarm
+from swarms import HeavySwarm
 ```
 
 ## Parameters
@@ -55,7 +55,7 @@ from swarms.structs.heavy_swarm import HeavySwarm
   Tools available to worker agents for enhanced functionality
 </ParamField>
 
-<ParamField path="max_loops" type="int" default="1">
+<ParamField path="max_loops" type="Optional[int]" default="1">
   Maximum number of execution loops for the entire swarm. Each loop builds upon previous results for iterative refinement
 </ParamField>
 
@@ -189,8 +189,8 @@ Executes the complete HeavySwarm orchestration flow with multi-loop functionalit
 
 **Returns:**
 
-<ResponseField name="result" type="str">
-  Comprehensive final answer from the synthesis step after all loops complete
+<ResponseField name="result" type="Any">
+  The conversation history formatted according to `output_type` (default `"dict-all-except-first"`, which returns a `list` of message dicts covering the question-generation, agent, and synthesis output — excluding the initial task message — not just the synthesis agent's final string). Pass `output_type="str-all-except-first"` for a plain string, or `output_type="final"` / `"last"` to get only the last message's content.
 </ResponseField>
 
 **Workflow:**
@@ -234,6 +234,73 @@ Shows:
 - Model configurations (question and worker models)
 - Selected variant
 
+---
+
+### `execute_question_generation()`
+
+```python
+def execute_question_generation(self, task: str) -> Dict[str, str]
+```
+
+Generates the active variant's specialized questions for a task using the configured `question_agent_model_name`, without running the worker agents or synthesis. Returns the raw parsed tool-call output, including `thinking`, the per-agent `*_question` keys, `tool_call_id`, and `function_name` (or an `error` key if generation/parsing failed).
+
+<ParamField path="task" type="str" required>
+  The main task to analyze and decompose into specialized questions
+</ParamField>
+
+---
+
+### `get_questions_only()`
+
+```python
+def get_questions_only(self, task: str) -> Dict[str, str]
+```
+
+Generates the specialized questions for a task and returns only the clean `*_question` keys (filters out `thinking`, `tool_call_id`, and `function_name`). Useful for previewing or debugging question generation without running the full swarm.
+
+<ParamField path="task" type="str" required>
+  The main task or query to decompose into specialized questions
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="questions" type="Dict[str, str]">
+  Clean dictionary of `*_question` keys for the active variant (e.g. `research_question`, `analysis_question`, `alternatives_question`, `verification_question` for the default variant), or `{"error": ...}` on failure
+</ResponseField>
+
+```python
+swarm = HeavySwarm()
+questions = swarm.get_questions_only("Analyze market trends for EVs")
+print(questions["research_question"])
+```
+
+---
+
+### `get_questions_as_list()`
+
+```python
+def get_questions_as_list(self, task: str) -> List[str]
+```
+
+Generates the specialized questions for a task and returns them as an ordered list instead of a dict — convenient for iteration or display. Internally calls `get_questions_only()`.
+
+<ParamField path="task" type="str" required>
+  The main task or query to decompose into specialized questions
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="questions" type="List[str]">
+  Ordered list of the active variant's questions (for the default variant: research, analysis, alternatives, verification, in that order), or a single-item list containing an error message on failure
+</ResponseField>
+
+```python
+swarm = HeavySwarm()
+questions = swarm.get_questions_as_list("Optimize supply chain efficiency")
+for i, question in enumerate(questions):
+    print(f"Agent {i+1}: {question}")
+```
+
 ## Question Generation Schema
 
 The default variant decomposes the task into four specialized questions:
@@ -253,7 +320,7 @@ The `"medium"` and `"heavy"` variants use their own schemas (3 and 15 questions 
 ## Usage Example
 
 ```python
-from swarms.structs.heavy_swarm import HeavySwarm
+from swarms import HeavySwarm
 
 # Default 5-agent variant with dashboard enabled
 swarm = HeavySwarm(

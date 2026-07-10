@@ -1,18 +1,23 @@
 ---
 title: "Multi-Agent Blocks"
-description: "Small building blocks for multi-agent workflows: aggregate concurrent runs, run a single agent safely, find an agent by name"
+description: "Small building blocks for multi-agent workflows: aggregate concurrent runs, run a single agent safely, and look up agents by name or id"
 icon: "cubes"
 ---
 
 ## Overview
 
-`swarms.structs.ma_blocks` is a tiny set of helper functions for composing multi-agent workflows without instantiating a full swarm class. Three functions:
+`swarms.structs.ma_blocks` is a small set of helper functions for composing multi-agent workflows without instantiating a full swarm class.
 
 | Function | What it does |
 |---|---|
 | `aggregate` | Run a list of agents concurrently on the same task, then synthesize via an aggregator agent |
 | `run_agent` | Run a single agent with argument validation and error wrapping |
-| `find_agent_by_name` | Look up an agent by `.name` in a list |
+| `find_agent_by_name` | Look up an agent by `.agent_name` (or `.name`) in a list |
+| `find_agent_by_id` | Look up an agent by `.id` in a list |
+| `find_multiple_agents_by_name` | Look up several agents by `.agent_name` at once |
+| `return_all_agent_names` | Return every agent's `.agent_name` |
+
+`aggregate`, `run_agent`, and `find_agent_by_name` are exported from the top-level `swarms` package. The rest must be imported from `swarms.structs.ma_blocks`.
 
 Reach for these when you want quick composability — a function call instead of `ConcurrentWorkflow(...).run(...)`.
 
@@ -99,7 +104,7 @@ def run_agent(
 
 ## find_agent_by_name()
 
-Linear search for an agent by its `.name` attribute.
+Look up an agent by name. Builds a `name -> agent` index the first time it is called for a given `agents` list — matching against both `.agent_name` and `.name` (if `.name` is set and differs from `.agent_name`) — and caches that index for subsequent lookups against the same list, turning repeated calls from O(n) into O(1).
 
 ```python
 def find_agent_by_name(
@@ -113,7 +118,7 @@ def find_agent_by_name(
 </ParamField>
 
 <ParamField path="agent_name" type="str" required>
-  Name to match against `agent.name` (note: `.name`, not `.agent_name`).
+  Name to match. Checked against each agent's `.agent_name` first, then `.name` if set and different.
 </ParamField>
 
 **Raises:**
@@ -122,15 +127,77 @@ def find_agent_by_name(
 |---|---|
 | `ValueError` | `agents` is empty, `agent_name` is empty/whitespace, or no match found |
 | `TypeError` | `agent_name` is not a string |
-| `RuntimeError` | Any inner exception is wrapped and re-raised |
+
+## find_agent_by_id()
+
+Linear search for an agent by its `.id` attribute. Unlike `find_agent_by_name`, this does not raise on a miss.
+
+```python
+def find_agent_by_id(
+    agents: List[Union[Agent, Callable]],
+    agent_id: str,
+) -> Agent
+```
+
+<ParamField path="agents" type="List[Union[Agent, Callable]]" required>
+  List of agent-like objects to search through.
+</ParamField>
+
+<ParamField path="agent_id" type="str" required>
+  The `.id` value to match.
+</ParamField>
+
+**Returns:** The matching agent, or `None` if no agent has that `.id`.
+
+**Import:** not exported from top-level `swarms` — use `from swarms.structs.ma_blocks import find_agent_by_id`.
+
+## find_multiple_agents_by_name()
+
+Look up several agents by `.agent_name` in one call.
+
+```python
+def find_multiple_agents_by_name(
+    agents: List[Union[Agent, Callable]],
+    agent_names: List[str],
+) -> List[Agent]
+```
+
+<ParamField path="agents" type="List[Union[Agent, Callable]]" required>
+  List of agent-like objects to search through.
+</ParamField>
+
+<ParamField path="agent_names" type="List[str]" required>
+  Names to match against each agent's `.agent_name`.
+</ParamField>
+
+**Returns:** The subset of `agents` whose `.agent_name` is in `agent_names`. Names with no match are silently dropped — no exception is raised.
+
+**Import:** not exported from top-level `swarms` — use `from swarms.structs.ma_blocks import find_multiple_agents_by_name`.
+
+## return_all_agent_names()
+
+Return every agent's `.agent_name`.
+
+```python
+def return_all_agent_names(
+    agents: List[Union[Agent, Callable]],
+) -> List[str]
+```
+
+<ParamField path="agents" type="List[Union[Agent, Callable]]" required>
+  List of agent-like objects.
+</ParamField>
+
+**Returns:** `List[str]` — `agent.agent_name` for every agent, in order.
+
+**Import:** not exported from top-level `swarms` — use `from swarms.structs.ma_blocks import return_all_agent_names`.
 
 ## Usage Examples
 
 ### Aggregate Concurrent Analyses
 
 ```python
-from swarms import Agent
-from swarms.structs.ma_blocks import aggregate
+from swarms import Agent, aggregate
 
 analysts = [
     Agent(agent_name="Bull-Case", model_name="claude-sonnet-4-6", max_loops=1,
@@ -152,8 +219,7 @@ The returned value is the full conversation — three analyst responses plus the
 ### Safe Single-Agent Run
 
 ```python
-from swarms import Agent
-from swarms.structs.ma_blocks import run_agent
+from swarms import Agent, run_agent
 
 agent = Agent(
     agent_name="Drafter",
@@ -168,8 +234,7 @@ result = run_agent(agent, "Write a release-note bullet for the v12.1 streaming A
 ### Look Up an Agent by Name
 
 ```python
-from swarms import Agent
-from swarms.structs.ma_blocks import find_agent_by_name
+from swarms import Agent, find_agent_by_name
 
 agents = [
     Agent(agent_name="Researcher", model_name="claude-sonnet-4-6"),
@@ -177,12 +242,35 @@ agents = [
     Agent(agent_name="Editor", model_name="claude-sonnet-4-6"),
 ]
 
-# .name (not .agent_name) is what's matched
-agents[1].name = "Writer"
+# Matches against .agent_name by default
 writer = find_agent_by_name(agents, "Writer")
 ```
 
-`find_agent_by_name` matches against the `.name` attribute, not `.agent_name`. Set `.name` explicitly when you intend to look agents up this way.
+`find_agent_by_name` matches against `.agent_name` first, and falls back to `.name` if an agent has a `.name` attribute set that differs from its `.agent_name`.
+
+### Other Lookup Helpers
+
+```python
+from swarms import Agent
+from swarms.structs.ma_blocks import (
+    find_agent_by_id,
+    find_multiple_agents_by_name,
+    return_all_agent_names,
+)
+
+agents = [
+    Agent(agent_name="Researcher", model_name="claude-sonnet-4-6"),
+    Agent(agent_name="Writer", model_name="claude-sonnet-4-6"),
+    Agent(agent_name="Editor", model_name="claude-sonnet-4-6"),
+]
+
+print(return_all_agent_names(agents))
+# ['Researcher', 'Writer', 'Editor']
+
+subset = find_multiple_agents_by_name(agents, ["Writer", "Editor"])
+
+by_id = find_agent_by_id(agents, agents[0].id)
+```
 
 ## Source Code
 

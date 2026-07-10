@@ -21,8 +21,7 @@ The BatchedGridWorkflow provides a structured approach to:
 graph TD
     A[Input Tasks] --> B[BatchedGridWorkflow]
     B --> C[Initialize Agents]
-    C --> D[Create Conversation]
-    D --> E[Start Execution Loop]
+    C --> E[Start Execution Loop]
     E --> F[Distribute Tasks to Agents]
     F --> G[Agent 1: Task 1]
     F --> H[Agent 2: Task 2]
@@ -30,8 +29,7 @@ graph TD
     G --> J[Collect Results]
     H --> J
     I --> J
-    J --> K[Update Conversation]
-    K --> L{More Loops?}
+    J --> L{More Loops?}
     L -->|Yes| E
     L -->|No| M[Return Final Results]
     M --> N[Output]
@@ -48,7 +46,6 @@ pip install -U swarms
 | Feature | Description |
 |---------|-------------|
 | **Parallel Execution** | Multiple agents work on different tasks simultaneously |
-| **Conversation Management** | Maintains conversation state across execution loops |
 | **Error Handling** | Comprehensive error logging and exception handling |
 | **Configurable Loops** | Control the number of execution iterations |
 | **Agent Flexibility** | Supports any agent type that implements the `AgentType` interface |
@@ -75,50 +72,50 @@ pip install -U swarms
   Maximum number of execution loops to run (must be >= 1).
 </ParamField>
 
-<ParamField path="output_type" type="OutputType" default="dict">
-  Format applied to the conversation history. Options include `"dict"`, `"list"`, `"str"`, `"final"`.
-</ParamField>
+<Note>
+  `BatchedGridWorkflow` does not currently accept an `output_type` parameter — there is no earlier documented parameter in the constructor beyond the ones listed above, and it does not maintain a `Conversation` object internally.
+</Note>
 
 ## Methods
 
 ### step()
 
-Execute one step of the batched grid workflow.
+Execute one step of the batched grid workflow. Pairs each agent with the task at the same index and runs all agent/task pairs concurrently via `batched_grid_agent_execution`. The number of `tasks` must match the number of `agents`.
 
 ```python
 def step(self, tasks: List[str])
 ```
 
 **Parameters:**
-- `tasks` (List[str]): List of tasks to execute
+- `tasks` (List[str]): List of tasks to execute, one per agent (must be the same length as `agents`)
 
-**Returns:** Output from the batched grid agent execution
+**Returns:** `List[Any]` - Results from each agent, in the same order as `agents`. If an agent fails, the exception is included in the results.
 
 ### run()
 
-Run the batched grid workflow with the given tasks. This is the main entry point that includes error handling.
+Run the batched grid workflow with the given tasks for `max_loops` iterations. This is the main entry point that includes error handling (logs and re-raises any exception).
 
 ```python
-def run(self, tasks: List[str]) -> str
+def run(self, tasks: List[str]) -> List[List[Any]]
 ```
 
 **Parameters:**
-- `tasks` (List[str]): List of tasks to execute
+- `tasks` (List[str]): List of tasks to execute, one per agent
 
-**Returns:** `str` - The final conversation string after all loops
+**Returns:** `List[List[Any]]` - A list with one entry per loop iteration; each entry is the list of per-agent results returned by `step()` for that loop.
 
 ### run_()
 
-Internal method that runs the workflow without error handling.
+Internal method that runs the workflow without the top-level try/except error handling.
 
 ```python
-def run_(self, tasks: List[str]) -> str
+def run_(self, tasks: List[str]) -> List[List[Any]]
 ```
 
 **Parameters:**
-- `tasks` (List[str]): List of tasks to execute
+- `tasks` (List[str]): List of tasks to execute, one per agent
 
-**Returns:** `str` - The final conversation string after all loops
+**Returns:** `List[List[Any]]` - A list with one entry per loop iteration; each entry is the list of per-agent results returned by `step()` for that loop.
 
 ## Usage Examples
 

@@ -29,11 +29,11 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="swarms" type="List[Any]" default="[]">
-  List of swarm objects to be managed.
+  List of swarm objects to be managed. Despite the default of `[]`, the constructor runs `reliability_checks()` and raises `ValueError` if `swarms` is empty — a non-empty list is effectively required.
 </ParamField>
 
 <ParamField path="flow" type="str" default="None">
-  Flow pattern for swarm execution. Uses arrow notation to define execution order.
+  Flow pattern for swarm execution. Uses arrow notation to define execution order. Despite the default of `None`, `reliability_checks()` raises `ValueError` if `flow` is falsy — a flow string is effectively required.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
@@ -100,21 +100,49 @@ def add_swarms(self, swarms: List[Any])
 Validates the flow pattern syntax and swarm names.
 
 ```python
-def validate_flow(self)
+def validate_flow(self) -> bool
 ```
+
+**Returns:** `True` if the flow is valid.
+
+**Raises:** `ValueError` if `"->"` is missing from the flow, a referenced swarm name isn't registered (and isn't `"H"`), or the flow contains duplicate swarm names.
+
+### set_custom_flow()
+
+Overrides the current flow pattern.
+
+```python
+def set_custom_flow(self, flow: str)
+```
+
+**Parameters:**
+- `flow` (str): The new flow pattern string
+
+### track_history()
+
+Appends a result to a swarm's execution history. Called internally; can also be invoked directly for custom tracking.
+
+```python
+def track_history(self, swarm_name: str, result: str)
+```
+
+**Parameters:**
+- `swarm_name` (str): Name of the swarm whose history to update
+- `result` (str): Result to append to that swarm's history
 
 ### run()
 
 Executes the swarm arrangement according to the flow pattern.
 
 ```python
-def run(self, task: str = None, img: str = None, custom_tasks: Dict[str, str] = None)
+def run(self, task: str = None, img: str = None, custom_tasks: Dict[str, str] = None, *args, **kwargs)
 ```
 
 **Parameters:**
 - `task` (str, optional): The task to be executed
 - `img` (str, optional): Image input for the task
 - `custom_tasks` (Dict[str, str], optional): Custom tasks mapped to specific swarms
+- `*args`, `**kwargs`: Forwarded to each swarm's `run()` call
 
 **Returns:** The result of the swarm execution
 

@@ -91,7 +91,7 @@ graph TD
   Description for the consensus agent.
 </ParamField>
 
-<ParamField path="consensus_agent_model_name" type="str" default="gpt-4.1">
+<ParamField path="consensus_agent_model_name" type="str" default="gpt-5.4">
   Model name for the consensus agent.
 </ParamField>
 
@@ -106,11 +106,12 @@ graph TD
 Executes the multi-loop majority voting system for a single task and returns the consensus result.
 
 ```python
-def run(self, task: str, *args, **kwargs) -> Any
+def run(self, task: str, streaming_callback: Optional[Callable[[str, str, bool], None]] = None, *args, **kwargs) -> Any
 ```
 
 **Parameters:**
 - `task` (str): The task or question to be analyzed by the agent panel
+- `streaming_callback` (Optional[Callable[[str, str, bool], None]]): Optional callback invoked as `(agent_name, chunk, is_final)` while the consensus agent streams its response
 - `*args` (Any): Variable length argument list passed to individual agents
 - `**kwargs` (Any): Arbitrary keyword arguments passed to individual agents
 

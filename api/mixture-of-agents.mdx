@@ -10,7 +10,7 @@ The `MixtureOfAgents` class manages and executes multiple agents in parallel lay
 ## Class Definition
 
 ```python
-from swarms.structs.mixture_of_agents import MixtureOfAgents
+from swarms import MixtureOfAgents
 ```
 
 ## Parameters
@@ -130,6 +130,10 @@ Executes the complete mixture of agents workflow with multiple layers and aggreg
   The aggregated response from all agents after processing through all layers
 </ResponseField>
 
+<Note>
+  `run()` catches exceptions internally and returns the string `"Error: {e}"` instead of raising, so callers should check the returned value rather than wrapping the call in a try/except.
+</Note>
+
 **Workflow:**
 1. Adds initial task to conversation history
 2. For each layer:
@@ -186,8 +190,7 @@ Runs the mixture of agents for a batch of tasks concurrently using ThreadPoolExe
 ## Usage Example
 
 ```python
-from swarms.structs.agent import Agent
-from swarms.structs.mixture_of_agents import MixtureOfAgents
+from swarms import Agent, MixtureOfAgents
 
 # Create specialized agents
 research_agent = Agent(

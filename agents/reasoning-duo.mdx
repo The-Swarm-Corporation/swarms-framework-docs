@@ -16,25 +16,32 @@ Task Input → Reasoning Agent → Structured Analysis → Main Agent → Final 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `model_name` | `str` | `"reasoning-agent-01"` | Name identifier for the reasoning agent |
-| `description` | `str` | `"A highly intelligent..."` | Description of the reasoning agent's capabilities |
-| `model_names` | `list[str]` | `["claude-sonnet-4-6", "gpt-5.4"]` | Model names for reasoning and main agents |
+| `id` | `str` | random `uuid4()` | Unique identifier for the duo |
+| `agent_name` | `str` | `"reasoning-agent-01"` | Name identifier shared by both internal agents |
+| `agent_description` | `str` | `"A highly intelligent..."` | Description passed to both internal agents |
+| `model_name` | `str` | `"gpt-5.4"` | Stored on the instance; not currently used to configure either internal agent |
+| `description` | `str` | `"A highly intelligent..."` | Description of the reasoning duo's capabilities |
+| `model_names` | `list[str]` | `["gpt-5.4", "gpt-5.4"]` | Model names for `[reasoning_agent, main_agent]` (index 1 configures the main agent) |
 | `system_prompt` | `str` | `"You are a helpful..."` | System prompt for the main agent |
+| `output_type` | `OutputType` | `"dict-all-except-first"` | Format of the value returned by `run()` |
+| `reasoning_model_name` | `Optional[str]` | `"gpt-4o"` | Model used by the reasoning agent; if `None`, falls back to `model_names[0]` |
+| `max_loops` | `int` | `1` | Number of reasoning/main-agent loop iterations in `run()` |
 
 ### Methods
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
-| `run` | `task: str` | `str` | Processes a single task through both agents |
-| `batched_run` | `tasks: List[str]` | `List[str]` | Processes multiple tasks sequentially |
+| `step` | `task: str, img: Optional[str] = None` | `None` | Runs one reasoning-agent → main-agent cycle and appends to the conversation |
+| `run` | `task: str, img: Optional[str] = None` | Formatted per `output_type` (e.g. `dict` by default) | Processes a task through both agents for `max_loops` iterations |
+| `batched_run` | `tasks: List[str], imgs: Optional[List[str]] = None` | `list` | Processes multiple tasks sequentially |
 
 ## Quick Start
 
 ```python
-from swarms.agents.reasoning_duo import ReasoningDuo
+from swarms import ReasoningDuo
 
 duo = ReasoningDuo(
-    model_name="reasoning-agent-01",
+    agent_name="reasoning-agent-01",
     model_names=["claude-sonnet-4-6", "gpt-5.4"]
 )
 
@@ -73,7 +80,7 @@ analysis = duo.run(finance_task)
 
 ```python
 duo = ReasoningDuo(
-    model_name="custom-reasoning-agent",
+    agent_name="custom-reasoning-agent",
     description="Specialized financial analysis agent",
     model_names=["claude-sonnet-4-6", "gpt-5.4"],
     system_prompt="You are a financial expert AI assistant..."

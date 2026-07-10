@@ -136,6 +136,29 @@ def return_history_as_string(self) -> str:
 
 **Returns:** String representation of the conversation history
 
+### compact()
+
+Collapse the interaction history into a single summary message, preserving the agent's static context (`system_prompt` → `rules` → `custom_rules_prompt`) ahead of it. If `memory_md_path` is configured, the on-disk `MEMORY.md` is archived to `<agent_folder>/archive/history_<timestamp>.md` and then wiped/re-seeded so the log doesn't keep growing across compressions.
+
+```python
+def compact(
+    self,
+    summary: str,
+    summary_role: str = "System",
+) -> None
+```
+
+**Parameters:**
+- `summary` (str): The compressed summary content that replaces the raw history.
+- `summary_role` (str): Role attached to the summary message. Defaults to `"System"`.
+
+```python
+conv.compact(
+    summary="User asked about X. Assistant explained X.",
+    summary_role="System",
+)
+```
+
 ### export()
 
 Export the conversation to a file based on the export method.
@@ -188,6 +211,28 @@ def export_and_count_categories(self) -> Dict[str, int]
 ```
 
 **Returns:** Dictionary with input_tokens, output_tokens, and total_tokens
+
+### Other Methods
+
+| Method | Description |
+|--------|-------------|
+| `query(index)` | Return the message dict at `index`, or `None` if out of range |
+| `delete(index)` | Remove the message at `index` |
+| `update(index, role, content)` | Replace the role/content of the message at `index` |
+| `add_multiple(roles, contents)` / `add_multiple_messages(roles, contents)` | Add several messages concurrently (thread pool) |
+| `batch_add(messages)` | Add a list of `{"role": ..., "content": ...}` dicts |
+| `get_str()` | Alias for `return_history_as_string()` |
+| `get_cache_stats()` | Returns `{hits, misses, cached_tokens, hit_rate}` for the history-string cache (only meaningful when `cache_enabled=True`) |
+| `get_last_message_as_string()` | Returns the last message formatted as `"role: content"` |
+| `get_final_message()` / `get_final_message_content()` | Returns the last message dict / just its content |
+| `return_messages_as_list()` / `return_messages_as_dictionary()` | Formatted views of the full history |
+| `return_all_except_first()` / `return_all_except_first_string()` | History excluding the first (system) message |
+| `to_dict()` / `to_json()` / `to_yaml()` / `to_list()` | Serialize the conversation (config + history) |
+| `count_messages_by_role()` | Dict of message counts keyed by role |
+| `clear()` | Empty the conversation history |
+| `clear_memory()` | Reset in-memory conversation state |
+| `Conversation.load_conversation(name, conversations_dir=None, load_filepath=None)` | Classmethod: load a previously saved conversation by name or explicit file path |
+| `Conversation.list_conversations(...)` / `Conversation.list_cached_conversations(...)` | Classmethods to enumerate saved/cached conversations |
 
 ## Usage Examples
 

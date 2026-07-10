@@ -62,6 +62,18 @@ pip install -U swarms
 
 ## Attributes
 
+<ParamField path="id" type="str" default="None">
+  Unique identifier for this harness instance. Auto-generated via `swarm_id()` if not provided.
+</ParamField>
+
+<ParamField path="name" type="str" default="PlannerGeneratorEvaluator">
+  Human-readable name for this harness.
+</ParamField>
+
+<ParamField path="description" type="str" default="Three-agent Planner-Generator-Evaluator harness with iterative feedback loop">
+  Description of the harness purpose.
+</ParamField>
+
 <ParamField path="model_name" type="str" default="gpt-5.4">
   Model identifier for all three agents
 </ParamField>
@@ -174,6 +186,16 @@ def batched_run(self, tasks: List[str]) -> List[Any]
 - `tasks` (List[str]): List of task prompts to process
 
 **Returns:** List of results, one per task
+
+### get_harness_result()
+
+Return the current state of the harness as a dictionary.
+
+```python
+def get_harness_result(self) -> Dict[str, Any]
+```
+
+**Returns:** Dictionary with `id`, `name`, `shared_state_path`, and `conversation` (the full conversation history as a dict)
 
 ## Return Types
 

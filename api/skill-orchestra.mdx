@@ -329,7 +329,8 @@ orchestra = SkillOrchestra(
 
 ```python
 import json
-from swarms import SkillOrchestra, SkillHandbook
+from swarms import SkillOrchestra
+from swarms.structs.skill_orchestra import SkillHandbook
 
 # Save a tuned handbook
 handbook_dict = orchestra.get_handbook()
@@ -347,6 +348,10 @@ orchestra = SkillOrchestra(
     auto_generate_skills=False,
 )
 ```
+
+<Note>
+`SkillHandbook` is not exported from the top-level `swarms` package -- import it directly from `swarms.structs.skill_orchestra`.
+</Note>
 
 ## Source Code
 

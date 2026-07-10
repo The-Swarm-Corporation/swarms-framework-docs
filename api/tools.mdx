@@ -51,6 +51,10 @@ tool_manager = BaseTool(
   Mapping of function names to callables
 </ParamField>
 
+<ParamField path="list_of_dicts" type="List[Dict[str, Any]]" default="None">
+  List of dictionary representations of tool schemas
+</ParamField>
+
 ### Methods
 
 #### func_to_dict
@@ -189,6 +193,8 @@ def calculate(a: int, b: int, operation: str) -> int:
   Whether to return the schema as YAML
 </ParamField>
 
+**Note:** `name` and `description` are declared with a default of `None`, but the decorator asserts both are strings at call time — omitting either raises `AssertionError`. Also, calling the decorated function executes the original function body but returns its generated schema (not the function's return value).
+
 ## Utility Functions
 
 ### get_openai_function_schema_from_func
@@ -255,43 +261,117 @@ Synchronously retrieve tools from an MCP server.
 ```python
 from swarms.tools import get_mcp_tools_sync
 
-tools = get_mcp_tools_sync(server_config)
+tools = get_mcp_tools_sync(server_path="http://localhost:8000/sse")
 ```
+
+<ParamField path="server_path" type="str" default="None">
+  Path/URL to the MCP server
+</ParamField>
+
+<ParamField path="format" type="str" default="openai">
+  Format to return tools in (`"openai"` or `"mcp"`)
+</ParamField>
+
+<ParamField path="connection" type="MCPConnection" default="None">
+  Optional `MCPConnection` object
+</ParamField>
+
+<ParamField path="transport" type="str" default="streamable-http">
+  Transport type. Auto-detected from `server_path` if `None`
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+  Enable verbose logging
+</ParamField>
 
 ### aget_mcp_tools
 
-Asynchronously retrieve tools from an MCP server.
+Asynchronously retrieve tools from an MCP server. Accepts the same parameters as `get_mcp_tools_sync` (`transport` defaults to `None`, which auto-detects).
 
 ```python
 from swarms.tools import aget_mcp_tools
 
-tools = await aget_mcp_tools(server_config)
+tools = await aget_mcp_tools(server_path="http://localhost:8000/sse")
 ```
 
 ### execute_tool_call_simple
 
-Execute a simple tool call on an MCP server.
+Async function that executes a tool call on an MCP server.
 
 ```python
+import asyncio
 from swarms.tools import execute_tool_call_simple
 
-result = execute_tool_call_simple(
-    tool_name="my_tool",
-    parameters={"arg1": "value1"}
-)
+result = asyncio.run(execute_tool_call_simple(
+    response={"name": "my_tool", "arguments": {"arg1": "value1"}},
+    server_path="http://localhost:8000/sse",
+))
 ```
+
+<ParamField path="response" type="any" default="None">
+  The tool call request (dict or JSON string)
+</ParamField>
+
+<ParamField path="server_path" type="str" default="None">
+  The MCP server URL
+</ParamField>
+
+<ParamField path="connection" type="MCPConnection" default="None">
+  Optional `MCPConnection` object
+</ParamField>
+
+<ParamField path="output_type" type="Literal['json', 'dict', 'str', 'formatted']" default="str">
+  Output format type
+</ParamField>
+
+<ParamField path="transport" type="str" default="None">
+  Transport type. Auto-detected from `server_path` if `None`
+</ParamField>
 
 ### get_tools_for_multiple_mcp_servers
 
-Retrieve tools from multiple MCP servers.
+Retrieve tools from multiple MCP servers concurrently using a thread pool.
 
 ```python
 from swarms.tools import get_tools_for_multiple_mcp_servers
 
 all_tools = get_tools_for_multiple_mcp_servers(
-    servers=[server1_config, server2_config]
+    urls=["http://localhost:8000/sse", "http://localhost:8001/sse"]
 )
 ```
+
+<ParamField path="urls" type="List[str]" required>
+  List of server URLs to fetch tools from
+</ParamField>
+
+<ParamField path="connections" type="List[MCPConnection]" default="None">
+  Optional list of `MCPConnection` objects
+</ParamField>
+
+<ParamField path="format" type="str" default="openai">
+  Format to return tools in
+</ParamField>
+
+<ParamField path="output_type" type="Literal['json', 'dict', 'str']" default="str">
+  Output format type
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="None">
+  Max worker threads
+</ParamField>
+
+<ParamField path="transport" type="str" default="None">
+  Transport type. Auto-detected per URL if `None`
+</ParamField>
+
+## Additional Utilities
+
+A few other utilities are exported from `swarms.tools` for less common use cases:
+
+- **`base_model_to_json`** — Convert a Pydantic `BaseModel` class to a formatted JSON schema string.
+- **`ToolStorage`** / **`tool_registry`** — Register and look up tools by name in a shared, process-wide tool registry.
+- **`create_computer_use_tools`** — Create a dict of pre-configured computer-use tools (file read/write, shell execution) scoped to a workspace directory. `from swarms.tools import create_computer_use_tools`.
+- **`execute_multiple_tools_on_multiple_mcp_servers`** / **`execute_multiple_tools_on_multiple_mcp_servers_sync`** — Execute several tool calls across several MCP servers concurrently (async and sync variants).
 
 ## Exceptions
 

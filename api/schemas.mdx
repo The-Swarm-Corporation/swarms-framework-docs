@@ -31,7 +31,7 @@ step = Step(
   Time taken to complete the task step
 </ParamField>
 
-<ParamField path="response" type="AgentChatCompletionResponse" default="None">
+<ParamField path="response" type="AgentChatCompletionResponse" required>
   Agent's response for this step
 </ParamField>
 
@@ -100,18 +100,49 @@ run_data = ManySteps(
 
 ### MCPConnection
 
-Defines connection parameters for Model Context Protocol (MCP) servers.
+Defines connection parameters for a Model Context Protocol (MCP) server reachable over HTTP/SSE.
 
 ```python
 from swarms.schemas import MCPConnection
 
 mcp = MCPConnection(
-    server_name="filesystem",
-    command="npx",
-    args=["-y", "@modelcontextprotocol/server-filesystem", "/path/to/data"],
-    env={"API_KEY": "secret"}
+    url="http://localhost:8000/sse",
+    transport="streamable_http",
+    authorization_token="secret-token",
+    headers={"X-Custom-Header": "value"},
+    timeout=10,
 )
 ```
+
+<ParamField path="type" type="str" default="mcp">
+  The type of connection
+</ParamField>
+
+<ParamField path="url" type="str" default="http://localhost:8000/mcp">
+  The URL endpoint for the MCP server
+</ParamField>
+
+<ParamField path="tool_configurations" type="Dict[Any, Any]" default="None">
+  Dictionary containing configuration settings for MCP tools
+</ParamField>
+
+<ParamField path="authorization_token" type="str" default="None">
+  Authentication token for accessing the MCP server
+</ParamField>
+
+<ParamField path="transport" type="str" default="streamable_http">
+  The transport protocol to use for the MCP server
+</ParamField>
+
+<ParamField path="headers" type="Dict[str, str]" default="None">
+  Headers to send to the MCP server
+</ParamField>
+
+<ParamField path="timeout" type="int" default="10">
+  Timeout (in seconds) for the MCP server
+</ParamField>
+
+This model allows extra fields (`extra = "allow"`), so additional keys will not raise a validation error, but only the fields above are read by the framework.
 
 ### MultipleMCPConnections
 
@@ -124,6 +155,143 @@ connections = MultipleMCPConnections(
     connections=[mcp1, mcp2, mcp3]
 )
 ```
+
+## Planner/Worker Schemas
+
+Schemas used by `PlannerWorkerSwarm` to represent tasks in the shared task queue.
+
+### TaskPriority
+
+`IntEnum` of task priority levels: `LOW = 0`, `NORMAL = 1`, `HIGH = 2`, `CRITICAL = 3`.
+
+### PlannerTaskStatus
+
+`str, Enum` of task statuses: `PENDING`, `CLAIMED`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`.
+
+### PlannerTask
+
+A single task in the shared planner-worker task queue.
+
+```python
+from swarms.schemas import PlannerTask
+
+task = PlannerTask(
+    title="Research competitors",
+    description="Gather competitor pricing data",
+)
+```
+
+<ParamField path="id" type="str" default="ptask-{uuid}">
+  Unique task identifier
+</ParamField>
+
+<ParamField path="title" type="str" required>
+  Short, descriptive title of the task
+</ParamField>
+
+<ParamField path="description" type="str" required>
+  Detailed description of what needs to be done
+</ParamField>
+
+<ParamField path="priority" type="TaskPriority" default="NORMAL">
+  Task priority level
+</ParamField>
+
+<ParamField path="depends_on" type="List[str]" default="[]">
+  List of task IDs that must complete before this task can start
+</ParamField>
+
+<ParamField path="parent_task_id" type="str" default="None">
+  ID of the parent task if decomposed from a larger task
+</ParamField>
+
+<ParamField path="status" type="PlannerTaskStatus" default="PENDING">
+  Current task status
+</ParamField>
+
+<ParamField path="assigned_worker" type="str" default="None">
+  Name of the worker agent that claimed this task
+</ParamField>
+
+<ParamField path="result" type="str" default="None">
+  Result of task execution
+</ParamField>
+
+<ParamField path="error" type="str" default="None">
+  Error message if task failed
+</ParamField>
+
+<ParamField path="retries" type="int" default="0">
+  Number of retry attempts so far
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="2">
+  Maximum retry attempts before permanent failure
+</ParamField>
+
+<ParamField path="version" type="int" default="0">
+  Optimistic concurrency version counter
+</ParamField>
+
+### PlannerTaskOutput
+
+A single task definition as output from a planner agent.
+
+<ParamField path="title" type="str" required>
+  Short, descriptive title
+</ParamField>
+
+<ParamField path="description" type="str" required>
+  Detailed description of what a worker agent should do
+</ParamField>
+
+<ParamField path="priority" type="int" default="1">
+  Priority: 0=LOW, 1=NORMAL, 2=HIGH, 3=CRITICAL
+</ParamField>
+
+<ParamField path="depends_on_titles" type="List[str]" default="[]">
+  Titles of other tasks in this plan that must complete first
+</ParamField>
+
+### PlannerTaskSpec
+
+Structured output from a planner agent: a plan narrative plus a list of concrete tasks.
+
+<ParamField path="plan" type="str" required>
+  Narrative explanation of the plan
+</ParamField>
+
+<ParamField path="tasks" type="List[PlannerTaskOutput]" required>
+  List of concrete tasks to add to the queue
+</ParamField>
+
+### CycleVerdict
+
+Structured output from the judge agent after evaluating a planning cycle.
+
+<ParamField path="is_complete" type="bool" required>
+  True if the overall goal has been satisfactorily achieved
+</ParamField>
+
+<ParamField path="overall_quality" type="int" required>
+  Quality score 0-10 of the combined results
+</ParamField>
+
+<ParamField path="summary" type="str" required>
+  Summary assessment of the cycle results
+</ParamField>
+
+<ParamField path="gaps" type="List[str]" default="[]">
+  Specific gaps or issues that need addressing in a follow-up cycle
+</ParamField>
+
+<ParamField path="follow_up_instructions" type="str" default="None">
+  Instructions for the planner if another cycle is needed
+</ParamField>
+
+<ParamField path="needs_fresh_start" type="bool" default="False">
+  True if accumulated drift requires discarding all prior tasks and restarting from the original goal
+</ParamField>
 
 ## Base Schemas
 
@@ -219,7 +387,7 @@ request = ChatCompletionRequest(
 )
 ```
 
-<ParamField path="model" type="str" default="gpt-4.1">
+<ParamField path="model" type="str" default="gpt-5.4">
   Model to use for completion
 </ParamField>
 
@@ -245,6 +413,10 @@ request = ChatCompletionRequest(
 
 <ParamField path="repetition_penalty" type="float" default="1.0">
   Penalty for token repetition
+</ParamField>
+
+<ParamField path="echo" type="bool" default="False">
+  Whether to echo the prompt in addition to the completion
 </ParamField>
 
 ### ChatCompletionResponse
@@ -399,16 +571,12 @@ from swarms.schemas import MCPConnection, MultipleMCPConnections
 
 # Define individual connections
 filesystem_mcp = MCPConnection(
-    server_name="filesystem",
-    command="npx",
-    args=["-y", "@modelcontextprotocol/server-filesystem", "/data"]
+    url="http://localhost:8000/sse",
 )
 
 web_search_mcp = MCPConnection(
-    server_name="brave-search",
-    command="npx",
-    args=["-y", "@modelcontextprotocol/server-brave-search"],
-    env={"BRAVE_API_KEY": "your-api-key"}
+    url="http://localhost:8001/sse",
+    authorization_token="your-api-key",
 )
 
 # Combine multiple connections
@@ -416,13 +584,21 @@ connections = MultipleMCPConnections(
     connections=[filesystem_mcp, web_search_mcp]
 )
 
-# Use with agent
+# Use a single connection with an agent
 from swarms import Agent
 
 agent = Agent(
     agent_name="MultiTool-Agent",
-    mcp_connections=connections,
-    model_name="gpt-4"
+    mcp_url=filesystem_mcp,
+    model_name="gpt-5.4",
+)
+
+# For multiple servers, Agent takes a list of URL strings via `mcp_urls`
+# (not MCPConnection objects):
+agent = Agent(
+    agent_name="MultiServer-Agent",
+    mcp_urls=["http://localhost:8000/sse", "http://localhost:8001/sse"],
+    model_name="gpt-5.4",
 )
 ```
 

@@ -160,6 +160,14 @@ Execute agents with real-time dashboard monitoring.
   Formatted conversation history based on output_type
 </ResponseField>
 
+### `fix_agents()`
+
+Configure agents for dashboard mode. Disables printing (`agent.print_on = False`) for every agent when `show_dashboard=True`, to prevent console output from conflicting with the dashboard display. Called automatically during initialization when `show_dashboard=True`.
+
+<ResponseField name="agents" type="List[Union[Agent, Callable]]">
+  The configured list of agents
+</ResponseField>
+
 ### `cleanup()`
 
 Clean up resources and connections. Called automatically after each run.

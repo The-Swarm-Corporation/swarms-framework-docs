@@ -3,7 +3,7 @@ title: Group Chat
 description: An asynchronous, self-selecting multi-agent conversation for debate, brainstorming, and decision-making
 ---
 
-`GroupChat` runs an **asynchronous, self-selecting** conversation. Every agent listens to every message in parallel and independently decides whether to speak — there is no fixed speaking order and no speaker-selection function. Agents chime in only when their self-rated desire to respond clears a threshold, which makes the room feel like an open discussion rather than a turn-based panel.
+`GroupChat` runs a **turn-based, self-selecting** conversation: there is no fixed speaking order and no speaker-selection function, but exactly one agent speaks per turn. Each turn, every agent privately "bids" — via a forced `respond(score, message)` tool call — on how much it wants the floor; the single highest (recency-adjusted) bidder above `threshold` speaks, and only that reply is posted. A `recency_penalty` discourages the same agent from speaking twice in a row, so the floor moves around the room even though there's no explicit rotation.
 
 ## When to Use
 
@@ -14,23 +14,27 @@ description: An asynchronous, self-selecting multi-agent conversation for debate
 - **Peer review**: evaluating work from several angles at once
 
 <Note>
-  This is a rewrite of the older speaker-function design. `speaker_function`, `speaker_state`, `set_speaker_function`, `start_interactive_session`, `@mention` routing, and the `round-robin-speaker` / `random-speaker` / `priority-speaker` selectors **no longer exist**. Use `threshold` / `idle_timeout` / `max_loops` to shape the conversation instead. See the [GroupChat API reference](/api/group-chat).
+  This is a rewrite of the older speaker-function design. `speaker_function`, `speaker_state`, `set_speaker_function`, `start_interactive_session`, `@mention` routing, and the `round-robin-speaker` / `random-speaker` / `priority-speaker` selectors **no longer exist**. Use `threshold` / `recency_penalty` / `max_loops` to shape the conversation instead. See the [GroupChat API reference](/api/group-chat).
 </Note>
 
 ## How It Works
 
-1. **Seed** — the task is broadcast to every agent's inbox as the first message.
-2. **Self-selection** — for each message, every agent is asked (via a forced `respond(score, message)` tool call) how much it wants to speak, on a `0..1` scale.
-3. **Threshold** — a reply is published only when its `score` exceeds `threshold` and the message is non-empty.
-4. **Concurrent broadcast** — published replies wake every other agent's inbox at once; several agents can react to the same message in parallel.
-5. **Stop** — the chat ends when `max_loops` total messages have been posted, or no new message arrives for `idle_timeout` seconds.
+1. **Seed** — the task is posted to the shared conversation as the first message; every agent sees it.
+2. **Bid (in parallel)** — each turn, every agent is asked concurrently (via a forced `respond(score, message)` tool call) how much it wants to speak, on a `0..1` scale, along with the reply it would give.
+3. **Select one speaker** — the single highest *recency-adjusted* bidder that clears `threshold` and has a non-empty reply takes the floor. Only that one reply is posted to the conversation for this turn.
+4. **Recency penalty** — an agent that spoke within the last `recency_window` turns has `recency_penalty` subtracted from its bid, so the floor tends to move around the room instead of one agent monologuing.
+5. **Stop** — the chat ends when `max_loops` total messages have been posted, or a turn arrives where no agent's adjusted bid clears `threshold` (a conversational lull).
+
+<Note>
+  `idle_timeout` is accepted for backward compatibility but is currently unused — the chat stops on a bidding lull (step 5 above), not a wall-clock timeout.
+</Note>
 
 ## Key Features
 
-- Asynchronous, parallel agent loops (no global turn order)
+- Turn-based self-selection: bids are collected in parallel, but exactly one agent speaks per turn (no fixed speaking order)
 - Self-selection: silence is the default; agents speak only when they add value
 - Forced `respond(score, message)` decision via `RESPOND_TOOL`
-- Threshold-based publishing and idle-timeout shutdown
+- Threshold-based speaker selection with a recency penalty to rotate the floor
 - Auto-equips the `respond` tool into agents (`auto_equip=True`)
 - Conversation history tracking and flexible output formats
 
@@ -67,9 +71,9 @@ chat = GroupChat(
     name="AI-Ethics-Debate",
     description="Discussion on AI's societal impact",
     agents=[tech_optimist, tech_critic, realist],
-    max_loops=8,       # hard cap on total messages
-    threshold=0.5,     # publish replies scoring above 0.5
-    idle_timeout=8.0,  # stop after 8s of silence
+    max_loops=8,          # hard cap on total messages
+    threshold=0.5,        # only the top bidder above 0.5 takes the floor each turn
+    recency_penalty=0.3,  # discourage the same agent speaking twice in a row
 )
 
 result = chat.run("Should we prioritize AI development or AI regulation?")
@@ -92,11 +96,14 @@ lively = GroupChat(agents=agents, max_loops=20, threshold=0.4)
 focused = GroupChat(agents=agents, max_loops=12, threshold=0.75)
 ```
 
-### Idle timeout
+### Recency penalty
 
 ```python
-# Give agents longer to deliberate before the chat times out.
-deliberate = GroupChat(agents=agents, max_loops=16, idle_timeout=15.0)
+# Rotate the floor more aggressively so no agent can speak twice in a row.
+rotating = GroupChat(agents=agents, max_loops=16, recency_penalty=0.5, recency_window=1)
+
+# Allow an agent to keep the floor across consecutive turns if it keeps winning bids.
+persistent = GroupChat(agents=agents, max_loops=16, recency_penalty=0.0)
 ```
 
 ### Max loops (total messages)
@@ -114,7 +121,7 @@ quick = GroupChat(agents=[proponent, opponent], max_loops=6)
   Name for the group chat.
 </ParamField>
 
-<ParamField path="description" type="str" default="Agents choose whether to speak at any time.">
+<ParamField path="description" type="str" default="Agents take turns; one speaker per turn.">
   Description of the group chat's purpose.
 </ParamField>
 
@@ -127,19 +134,23 @@ quick = GroupChat(agents=[proponent, opponent], max_loops=6)
 </ParamField>
 
 <ParamField path="threshold" type="float" default="0.5">
-  Minimum decision score (`0..1`) required to publish a reply.
+  Minimum recency-adjusted decision score (`0..1`) required for an agent to take the floor for a turn.
+</ParamField>
+
+<ParamField path="recency_penalty" type="float" default="0.3">
+  Amount subtracted from an agent's bid if it spoke within the last `recency_window` turns. Discourages one agent from monologuing; set to `0.0` to disable.
+</ParamField>
+
+<ParamField path="recency_window" type="int" default="1">
+  How many of the most recent speakers are subject to `recency_penalty`.
 </ParamField>
 
 <ParamField path="idle_timeout" type="float" default="8.0">
-  Seconds of silence before the chat stops.
+  Accepted for backward compatibility but currently **unused** — the chat now stops on a bidding lull (no agent clears `threshold`) rather than a wall-clock timeout.
 </ParamField>
 
 <ParamField path="output_type" type="str" default="str-all-except-first">
   History format. Use `"list"` or `"dict"` to iterate individual messages.
-</ParamField>
-
-<ParamField path="print_on" type="bool" default="True">
-  Print each broadcast message as a styled panel.
 </ParamField>
 
 <ParamField path="auto_equip" type="bool" default="True">
@@ -147,14 +158,14 @@ quick = GroupChat(agents=[proponent, opponent], max_loops=6)
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
-  Emit internal log messages (decision scores, broadcasts, stop events).
+  Emit internal log messages (decision scores, broadcasts, stop events) and print each posted message as a styled panel.
 </ParamField>
 
 ## Methods
 
 ### run()
 
-Run the group chat until it goes idle or hits `max_loops`.
+Run the group chat until no agent's bid clears `threshold` (a lull) or `max_loops` is hit.
 
 ```python
 result = chat.run("Discuss the future of quantum computing")
@@ -206,7 +217,7 @@ chat = GroupChat(agents=agents, auto_equip=False, max_loops=8)
 result = chat.run("Debate the tradeoffs of autonomous agents.")
 ```
 
-The tool forces a call to `respond(score, message)`: `score` (`0..1`) is how much the agent wants to speak, and `message` is the reply (empty string to stay silent). A reply is published only when `score > threshold` and `message` is non-empty.
+The tool forces a call to `respond(score, message)`: `score` (`0..1`) is how much the agent wants to speak, and `message` is the reply (empty string to stay silent). Each turn, only the single agent with the highest recency-adjusted `score` above `threshold` gets its `message` published.
 
 ## Use Cases
 
@@ -244,7 +255,7 @@ paper = research_chat.run("Collaborate on a paper about machine learning.")
 ## Best Practices
 
 <Note>
-  **Tuning over speaker functions**: shape participation with `threshold` (selectivity), `idle_timeout` (thinking time), and `max_loops` (total length) — there is no speaker-selection function.
+  **Tuning over speaker functions**: shape participation with `threshold` (selectivity), `recency_penalty` (how aggressively the floor rotates), and `max_loops` (total length) — there is no speaker-selection function.
 </Note>
 
 1. **Distinct roles**: give each agent a specific perspective so its `respond` decision is meaningful.
@@ -269,4 +280,3 @@ paper = research_chat.run("Collaborate on a paper about machine learning.")
 - [Mixture of Agents](/architectures/mixture-of-agents) - Parallel with synthesis
 - [Social Algorithms](/architectures/social-algorithms) - Custom communication patterns
 - [Agent Rearrange](/architectures/agent-rearrange) - Custom flows
-</content>

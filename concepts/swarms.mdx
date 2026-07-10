@@ -144,7 +144,7 @@ reviewer = Agent(agent_name="reviewer", model_name="gpt-5.4")
 
 # Define flow: researcher sends to both writer and editor,
 # then both send to reviewer
-flow = "researcher -> writer, editor; writer -> reviewer; editor -> reviewer"
+flow = "researcher -> writer, editor -> reviewer"
 
 swarm = AgentRearrange(
     agents=[researcher, writer, editor, reviewer],
@@ -467,11 +467,11 @@ recommendation = investment_team.run("Analyze Tesla stock for Q1 2024")
 Dynamically switch between swarm architectures:
 
 ```python
-from swarms.structs.swarm_router import SwarmRouter, SwarmType
+from swarms import SwarmRouter
 
 # Use the same agents with different strategies
 router = SwarmRouter(
-    swarm_type=SwarmType.SequentialWorkflow,  # or ConcurrentWorkflow, MixtureOfAgents, etc.
+    swarm_type="SequentialWorkflow",  # or "ConcurrentWorkflow", "MixtureOfAgents", etc.
     agents=[agent1, agent2, agent3]
 )
 

@@ -267,7 +267,7 @@ reviewer = Agent(agent_name="reviewer", model_name="gpt-5.4")
 # Define custom flow:
 # researcher sends to both writer AND editor
 # then both send to reviewer
-flow = "researcher -> writer, editor; writer -> reviewer; editor -> reviewer"
+flow = "researcher -> writer, editor -> reviewer"
 
 rearrange_system = AgentRearrange(
     agents=[researcher, writer, editor, reviewer],
@@ -534,11 +534,7 @@ analysis = analysis_team.run("Analyze Tesla stock for Q1 2024")
 
 ```python
 # Custom flow with AgentRearrange
-flow = """
-parser -> summarizer, entity_extractor;
-summarizer -> report_generator;
-entity_extractor -> report_generator
-"""
+flow = "parser -> summarizer, entity_extractor -> report_generator"
 
 doc_processor = AgentRearrange(
     agents=[parser, summarizer, entity_extractor, report_generator],

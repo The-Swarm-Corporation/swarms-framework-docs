@@ -96,6 +96,16 @@ def export_to_json(self) -> str
 
 **Returns:** JSON string representation of swarm outputs
 
+### data_to_json_file()
+
+Save the swarm outputs (via `export_to_json()`) to a JSON file in the workspace directory. Called automatically after each run when `autosave=True`.
+
+```python
+def data_to_json_file(self)
+```
+
+**Returns:** None. Writes the JSON metadata file to disk.
+
 ## Usage Examples
 
 ### Basic Usage with Agents
