@@ -103,6 +103,22 @@ from swarms import HierarchicalSwarm
   Model used by the judge agent when `agent_as_judge=True`.
 </ParamField>
 
+<ParamField path="director_settings" type="Optional[Dict[str, Any]]" default="None">
+  Additional `Agent` constructor settings for the automatically created director. Values in this dictionary override the legacy director parameters. Use `planning_system_prompt` to customize the optional planning pass. The swarm always forces the director's `output_type` to `"final"`.
+</ParamField>
+
+<ParamField path="max_agent_retries" type="int" default="1">
+  Number of retry attempts after a worker's initial execution fails. After all attempts are exhausted, the worker is marked unavailable in the shared conversation and its failure is reported to the director. Must be greater than or equal to `0`.
+</ParamField>
+
+<ParamField path="max_reassignment_attempts" type="int" default="1">
+  Maximum number of recovery rounds in which the director can reassign failed tasks to healthy workers. The swarm continues running when recovery cannot complete a task. Must be greater than or equal to `0`.
+</ParamField>
+
+<Note>
+  `HierarchicalSwarm` forces every configurable director and worker agent to use `output_type="final"`. The swarm-level `output_type` parameter still controls the format returned by `HierarchicalSwarm.run()`.
+</Note>
+
 ## Methods
 
 ### `run()`
@@ -143,9 +159,12 @@ Executes the hierarchical swarm for the specified number of feedback loops.
 **Workflow:**
 1. Director creates a plan and distributes orders to agents
 2. Agents execute tasks and report back to director
-3. Director evaluates results and issues new orders if needed (up to max_loops)
-4. All context and conversation history is preserved throughout
-5. Returns final output formatted per output_type
+3. Failed workers are retried up to `max_agent_retries`
+4. Exhausted workers are marked unavailable in shared context
+5. Director reassigns failed tasks to healthy workers, up to `max_reassignment_attempts`
+6. Director evaluates results and issues new orders if needed (up to `max_loops`)
+7. All context and conversation history is preserved throughout
+8. Returns final output formatted per swarm-level `output_type`
 
 ---
 
@@ -281,6 +300,8 @@ Performs validation checks to ensure the swarm is properly configured.
 **Validates:**
 - At least one agent is provided
 - max_loops is greater than 0
+- max_agent_retries is greater than or equal to 0
+- max_reassignment_attempts is greater than or equal to 0
 - Director is available (creates default if needed)
 
 **Raises:**
@@ -362,7 +383,14 @@ swarm = HierarchicalSwarm(
     description="A hierarchical team for research and analysis",
     agents=[research_agent, analysis_agent, writing_agent],
     max_loops=2,
-    director_model_name="claude-sonnet-4-6",
+    director_settings={
+        "model_name": "claude-sonnet-4-6",
+        "temperature": 0.2,
+        "max_tokens": 4000,
+        "persistent_memory": False,
+    },
+    max_agent_retries=1,
+    max_reassignment_attempts=1,
     interactive=True,
     verbose=True
 )

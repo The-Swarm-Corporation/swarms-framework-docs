@@ -172,6 +172,18 @@ Example output:
   Model used by the judge agent when `agent_as_judge=True`.
 </ParamField>
 
+<ParamField path="director_settings" type="Optional[Dict[str, Any]]" default="None">
+  Additional `Agent` constructor settings for the automatically created director. These values override the legacy director parameters. Set `planning_system_prompt` in this dictionary to customize the optional planning pass.
+</ParamField>
+
+<ParamField path="max_agent_retries" type="int" default="1">
+  Number of retries after a worker's initial execution fails. When retries are exhausted, the worker is marked unavailable in the shared swarm conversation.
+</ParamField>
+
+<ParamField path="max_reassignment_attempts" type="int" default="1">
+  Maximum number of recovery rounds in which the director can move failed tasks to healthy workers. A failed task does not stop successful workers or abort the swarm.
+</ParamField>
+
 <ParamField path="add_collaboration_prompt" type="bool" default="True">
   Inject the multi-agent collaboration preamble into agents.
 </ParamField>
@@ -195,6 +207,10 @@ Example output:
 <ParamField path="verbose" type="bool" default="False">
   Enable info-level logging.
 </ParamField>
+
+<Note>
+  The swarm enforces `output_type="final"` on all configurable director and worker agents so only final responses pass between agents. The swarm-level `output_type` still determines the value returned from `run()`.
+</Note>
 
 ## Methods
 
