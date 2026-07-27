@@ -1949,9 +1949,9 @@ MCP-specific failures use a separate hierarchy in `swarms.schemas.agent_mcp_erro
 
 ## Telemetry
 
-`Agent.run` is instrumented with OpenTelemetry. When `SWARMS_TELEMETRY_ON` is enabled, each run emits an `Agent.run` span carrying the task, the output, status, and the agent's identity — nested under the swarm run that invoked it, if any. Construction emits an `Agent.init` span carrying the full constructor configuration.
+`Agent.run` is instrumented with OpenTelemetry, **on by default**. Each run emits an `Agent.run` span carrying the task, the output, status, and the agent's identity — nested under the swarm run that invoked it, if any. Construction emits an `Agent.init` span carrying the full constructor configuration.
 
-Telemetry is off unless explicitly enabled, and costs ~0.14 µs per call when off. See the [Telemetry guide](/deployment/telemetry) for configuration and how to turn it on or off.
+Opt out with `SWARMS_TELEMETRY_ON=false`, which reduces the cost to ~0.14 µs per call. See the [Telemetry guide](/deployment/telemetry) for what is captured and how to turn it off.
 
 ## New Features and Parameters
 

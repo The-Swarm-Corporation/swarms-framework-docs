@@ -6,7 +6,7 @@ icon: 'chart-line'
 
 ## Overview
 
-Swarms ships with optional [OpenTelemetry](https://opentelemetry.io) tracing. When enabled, every agent and swarm run emits a span recording what was asked, what came back, how long it took, and whether it failed — and those spans nest, so a swarm run and every agent run underneath it form a single connected trace.
+Swarms ships with [OpenTelemetry](https://opentelemetry.io) tracing, **enabled by default**. Every agent and swarm run emits a span recording what was asked, what came back, how long it took, and whether it failed — and those spans nest, so a swarm run and every agent run underneath it form a single connected trace.
 
 Telemetry is **fail-safe by design**: if the exporter is unreachable, the configuration is wrong, or the dependency is missing, the instance goes inert and your agents keep running. It never raises into your code.
 
@@ -14,24 +14,28 @@ Telemetry is **fail-safe by design**: if the exporter is unreachable, the config
 
 Telemetry is controlled by a single environment variable, `SWARMS_TELEMETRY_ON`.
 
+**Telemetry is on by default.** It must be switched off explicitly — leaving the variable unset leaves it enabled.
+
 <CodeGroup>
 
-```bash Off (default)
-# Unset, or any value other than the three below
+```bash Off (opt out)
+export SWARMS_TELEMETRY_ON=false
+```
+
+```bash On (default)
+# Unset, or any value that is not a recognized off value
 unset SWARMS_TELEMETRY_ON
 ```
 
-```bash On
-export SWARMS_TELEMETRY_ON=true
-```
-
 ```bash .env file
-SWARMS_TELEMETRY_ON="true"
+SWARMS_TELEMETRY_ON="false"
 ```
 
 </CodeGroup>
 
-Accepted "on" values are exactly `"True"`, `"true"`, and `"1"`. Anything else — including `"yes"`, `"TRUE"`, or an empty string — is off.
+Recognized **off** values, case-insensitive and whitespace-tolerant: `false`, `0`, `no`, `off`, `disable`, `disabled`. An empty or whitespace-only value also counts as off, so `SWARMS_TELEMETRY_ON=` in a `.env` file disables telemetry rather than silently enabling it.
+
+Anything else — `true`, `1`, `yes`, or an unrecognized string — leaves it on.
 
 <Warning>
 The gate is read **once per process**, at first use. Changing `SWARMS_TELEMETRY_ON` at runtime has no effect until you restart. This is deliberate: it keeps the hot path to a single cached lookup.
@@ -58,9 +62,9 @@ Measured overhead per decorated call:
 
 | State | Overhead per `run()` | Notes |
 |---|---:|---|
-| **Off** | **~0.14 µs** | One cached lookup and a boolean check, then straight through |
-| **On**, small payload | ~22 µs | Span creation, attributes, context attach |
-| **On**, ~48 KB output | ~100 µs | Cost scales with payload size, not span machinery |
+| **Off** (opt out) | **~0.14 µs** | One cached lookup and a boolean check, then straight through |
+| **On** (default), small payload | ~22 µs | Span creation, attributes, context attach |
+| **On** (default), ~48 KB output | ~100 µs | Cost scales with payload size, not span machinery |
 
 Every one of those numbers is dwarfed by a single LLM round trip (200 ms – several seconds). Even the worst case is roughly **0.05% of a 200 ms call**. Span export happens on a background thread via `BatchSpanProcessor`, so the network is never on your hot path.
 
@@ -135,7 +139,7 @@ Every multi-agent harness and the `Agent` class itself:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SWARMS_TELEMETRY_ON` | unset (off) | Master on/off switch |
+| `SWARMS_TELEMETRY_ON` | unset (**on**) | Master switch; set to `false` to opt out |
 | `OTEL_SERVICE_NAME` | `swarms` | Service name attached to every span |
 | `SWARMS_OTEL_TIMEOUT` | `8` | Export timeout in seconds |
 | `SWARMS_OTEL_MAX_CHARS` | `16000` | Max characters per input/output attribute |
@@ -233,4 +237,12 @@ assert dict(run_span.attributes)["swarms.status"] == "completed"
 
 ## Privacy
 
-Telemetry captures task text, agent outputs, and constructor configuration — including system prompts, which may contain proprietary instructions. If that matters for your deployment, leave `SWARMS_TELEMETRY_ON` unset. There is no partial mode: it is entirely on or entirely off.
+Telemetry captures task text, agent outputs, and constructor configuration — including system prompts, which may contain proprietary instructions.
+
+Because it is **on by default**, opt out explicitly if any of that is sensitive in your deployment:
+
+```bash
+export SWARMS_TELEMETRY_ON=false
+```
+
+There is no partial mode: it is entirely on or entirely off.
