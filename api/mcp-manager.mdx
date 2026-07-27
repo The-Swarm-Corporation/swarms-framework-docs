@@ -1,0 +1,252 @@
+---
+title: 'MCPManager'
+description: 'The single entry point for Model Context Protocol servers — discovery, auth, transport, and tool routing'
+icon: 'plug'
+---
+
+## Overview
+
+`MCPManager` is the one class handling [MCP](https://modelcontextprotocol.io) in Swarms. Point it at one or more servers and it takes care of transport selection, authentication, tool discovery, schema caching, and routing each tool call to the server that owns it.
+
+An `Agent` builds one as `agent.mcp_manager` whenever you set `mcp_url` or `mcp_urls`. You can also use it directly, with no agent involved.
+
+```python
+from swarms.tools.mcp_manager import MCPManager
+
+manager = MCPManager(mcp_url="http://localhost:8000/mcp")
+
+manager.list_tool_names()                                  # what's available
+manager.get_tools()                                        # OpenAI schemas for an LLM
+manager.call_tool("get_crypto_price", {"coin_id": "btc"})  # call one directly
+manager.execute_tool_calls(llm_response)                   # run what a model asked for
+```
+
+<Warning>
+`swarms.tools.mcp_client_tools` and its standalone functions have been **removed**. See [Migration](#migration) for direct replacements.
+</Warning>
+
+## Import
+
+```python
+from swarms.tools.mcp_manager import MCPManager
+```
+
+## Constructor
+
+<ParamField path="mcp_url" type="Union[str, MCPConnection, Dict]">
+  A single server — URL string, connection object, or dict.
+</ParamField>
+
+<ParamField path="mcp_urls" type="List[Union[str, MCPConnection, Dict]]">
+  Several servers. Entries may mix forms, so different servers can use different authentication.
+</ParamField>
+
+<ParamField path="mcp_config" type="Union[MCPConnection, Dict]">
+  Full configuration for one server.
+</ParamField>
+
+<ParamField path="mcp_configs" type="List[Union[MCPConnection, Dict]]">
+  Full configuration for several servers.
+</ParamField>
+
+<ParamField path="api_key" type="str">
+  API key applied to every server that does not define its own.
+</ParamField>
+
+<ParamField path="authorization_token" type="str">
+  Bearer token applied to every server that does not define its own.
+</ParamField>
+
+<ParamField path="oauth" type="Union[MCPOAuthConfig, Dict]">
+  OAuth 2.1 configuration.
+</ParamField>
+
+<ParamField path="headers" type="Dict[str, str]">
+  Extra headers merged into every request.
+</ParamField>
+
+<ParamField path="transport" type="str">
+  Force `streamable_http`, `sse`, or `stdio`. Auto-detected otherwise; hyphenated forms like `streamable-http` are normalized.
+</ParamField>
+
+<ParamField path="timeout" type="int" default="30">
+  Request timeout in seconds.
+</ParamField>
+
+<ParamField path="agent_name" type="str" default="agent">
+  Name used in log messages.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="false">
+  Verbose logging.
+</ParamField>
+
+<ParamField path="retry_attempts" type="int" default="3">
+  Retries per operation before raising.
+</ParamField>
+
+## Discovery
+
+### get_tools
+
+```python
+def get_tools(format="openai", force_refresh=False) -> List[Dict[str, Any]]
+```
+
+Fetch tools from every configured server. Returns OpenAI function-calling schemas by default, ready to hand to an LLM. Results are cached; pass `force_refresh=True` to re-fetch.
+
+```python
+tools = manager.get_tools()                    # OpenAI schemas
+raw = manager.get_tools(format="mcp")          # raw MCP schemas
+fresh = manager.get_tools(force_refresh=True)  # bypass cache
+```
+
+Async form: `await manager.aget_tools(...)`.
+
+### list_tool_names
+
+```python
+def list_tool_names() -> List[str]
+```
+
+Every tool name across all configured servers — the cheapest way to see what is available.
+
+## Execution
+
+### call_tool
+
+```python
+def call_tool(name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]
+```
+
+Call one tool directly, no LLM involved. Returns a result envelope:
+
+```python
+{
+    "tool": "get_crypto_price",
+    "server": "http://localhost:8000/mcp",
+    "arguments": {"coin_id": "bitcoin"},
+    "is_error": False,
+    "result": "Current price of Bitcoin: $64,601.00",
+}
+```
+
+Async form: `await manager.acall_tool(...)`.
+
+### execute_tool_calls
+
+```python
+def execute_tool_calls(response, output_type="dict") -> Union[List[Dict], str]
+```
+
+Run the tool calls contained in an LLM response. Each call is routed to the server that advertised the tool, and results come back in call order. This is the step an `Agent` performs between LLM turns.
+
+<ParamField path="response" type="Any" required>
+  An LLM response, a single call dict, or a list of calls.
+</ParamField>
+
+<ParamField path="output_type" type='"dict" | "json" | "str"' default="dict">
+  Result format.
+</ParamField>
+
+Async form: `await manager.aexecute_tool_calls(...)`. To re-render results you already hold, use the static `MCPManager.format_results(results, output_type)`.
+
+<Note>
+When a tool returns structured data, its payload arrives as a **JSON string** in the `result` field:
+
+```python
+import json
+payload = json.loads(results[0]["result"])
+```
+</Note>
+
+## Configuration management
+
+| Member | Description |
+|---|---|
+| `enabled` | Property — `True` when at least one server is configured |
+| `add_server(server)` | Register another server and invalidate the tool cache |
+| `clear_cache()` | Drop cached tool schemas and routing information |
+| `clear_auth_cache()` | Forget in-process OAuth providers and cached tokens |
+| `to_dict()` | Serializable, **secret-redacted** view of the configuration |
+
+## Authentication
+
+```python
+from swarms.schemas.mcp_schemas import MCPConnection, MCPOAuthConfig
+
+# API key
+MCPManager(mcp_url="https://api.example.com/mcp", api_key="sk-...")
+
+# Bearer token
+MCPManager(mcp_url="https://api.example.com/mcp", authorization_token="ey...")
+
+# Headers, transport, timeouts
+MCPManager(mcp_config=MCPConnection(
+    url="https://api.example.com/mcp",
+    headers={"X-Tenant": "acme"},
+    transport="streamable_http",
+    timeout=20,
+))
+
+# Secrets resolved from the environment at connection time
+MCPConnection(url="https://api.example.com/mcp", api_key="env:EXAMPLE_MCP_KEY")
+
+# OAuth 2.1 client credentials
+MCPConnection(url="https://api.example.com/mcp", oauth=MCPOAuthConfig(
+    grant_type="client_credentials",
+    client_id="example-client",
+    client_secret="env:EXAMPLE_CLIENT_SECRET",
+    token_url="https://api.example.com/oauth/token",
+))
+```
+
+Both `env:NAME` and `${NAME}` indirection are resolved when the connection is made, so secrets stay out of source.
+
+### Mixed auth across servers
+
+```python
+MCPManager(mcp_urls=[
+    "http://localhost:8000/mcp",                    # local, no auth
+    MCPConnection(url="https://api.example.com/mcp", api_key="sk-..."),
+])
+```
+
+## Errors
+
+| Exception | Raised when |
+|---|---|
+| `AgentMCPConnectionError` | The server is unreachable, or authentication fails |
+| `AgentMCPToolError` | A tool call fails on the server |
+| `AgentMCPError` | Base class for both |
+
+All live in `swarms.schemas.agent_mcp_errors`. Operations retry with backoff up to `retry_attempts` before raising.
+
+## Migration
+
+The standalone functions in `swarms.tools.mcp_client_tools` were removed once everything moved onto this class.
+
+| Removed function | Replacement |
+|---|---|
+| `aget_mcp_tools(server_path=URL)` | `await MCPManager(mcp_url=URL).aget_tools()` |
+| `get_mcp_tools_sync(server_path=URL)` | `MCPManager(mcp_url=URL).get_tools()` |
+| `get_tools_for_multiple_mcp_servers(urls=URLS)` | `MCPManager(mcp_urls=URLS).get_tools()` |
+| `execute_tool_call_simple(response=R, server_path=URL)` | `await MCPManager(mcp_url=URL).aexecute_tool_calls(R)` |
+| `execute_multiple_tools_on_multiple_mcp_servers(...)` | `await MCPManager(mcp_urls=URLS).aexecute_tool_calls(R)` |
+| `MCPError`, `MCPConnectionError`, `MCPToolError`, `MCPExecutionError` | `AgentMCPError`, `AgentMCPConnectionError`, `AgentMCPToolError` |
+
+Two behavioral differences to be aware of:
+
+1. **`output_type` on tool fetching is gone.** `get_tools_for_multiple_mcp_servers` accepted the argument but never applied it. Use `format="openai" | "mcp"` to pick the schema shape.
+2. **Execution results are wrapped.** The old functions returned the raw MCP `CallToolResult` dump. `execute_tool_calls` returns one envelope per call, so results from several servers stay attributable. Read `result["result"]` for the tool's own payload.
+
+## Related
+
+<CardGroup cols={2}>
+<Card title="MCP Integration" icon="plug" href="/integrations/mcp">
+Using MCP servers from an agent
+</Card>
+<Card title="Agent" icon="robot" href="/api/agent">
+Set `mcp_url` / `mcp_urls` to wire this in automatically
+</Card>
+</CardGroup>

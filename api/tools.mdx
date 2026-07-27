@@ -252,117 +252,35 @@ tool = tool_find_by_name("calculator", tools_list)
 
 ## MCP Tools Integration
 
-Functions for integrating with Model Context Protocol (MCP) servers.
-
-### get_mcp_tools_sync
-
-Synchronously retrieve tools from an MCP server.
+MCP integration is handled by a single class, [`MCPManager`](/api/mcp-manager). Point it at one or more servers and it manages transport, authentication, tool discovery, caching, and routing each call to the server that owns the tool.
 
 ```python
-from swarms.tools import get_mcp_tools_sync
+from swarms.tools.mcp_manager import MCPManager
 
-tools = get_mcp_tools_sync(server_path="http://localhost:8000/sse")
+manager = MCPManager(mcp_url="http://localhost:8000/mcp")
+
+manager.list_tool_names()                                  # discover
+manager.get_tools()                                        # OpenAI schemas for an LLM
+manager.call_tool("get_crypto_price", {"coin_id": "btc"})  # call one directly
+manager.execute_tool_calls(llm_response)                   # run what a model asked for
 ```
 
-<ParamField path="server_path" type="str" default="None">
-  Path/URL to the MCP server
-</ParamField>
+`MCPManager` and `MCPFileTokenStorage` are exported from `swarms.tools`. See the [MCPManager reference](/api/mcp-manager) for the full API, and the [MCP integration guide](/integrations/mcp) for using it from an agent.
 
-<ParamField path="format" type="str" default="openai">
-  Format to return tools in (`"openai"` or `"mcp"`)
-</ParamField>
+<Warning>
+**Removed in favor of `MCPManager`.** The standalone functions previously documented here — `get_mcp_tools_sync`, `aget_mcp_tools`, `execute_tool_call_simple`, `get_tools_for_multiple_mcp_servers`, and `execute_multiple_tools_on_multiple_mcp_servers` — no longer exist, along with the `swarms.tools.mcp_client_tools` module.
 
-<ParamField path="connection" type="MCPConnection" default="None">
-  Optional `MCPConnection` object
-</ParamField>
+| Removed | Replacement |
+|---|---|
+| `get_mcp_tools_sync(server_path=URL)` | `MCPManager(mcp_url=URL).get_tools()` |
+| `aget_mcp_tools(server_path=URL)` | `await MCPManager(mcp_url=URL).aget_tools()` |
+| `get_tools_for_multiple_mcp_servers(urls=URLS)` | `MCPManager(mcp_urls=URLS).get_tools()` |
+| `execute_tool_call_simple(response=R, server_path=URL)` | `await MCPManager(mcp_url=URL).aexecute_tool_calls(R)` |
+| `execute_multiple_tools_on_multiple_mcp_servers(...)` | `await MCPManager(mcp_urls=URLS).aexecute_tool_calls(R)` |
 
-<ParamField path="transport" type="str" default="streamable-http">
-  Transport type. Auto-detected from `server_path` if `None`
-</ParamField>
+Full migration notes, including the two behavioral differences, are in the [MCPManager reference](/api/mcp-manager#migration).
+</Warning>
 
-<ParamField path="verbose" type="bool" default="True">
-  Enable verbose logging
-</ParamField>
-
-### aget_mcp_tools
-
-Asynchronously retrieve tools from an MCP server. Accepts the same parameters as `get_mcp_tools_sync` (`transport` defaults to `None`, which auto-detects).
-
-```python
-from swarms.tools import aget_mcp_tools
-
-tools = await aget_mcp_tools(server_path="http://localhost:8000/sse")
-```
-
-### execute_tool_call_simple
-
-Async function that executes a tool call on an MCP server.
-
-```python
-import asyncio
-from swarms.tools import execute_tool_call_simple
-
-result = asyncio.run(execute_tool_call_simple(
-    response={"name": "my_tool", "arguments": {"arg1": "value1"}},
-    server_path="http://localhost:8000/sse",
-))
-```
-
-<ParamField path="response" type="any" default="None">
-  The tool call request (dict or JSON string)
-</ParamField>
-
-<ParamField path="server_path" type="str" default="None">
-  The MCP server URL
-</ParamField>
-
-<ParamField path="connection" type="MCPConnection" default="None">
-  Optional `MCPConnection` object
-</ParamField>
-
-<ParamField path="output_type" type="Literal['json', 'dict', 'str', 'formatted']" default="str">
-  Output format type
-</ParamField>
-
-<ParamField path="transport" type="str" default="None">
-  Transport type. Auto-detected from `server_path` if `None`
-</ParamField>
-
-### get_tools_for_multiple_mcp_servers
-
-Retrieve tools from multiple MCP servers concurrently using a thread pool.
-
-```python
-from swarms.tools import get_tools_for_multiple_mcp_servers
-
-all_tools = get_tools_for_multiple_mcp_servers(
-    urls=["http://localhost:8000/sse", "http://localhost:8001/sse"]
-)
-```
-
-<ParamField path="urls" type="List[str]" required>
-  List of server URLs to fetch tools from
-</ParamField>
-
-<ParamField path="connections" type="List[MCPConnection]" default="None">
-  Optional list of `MCPConnection` objects
-</ParamField>
-
-<ParamField path="format" type="str" default="openai">
-  Format to return tools in
-</ParamField>
-
-<ParamField path="output_type" type="Literal['json', 'dict', 'str']" default="str">
-  Output format type
-</ParamField>
-
-<ParamField path="max_workers" type="int" default="None">
-  Max worker threads
-</ParamField>
-
-<ParamField path="transport" type="str" default="None">
-  Transport type. Auto-detected per URL if `None`
-</ParamField>
 
 ## Additional Utilities
 

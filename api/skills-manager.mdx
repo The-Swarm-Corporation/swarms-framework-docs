@@ -1,0 +1,191 @@
+---
+title: 'SkillsManager'
+description: 'Loads Agent Skills from disk and renders them into an agent system prompt'
+icon: 'graduation-cap'
+---
+
+## Overview
+
+`SkillsManager` implements Agent Skills: `SKILL.md` files on disk, discovered and folded into an agent's system prompt. It supports the tiered loading model — name/description metadata kept in memory for context-aware activation (Tier 1), and a skill's full body pulled on demand (Tier 2).
+
+Every `Agent` builds one automatically as `agent.skills`. It is also usable standalone.
+
+```python
+from swarms import Agent
+
+agent = Agent(agent_name="Analyst", skills_dir="./skills")
+agent.run("Build a DCF model")   # relevant skills load into the prompt
+```
+
+## Import
+
+```python
+from swarms.agents.skills_manager import SkillsManager
+```
+
+## Design
+
+The manager **never mutates the agent**. It returns prompt text and the caller decides what to do with it, which keeps prompt mutation in one visible place and makes the class testable on its own:
+
+```python
+# Agent.handle_skills is a single line
+self.system_prompt += self.skills.prompt_for_task(task)
+```
+
+## Constructor
+
+```python
+SkillsManager(skills_dir=None, similarity_threshold=0.3)
+```
+
+<ParamField path="skills_dir" type="str">
+  Directory containing skill folders, each holding a `SKILL.md` file with YAML frontmatter. `None` disables skills entirely.
+</ParamField>
+
+<ParamField path="similarity_threshold" type="float" default="0.3">
+  Minimum task/skill similarity for a skill to be selected during dynamic loading.
+</ParamField>
+
+### Attributes
+
+<ParamField path="skills_dir" type="Optional[str]">
+  The configured skills directory.
+</ParamField>
+
+<ParamField path="metadata" type="List[Dict[str, str]]">
+  Metadata for the skills loaded so far.
+</ParamField>
+
+<ParamField path="enabled" type="bool">
+  Read-only. `True` when a directory is configured **and** exists on disk.
+</ParamField>
+
+## Skill format
+
+Each skill is a folder containing a `SKILL.md` with YAML frontmatter:
+
+```
+skills/
+├── financial-analysis/
+│   └── SKILL.md
+└── code-review/
+    └── SKILL.md
+```
+
+```markdown SKILL.md
+---
+name: financial-analysis
+description: DCF modeling, ratio analysis, and valuation techniques
+---
+
+When performing financial analysis, always start by identifying the
+company's revenue drivers, then build a three-statement model...
+```
+
+Malformed skills are skipped, never fatal — a file with no frontmatter, unterminated frontmatter, invalid YAML, or one that cannot be read is logged and passed over. A skill with no `name` in its frontmatter falls back to its folder name.
+
+## Methods
+
+### prompt_for_task
+
+```python
+def prompt_for_task(task: Optional[str] = None) -> str
+```
+
+Build the skills prompt section. The task argument selects the loading strategy:
+
+<ParamField path="task" type="str">
+  When provided, only skills whose description is similar to the task are loaded (dynamic). When `None`, every skill is loaded (static).
+</ParamField>
+
+Returns the formatted prompt section, or `""` when nothing loaded. Populates `metadata` as a side effect.
+
+<Tabs>
+<Tab title="Dynamic">
+```python
+skills = SkillsManager(skills_dir="./skills")
+section = skills.prompt_for_task("Build a DCF valuation model")
+# only financial-analysis is selected
+```
+Uses `DynamicSkillsLoader`, which scores each skill's description against the task by cosine similarity and keeps those above `similarity_threshold`. The loader is built lazily on first use and reused afterwards.
+</Tab>
+<Tab title="Static">
+```python
+section = skills.prompt_for_task(None)
+# every skill in the directory is included
+```
+</Tab>
+</Tabs>
+
+### load_metadata
+
+```python
+def load_metadata(skills_dir: Optional[str] = None) -> List[Dict[str, str]]
+```
+
+Tier 1 loading — scan a directory and return one dict per skill with `name`, `description`, `path`, and `content`. Defaults to the configured directory. Returns `[]` when the directory is missing. Entries are returned in sorted order for determinism.
+
+<Warning>
+`load_metadata()` **returns** metadata without assigning it to `self.metadata`. Only `prompt_for_task()` populates that attribute — and `load_full_skill()` reads from it. Calling `load_metadata()` alone and then `load_full_skill()` will always return `None`.
+</Warning>
+
+### build_prompt
+
+```python
+def build_prompt(skills: List[Dict[str, str]]) -> str
+```
+
+Render skill metadata as a prompt section. Returns `""` for an empty list. The `# Available Skills` header is emitted exactly once, followed by each skill's name, description, and body.
+
+### load_full_skill
+
+```python
+def load_full_skill(skill_name: str) -> Optional[str]
+```
+
+Tier 2 loading — the complete markdown below the frontmatter for one skill, found by name in `metadata`. Returns `None` when the skill is unknown or the file has since become unreadable.
+
+### set_skills_dir
+
+```python
+def set_skills_dir(skills_dir: Optional[str]) -> None
+```
+
+Point the manager at a different directory, discarding cached `metadata` and the dynamic loader.
+
+## Agent integration
+
+| `Agent` member | Behavior |
+|---|---|
+| `agent.skills` | The `SkillsManager` instance |
+| `agent.skills_dir` | Property reading through to `skills.skills_dir` (settable) |
+| `agent.skills_metadata` | Property reading through to `skills.metadata` (settable) |
+| `agent.handle_skills(task=None)` | Appends `prompt_for_task(task)` to the system prompt |
+| `agent.load_skills_metadata(skills_dir=None)` | Delegates to `load_metadata()` |
+| `agent.load_full_skill(name)` | Delegates to `load_full_skill()` |
+
+Skills load at `run()` time, not construction, so an agent's recorded system prompt at init does not yet include them.
+
+## Standalone use
+
+```python
+from swarms.agents.skills_manager import SkillsManager
+
+skills = SkillsManager(skills_dir="./skills")
+
+print(skills.enabled)                        # True
+print([s["name"] for s in skills.load_metadata()])
+print(skills.prompt_for_task("review this Python code"))
+print(skills.load_full_skill("code-review"))
+```
+
+## Related
+
+<CardGroup cols={2}>
+<Card title="Agent Skills" icon="graduation-cap" href="/agents/agent-skills">
+Guide to authoring and using skills
+</Card>
+<Card title="Agent" icon="robot" href="/api/agent">
+The class that owns the manager
+</Card>
+</CardGroup>

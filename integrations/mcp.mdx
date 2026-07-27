@@ -17,383 +17,308 @@ MCP (Model Context Protocol) provides:
 
 ## Quick Start
 
-### Basic MCP Integration
+### Let the agent do it
 
-Connect an agent to an MCP server:
+The simplest integration: give the agent a URL and it discovers and calls the tools itself.
 
 ```python
 from swarms import Agent
-from swarms.tools import get_mcp_tools_sync
 
-# Fetch tools from MCP server
-tools = get_mcp_tools_sync(
-    server_path="https://api.example.com/mcp",
-    format="openai",
-    transport="streamable-http",
-)
-
-# Create agent with MCP tools
 agent = Agent(
     agent_name="MCP-Agent",
     model_name="claude-sonnet-4-6",
-    tools=tools,
+    mcp_url="https://mcp.deepwiki.com/mcp",   # free, no API key
     max_loops=1,
 )
 
-result = agent.run("Execute a task using MCP tools")
+result = agent.run("What is the swarms framework? Use the deepwiki tools.")
 ```
 
-### Async Tool Loading
+That is the whole integration. Behind it, the agent builds an [`MCPManager`](/api/mcp-manager) — reachable as `agent.mcp_manager` — which handles transport, auth, discovery, and routing.
 
-For async environments, use the async API:
+### Several servers at once
 
 ```python
-import asyncio
-from swarms.tools import aget_mcp_tools
-
-async def setup_agent():
-    # Fetch tools asynchronously
-    tools = await aget_mcp_tools(
-        server_path="https://api.example.com/mcp",
-        format="openai",
-        transport="streamable-http",
-        verbose=True,
-    )
-    
-    return tools
-
-tools = asyncio.run(setup_agent())
+agent = Agent(
+    agent_name="Multi-MCP-Agent",
+    model_name="claude-sonnet-4-6",
+    mcp_urls=[
+        "https://mcp.deepwiki.com/mcp",
+        "https://learn.microsoft.com/api/mcp",
+    ],
+    max_loops=1,
+)
 ```
 
-## MCP Connection Configuration
+The agent sees the union of every server's tools and each call is routed back to the server that owns it.
 
-### Using MCPConnection Object
+### Without an agent
 
-For advanced configuration, use the `MCPConnection` schema:
+`MCPManager` works standalone when you want tools, not autonomy:
 
 ```python
-from swarms.schemas.mcp_schemas import MCPConnection
-from swarms.tools import get_mcp_tools_sync
+from swarms.tools.mcp_manager import MCPManager
 
-# Configure MCP connection
-connection = MCPConnection(
-    url="https://api.example.com/mcp",
-    transport="streamable-http",
-    headers={"X-Custom-Header": "value"},
-    authorization_token="your-token-here",
-    timeout=30,
-)
+manager = MCPManager(mcp_url="https://api.example.com/mcp")
 
-# Fetch tools with connection object
-tools = get_mcp_tools_sync(
-    connection=connection,
-    format="openai",
-    verbose=True,
-)
+manager.list_tool_names()                       # ['get_weather', 'send_email']
+tools = manager.get_tools()                     # OpenAI schemas
+result = manager.call_tool("get_weather", {"location": "San Francisco"})
 ```
 
-### Transport Options
+Every method has an async twin: `aget_tools`, `acall_tool`, `aexecute_tool_calls`.
 
-Swarms supports multiple transport protocols:
+## Connection Configuration
+
+### Agent-level settings
+
+Authentication and transport can be set directly on the agent and apply to every server it uses:
 
 ```python
-from swarms.tools import get_mcp_tools_sync
-
-# Streamable HTTP (recommended for web APIs)
-tools_http = get_mcp_tools_sync(
-    server_path="https://api.example.com/mcp",
-    transport="streamable-http",
-)
-
-# Auto-detect transport from URL
-tools_auto = get_mcp_tools_sync(
-    server_path="https://api.example.com/mcp",
-    transport=None,  # Auto-detects from URL scheme
+agent = Agent(
+    agent_name="Secure-MCP-Agent",
+    model_name="claude-sonnet-4-6",
+    mcp_url="https://api.example.com/mcp",
+    mcp_api_key="sk-...",                    # or mcp_authorization_token
+    mcp_headers={"X-Tenant": "acme"},
+    mcp_transport="streamable_http",
+    mcp_timeout=30,
 )
 ```
 
-## Multi-Server Integration
+### Per-server settings with MCPConnection
 
-### Connect to Multiple MCP Servers
-
-Fetch tools from multiple servers simultaneously:
-
-```python
-from swarms.tools import get_tools_for_multiple_mcp_servers
-from swarms.schemas.mcp_schemas import MCPConnection
-
-# Define multiple server URLs
-urls = [
-    "https://api.example.com/mcp",
-    "https://tools.example.com/mcp",
-    "https://services.example.com/mcp",
-]
-
-# Optional: Define connection configs for each server
-connections = [
-    MCPConnection(
-        url=urls[0],
-        authorization_token="token1",
-    ),
-    MCPConnection(
-        url=urls[1],
-        authorization_token="token2",
-    ),
-    MCPConnection(
-        url=urls[2],
-        authorization_token="token3",
-    ),
-]
-
-# Fetch tools from all servers concurrently
-all_tools = get_tools_for_multiple_mcp_servers(
-    urls=urls,
-    connections=connections,
-    format="openai",
-    max_workers=3,
-    verbose=True,
-)
-
-print(f"Loaded {len(all_tools)} tools from {len(urls)} servers")
-```
-
-### Execute Tools Across Multiple Servers
-
-```python
-from swarms.tools import (
-    execute_multiple_tools_on_multiple_mcp_servers_sync
-)
-
-# Tool call requests
-responses = [
-    {
-        "function": {
-            "name": "database_query",
-            "arguments": {"query": "SELECT * FROM users"}
-        }
-    },
-    {
-        "function": {
-            "name": "send_email",
-            "arguments": {"to": "user@example.com", "subject": "Hello"}
-        }
-    },
-]
-
-# Execute across multiple servers
-results = execute_multiple_tools_on_multiple_mcp_servers_sync(
-    responses=responses,
-    urls=urls,
-    connections=connections,
-    output_type="str",
-    max_concurrent=5,
-    transport="streamable-http",
-    verbose=True,
-)
-
-for result in results:
-    print(f"Function: {result['function_name']}")
-    print(f"Status: {result['status']}")
-    print(f"Result: {result['result']}")
-```
-
-## Real-World Example
-
-### Building a Multi-Tool Agent
-
-Here's a complete example from the source code:
+For different credentials per server, pass `MCPConnection` objects:
 
 ```python
 from swarms import Agent
-from swarms.tools import get_mcp_tools_sync
 from swarms.schemas.mcp_schemas import MCPConnection
 
-# Configure MCP server connection
-mcp_connection = MCPConnection(
-    url="https://mcp.example.com/api",
-    transport="streamable-http",
-    authorization_token="your-mcp-api-token",
-    timeout=30,
-)
-
-# Fetch available tools from MCP server
-print("Fetching tools from MCP server...")
-tools = get_mcp_tools_sync(
-    connection=mcp_connection,
-    format="openai",
-    verbose=True,
-)
-
-print(f"Loaded {len(tools)} tools from MCP server")
-
-# Create agent with MCP tools
 agent = Agent(
-    agent_name="MCP-Enabled-Agent",
-    system_prompt="You are an AI assistant with access to various tools via MCP.",
+    agent_name="Mixed-Auth-Agent",
     model_name="claude-sonnet-4-6",
-    max_loops=1,
-    tools=tools,
-    verbose=True,
-    streaming_on=True,
+    mcp_urls=[
+        "http://localhost:8000/mcp",                     # local, no auth
+        MCPConnection(
+            url="https://api.example.com/mcp",
+            authorization_token="your-token",
+            transport="streamable_http",
+            timeout=30,
+        ),
+    ],
 )
+```
 
-# Run agent with tool access
-result = agent.run(
-    "Use the available tools to analyze the database and send a summary email"
+### Secrets from the environment
+
+Keep keys out of source — both `env:NAME` and `${NAME}` are resolved when the connection is made:
+
+```python
+MCPConnection(url="https://api.example.com/mcp", api_key="env:EXAMPLE_MCP_KEY")
+```
+
+### Transport
+
+Transport is auto-detected from the URL. Force it when you need to:
+
+```python
+MCPManager(mcp_url="https://api.example.com/mcp", transport="sse")
+```
+
+Valid values are `streamable_http`, `sse`, and `stdio`. Hyphenated forms such as `streamable-http` are normalized automatically.
+
+### OAuth 2.1
+
+```python
+from swarms.schemas.mcp_schemas import MCPConnection, MCPOAuthConfig
+
+connection = MCPConnection(
+    url="https://api.example.com/mcp",
+    oauth=MCPOAuthConfig(
+        grant_type="client_credentials",
+        client_id="example-client",
+        client_secret="env:EXAMPLE_CLIENT_SECRET",
+        token_url="https://api.example.com/oauth/token",
+        scopes=["tools.read"],
+    ),
 )
+```
 
-print(result)
+Full OAuth 2.1 is supported, including PKCE authorization-code flow with RFC 7591 dynamic client registration, headless client credentials, and pre-issued tokens.
+
+## Multi-Server Integration
+
+One manager, many servers, automatic routing:
+
+```python
+from swarms.tools.mcp_manager import MCPManager
+
+manager = MCPManager(mcp_urls=[
+    "https://api.example.com/mcp",
+    "https://tools.example.com/mcp",
+])
+
+# The union of every server's tools
+print(manager.list_tool_names())
+
+# Calls go to whichever server advertised the tool — the call site is identical
+manager.call_tool("database_query", {"query": "SELECT * FROM users"})
+manager.call_tool("send_email", {"to": "user@example.com", "subject": "Hello"})
+```
+
+Servers can be added later; doing so invalidates the tool cache so the next fetch picks them up:
+
+```python
+manager.add_server("https://services.example.com/mcp")
 ```
 
 ## Tool Execution
 
-### Execute Individual Tools
+### Executing what a model asked for
+
+When an LLM replies with tool calls, hand the response straight to the manager. Each call is routed and the results come back in order — this is the step an `Agent` performs between turns.
 
 ```python
-from swarms.tools import execute_tool_call_simple
-
-# Define tool call
-tool_call = {
-    "function": {
-        "name": "get_weather",
-        "arguments": {
-            "location": "San Francisco",
-            "units": "celsius"
-        }
-    }
+response = {
+    "tool_calls": [
+        {"function": {"name": "get_weather", "arguments": {"location": "SF"}}},
+        {"function": {"name": "send_email", "arguments": {"to": "a@b.com"}}},
+    ]
 }
 
-# Execute tool
-result = await execute_tool_call_simple(
-    response=tool_call,
-    server_path="https://api.example.com/mcp",
-    output_type="str",
-    transport="streamable-http",
-    verbose=True,
-)
-
-print(result)
+results = manager.execute_tool_calls(response)                     # list of dicts
+as_json = manager.execute_tool_calls(response, output_type="json") # JSON string
+as_text = manager.execute_tool_calls(response, output_type="str")  # plain text
 ```
 
-### Batch Tool Execution
+Each result is an envelope:
+
+```python
+{
+    "tool": "get_weather",
+    "server": "https://api.example.com/mcp",
+    "arguments": {"location": "SF"},
+    "is_error": False,
+    "result": "18°C, partly cloudy",
+}
+```
+
+<Note>
+When a tool returns structured data, its payload arrives as a JSON string in `result`:
+
+```python
+import json
+payload = json.loads(results[0]["result"])
+```
+</Note>
+
+### Calling one tool directly
+
+```python
+result = manager.call_tool("get_weather", {"location": "San Francisco"})
+```
+
+### Async
 
 ```python
 import asyncio
-from swarms.tools import (
-    execute_multiple_tools_on_multiple_mcp_servers
+
+async def main():
+    manager = MCPManager(mcp_urls=["https://api.example.com/mcp"])
+    return await manager.aexecute_tool_calls(response, output_type="dict")
+
+results = asyncio.run(main())
+```
+
+## Real-World Example
+
+```python
+from swarms import Agent
+from swarms.schemas.mcp_schemas import MCPConnection
+
+agent = Agent(
+    agent_name="MCP-Enabled-Agent",
+    system_prompt="You are an AI assistant with access to tools via MCP.",
+    model_name="claude-sonnet-4-6",
+    max_loops=3,
+    mcp_config=MCPConnection(
+        url="https://mcp.example.com/api",
+        transport="streamable_http",
+        authorization_token="your-mcp-api-token",
+        timeout=30,
+    ),
+    streaming_on=True,
 )
 
-async def execute_batch():
-    tool_calls = [
-        {"function": {"name": "tool1", "arguments": {"param": "value1"}}},
-        {"function": {"name": "tool2", "arguments": {"param": "value2"}}},
-        {"function": {"name": "tool3", "arguments": {"param": "value3"}}},
-    ]
-    
-    results = await execute_multiple_tools_on_multiple_mcp_servers(
-        responses=tool_calls,
-        urls=["https://api.example.com/mcp"],
-        output_type="dict",
-        max_concurrent=3,
-        verbose=True,
-    )
-    
-    return results
-
-results = asyncio.run(execute_batch())
+result = agent.run(
+    "Use the available tools to analyze the database and send a summary email"
+)
 ```
+
+The agent discovers the server's tools on startup, decides which to call, executes them, and feeds results back into its own loop.
 
 ## Error Handling
 
-### Retry Logic and Timeouts
-
-The MCP client includes automatic retry with exponential backoff:
+Failures raise the agent MCP exceptions, and operations retry with exponential backoff up to `retry_attempts` (default 3) before raising:
 
 ```python
-from swarms.tools import get_mcp_tools_sync
-from swarms.schemas.mcp_schemas import MCPConnection
+from swarms.schemas.agent_mcp_errors import (
+    AgentMCPConnectionError,
+    AgentMCPError,
+    AgentMCPToolError,
+)
+from swarms.tools.mcp_manager import MCPManager
 
 try:
-    # Connection with custom timeout
-    connection = MCPConnection(
-        url="https://api.example.com/mcp",
-        timeout=60,  # 60 second timeout
-    )
-    
-    # Automatic retry on failure (3 retries with backoff)
-    tools = get_mcp_tools_sync(
-        connection=connection,
-        verbose=True,
-    )
-except Exception as e:
-    print(f"Failed to connect to MCP server: {e}")
+    tools = MCPManager(
+        mcp_url="https://api.example.com/mcp",
+        timeout=120,          # slow servers
+        retry_attempts=5,
+    ).get_tools()
+except AgentMCPConnectionError as e:
+    print(f"Could not reach the server or authentication failed: {e}")
+except AgentMCPToolError as e:
+    print(f"A tool call failed on the server: {e}")
+except AgentMCPError as e:
+    print(f"Any other MCP failure: {e}")
 ```
 
-### Custom Error Handling
+Per-result failures do not raise — check the envelope instead:
 
 ```python
-from swarms.tools.mcp_client_tools import (
-    MCPConnectionError,
-    MCPToolError,
-    MCPValidationError,
-    MCPExecutionError,
-)
-
-try:
-    tools = get_mcp_tools_sync(
-        server_path="https://api.example.com/mcp",
-    )
-except MCPConnectionError as e:
-    print(f"Connection failed: {e}")
-except MCPValidationError as e:
-    print(f"Validation error: {e}")
-except MCPToolError as e:
-    print(f"Tool error: {e}")
-except MCPExecutionError as e:
-    print(f"Execution error: {e}")
+for result in manager.execute_tool_calls(response):
+    if result["is_error"]:
+        print(f"{result['tool']} failed: {result['result']}")
 ```
 
-## Advanced Features
+## Inspecting Configuration
 
-### Auto-Detect Transport
-
-The client automatically detects the appropriate transport from the URL:
+`to_dict()` gives a serializable, **secret-redacted** view — safe to log:
 
 ```python
-from swarms.tools.mcp_client_tools import auto_detect_transport
-
-# Detects 'streamable_http' from https:// scheme
-transport = auto_detect_transport("https://api.example.com/mcp")
-print(transport)  # 'streamable_http'
-
-# Detects 'stdio' from empty scheme
-transport = auto_detect_transport("stdio://local-mcp")
-print(transport)  # 'stdio'
+manager.to_dict()
+# {'enabled': True,
+#  'servers': [{'name': 'https://api.example.com/mcp',
+#               'url': 'https://api.example.com/mcp',
+#               'transport': 'streamable_http',
+#               'auth_type': 'api_key',
+#               'timeout': 30}]}
 ```
 
-### Tool Schema Transformation
+## Caching
 
-Convert between MCP and OpenAI tool formats:
+Tool schemas are cached per manager after the first fetch:
 
 ```python
-from swarms.tools.mcp_client_tools import (
-    transform_mcp_tool_to_openai_tool
-)
-from mcp.types import Tool as MCPTool
-
-# MCP tool object
-mcp_tool = MCPTool(
-    name="example_tool",
-    description="An example tool",
-    inputSchema={"type": "object", "properties": {}},
-)
-
-# Convert to OpenAI format
-openai_tool = transform_mcp_tool_to_openai_tool(
-    mcp_tool=mcp_tool,
-    verbose=True,
-)
+manager.get_tools()                      # fetches
+manager.get_tools()                      # cached
+manager.get_tools(force_refresh=True)    # re-fetches
+manager.clear_cache()                    # drop schemas and routing
+manager.clear_auth_cache()               # forget OAuth providers and tokens
 ```
+
+Build one manager and reuse it rather than constructing one per call.
+
 
 ## Best Practices
 
@@ -436,9 +361,16 @@ connection = MCPConnection(
 
 **Tool Not Found**
 ```python
-# Verify tools are loaded correctly
-tools = get_mcp_tools_sync(server_path=url, verbose=True)
-print(f"Available tools: {[t['function']['name'] for t in tools]}")
+# Verify what the server actually exposes
+manager = MCPManager(mcp_url=url, verbose=True)
+print(f"Available tools: {manager.list_tool_names()}")
+```
+
+**Agent Not Using the Tools**
+```python
+# Confirm MCP is wired up and the agent can see the schemas
+print(agent.mcp_enabled)                       # True when a server is configured
+print(agent.mcp_manager.list_tool_names())     # what the agent will be offered
 ```
 
 ## Next Steps

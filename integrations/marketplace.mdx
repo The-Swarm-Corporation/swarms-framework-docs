@@ -48,12 +48,12 @@ When you provide a `marketplace_prompt_id`, the agent automatically fetches the 
 Fetch a prompt using its unique UUID:
 
 ```python
-from swarms.utils.fetch_prompts_marketplace import (
-    fetch_prompts_from_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
 # Fetch prompt details
-name, description, prompt = fetch_prompts_from_marketplace(
+name, description, prompt = AgentMarketplaceHandler.fetch(
     prompt_id="550e8400-e29b-41d4-a716-446655440000",
 )
 
@@ -67,12 +67,12 @@ print(f"Prompt Content: {prompt}")
 Fetch a prompt using its name:
 
 ```python
-from swarms.utils.fetch_prompts_marketplace import (
-    fetch_prompts_from_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
 # Fetch by name (automatically URL-encoded)
-name, description, prompt = fetch_prompts_from_marketplace(
+name, description, prompt = AgentMarketplaceHandler.fetch(
     name="financial-analysis-agent",
 )
 
@@ -84,12 +84,12 @@ print(f"Loaded: {name}")
 Retrieve the complete prompt data:
 
 ```python
-from swarms.utils.fetch_prompts_marketplace import (
-    fetch_prompts_from_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
 # Get full JSON response
-response = fetch_prompts_from_marketplace(
+response = AgentMarketplaceHandler.fetch(
     prompt_id="550e8400-e29b-41d4-a716-446655440000",
     return_params_on=False,
 )
@@ -114,8 +114,8 @@ print(response)
 Share your prompts with the community:
 
 ```python
-from swarms.utils.swarms_marketplace_utils import (
-    add_prompt_to_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
 # Define use cases
@@ -135,7 +135,7 @@ use_cases = [
 ]
 
 # Add prompt to marketplace
-response = add_prompt_to_marketplace(
+response = AgentMarketplaceHandler.add_prompt(
     name="financial-analyst-pro",
     prompt="""You are an expert financial analyst with deep expertise in:
     - Financial statement analysis
@@ -200,7 +200,7 @@ Make sure to set the `SWARMS_API_KEY` environment variable before publishing. Ge
 </Warning>
 
 <Note>
-When publishing via `publish_to_marketplace=True`, use the Agent's real constructor parameters: `agent_description` (not `description`) and `tags` as a `List[str]`. There is currently no `category` parameter on `Agent` — auto-published agents are always filed under the `"research"` category server-side, regardless of the agent's actual domain. Also note that `tags` combine with `capabilities` internally, so `capabilities` should be set alongside `tags` or publishing will fail. To control the category or publish without this constraint, use `add_prompt_to_marketplace` directly instead.
+When publishing via `publish_to_marketplace=True`, use the Agent's real constructor parameters: `agent_description` (not `description`) and `tags` as a `List[str]`. There is currently no `category` parameter on `Agent` — auto-published agents are always filed under the `"research"` category server-side, regardless of the agent's actual domain. `tags` and `capabilities` are merged into a single comma-separated string when publishing; either may be set on its own, or neither. To control the category, call `AgentMarketplaceHandler.add_prompt` directly instead.
 </Note>
 
 ## API Configuration
@@ -218,12 +218,12 @@ echo "SWARMS_API_KEY=your-api-key-here" >> .env
 ### API Key Validation
 
 ```python
-from swarms.utils.swarms_marketplace_utils import (
-    check_swarms_api_key
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
 try:
-    api_key = check_swarms_api_key()
+    api_key = AgentMarketplaceHandler.check_api_key()
     print(f"API key configured (length: {len(api_key)})")
 except ValueError as e:
     print(f"API key not set: {e}")
@@ -234,12 +234,12 @@ except ValueError as e:
 ### Custom Timeout Configuration
 
 ```python
-from swarms.utils.fetch_prompts_marketplace import (
-    fetch_prompts_from_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
 # Fetch with custom timeout
-name, description, prompt = fetch_prompts_from_marketplace(
+name, description, prompt = AgentMarketplaceHandler.fetch(
     prompt_id="550e8400-e29b-41d4-a716-446655440000",
     timeout=60.0,  # 60 second timeout
 )
@@ -248,13 +248,13 @@ name, description, prompt = fetch_prompts_from_marketplace(
 ### Error Handling
 
 ```python
-from swarms.utils.fetch_prompts_marketplace import (
-    fetch_prompts_from_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 import httpx
 
 try:
-    result = fetch_prompts_from_marketplace(
+    result = AgentMarketplaceHandler.fetch(
         name="non-existent-prompt",
     )
     
@@ -275,11 +275,11 @@ except Exception as e:
 Monetize your expertise with paid prompts:
 
 ```python
-from swarms.utils.swarms_marketplace_utils import (
-    add_prompt_to_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
-response = add_prompt_to_marketplace(
+response = AgentMarketplaceHandler.add_prompt(
     name="premium-trading-agent",
     prompt="""Advanced trading strategy agent...""",
     description="Premium algorithmic trading agent with proprietary strategies",
@@ -342,8 +342,8 @@ result = medical_agent.run(
 ### Example 3: Publishing a Research Agent
 
 ```python
-from swarms.utils.swarms_marketplace_utils import (
-    add_prompt_to_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
 research_prompt = """
@@ -373,7 +373,7 @@ use_cases = [
     },
 ]
 
-response = add_prompt_to_marketplace(
+response = AgentMarketplaceHandler.add_prompt(
     name="academic-research-assistant",
     prompt=research_prompt,
     description="Comprehensive research assistant for academic and scientific work",
@@ -435,11 +435,11 @@ if not api_key:
 ### Prompt Not Found
 
 ```python
-from swarms.utils.fetch_prompts_marketplace import (
-    fetch_prompts_from_marketplace
+from swarms.agents.agent_marketplace_handler import (
+    AgentMarketplaceHandler
 )
 
-result = fetch_prompts_from_marketplace(
+result = AgentMarketplaceHandler.fetch(
     prompt_id="invalid-id",
 )
 
@@ -453,7 +453,7 @@ else:
 
 ```python
 try:
-    add_prompt_to_marketplace(
+    AgentMarketplaceHandler.add_prompt(
         name="test-prompt",
         prompt="Test",
         description="Test",
@@ -472,7 +472,7 @@ except Exception as e:
 ### fetch_prompts_from_marketplace
 
 ```python
-fetch_prompts_from_marketplace(
+AgentMarketplaceHandler.fetch(
     prompt_id: Optional[str] = None,
     name: Optional[str] = None,
     timeout: float = 30.0,
@@ -489,7 +489,7 @@ fetch_prompts_from_marketplace(
 ### add_prompt_to_marketplace
 
 ```python
-add_prompt_to_marketplace(
+AgentMarketplaceHandler.add_prompt(
     name: str,
     prompt: str,
     description: str,

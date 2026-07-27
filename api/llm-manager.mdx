@@ -1,0 +1,234 @@
+---
+title: 'LLMManager'
+description: 'Model selection, LiteLLM construction, invocation, and fallback rotation for an agent'
+icon: 'microchip'
+---
+
+## Overview
+
+`LLMManager` owns everything an `Agent` does with a language model: building the `LiteLLM` instance from configuration, rotating through fallback models when one fails, checking model capabilities, invoking the model across all streaming modes, and re-running a failed task down the fallback chain.
+
+Every `Agent` builds one automatically as `agent.llm_manager`. You rarely construct it yourself — but it is where the behavior lives, and the agent's LLM methods are thin wrappers over it.
+
+```python
+from swarms import Agent
+
+agent = Agent(agent_name="Analyst", model_name="gpt-4o-mini")
+
+agent.llm_manager.get_current_model()      # 'gpt-4o-mini'
+agent.llm_manager.get_available_models()   # ['gpt-4o-mini']
+```
+
+## Import
+
+```python
+from swarms.agents.llm_manager import LLMManager
+```
+
+## Design
+
+Unlike the agent's other collaborators, `LLMManager` holds a reference back to its owning agent and reads configuration **live** rather than snapshotting it.
+
+That is deliberate. Agents mutate their own LLM configuration at run time: `system_prompt` grows when skills load, `tools_list_dictionary` changes when tools are registered, `streaming_on` is toggled per call by `run_stream`. A snapshot taken at construction would silently go stale.
+
+Anything the manager writes — `model_name`, `current_model_index`, `llm` — is written back to the agent, so `agent.llm`, serialization, and `save()` / `load()` all behave exactly as before.
+
+<ParamField path="agent" type="Any" required>
+  The owning `Agent`. Read for configuration; written to for `model_name`, `current_model_index`, and `llm`.
+</ParamField>
+
+## Model selection and fallback
+
+Configure fallbacks on the agent, and the manager handles rotation.
+
+```python
+agent = Agent(
+    agent_name="Resilient",
+    fallback_models=["gpt-4o-mini", "claude-sonnet-4-6", "gpt-4o"],
+)
+```
+
+### get_available_models
+
+```python
+def get_available_models() -> List[str]
+```
+
+Models in preference order. Built from `fallback_models` when set, otherwise from `model_name` plus `fallback_model_name` (de-duplicated).
+
+### get_current_model
+
+```python
+def get_current_model() -> str
+```
+
+The model currently in use. Falls back to the first available model, then to `gpt-5.4`, if the index runs out of range.
+
+### switch_to_next_model
+
+```python
+def switch_to_next_model() -> bool
+```
+
+Advance to the next model in the list, update `agent.model_name`, and rebuild `agent.llm` against it. Returns `False` when the list is exhausted. Model switches are always logged.
+
+### reset_model_index
+
+```python
+def reset_model_index() -> None
+```
+
+Return to the primary model and rebuild the LLM.
+
+### is_fallback_available
+
+```python
+def is_fallback_available() -> bool
+```
+
+`True` when more than one model is configured.
+
+## Construction
+
+### build
+
+```python
+def build(*args, **kwargs) -> Optional[LiteLLM]
+```
+
+Assemble the `LiteLLM` instance from every configuration source: the agent's core settings, `llm_args`, `tools_list_dictionary`, MCP tool schemas, and anything passed here.
+
+<ParamField path="*args" type="Any">
+  A single dict is merged directly into the configuration; anything else is stored under `additional_args`.
+</ParamField>
+
+<ParamField path="**kwargs" type="Any">
+  Merged into the LiteLLM configuration, taking precedence over defaults.
+</ParamField>
+
+Returns the instance, or `None` if initialization raised `AgentLLMInitializationError`. `parallel_tool_calls` is enabled automatically when the agent has two or more tools or any MCP server configured.
+
+### get_parameters
+
+```python
+def get_parameters() -> str
+```
+
+The current LiteLLM instance's attributes as a string.
+
+### check_model_supports_utilities
+
+```python
+def check_model_supports_utilities(img: Optional[str] = None) -> None
+```
+
+Log an error for each capability the current model lacks — vision when an image is supplied, function calling when a tool schema is set, parallel function calling when more than two tools are registered. **Logging only; never raises.**
+
+### randomize_temperature
+
+```python
+def randomize_temperature() -> None
+```
+
+Reset the LLM's temperature to a random value in `[0.0, 1.0]`. Used between loops when `dynamic_temperature_enabled` is set; falls back to `0.5` when the LLM exposes no temperature.
+
+## Invocation
+
+### call
+
+```python
+def call(
+    task: str,
+    img: Optional[str] = None,
+    current_loop: int = 0,
+    streaming_callback: Optional[Callable[[str], None]] = None,
+    *args,
+    **kwargs,
+) -> Any
+```
+
+Call the model, selecting one of three modes from the agent's configuration:
+
+<Tabs>
+<Tab title="Non-streaming">
+Direct `llm.run()` returning the complete string. Used when neither `stream` nor `streaming_on` is set.
+</Tab>
+<Tab title="Panel streaming">
+`agent.streaming_on = True`. Three sub-behaviors:
+- With `streaming_callback` — tokens forwarded in real time
+- With `print_on=False` — silent collection
+- Otherwise — a live Rich streaming panel
+</Tab>
+<Tab title="Detailed streaming">
+`agent.stream = True`. Emits a `token_info` dict per token with full metadata: index, model, id, finish reason, citations, usage, logprobs, timestamp.
+</Tab>
+</Tabs>
+
+<ParamField path="task" type="str" required>
+  The prompt to send.
+</ParamField>
+
+<ParamField path="img" type="str">
+  Image input for multimodal models — file path, URL, data URI, or raw base64.
+</ParamField>
+
+<ParamField path="current_loop" type="int" default="0">
+  Loop iteration, used in streaming panel titles.
+</ParamField>
+
+<ParamField path="streaming_callback" type="Callable[[str], None]">
+  Receives `token_info` dicts in detailed streaming, token strings in panel streaming.
+</ParamField>
+
+**Returns** the complete response string — or, when the model made tool calls mid-stream, the assembled tool-call list instead. `is_last` is stripped from `kwargs` before dispatch.
+
+### Stream plumbing
+
+```python
+def stream_with_tool_collection(stream, tool_calls_out: list)
+def extract_thinking_from_stream(stream)
+```
+
+`stream_with_tool_collection` forwards every chunk unchanged while assembling fragmented `delta.tool_calls` deltas into a complete tool-call list. `extract_thinking_from_stream` swallows reasoning chunks from models that emit them, flushes them to a thinking panel, and yields only content chunks onward.
+
+## Fallback execution
+
+### handle_fallback_execution
+
+```python
+def handle_fallback_execution(
+    task=None, img=None, imgs=None, correct_answer=None,
+    streaming_callback=None, original_error=None, *args, **kwargs,
+) -> Any
+```
+
+Re-run a failed task against the next fallback model, recursing down the chain until it succeeds or every model is exhausted — at which point the original error goes to the agent's error handler and `None` is returned.
+
+## Agent-level wrappers
+
+Each of these delegates straight to the manager and remains the supported public API:
+
+| `Agent` method | Delegates to |
+|---|---|
+| `llm_handling(*args, **kwargs)` | `build()` |
+| `call_llm(task, img, current_loop, streaming_callback)` | `call()` |
+| `get_available_models()` | `get_available_models()` |
+| `get_current_model()` | `get_current_model()` |
+| `switch_to_next_model()` | `switch_to_next_model()` |
+| `reset_model_index()` | `reset_model_index()` |
+| `is_fallback_available()` | `is_fallback_available()` |
+| `check_model_supports_utilities(img)` | `check_model_supports_utilities()` |
+| `dynamic_temperature()` | `randomize_temperature()` |
+| `get_llm_parameters()` | `get_parameters()` |
+| `_handle_fallback_execution(...)` | `handle_fallback_execution()` |
+
+## Related
+
+<CardGroup cols={2}>
+<Card title="Agent" icon="robot" href="/api/agent">
+The class that owns the manager
+</Card>
+<Card title="Model Providers" icon="plug" href="/integrations/model-providers">
+Supported models and provider configuration
+</Card>
+</CardGroup>

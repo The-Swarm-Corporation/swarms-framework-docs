@@ -19,7 +19,14 @@
     }
   },
   "contextual": {
-    "options": ["copy", "view", "chatgpt", "claude", "cursor", "vscode"]
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
@@ -104,7 +111,8 @@
               "deployment/agent-orchestration-protocol",
               "deployment/production-best-practices",
               "deployment/scaling",
-              "deployment/monitoring"
+              "deployment/monitoring",
+              "deployment/telemetry"
             ]
           },
           {
@@ -143,6 +151,10 @@
             "group": "Core Classes",
             "pages": [
               "api/agent",
+              "api/llm-manager",
+              "api/mcp-manager",
+              "api/skills-manager",
+              "api/agent-marketplace-handler",
               "api/base-swarm",
               "api/base-structure",
               "api/conversation"

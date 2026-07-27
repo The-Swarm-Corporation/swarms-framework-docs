@@ -61,6 +61,28 @@ from swarms import Agent
 - **Streaming**: Real-time token streaming with callbacks
 - **Fallback Models**: Automatic failover to backup models
 - **State Management**: Autosave and state persistence
+- **Telemetry**: Optional OpenTelemetry tracing of every run
+
+## Architecture
+
+`Agent` delegates its larger subsystems to dedicated collaborator objects, each built during `__init__` and reachable as an attribute. The agent's own methods are thin wrappers over them, so both call styles work and neither is deprecated.
+
+| Attribute | Class | Owns |
+|---|---|---|
+| `agent.llm_manager` | [`LLMManager`](/api/llm-manager) | Model selection, LiteLLM construction, invocation, streaming, fallback rotation |
+| `agent.mcp_manager` | [`MCPManager`](/api/mcp-manager) | MCP server connections, tool discovery, tool-call routing |
+| `agent.skills` | [`SkillsManager`](/api/skills-manager) | Agent Skills discovery and prompt rendering |
+| `agent.marketplace` | [`AgentMarketplaceHandler`](/api/agent-marketplace-handler) | Fetching and publishing marketplace prompts |
+
+```python
+agent = Agent(agent_name="Analyst", model_name="gpt-4o-mini")
+
+# These are equivalent
+agent.get_current_model()
+agent.llm_manager.get_current_model()
+```
+
+Each collaborator is independently usable and independently documented — reach for them directly when you want the behavior without an agent around it.
 
 ## Initialization
 
@@ -876,7 +898,7 @@ def get_llm_parameters() -> str
 
 ### Fallback Model Helpers
 
-Methods backing the `fallback_models` / `fallback_model_name` feature.
+Methods backing the `fallback_models` / `fallback_model_name` feature. All delegate to [`LLMManager`](/api/llm-manager).
 
 ```python
 def get_available_models() -> List[str]
@@ -885,6 +907,28 @@ def switch_to_next_model() -> bool
 def reset_model_index() -> None
 def is_fallback_available() -> bool
 ```
+
+### Skills Helpers
+
+Agent Skills loading, delegating to [`SkillsManager`](/api/skills-manager).
+
+```python
+def handle_skills(task: Optional[str] = None) -> None   # append skills to the system prompt
+def load_skills_metadata(skills_dir: str = None) -> List[Dict[str, str]]
+def load_full_skill(skill_name: str) -> Optional[str]
+```
+
+`agent.skills_dir` and `agent.skills_metadata` are properties that read and write through to the manager.
+
+### Marketplace Helpers
+
+Marketplace integration, delegating to [`AgentMarketplaceHandler`](/api/agent-marketplace-handler).
+
+```python
+def handle_publish_to_marketplace() -> Dict[str, Any]   # requires use_cases
+```
+
+Setting `marketplace_prompt_id` loads a prompt during construction; setting `publish_to_marketplace=True` publishes during construction.
 
 ### get_agent_role
 
@@ -1880,6 +1924,7 @@ The agent supports multiple output formats via the `output_type` parameter:
 
 The Agent class includes comprehensive error handling:
 
+- **AgentError**: Base class for every exception below
 - **AgentInitializationError**: Raised when agent fails to initialize
 - **AgentRunError**: Raised when execution fails
 - **AgentLLMError**: Raised when LLM encounters issues
@@ -1887,6 +1932,26 @@ The Agent class includes comprehensive error handling:
 - **AgentToolError**: Raised when tool execution fails
 - **AgentToolExecutionError**: Raised when the agent fails to execute a tool
 - **AgentMemoryError**: Raised for memory-related issues
+
+These live in `swarms.schemas.agent_errors` so collaborator classes can raise and catch them without importing `Agent`. They remain importable from `swarms.structs.agent` and `swarms.schemas`, and every path returns the same object:
+
+```python
+from swarms.schemas import AgentError, AgentRunError        # canonical home
+from swarms.structs.agent import AgentError                 # also works
+
+try:
+    agent.run(task)
+except AgentError as e:      # catches every agent exception
+    ...
+```
+
+MCP-specific failures use a separate hierarchy in `swarms.schemas.agent_mcp_errors`: `AgentMCPError`, `AgentMCPConnectionError`, `AgentMCPToolError`.
+
+## Telemetry
+
+`Agent.run` is instrumented with OpenTelemetry. When `SWARMS_TELEMETRY_ON` is enabled, each run emits an `Agent.run` span carrying the task, the output, status, and the agent's identity — nested under the swarm run that invoked it, if any. Construction emits an `Agent.init` span carrying the full constructor configuration.
+
+Telemetry is off unless explicitly enabled, and costs ~0.14 µs per call when off. See the [Telemetry guide](/deployment/telemetry) for configuration and how to turn it on or off.
 
 ## New Features and Parameters
 
@@ -1981,7 +2046,17 @@ The Agent class includes comprehensive error handling:
 
 ## Related
 
+**Agent subsystems**
+
+- [LLMManager](/api/llm-manager) - Model selection, invocation, and fallback rotation
+- [MCPManager](/api/mcp-manager) - MCP servers, tool discovery, and tool-call routing
+- [SkillsManager](/api/skills-manager) - Agent Skills loading and prompt rendering
+- [AgentMarketplaceHandler](/api/agent-marketplace-handler) - Marketplace fetch and publish
+
+**Everything else**
+
 - [BaseSwarm](/api/base-swarm) - Base class for multi-agent systems
 - [BaseStructure](/api/base-structure) - Foundation for swarm structures
 - [Tools](/concepts/tools) - Creating and using agent tools
 - [Memory](/agents/agent-memory) - Long-term memory systems
+- [Telemetry](/deployment/telemetry) - Tracing agent and swarm runs

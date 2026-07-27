@@ -1,0 +1,237 @@
+---
+title: 'AgentMarketplaceHandler'
+description: 'Fetch prompts from, and publish prompts to, the Swarms Marketplace'
+icon: 'store'
+---
+
+## Overview
+
+`AgentMarketplaceHandler` owns both directions of Swarms Marketplace integration: resolving a prompt UUID into an agent's system prompt, and publishing an agent's prompt with its metadata.
+
+Every `Agent` builds one as `agent.marketplace`. The class also works with **no agent at all** — fetching and publishing are classmethods, so you can use it as a standalone marketplace client.
+
+```python
+from swarms import Agent
+
+# Load a prompt at construction
+agent = Agent(marketplace_prompt_id="550e8400-e29b-41d4-a716-446655440000")
+
+# Publish this agent's prompt
+agent.handle_publish_to_marketplace()
+```
+
+## Import
+
+```python
+from swarms.agents.agent_marketplace_handler import AgentMarketplaceHandler
+```
+
+## Authentication
+
+Both directions require `SWARMS_API_KEY`. Get one at [swarms.world/platform/api-keys](https://swarms.world/platform/api-keys).
+
+```bash
+export SWARMS_API_KEY="your-key"
+```
+
+### check_api_key
+
+```python
+@staticmethod
+def check_api_key() -> str
+```
+
+Return the key from the environment, raising `ValueError` when it is unset, empty, or whitespace-only.
+
+<Note>
+The key is read **fresh on every call** — not cached. A key exported after import, or rotated mid-process, is picked up immediately.
+</Note>
+
+## Fetching
+
+### fetch
+
+```python
+@classmethod
+def fetch(
+    prompt_id: Optional[str] = None,
+    name: Optional[str] = None,
+    timeout: float = 30.0,
+    return_params_on: bool = True,
+) -> Optional[Union[Dict[str, Any], Tuple[str, str, str]]]
+```
+
+`GET https://swarms.world/api/get-prompts/<uuid-or-url-encoded-name>`
+
+<ParamField path="prompt_id" type="str">
+  The prompt's UUID. Takes precedence over `name` when both are given.
+</ParamField>
+
+<ParamField path="name" type="str">
+  The prompt's name, URL-encoded automatically.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Request timeout in seconds.
+</ParamField>
+
+<ParamField path="return_params_on" type="bool" default="true">
+  `True` returns a `(name, description, prompt)` tuple; `False` returns the full JSON response.
+</ParamField>
+
+Returns `None` when the prompt does not exist (404). Raises `ValueError` when neither argument is given, and `httpx.HTTPStatusError` for any other error status.
+
+```python
+name, description, prompt = AgentMarketplaceHandler.fetch(
+    name="code-review-assistant"
+)
+```
+
+### fetch_prompt
+
+```python
+@classmethod
+def fetch_prompt(prompt_id: str) -> Tuple[str, str, str]
+```
+
+Like `fetch`, but requires the prompt to exist — raises `ValueError` with a helpful message on 404.
+
+### load_prompt
+
+```python
+def load_prompt(prompt_id: Optional[str] = None) -> None
+```
+
+Fetch a prompt and fold it into the owning agent:
+
+- appends the prompt body to `agent.system_prompt`
+- sets `agent_name` / `name` **only if** the agent is still at the default `swarm-worker-01`
+- sets `agent_description` / `description` **only if** it is `None`
+
+Defaults to the agent's configured `marketplace_prompt_id`.
+
+<Note>
+`Agent.__init__` gives `agent_description` a generic default string rather than `None`, so the description back-fill only fires when you explicitly pass `agent_description=None`.
+</Note>
+
+## Publishing
+
+### publish
+
+```python
+def publish(category: str = "research") -> Dict[str, Any]
+```
+
+Publish the owning agent's prompt and metadata. Raises `AgentInitializationError` when `use_cases` was not provided.
+
+```python
+agent = Agent(
+    agent_name="Medical-Analyst",
+    agent_description="Analyzes lab results",
+    tags=["medical", "diagnostics"],
+    capabilities=["lab-analysis"],
+    use_cases=[{"title": "Blood panel review", "description": "..."}],
+    publish_to_marketplace=True,     # publishes on construction
+)
+```
+
+### build_tags
+
+```python
+def build_tags() -> str
+```
+
+Merge the agent's `tags` and `capabilities` into one comma-separated string. Either list may be empty or unset; only what exists is included, and neither returns `""`.
+
+### add_prompt
+
+```python
+@classmethod
+def add_prompt(
+    name=None, prompt=None, description=None, use_cases=None,
+    tags=None, is_free=True, price_usd=0.0,
+    category="research", timeout=30.0,
+) -> Dict[str, Any]
+```
+
+`POST https://swarms.world/api/add-prompt` — the low-level publish, usable without an agent.
+
+<ParamField path="name" type="str" required>
+  Prompt name.
+</ParamField>
+
+<ParamField path="prompt" type="str" required>
+  The prompt text.
+</ParamField>
+
+<ParamField path="description" type="str" required>
+  What the prompt does.
+</ParamField>
+
+<ParamField path="use_cases" type="List[Dict[str, str]]" required>
+  Dicts with `title` and `description` keys. Sent to the API as `useCases`.
+</ParamField>
+
+<ParamField path="tags" type="str">
+  Comma-separated tags. `None` becomes `""`.
+</ParamField>
+
+<ParamField path="is_free" type="bool" default="true">
+  Whether the prompt is free.
+</ParamField>
+
+<ParamField path="price_usd" type="float" default="0.0">
+  Price, ignored when `is_free`.
+</ParamField>
+
+Each missing required field raises `ValueError` naming that field.
+
+## Agent integration
+
+| `Agent` member | Behavior |
+|---|---|
+| `agent.marketplace` | The `AgentMarketplaceHandler` instance |
+| `Agent(marketplace_prompt_id=...)` | Loads the prompt during construction |
+| `Agent(publish_to_marketplace=True, ...)` | Publishes during construction |
+| `agent.handle_publish_to_marketplace()` | Delegates to `publish()` |
+| `agent._load_prompt_from_marketplace()` | Delegates to `load_prompt()` |
+
+## Standalone use
+
+```python
+from swarms.agents.agent_marketplace_handler import AgentMarketplaceHandler
+
+# No agent required
+handler = AgentMarketplaceHandler()
+
+AgentMarketplaceHandler.check_api_key()
+AgentMarketplaceHandler.fetch(name="code-review-assistant")
+AgentMarketplaceHandler.add_prompt(
+    name="My Prompt",
+    prompt="You are...",
+    description="Does a thing",
+    use_cases=[{"title": "Example", "description": "..."}],
+)
+```
+
+## Migration
+
+This class absorbed two modules that have been removed:
+
+| Removed | Replacement |
+|---|---|
+| `swarms.utils.fetch_prompts_marketplace.fetch_prompts_from_marketplace` | `AgentMarketplaceHandler.fetch` |
+| `swarms.utils.fetch_prompts_marketplace.return_params` | inlined into `fetch` |
+| `swarms.utils.swarms_marketplace_utils.add_prompt_to_marketplace` | `AgentMarketplaceHandler.add_prompt` |
+| `swarms.utils.swarms_marketplace_utils.check_swarms_api_key` | `AgentMarketplaceHandler.check_api_key` |
+
+## Related
+
+<CardGroup cols={2}>
+<Card title="Marketplace" icon="store" href="/integrations/marketplace">
+Marketplace integration guide
+</Card>
+<Card title="Agent" icon="robot" href="/api/agent">
+The class that owns the handler
+</Card>
+</CardGroup>
