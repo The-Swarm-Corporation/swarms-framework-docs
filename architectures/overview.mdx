@@ -52,6 +52,15 @@ These enable agent interaction and synthesis:
 - **Group Chat**: Conversational multi-agent interaction
 - **Graph Workflow**: DAG-based complex workflows
 
+### Roster Construction
+
+These do not execute anything themselves — they produce the agents that the architectures above run:
+
+- **[Auto Agent Builder](/api/auto-agent-builder)**: Generates an agent roster (name, description, system prompt, model) from a task, leaving the architecture choice to you
+- **[Auto Swarm Builder](/api/auto-swarm-builder)**: Generates the roster *and* selects the `swarm_type`, optionally executing it
+
+Because a generated roster is just a list of agents, it drops into any architecture on this page.
+
 ## Choosing the Right Architecture
 
 <Steps>
@@ -129,6 +138,10 @@ These enable agent interaction and synthesis:
 Explore each architecture in detail:
 
 <CardGroup cols={2}>
+  <Card title="Auto Agent Builder" icon="wand-magic-sparkles" href="/api/auto-agent-builder">
+    Generate the agent roster from a task
+  </Card>
+  
   <Card title="Sequential Workflow" icon="arrow-right" href="/architectures/sequential-workflow">
     Linear agent execution
   </Card>
