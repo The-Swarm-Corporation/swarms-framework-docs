@@ -188,6 +188,7 @@
               "api/council-as-judge",
               "api/swarm-router",
               "api/multi-agent-router",
+              "api/auto-agent-builder",
               "api/auto-swarm-builder",
               "api/swarm-rearrange",
               "api/model-router",
@@ -288,6 +289,14 @@
               "examples/multi-agent/aop-medical",
               "examples/multi-agent/debate-quickstart",
               "examples/social-swarm-patterns"
+            ]
+          },
+          {
+            "group": "Auto Agent Builder",
+            "pages": [
+              "examples/auto-agent-builder/quickstart",
+              "examples/auto-agent-builder/triage",
+              "examples/auto-agent-builder/reproducible"
             ]
           },
           {

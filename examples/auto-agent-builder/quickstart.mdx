@@ -1,0 +1,213 @@
+---
+title: 'Auto Agent Builder Quickstart'
+description: 'Turn a plain-English task into a working team of agents without writing a single system prompt.'
+icon: 'wand-magic-sparkles'
+---
+
+Writing a multi-agent system normally starts with you hand-authoring every agent: a name, a description, a system prompt, a model. `AutoAgentBuilder` moves that step to the model. You describe the task; it returns the roster.
+
+## Overview
+
+| Feature | Description |
+|---------|-------------|
+| **Forced function call** | The builder must call `build_agents` — the provider enforces the schema, so there is no JSON to parse out of prose |
+| **Four fields per agent** | `name`, `description`, `system_prompt`, `model_name` — exactly what `Agent` needs |
+| **Two output shapes** | Configuration dicts for inspection, or constructed `Agent` objects for execution |
+| **No architecture lock-in** | The builder picks the team; you pick how they run |
+
+```
+task
+  │
+  ▼
+builder agent ──forced build_agents() call──▶ roster
+                                               │
+                          ┌────────────────────┼────────────────────┐
+                          ▼                    ▼                    ▼
+                 SequentialWorkflow    ConcurrentWorkflow      SwarmRouter
+```
+
+---
+
+## Step 1: Install and Import
+
+```bash
+pip install swarms
+export OPENAI_API_KEY=sk-...
+```
+
+```python
+from swarms import AutoAgentBuilder
+```
+
+The builder agent needs a model that supports function calling.
+
+---
+
+## Step 2: Look at the roster before running anything
+
+Set `return_dict=True` and nothing is constructed — you get plain dicts back.
+
+```python
+from swarms import AutoAgentBuilder
+
+builder = AutoAgentBuilder(
+    model_name="gpt-5.4",
+    max_agents=3,
+    return_dict=True,
+)
+
+configs = builder.run(
+    "Analyze why a B2B SaaS company's churn increased last quarter, "
+    "and write a short brief for the leadership team."
+)
+
+for config in configs:
+    print(f"{config['name']}  [{config['model_name']}]")
+    print(f"  {config['description']}\n")
+```
+
+Typical output:
+
+```
+Churn-Analyst  [gpt-5.4]
+  Analyzes account and usage data to identify churn drivers and quantify impact.
+
+Retention-Skeptic  [claude-sonnet-4-6]
+  Tests the analysis for confounders and weak causal claims.
+
+Brief-Writer  [gpt-5.4]
+  Synthesizes the diagnosis and review into an executive brief.
+```
+
+Notice the builder chose a **different model per agent** and added an adversarial reviewer on its own. Both come from the default builder prompt.
+
+---
+
+## Step 3: Run the team
+
+Drop `return_dict` and `run()` returns constructed agents instead.
+
+```python
+from swarms import AutoAgentBuilder, SequentialWorkflow
+
+TASK = (
+    "Analyze why a B2B SaaS company's churn increased last quarter, "
+    "and write a short brief for the leadership team."
+)
+
+agents = AutoAgentBuilder(
+    model_name="gpt-5.4",
+    num_agents=3,
+    agent_kwargs={"max_loops": 1},
+).run(TASK)
+
+result = SequentialWorkflow(agents=agents, max_loops=1).run(TASK)
+print(result)
+```
+
+---
+
+## Roster size: the one gotcha
+
+`max_agents` is a **ceiling**, not a target. The default builder prompt says "fewer is almost always better" and "2–3 agents is the common, correct case," so a request for five will routinely return three.
+
+```python
+AutoAgentBuilder(max_agents=5).run(task)   # may return 3
+AutoAgentBuilder(num_agents=5).run(task)   # returns exactly 5
+```
+
+<Warning>
+`max_agents=5` producing a 3-agent roster is the builder working correctly, not a bug. Use `num_agents` when the count matters.
+</Warning>
+
+If the model still returns fewer than `num_agents`, a warning is logged and the shorter roster comes back. Agents cannot be invented for a task that does not support them.
+
+---
+
+## Complete Example
+
+```python
+from dotenv import load_dotenv
+
+from swarms import Agent, AutoAgentBuilder, SequentialWorkflow
+
+load_dotenv()
+
+TASK = (
+    "Analyze why a B2B SaaS company's customer churn increased last "
+    "quarter, and write a short brief for the leadership team."
+)
+
+builder = AutoAgentBuilder(model_name="gpt-5.4", max_agents=3)
+
+# One call to the builder. Reuse the result — calling again designs a
+# fresh roster, so what you printed might not be what you ran.
+configs = builder.build_configs(TASK)
+
+print(f"\nDesigned {len(configs)} agents:\n")
+for config in configs:
+    print(f"  {config['name']}  [{config['model_name']}]")
+    print(f"    {config['description']}\n")
+
+agents = [
+    Agent(
+        agent_name=config["name"],
+        agent_description=config["description"],
+        system_prompt=config["system_prompt"],
+        model_name=config["model_name"],
+        max_loops=1,
+    )
+    for config in configs
+]
+
+result = SequentialWorkflow(agents=agents, max_loops=1).run(TASK)
+
+print("\n--- Result ---\n")
+print(result)
+```
+
+<Note>
+Every public method makes a fresh LLM call and the builder is not deterministic. Calling `build_configs()` and then `build_agents()` designs **two different teams**. Generate once and reuse the result, as above.
+</Note>
+
+---
+
+## Choosing an architecture
+
+The builder returns a plain list of agents, so it composes with any structure:
+
+| Structure | Use when |
+|---|---|
+| `SequentialWorkflow` | Each agent builds on the previous one's output |
+| `ConcurrentWorkflow` | The agents are independent and cover separate ground |
+| `MixtureOfAgents` | Many perspectives merged by an aggregator |
+| `SwarmRouter` | You want to swap architectures without rewriting the wiring |
+
+---
+
+## Configuration Options
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `model_name` | `"gpt-5.4"` | Model for the builder agent itself |
+| `max_agents` | `5` | Ceiling on roster size |
+| `num_agents` | `None` | Exact roster size; overrides `max_agents` |
+| `return_dict` | `False` | Return configs instead of agents |
+| `agent_kwargs` | `None` | Forwarded to every generated agent |
+| `system_prompt` | built-in | Override to constrain the roster |
+| `verbose` | `False` | Log the generated roster |
+
+---
+
+## Use Cases
+
+- **Prototyping** — get a working team for a new problem in one call, then hand-tune the prompts
+- **Dynamic workloads** — build a fresh team per incoming request rather than maintaining a fixed roster
+- **Roster exploration** — generate several teams for the same task and compare decompositions
+- **Teaching** — read the generated `system_prompt` fields as worked examples of prompt design
+
+## See also
+
+- [AutoAgentBuilder API reference](/api/auto-agent-builder)
+- [Dynamic Support Triage tutorial](/examples/auto-agent-builder/triage)
+- [Reproducible Rosters tutorial](/examples/auto-agent-builder/reproducible)
