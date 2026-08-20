@@ -19,7 +19,7 @@ The `ConcurrentWorkflow` runs multiple agents simultaneously on the same task, e
 - Real-time dashboard monitoring (optional)
 - Agent status tracking
 - Streaming callbacks support
-- Automatic CPU core utilization
+- Thread pool sized by agent count, capped at 32
 - Conversation history aggregation
 
 ## Basic Example
@@ -119,6 +119,14 @@ results = workflow.run(
   Automatically save conversation history
 </ParamField>
 
+<ParamField path="on_error" type="str" default="store">
+  How to handle an agent that raises. `"store"` records the error as that agent's output and lets the rest finish; `"raise"` propagates the first error and aborts the run.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="None">
+  Thread pool size. Defaults to `len(agents)` capped at 32. Agent calls are network-bound, so this is sized by agent count rather than CPU cores.
+</ParamField>
+
 ## Methods
 
 ### run()
@@ -209,13 +217,13 @@ results = processing_team.batch_run(documents)
 
 ### CPU Core Utilization
 
-The workflow automatically uses 95% of available CPU cores:
+The thread pool is sized by agent count, capped at 32, since agent calls are network-bound rather than CPU-bound:
 
 ```python
 import os
 
 # Automatically calculated
-max_workers = int(os.cpu_count() * 0.95)
+max_workers = max(1, min(len(self.agents), MAX_CONCURRENT_AGENTS))  # MAX_CONCURRENT_AGENTS = 32
 ```
 
 ### Agent Configuration for Concurrency

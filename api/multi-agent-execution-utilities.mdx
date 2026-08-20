@@ -161,7 +161,7 @@ def run_agents_concurrently(
 - `return_agent_output_dict` (bool): If True, returns a dict mapping agent names to outputs
 
 **Returns:**
-- If `return_agent_output_dict=False`: List of outputs from each agent in completion order (exceptions included if agents fail)
+- If `return_agent_output_dict=False`: List of outputs from each agent in **input order**, so `results[i]` is `agents[i]`'s (exceptions included if agents fail)
 - If `return_agent_output_dict=True`: Dictionary mapping agent names to outputs, preserving agent input order
 
 ```python
@@ -308,6 +308,13 @@ for i, result in enumerate(results):
 ```
 
 ### batch_agent_execution()
+
+<Warning>
+**Currently broken — every call raises.** `batch_agent_execution` builds its future map from `zip(agents, tasks, imgs)` while `imgs` defaults to `None`, so it fails with `TypeError: zip argument #3 must support iteration` before any agent runs. It also stores 3-tuples but unpacks only two values when collecting results.
+
+Use [`run_agents_with_different_tasks`](#run-agents-with-different-tasks) for the same 1:1 agent-to-task pairing until this is fixed.
+</Warning>
+
 
 Runs a list of agents on a parallel list of tasks. Each `agents[i]` runs `tasks[i]` — unlike `batched_grid_agent_execution` (which runs every agent on every task), pairings are 1:1.
 

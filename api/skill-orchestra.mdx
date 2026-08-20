@@ -4,6 +4,12 @@ description: "Skill-aware agent orchestration system that routes tasks to agents
 icon: "wand-magic-sparkles"
 ---
 
+<Warning>
+**`SkillOrchestra` is no longer part of the library.** It was moved out of `swarms.structs` and now ships only as an example. `from swarms import SkillOrchestra` and `from swarms.structs import SkillOrchestra` both raise `ImportError`.
+
+The code lives at [`examples/multi_agent/skill_orchestra_examples/skill_orchestra.py`](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/skill_orchestra_examples/skill_orchestra.py). To use it, copy that module into your project and import it locally. Everything below describes that module, not a shipped structure.
+</Warning>
+
 ## Overview
 
 `SkillOrchestra` is a skill-aware agent orchestration system based on the paper ["SkillOrchestra: Learning to Route Agents via Skill Transfer"](https://arxiv.org/abs/2602.19672). Instead of end-to-end RL routing, it maintains a **Skill Handbook** that profiles each agent on fine-grained skills, infers which skills a task requires via LLM, and matches agents to tasks via explicit competence-cost scoring.

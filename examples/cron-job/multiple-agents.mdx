@@ -1,0 +1,167 @@
+---
+title: 'Multiple Agents on Different Schedules'
+description: 'Run a fleet of agents together, each on its own cadence, isolated from each other.'
+icon: 'layer-group'
+---
+
+Real monitoring is rarely one cadence. You want a price check every thirty seconds, an anomaly scan every ten minutes, and a digest once an hour. Three rhythms, one process.
+
+A `CronJob` binds one agent to one interval, so a fleet needs one job per agent. `CronJob.run_many` builds them, starts them together, and blocks once.
+
+## Overview
+
+| Feature | Description |
+|---------|-------------|
+| **One job per agent** | Each agent gets its own interval and its own scheduler thread |
+| **Isolated** | A failing agent does not delay or stop its siblings |
+| **Per-job error budgets** | `max_consecutive_errors` is set per agent, not per fleet |
+| **Blocking or not** | `block=True` runs it as your main loop; `block=False` hands control back |
+
+```
+run_many([...])
+     │
+     ├── Price-Checker    every 30s  ──> own thread, own error counters
+     ├── Anomaly-Scanner  every 10m  ──> own thread, own error counters
+     └── Hourly-Digest    every 1h   ──> own thread, own error counters
+              │
+              └── blocks once, here, until Ctrl-C or all jobs stop
+```
+
+## Three agents, three cadences
+
+```python
+from swarms import Agent, CronJob
+
+price_agent = Agent(
+    agent_name="Price-Checker",
+    system_prompt="Report the current price and flag any move over 2%. Two lines maximum.",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+anomaly_agent = Agent(
+    agent_name="Anomaly-Scanner",
+    system_prompt="Scan for unusual patterns. Report only genuine anomalies, not noise.",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+digest_agent = Agent(
+    agent_name="Hourly-Digest",
+    system_prompt="Write a short digest of the last hour. Lead with what changed.",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+CronJob.run_many([
+    {"agent": price_agent,   "interval": "30seconds", "task": "Check the BTC price."},
+    {"agent": anomaly_agent, "interval": "10minutes", "task": "Scan recent data for anomalies."},
+    {"agent": digest_agent,  "interval": "1hour",     "task": "Summarise the last hour."},
+])
+```
+
+## The schedule spec
+
+Each entry is a mapping.
+
+| Key | Required | Purpose |
+|-----|----------|---------|
+| `agent` | yes | The `Agent` or callable to schedule |
+| `interval` | yes | `"30seconds"`, `"10minutes"`, `"1hour"` |
+| `task` | yes | The task string handed to the agent on every tick |
+| `job_id` | no | A readable identifier; generated if omitted |
+| `callback` | no | `callback(output, task, metadata)` post-processor |
+| `max_consecutive_errors` | no | Error budget for *this* agent only |
+| `kwargs` | no | Dict forwarded to this agent's `run`, e.g. `{"img": "chart.png"}` |
+
+A missing required key raises `CronJobConfigError` naming the index and the key, before anything starts.
+
+## Isolation is the point
+
+Each job runs on its own scheduler thread, so the agents cannot interfere with each other. Give the flaky one a budget and leave the others alone:
+
+```python
+CronJob.run_many([
+    {"agent": price_agent,   "interval": "30seconds", "task": "Check the BTC price."},
+    {
+        "agent": anomaly_agent,
+        "interval": "10minutes",
+        "task": "Scan recent data for anomalies.",
+        # Talks to a flaky upstream. Five failures in a row and this one stops.
+        # The other two carry on regardless.
+        "max_consecutive_errors": 5,
+    },
+    {"agent": digest_agent,  "interval": "1hour", "task": "Summarise the last hour."},
+])
+```
+
+<Note>
+This isolation depends on the failure model: a task that raises is logged and retried on the next tick rather than killing its scheduler thread. Without that, one agent raising once would silently take itself offline while the fleet appeared healthy.
+</Note>
+
+If any job exhausts its budget, `run_many` raises `CronJobExecutionError` once blocking ends, naming which jobs gave up and why.
+
+## Not blocking
+
+When the schedule is not the main thing your process does — a web server, a bot, a notebook — pass `block=False`. You get the jobs back and own the lifecycle.
+
+```python
+jobs = CronJob.run_many(schedules, block=False)
+
+# ... your own main loop ...
+
+for job in jobs:
+    stats = job.get_execution_stats()
+    print(f"{stats['job_id']:<20} ok={stats['execution_count']} failed={stats['error_count']}")
+
+CronJob.stop_many(jobs)
+```
+
+`stop_many` continues past any job that fails to stop, so one stuck job cannot strand the rest.
+
+## Verifying cadence
+
+Cadences are independent and accurate. Running three agents at 1s, 2s and 3s for six seconds produces roughly 6, 3 and 2 executions:
+
+```python
+import time
+from swarms.structs.cron_job import CronJob
+
+class Echo:
+    def __init__(self, name): self.name, self.runs = name, 0
+    def run(self, task=None, **kwargs):
+        self.runs += 1
+        return f"{self.name}:{self.runs}"
+
+fast, mid, slow = Echo("fast"), Echo("mid"), Echo("slow")
+
+jobs = CronJob.run_many([
+    {"agent": fast, "interval": "1second",  "task": "poll"},
+    {"agent": mid,  "interval": "2seconds", "task": "check"},
+    {"agent": slow, "interval": "3seconds", "task": "summarise"},
+], block=False)
+
+time.sleep(6.2)
+CronJob.stop_many(jobs)
+
+print(fast.runs, mid.runs, slow.runs)   # 6 3 2
+```
+
+This runs without API keys, since `Echo` stands in for a real agent. Anything exposing `run(task=...)` works.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Failure Handling" icon="shield-halved" href="/examples/cron-job/resilience">
+    Error budgets and live monitoring in depth
+  </Card>
+  <Card title="CronJob Quickstart" icon="clock" href="/examples/cron-job/quickstart">
+    Start with a single agent
+  </Card>
+  <Card title="CronJob Reference" icon="book" href="/api/cron-job">
+    Full `run_many` and `stop_many` documentation
+  </Card>
+  <Card title="Runnable Examples" icon="code" href="https://github.com/kyegomez/swarms/tree/master/examples/guides/deployment/cron_job_examples">
+    The example files in the repository
+  </Card>
+</CardGroup>

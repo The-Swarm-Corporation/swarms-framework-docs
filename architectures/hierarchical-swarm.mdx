@@ -160,7 +160,7 @@ Example output:
   Enable director feedback after each loop.
 </ParamField>
 
-<ParamField path="planning_enabled" type="bool" default="True">
+<ParamField path="planning_enabled" type="bool" default="False">
   Run an explicit planning pass before generating orders.
 </ParamField>
 
@@ -196,11 +196,15 @@ Example output:
   Execute multi-agent orders concurrently within a loop.
 </ParamField>
 
+<ParamField path="max_workers" type="int" default="None">
+  Thread pool size used when `parallel_execution` is `True`. Defaults to 95% of available CPU cores. Must be greater than zero if provided.
+</ParamField>
+
 <ParamField path="interactive" type="bool" default="False">
   Enable the interactive `rich` dashboard.
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="True">
+<ParamField path="autosave" type="bool" default="False">
   Persist conversation history to a workspace directory.
 </ParamField>
 

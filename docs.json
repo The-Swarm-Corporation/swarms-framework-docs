@@ -300,6 +300,14 @@
             ]
           },
           {
+            "group": "Scheduled Agents",
+            "pages": [
+              "examples/cron-job/quickstart",
+              "examples/cron-job/multiple-agents",
+              "examples/cron-job/resilience"
+            ]
+          },
+          {
             "group": "Applications",
             "pages": [
               "examples/overviews/applications-overview",

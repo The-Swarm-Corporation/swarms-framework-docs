@@ -39,7 +39,6 @@ SwarmType = Literal[
     "ConcurrentWorkflow",
     "GroupChat",
     "MultiAgentRouter",
-    "AutoSwarmBuilder",
     "HierarchicalSwarm",
     "auto",
     "MajorityVoting",
@@ -54,7 +53,7 @@ SwarmType = Literal[
 ```
 
 <Note>
-  `"auto"` and `"AutoSwarmBuilder"` are listed in the Literal but are **not** dispatched by the current factory (it handles 15 of the 17 values). Selecting either passes construction validation, then raises `ValueError` during `run()`. Use one of the other 15 values.
+  `"AutoSwarmBuilder"` is **not** in the `SwarmType` Literal — passing it raises `SwarmRouterConfigError` at construction. `"auto"` is in the Literal (16 values total) but has no registered factory. Use one of the 15 concrete types.
 </Note>
 
 ## Constructor
@@ -118,21 +117,27 @@ SwarmRouter(
   Maximum execution loops where supported by the underlying swarm (e.g. `HierarchicalSwarm`, `GroupChat`).
 </ParamField>
 
-<ParamField path="output_type" type="OutputType" default="dict-all-except-first">
+<ParamField path="output_type" type="OutputType" default="dict">
   Output formatter applied to the conversation. One of `'list'`, `'dict'`, `'dictionary'`, `'string'`, `'str'`, `'final'`, `'last'`, `'json'`, `'all'`, `'yaml'`, `'xml'`, `'dict-all-except-first'`, `'str-all-except-first'`, `'basemodel'`, `'dict-final'`, `'list-final'`.
 </ParamField>
 
 <ParamField path="telemetry_enabled" type="bool" default="False">
+  **Does not exist in code.** See the warning below.
   When `True`, snapshot each agent's serialized config into `self.agent_config` during the reliability check.
 </ParamField>
 
 ### Behavior modifiers
 
-<ParamField path="multi_agent_collab_prompt" type="bool" default="True">
+<ParamField path="multi_agent_collab_prompt" type="bool" default="False">
   Inject the built-in collaboration prompt into each agent so they understand they are part of a multi-agent team. Applied during `setup()` via `update_system_prompt_for_agent_in_swarm()`.
 </ParamField>
 
+<Warning>
+`shared_memory_system` and `telemetry_enabled` **do not exist** on `SwarmRouter`. Because `__init__` accepts `**kwargs`, passing them is silently ignored rather than raising, so code following the old docs appears to work while wiring up nothing. There is no `activate_shared_memory()` method either.
+</Warning>
+
 <ParamField path="shared_memory_system" type="Any" optional>
+  **Does not exist in code.** See the warning below.
   Shared memory backend (e.g. a vector store) attached to every agent's `long_term_memory`.
 </ParamField>
 

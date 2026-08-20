@@ -1,0 +1,181 @@
+---
+title: 'Failure Handling and Monitoring'
+description: 'Keep a long-running schedule alive through failures, and know when it is genuinely broken.'
+icon: 'shield-halved'
+---
+
+A job that runs every thirty seconds for a week will fail sometimes. A rate limit, a dropped connection, a provider hiccup. The question is not whether it fails but what happens next.
+
+## The model
+
+A task that raises is **logged and retried on the next tick**. It does not take the schedule down. That is how cron behaves, and it is the only sensible default for something meant to run unattended.
+
+```
+tick ──> agent.run(task) ──> raised?
+                               │
+                               ├── no  ──> execution_count += 1
+                               │           consecutive_errors = 0
+                               │
+                               └── yes ──> log with traceback
+                                           error_count += 1
+                                           consecutive_errors += 1
+                                           ... wait for next tick, try again
+```
+
+<Note>
+Earlier versions did the opposite: one exception set `is_running = False` and killed the scheduler thread, while `run()` returned a job object as though nothing had happened. A single transient failure permanently stopped the job, and the caller was handed a plausible return value and a dead schedule.
+</Note>
+
+## Error budgets
+
+Retrying forever is right for transient failures and wrong for a misconfigured job hammering a dead endpoint. `max_consecutive_errors` draws the line.
+
+```python
+job = CronJob(
+    agent=agent,
+    interval="2seconds",
+    max_consecutive_errors=10,
+)
+```
+
+- **`None`** (default): never give up. Every failure is logged, every tick retried.
+- **An integer**: after that many failures *in a row*, the job stops and `run()` raises `CronJobExecutionError` naming the count and the last error.
+
+The counter resets on any success, so a job that fails occasionally never trips the budget. Only a job failing consistently does.
+
+```python
+from swarms.structs.cron_job import CronJob, CronJobExecutionError
+
+try:
+    job.run("Fetch the latest reading.")
+except CronJobExecutionError as e:
+    # Only reached if the budget was exhausted. A clean stop() returns normally.
+    alert(f"Schedule died: {e}")
+```
+
+That distinction is the important part: a clean `stop()` returns, a job that gave up raises. You can tell them apart.
+
+## Monitoring while it runs
+
+`get_execution_stats()` is safe to poll from another thread.
+
+```python
+import threading, time
+
+def monitor(job, every=5.0):
+    # This thread starts before run(), so wait for the job to come up first:
+    # looping on is_running immediately would exit before it ever started.
+    while not job.is_running:
+        time.sleep(0.1)
+
+    while job.is_running:
+        time.sleep(every)
+        s = job.get_execution_stats()
+        print(
+            f"ok={s['execution_count']} failed={s['error_count']} "
+            f"in-a-row={s['consecutive_errors']} last={s['last_error']}"
+        )
+
+threading.Thread(target=monitor, args=(job,), daemon=True).start()
+job.run("Fetch the latest reading.")
+```
+
+### What to watch
+
+| Field | Means | Alert on |
+|-------|-------|----------|
+| `execution_count` | Successful runs | Not increasing, when it should be |
+| `error_count` | Total failures, ever | Ratio to `execution_count` |
+| `consecutive_errors` | Failures since the last success | **This one.** A rising streak means genuinely broken |
+| `last_error` | Most recent failure as a string | Reading it tells you which dependency |
+| `stopped_due_to_error` | Job gave up | `True` is always worth paging on |
+
+`error_count` on its own is a poor signal: a job running every two seconds for a day will accumulate failures and be perfectly healthy. `consecutive_errors` is the one that distinguishes noise from breakage.
+
+## A complete example
+
+Runs without API keys, since `FlakyAgent` stands in for an unreliable upstream.
+
+```python
+import random
+import threading
+import time
+
+from swarms.structs.cron_job import CronJob, CronJobExecutionError
+
+
+class FlakyAgent:
+    """Fails roughly half the time."""
+
+    def run(self, task: str = None, **kwargs):
+        if random.random() < 0.5:
+            raise ConnectionError("upstream API timed out")
+        return f"ok: {task}"
+
+
+def monitor(job, every=5.0):
+    while not job.is_running:
+        time.sleep(0.1)
+    while job.is_running:
+        time.sleep(every)
+        s = job.get_execution_stats()
+        print(
+            f"  [monitor] ok={s['execution_count']} failed={s['error_count']} "
+            f"in-a-row={s['consecutive_errors']}"
+        )
+
+
+job = CronJob(
+    agent=FlakyAgent(),
+    interval="2seconds",
+    max_consecutive_errors=10,
+)
+
+threading.Thread(target=monitor, args=(job,), daemon=True).start()
+threading.Timer(60, job.stop).start()
+
+try:
+    job.run("Fetch the latest reading.")
+except CronJobExecutionError as e:
+    print(f"Job gave up: {e}")
+else:
+    s = job.get_execution_stats()
+    print(f"Stopped cleanly: {s['execution_count']} ok, {s['error_count']} failed.")
+```
+
+A representative run: **19 successful executions and 21 failures over sixty seconds**, never stopping, because the failures never stacked ten deep in a row.
+
+## Budgets across a fleet
+
+With `run_many`, budgets are per agent. One agent giving up does not stop its siblings:
+
+```python
+CronJob.run_many([
+    {"agent": stable_agent, "interval": "1minute", "task": "Check inventory."},
+    {
+        "agent": flaky_agent,
+        "interval": "1minute",
+        "task": "Poll the third-party feed.",
+        "max_consecutive_errors": 5,   # only this one has a budget
+    },
+])
+```
+
+If the flaky agent exhausts its five, it stops, the stable one keeps running, and `run_many` raises once blocking ends, naming which job gave up.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Multiple Agents" icon="layer-group" href="/examples/cron-job/multiple-agents">
+    Fleets on mixed cadences
+  </Card>
+  <Card title="CronJob Quickstart" icon="clock" href="/examples/cron-job/quickstart">
+    Start with a single agent
+  </Card>
+  <Card title="CronJob Reference" icon="book" href="/api/cron-job">
+    Full parameter and method documentation
+  </Card>
+  <Card title="Runnable Examples" icon="code" href="https://github.com/kyegomez/swarms/tree/master/examples/guides/deployment/cron_job_examples">
+    The example files in the repository
+  </Card>
+</CardGroup>

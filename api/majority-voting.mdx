@@ -157,10 +157,10 @@ def run_concurrently(self, tasks: List[str], *args, **kwargs) -> List[Any]
 - `*args` (Any): Variable length argument list passed to each task execution
 - `**kwargs` (Any): Arbitrary keyword arguments passed to each task execution
 
-**Returns:** List of consensus results in completion order (not input order)
+**Returns:** List of consensus results in **input order**, so element *i* is the vote for `tasks[i]`
 
 <Note>
-Uses `os.cpu_count()` workers for optimal performance. Results are returned in completion order, not input order.
+Results are read in submission order, so element *i* is always the vote for `tasks[i]`.
 </Note>
 
 ### reliability_check()

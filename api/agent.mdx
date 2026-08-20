@@ -153,12 +153,16 @@ Each collaborator is independently usable and independently documented — reach
   Temperature for LLM sampling (0.0 to 1.0)
 </ParamField>
 
-<ParamField path="max_tokens" type="int" default="4096">
-  Maximum number of tokens in the LLM response
+<ParamField path="max_tokens" type="int" default="16000">
+  Maximum number of tokens in the LLM response.
+
+  <Warning>
+  The value you pass is currently overwritten during setup: the agent uses the model's own maximum output-token limit, falling back to `16000`. Passing `max_tokens` has no effect today.
+  </Warning>
 </ParamField>
 
 <ParamField path="context_length" type="int" default="None">
-  Effective context window in tokens. When `context_compression=True`, the agent compresses memory once usage crosses 90% of this limit. Note: in the current release the value you pass is not applied — the agent always uses `16000` internally regardless of this argument.
+  Effective context window in tokens. When `context_compression=True`, the agent compresses memory once usage crosses 90% of this limit. Leave as `None` to derive the window from the model.
 </ParamField>
 
 <ParamField path="top_p" type="float" default="None">
@@ -173,8 +177,8 @@ Each collaborator is independently usable and independently documented — reach
   When `True`, the agent runs a `ContextCompressor` that summarises long histories at 90% of `context_length` so long sessions never hit the context wall.
 </ParamField>
 
-<ParamField path="persistent_memory" type="bool" default="True">
-  When `True`, read/write `MEMORY.md` under the workspace so agent state survives process restarts. Set `False` for stateless tasks.
+<ParamField path="persistent_memory" type="bool" default="False">
+  When `True`, read/write `MEMORY.md` under the workspace so agent state survives process restarts. Off by default: opt in explicitly for agents that should remember across runs.
 </ParamField>
 
 <ParamField path="transforms" type="Union[TransformConfig, dict]" default="None">

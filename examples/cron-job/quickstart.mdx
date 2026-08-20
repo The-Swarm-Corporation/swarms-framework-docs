@@ -1,0 +1,144 @@
+---
+title: 'CronJob Quickstart'
+description: 'Put one agent on a schedule and keep it running.'
+icon: 'clock'
+---
+
+An agent that answers once is a function call. An agent that answers every ten minutes, forever, without you watching it, is a different thing. `CronJob` is that second thing.
+
+## Overview
+
+| Feature | Description |
+|---------|-------------|
+| **One agent, one interval** | A `CronJob` binds a single agent to a single cadence |
+| **Runs on its own thread** | The schedule lives in the background; `run()` blocks the caller |
+| **Survives failures** | A task that raises is logged and retried on the next tick |
+| **Observable** | `get_execution_stats()` reports successes, failures and the last error |
+
+```
+run("task")
+     │
+     ├── schedules the task at the interval
+     ├── starts a background scheduler thread
+     └── blocks here until stop() / Ctrl-C / error budget exhausted
+              │
+              └── every tick: agent.run(task) ─── raises? log it, try again next tick
+```
+
+## The smallest job
+
+```python
+from swarms import Agent, CronJob
+
+agent = Agent(
+    agent_name="Market-Watcher",
+    system_prompt=(
+        "You are a market analyst. Report only what is notable since the "
+        "last check. Three bullets maximum."
+    ),
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+job = CronJob(agent=agent, interval="30seconds")
+job.run("Summarise anything notable in the AI chip market right now.")
+```
+
+`run()` blocks. Press Ctrl-C to stop, or call `job.stop()` from another thread.
+
+## Interval format
+
+`"<number><unit>"`, where unit is seconds, minutes or hours.
+
+```python
+CronJob(agent=agent, interval="30seconds")
+CronJob(agent=agent, interval="10minutes")
+CronJob(agent=agent, interval="2hours")
+```
+
+<Warning>
+`"1 second"` (with a space), `"1day"`, `"0seconds"` and `""` are all rejected at construction with a `CronJobConfigError`. A zero interval used to be accepted and then silently never fire, which is why it is now an error.
+</Warning>
+
+## Several tasks, one cadence
+
+When one agent has several checks that share a schedule, `batched_run` registers all of them and runs each on every tick.
+
+```python
+CronJob(agent=agent, interval="15minutes").batched_run([
+    "Check whether inventory is below reorder thresholds.",
+    "Check whether refund volume is above its weekly average.",
+    "Check whether any support queue has waited longer than an hour.",
+])
+```
+
+For several agents on *different* cadences, see [Multiple Agents on Different Schedules](/examples/cron-job/multiple-agents).
+
+## Passing arguments through
+
+Anything you pass as a keyword reaches the agent's `run` on every tick.
+
+```python
+job.run("Describe what changed in this chart.", img="dashboard.png")
+```
+
+## Stopping on a timer
+
+`run()` blocks, so schedule the stop from another thread.
+
+```python
+import threading
+
+job = CronJob(agent=agent, interval="1minute")
+threading.Timer(3600, job.stop).start()   # stop after an hour
+job.run("Poll the queue.")                # returns when stop() fires
+```
+
+## Checking on it
+
+`get_execution_stats()` is safe to call from another thread while the job runs.
+
+```python
+stats = job.get_execution_stats()
+# {'job_id': 'job_...', 'is_running': True, 'execution_count': 12,
+#  'uptime': 372.4, 'interval': '30seconds',
+#  'error_count': 1, 'consecutive_errors': 0,
+#  'last_error': 'upstream API timed out', 'stopped_due_to_error': False}
+```
+
+`execution_count` is successes. `error_count` is total failures. The one to watch is `consecutive_errors`: occasional failures on a long-running job are normal, a rising streak is not.
+
+## What happens when the agent fails
+
+Nothing dramatic, by design. The failure is logged with a traceback and the task runs again on the next tick, the way cron behaves. A rate limit or a dropped connection does not end your job.
+
+If you want a job to give up when it is failing *every* time, give it a budget:
+
+```python
+job = CronJob(
+    agent=agent,
+    interval="2seconds",
+    max_consecutive_errors=10,   # ten in a row means something is really wrong
+)
+```
+
+When that budget is exhausted the job stops **and** `run()` raises `CronJobExecutionError`, so a dead schedule is never mistaken for a healthy one. The default is `None`, which retries forever.
+
+See [Failure Handling and Monitoring](/examples/cron-job/resilience) for the full pattern.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Multiple Agents" icon="layer-group" href="/examples/cron-job/multiple-agents">
+    Several agents, each on its own cadence, in one process
+  </Card>
+  <Card title="Failure Handling" icon="shield-halved" href="/examples/cron-job/resilience">
+    Error budgets, live monitoring, and non-blocking fleets
+  </Card>
+  <Card title="CronJob Reference" icon="book" href="/api/cron-job">
+    Full parameter and method documentation
+  </Card>
+  <Card title="Runnable Examples" icon="code" href="https://github.com/kyegomez/swarms/tree/master/examples/guides/deployment/cron_job_examples">
+    The example files in the repository
+  </Card>
+</CardGroup>

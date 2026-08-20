@@ -660,6 +660,24 @@ results = asyncio.run(run_workflow())
 
 ### Save and Load Workflows
 
+<Warning>
+**`save_to_file` / `load_from_file` do not currently round-trip.** `to_json()` writes each node's type as `str(node.type)`, which renders as `"NodeType.AGENT"`, while `from_json()` parses it with `NodeType(...)`, which only accepts the enum *value* `"agent"`. Every node is dropped during load, and the first edge then fails with `ValueError: Source node '...' does not exist in GraphWorkflow`.
+
+Use the topology-spec path instead, which is unaffected. It stores the graph shape only, so you supply the live agents on load:
+
+```python
+import json
+
+workflow.save_spec("my_workflow.json")
+
+spec = json.load(open("my_workflow.json"))
+loaded = GraphWorkflow.from_topology_spec(
+    spec,
+    {"alpha": alpha_agent, "beta": beta_agent},   # agent_name -> Agent
+)
+```
+</Warning>
+
 ```python
 # Save workflow
 workflow.save_to_file(

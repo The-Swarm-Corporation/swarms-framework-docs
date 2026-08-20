@@ -185,8 +185,13 @@ result = asyncio.run(main())
 Run multiple tasks concurrently.
 
 ```python
+import asyncio
+
 tasks = ["Task 1", "Task 2", "Task 3"]
-results = workflow.run_concurrent(tasks)
+
+# run_concurrent is a coroutine: calling it without await returns a coroutine
+# object and runs nothing.
+results = asyncio.run(workflow.run_concurrent(tasks))
 ```
 
 ### run_stream() / arun_stream()

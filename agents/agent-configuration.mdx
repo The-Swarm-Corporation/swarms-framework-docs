@@ -44,7 +44,7 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="max_tokens" type="int" default="4096">
+<ParamField path="max_tokens" type="int" default="16000">
   Maximum number of tokens to generate in a single response.
   
   ```python
@@ -56,7 +56,7 @@ The `Agent` class provides extensive configuration options to customize behavior
   Maximum context window size, used as the denominator for the `ContextCompressor` threshold check (see [Agent Memory](/agents/agent-memory)).
 
   <Note>
-    In the current release, the constructor argument is accepted but the internal `self.context_length` is unconditionally set to `16000` after initialization, regardless of the value passed in. Passing a custom `context_length` currently has no effect on the agent's behavior — this is a known limitation, not documented API behavior.
+    The value you pass is respected: `self.context_length` is only replaced by a model-derived default when you leave it as `None`. (An earlier release did overwrite it unconditionally; that is fixed.)
   </Note>
 
   ```python

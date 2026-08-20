@@ -5,7 +5,13 @@ description: Schedule and run Swarms agents at specified intervals with cron-sty
 
 ## Overview
 
-The **CronJob** class wraps any callable (including Swarms agents) and turns it into a scheduled job that runs at specified intervals. It provides robust scheduling, error handling, retry logic, and execution tracking with optional callback support for output customization.
+The **CronJob** class wraps any callable (including Swarms agents) and turns it into a scheduled job that runs at specified intervals. It provides scheduling, failure handling, execution tracking, and optional callbacks for output customization.
+
+One `CronJob` binds **one agent** to **one interval**. For several agents on different cadences, use [`run_many`](#run-many).
+
+<Note>
+**Failure model.** A task that raises is logged and retried on the next tick, the way cron behaves. It does not take the schedule down. Set `max_consecutive_errors` to stop a job that is failing every time; when that budget is exhausted the job stops **and** `run()` raises, so a dead schedule is never mistaken for a healthy one.
+</Note>
 
 ## Constructor
 
@@ -44,6 +50,10 @@ cron = CronJob(
   Optional unique identifier for the job. If not provided, one will be generated.
 </ParamField>
 
+<ParamField path="max_consecutive_errors" type="int" default="None">
+  Stop the job after this many back-to-back failed executions. `None` (the default) never gives up and retries forever, which is what cron does. When the budget is exhausted the job stops and `run()` raises `CronJobExecutionError`.
+</ParamField>
+
 <ParamField path="callback" type="Callable[[Any, str, dict], Any]" default="None">
   Optional callback function to customize output processing.
   
@@ -72,6 +82,18 @@ cron = CronJob(
   Timestamp when the job was started
 </ResponseField>
 
+<ResponseField name="error_count" type="int">
+  Total number of failed executions over the job's life
+</ResponseField>
+
+<ResponseField name="consecutive_errors" type="int">
+  Failures since the last success. Reset to `0` on any successful tick
+</ResponseField>
+
+<ResponseField name="last_error" type="Optional[Exception]">
+  The most recent failure, or `None` if the job has never failed
+</ResponseField>
+
 ## Methods
 
 ### run
@@ -95,13 +117,13 @@ cron.run(
 
 **Raises:**
 - `CronJobConfigError`: If agent or interval is not configured
-- `CronJobExecutionError`: If task execution fails
+- `CronJobExecutionError`: If scheduling failed, or if the job gave up after exhausting `max_consecutive_errors`. The message names the failure count and the last error.
 
 **Behavior:**
 - Schedules the task according to the configured interval
 - Starts the background execution thread
-- Blocks until KeyboardInterrupt (Ctrl+C) is received
-- Automatically stops on interrupt
+- Blocks the calling thread until `stop()` is called, `KeyboardInterrupt` is received, or the job exhausts its error budget
+- A task that raises is logged and retried on the next tick; it does not stop the schedule
 
 ### batched_run
 
@@ -129,7 +151,79 @@ results = cron.batched_run(tasks)
   List of results from each task execution
 </ResponseField>
 
-**Note:** `batched_run` calls `run()` for each task in sequence, and `run()` blocks in an infinite loop (`while True: time.sleep(1)`) until a `KeyboardInterrupt` is received. In practice this means the first task's job is scheduled and `batched_run` blocks there — it does not move on to the next task automatically; a manual interrupt is required to advance.
+**Behavior:** every task in `tasks` is registered on the job's interval *before* blocking, so all of them run on each tick. This is one agent doing several things on one cadence.
+
+<Note>
+Earlier versions scheduled only the first task: `batched_run` called `run()` per task, and `run()` blocked, so the loop never reached the second task. That is fixed — all tasks are scheduled, and the list of scheduled jobs is returned.
+</Note>
+
+For several agents on **different** cadences, use [`run_many`](#run-many) instead.
+
+### run_many
+
+Run several agents together, each on its own interval. A class method.
+
+A `CronJob` binds one agent to one interval, so a fleet on mixed cadences needs one job per agent. `run_many` builds them, starts them all, and optionally blocks.
+
+Each job keeps its own scheduler thread, so the agents are **isolated**: one failing does not delay or stop the others, and each carries its own error budget.
+
+```python
+from swarms.structs.cron_job import CronJob
+
+CronJob.run_many([
+    {"agent": price_agent,   "interval": "30seconds", "task": "Check BTC price"},
+    {"agent": anomaly_agent, "interval": "10minutes", "task": "Scan for anomalies",
+     "max_consecutive_errors": 5},
+    {"agent": digest_agent,  "interval": "1hour",     "task": "Summarise the hour"},
+])
+```
+
+<ParamField path="schedules" type="List[Dict[str, Any]]" required>
+  One mapping per agent.
+
+  **Required keys:** `agent`, `interval`, `task`
+
+  **Optional keys:** `job_id`, `callback`, `max_consecutive_errors`, and `kwargs` (a dict forwarded to that agent's `run`)
+</ParamField>
+
+<ParamField path="block" type="bool" default="True">
+  Hold the calling thread until `KeyboardInterrupt` or until every job has stopped, then stop them all. Pass `False` to start the fleet and return immediately, leaving the caller responsible for `stop_many`.
+</ParamField>
+
+<ResponseField name="return" type="List[CronJob]">
+  The started jobs, in the order given, so they can be inspected via `get_execution_stats()` or stopped individually
+</ResponseField>
+
+**Raises:**
+- `CronJobConfigError`: If `schedules` is empty, or an entry is missing `agent`, `interval` or `task`. The message names the index and the missing key.
+- `CronJobExecutionError`: If, once blocking ends, any job had stopped because it exhausted `max_consecutive_errors`
+
+**Non-blocking use:**
+
+```python
+jobs = CronJob.run_many(schedules, block=False)
+
+# ... your own main loop ...
+
+for job in jobs:
+    print(job.get_execution_stats())
+
+CronJob.stop_many(jobs)
+```
+
+### stop_many
+
+Stop every job in a list, continuing past any that fail to stop. A static method.
+
+```python
+CronJob.stop_many(jobs)
+```
+
+<ParamField path="jobs" type="List[CronJob]" required>
+  The jobs to stop, typically the return value of `run_many(..., block=False)`
+</ParamField>
+
+**Behavior:** one job refusing to stop is logged and does not strand the rest.
 
 ### start
 
@@ -198,10 +292,14 @@ print(stats)
 # {
 #   "job_id": "financial_analysis_job",
 #   "is_running": True,
-#   "execution_count": 42,
+#   "execution_count": 42,          # successes
 #   "start_time": 1234567890.123,
 #   "uptime": 3600.5,
-#   "interval": "10minutes"
+#   "interval": "10minutes",
+#   "error_count": 3,               # total failures
+#   "consecutive_errors": 0,        # since the last success
+#   "last_error": "upstream API timed out",
+#   "stopped_due_to_error": False   # True only if it gave up
 # }
 ```
 
@@ -213,6 +311,10 @@ print(stats)
   - `start_time`: Start timestamp
   - `uptime`: Time elapsed since start (seconds)
   - `interval`: Configured interval string
+  - `error_count`: Total failed executions
+  - `consecutive_errors`: Failures since the last success
+  - `last_error`: Most recent failure as a string, or `None`
+  - `stopped_due_to_error`: `True` only when the job gave up after exhausting `max_consecutive_errors`
 </ResponseField>
 
 ## Interval Formats
@@ -240,6 +342,19 @@ CronJob(agent=agent, interval="10minutes")
 # Every 2 hours
 CronJob(agent=agent, interval="2hours")
 ```
+
+### Rejected at construction
+
+These raise `CronJobConfigError` immediately rather than failing later:
+
+| Value | Why |
+|-------|-----|
+| `"0second"`, `"0minutes"` | A zero interval schedules a job that never fires |
+| `""`, `"   "` | Empty is a bad interval, not an absent one |
+| `"-1second"` | Negative |
+| `"1day"` | Unsupported unit; use seconds, minutes or hours |
+| `"1 second"` | No space between the number and the unit |
+| `"second"` | Missing the number |
 
 ## Complete Examples
 
@@ -476,10 +591,13 @@ except CronJobExecutionError as e:
 4. **Monitor execution stats**: Regularly check stats to ensure jobs are running as expected
 5. **Handle interrupts**: Always wrap `run()` in try-except to handle KeyboardInterrupt
 6. **Consider agent limits**: Ensure your agent's `max_loops` is appropriate for scheduled tasks
-7. **Log failures**: Enable verbose mode and implement proper error logging
-8. **Test intervals**: Start with longer intervals and optimize based on performance
-9. **Resource management**: Be mindful of API rate limits and costs with frequent scheduling
-10. **Graceful shutdown**: Always call `stop()` when terminating scheduled jobs
+7. **Set an error budget for flaky dependencies**: `max_consecutive_errors` stops a job that is failing every time. Leave it as `None` when a task should retry indefinitely
+8. **Watch `consecutive_errors`, not just `error_count`**: occasional failures on a long-running job are normal; a rising consecutive count is the signal something is actually broken
+9. **Use `run_many` for mixed cadences**: one job per agent keeps them isolated, so a failing agent cannot hold up the others
+10. **Log failures**: Enable verbose mode and implement proper error logging
+11. **Test intervals**: Start with longer intervals and optimize based on performance
+12. **Resource management**: Be mindful of API rate limits and costs with frequent scheduling
+13. **Graceful shutdown**: Always call `stop()` when terminating scheduled jobs
 
 ## Thread Safety
 

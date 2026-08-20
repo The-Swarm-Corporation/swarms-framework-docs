@@ -79,11 +79,11 @@ from swarms import HierarchicalSwarm
   Top-p parameter for director agent's LLM
 </ParamField>
 
-<ParamField path="planning_enabled" type="bool" default="True">
+<ParamField path="planning_enabled" type="bool" default="False">
   Whether to enable the planning phase before order distribution
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="True">
+<ParamField path="autosave" type="bool" default="False">
   Whether to enable autosaving of conversation history to workspace directory
 </ParamField>
 
@@ -93,6 +93,10 @@ from swarms import HierarchicalSwarm
 
 <ParamField path="parallel_execution" type="bool" default="True">
   When `True`, worker agents assigned in a single director order are executed concurrently; when `False`, they run one after another.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="None">
+  Thread pool size used when `parallel_execution` is `True`. Defaults to 95% of available CPU cores. Must be greater than zero if provided.
 </ParamField>
 
 <ParamField path="agent_as_judge" type="bool" default="False">
@@ -302,6 +306,7 @@ Performs validation checks to ensure the swarm is properly configured.
 - max_loops is greater than 0
 - max_agent_retries is greater than or equal to 0
 - max_reassignment_attempts is greater than or equal to 0
+- max_workers is greater than 0 when provided
 - Director is available (creates default if needed)
 
 **Raises:**

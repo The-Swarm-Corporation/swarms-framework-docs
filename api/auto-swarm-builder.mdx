@@ -47,7 +47,7 @@ from swarms import AutoSwarmBuilder
   Maximum tokens for the LLM responses from the boss agent
 </ParamField>
 
-<ParamField path="execution_type" type="str" default="return-agents">
+<ParamField path="swarm_type" type="str" default="return-agents">
   Type of execution to perform. Options: "return-agents", "return-swarm-router-config", "return-agents-objects"
 </ParamField>
 
@@ -117,14 +117,14 @@ Runs the swarm builder on a given task, creating agents based on execution type.
 **Returns:**
 
 <ResponseField name="result" type="Any">
-  The result depends on execution_type:
+  The result depends on swarm_type:
   - "return-agents": Dictionary with agent specifications
   - "return-swarm-router-config": SwarmRouter configuration dictionary
   - "return-agents-objects": List of instantiated Agent objects
 </ResponseField>
 
 **Raises:**
-- `ValueError`: If execution_type is invalid
+- `ValueError`: If swarm_type is invalid
 - `Exception`: If there's an error during swarm execution
 
 ---
@@ -263,7 +263,7 @@ Lists all available execution types.
 def initialize_swarm_router(self, agents: List[Agent], task: str) -> Any
 ```
 
-Builds a `SwarmRouterConfig` for the task via the boss agent, then constructs and runs a `SwarmRouter` with the given agents. Not called automatically by `run()` for any `execution_type` — call it directly if you want `AutoSwarmBuilder` to both design agents (via `create_agents`) and immediately execute them through a `SwarmRouter`.
+Builds a `SwarmRouterConfig` for the task via the boss agent, then constructs and runs a `SwarmRouter` with the given agents. Not called automatically by `run()` for any `swarm_type` — call it directly if you want `AutoSwarmBuilder` to both design agents (via `create_agents`) and immediately execute them through a `SwarmRouter`.
 
 **Parameters:**
 
@@ -350,7 +350,7 @@ from swarms import AutoSwarmBuilder
 builder = AutoSwarmBuilder(
     name="intelligent-swarm-builder",
     model_name="claude-sonnet-4-6",
-    execution_type="return-agents",
+    swarm_type="return-agents",
     verbose=True
 )
 
@@ -367,7 +367,7 @@ print(agent_specs)
 ```python
 builder = AutoSwarmBuilder(
     name="agent-factory",
-    execution_type="return-agents-objects",
+    swarm_type="return-agents-objects",
     model_name="claude-sonnet-4-6"
 )
 
@@ -387,7 +387,7 @@ for agent in agents:
 ```python
 builder = AutoSwarmBuilder(
     name="swarm-architect",
-    execution_type="return-swarm-router-config",
+    swarm_type="return-swarm-router-config",
     model_name="claude-sonnet-4-6"
 )
 
@@ -403,7 +403,7 @@ print(f"Number of Agents: {len(config['agents'])}")
 
 ```python
 builder = AutoSwarmBuilder(
-    execution_type="return-agents-objects"
+    swarm_type="return-agents-objects"
 )
 
 tasks = [

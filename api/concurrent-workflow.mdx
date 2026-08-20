@@ -86,6 +86,14 @@ class ConcurrentWorkflow:
   Whether to automatically save conversation history to workspace
 </ParamField>
 
+<ParamField path="on_error" type="str" default="store">
+  How to handle an agent that raises. `"store"` records the error as that agent's output and lets the rest finish; `"raise"` propagates the first error and aborts the run.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="None">
+  Thread pool size. Defaults to `len(agents)` capped at 32. Agent calls are network-bound, so this is sized by agent count rather than CPU cores.
+</ParamField>
+
 <ParamField path="verbose" type="bool" default="False">
   Whether to enable verbose logging
 </ParamField>
@@ -454,7 +462,7 @@ When `show_dashboard=True`, you'll see real-time updates like:
 
 ## Performance Considerations
 
-- **CPU Utilization**: Uses ~95% of available CPU cores by default
+- **Concurrency**: Thread pool sized by agent count, capped at 32 (`MAX_CONCURRENT_AGENTS`). Agent calls are network-bound, so this does not derive from CPU core count. Override with `max_workers`.
 - **Concurrent Execution**: All agents run truly concurrently using ThreadPoolExecutor
 - **Memory Usage**: Each agent maintains its own context, consider memory for many agents
 - **API Rate Limits**: Be aware of rate limits when using cloud-based LLMs
