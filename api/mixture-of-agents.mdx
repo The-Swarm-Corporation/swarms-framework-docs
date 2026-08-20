@@ -137,7 +137,7 @@ Executes the complete mixture of agents workflow with multiple layers and aggreg
 **Workflow:**
 1. Adds initial task to conversation history
 2. For each layer:
-   - Runs all agents concurrently with full context
+   - Runs all agents concurrently. Layer 0 receives the task; later layers receive the task plus the previous layer's synthesis, not the full transcript
    - Adds each agent's output to conversation
    - Updates context with latest conversation history
 3. Runs aggregator agent on complete conversation

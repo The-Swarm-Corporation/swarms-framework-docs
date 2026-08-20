@@ -87,10 +87,10 @@ result = moa.run("Complex strategic decision")
 ```
 
 Each layer:
-1. Experts analyze the current context
+1. Experts analyze their input, concurrently
 2. Outputs are added to conversation history
-3. Next layer sees all previous analysis
-4. Aggregator synthesizes final result
+3. The next layer receives the original task plus the previous layer's synthesis, not the whole transcript
+4. Aggregator synthesizes the final result
 
 ## Key Parameters
 
@@ -294,15 +294,15 @@ Layer 1:
   User Task → Experts → Conversation
 
 Layer 2:
-  Full Context → Experts → Conversation
+  Task + prev synthesis → Experts → Conversation
   (Experts see Layer 1 outputs)
 
 Layer 3:
-  Full Context → Experts → Conversation
+  Task + prev synthesis → Experts → Conversation
   (Experts see Layers 1-2 outputs)
 
 Final:
-  Full Context → Aggregator → Output
+  Task + prev synthesis → Aggregator → Output
 ```
 
 ## Output Types
@@ -383,12 +383,19 @@ agent_outputs = run_agents_concurrently(
 
 ### Conversation Context
 
-Full context flows through layers:
+Layers do **not** receive the full transcript. The first layer gets the task alone; each later layer gets the original task plus the previous layer's synthesis. This deliberately avoids re-sending a growing transcript to every worker on every layer.
 
 ```python
-# Each layer sees complete history
-full_context = self.conversation.get_str()
-step_output = self.step(task=full_context, img=img)
+# swarms/structs/mixture_of_agents.py
+worker_input = task                       # layer 0
+
+if layer > 0:                             # every later layer
+    worker_input = (
+        f"Original task: {task}\n\n"
+        f"Previous layer synthesis:\n{prev_layer_output}"
+    )
+
+step_output = self.step(task=worker_input, img=img)
 ```
 
 ## Related Architectures

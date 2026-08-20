@@ -583,26 +583,6 @@ for i, (task, result) in enumerate(zip(tasks, batch_results)):
     print(f"Result: {result}\n")
 ```
 
-### run_multiple_images
-
-Run the agent with multiple images using concurrent processing.
-
-```python
-def run_multiple_images(
-    task: str,
-    imgs: List[str],
-    *args,
-    **kwargs,
-) -> List[Any]
-```
-
-```python
-outputs = agent.run_multiple_images(
-    "Describe image",
-    ["img1.jpg", "img2.png"]
-)
-```
-
 ### run_stream
 
 Run the agent and yield response tokens one-by-one as a sync generator. The full agent loop (multi-step reasoning, tool calls, MCP, autonomous plan/execute/summary) runs in a background daemon thread; tokens are forwarded to the caller the moment the LLM emits them.
@@ -647,18 +627,6 @@ asyncio.run(main())
 <Note>
   Both `run_stream` and `arun_stream` work for any `max_loops` value (1, integer &gt; 1 with tools, or `"auto"`). They stream tokens through every internal loop, including tool-call turns, synthesis turns after a tool returns, and the autonomous plan/execute/summary cycle.
 </Note>
-
-### run_concurrent
-
-Run a single task concurrently using the agent's internal executor. Returns the awaited result.
-
-```python
-async def run_concurrent(
-    task: str,
-    *args,
-    **kwargs,
-) -> Any
-```
 
 ### run_concurrent_tasks
 
@@ -810,13 +778,13 @@ def talk_to_multiple_agents(
 ) -> List[Any]
 ```
 
-### receive_message / receieve_message / send_agent_message
+### receive_message / receive_message / send_agent_message
 
-`receive_message` formats an incoming message from another agent and runs it through the agent's normal `run()` loop, returning the agent's response. `receieve_message` (note: this exact spelling is the method name in source) instead appends the message directly to short-term memory without invoking the LLM. `send_agent_message` runs a message addressed to another agent through `run()` and returns the result.
+`receive_message` formats an incoming message from another agent and runs it through the agent's normal `run()` loop, returning the agent's response. `receive_message` (note: this exact spelling is the method name in source) instead appends the message directly to short-term memory without invoking the LLM. `send_agent_message` runs a message addressed to another agent through `run()` and returns the result.
 
 ```python
 def receive_message(agent_name: str, task: str, *args, **kwargs) -> Any
-def receieve_message(name: str, message: str) -> None
+def receive_message(name: str, message: str) -> None
 def send_agent_message(agent_name: str, message: str, *args, **kwargs) -> str
 ```
 
@@ -830,20 +798,6 @@ Reset the agent's memory and state.
 
 ```python
 def reset() -> None
-```
-
-### undo_last
-
-Undo the last response and return the previous state.
-
-```python
-def undo_last() -> Tuple[str, str]
-```
-
-```python
-response = agent.run("Another task")
-previous_state, message = agent.undo_last()
-print(message)
 ```
 
 ### plan
@@ -934,26 +888,16 @@ def handle_publish_to_marketplace() -> Dict[str, Any]   # requires use_cases
 
 Setting `marketplace_prompt_id` loads a prompt during construction; setting `publish_to_marketplace=True` publishes during construction.
 
-### get_agent_role
-
-Returns the role of the agent.
-
-```python
-def get_agent_role() -> str
-```
-
 ### Complete Methods Reference
 
 | Method | Description | Usage Example |
 |--------|-------------|---------------|
 | `run(task, img, imgs, correct_answer, streaming_callback, n)` | Run the autonomous agent loop | `agent.run("Generate a report")` |
 | `run_batched(tasks, imgs)` | Run multiple tasks in batch | `agent.run_batched(["Task 1", "Task 2"])` |
-| `run_multiple_images(task, imgs)` | Run with multiple images concurrently | `agent.run_multiple_images("Describe", ["img1.jpg"])` |
 | `__call__(task, img)` | Alternative way to call `run` | `agent("Generate a report")` |
 | `arun(task, img)` | Async version of `run` | `await agent.arun("Task")` |
 | `run_stream(task, img)` | Sync streaming generator | `for t in agent.run_stream("Task"): ...` |
 | `arun_stream(task, img)` | Async streaming generator | `async for t in agent.arun_stream("Task"): ...` |
-| `run_concurrent(task)` | Run a task concurrently | `await agent.run_concurrent("Task")` |
 | `run_concurrent_tasks(tasks)` | Run multiple tasks concurrently | `agent.run_concurrent_tasks(["T1", "T2"])` |
 | `bulk_run(inputs)` | Generate responses for multiple inputs | `agent.bulk_run([{"task": "T1"}])` |
 | `tool_execution_retry(response, loop_count)` | Execute tools with retry logic | `agent.tool_execution_retry(response, 1)` |
@@ -975,33 +919,25 @@ def get_agent_role() -> str
 | `talk_to(agent, task)` | Talk to another agent | `agent.talk_to(other, "Collaborate")` |
 | `talk_to_multiple_agents(agents, task)` | Talk to multiple agents | `agent.talk_to_multiple_agents([a1], "Task")` |
 | `receive_message(agent_name, task)` | Run a message received from another agent through `run()` | `agent.receive_message("User", "Hello")` |
-| `receieve_message(name, message)` | Append a message directly to memory (no LLM call) | `agent.receieve_message("User", "Hello")` |
+| `receive_message(name, message)` | Append a message directly to memory (no LLM call) | `agent.receive_message("User", "Hello")` |
 | `send_agent_message(agent_name, message)` | Send a message | `agent.send_agent_message("AgentX", "Done")` |
 | `update_system_prompt(prompt)` | Update system prompt | `agent.update_system_prompt("New prompt")` |
 | `update_max_loops(max_loops)` | Update max loops | `agent.update_max_loops(5)` |
 | `reset()` | Reset memory | `agent.reset()` |
-| `undo_last()` | Undo last response | `agent.undo_last()` |
 | `print_dashboard()` | Display dashboard | `agent.print_dashboard()` |
 | `showcase_config()` | Display config table | `agent.showcase_config()` |
 | `get_llm_parameters()` | Get LLM parameters (as a string) | `agent.get_llm_parameters()` |
-| `get_agent_role()` | Get agent role | `agent.get_agent_role()` |
 | `get_available_models()` | List primary + fallback model names | `agent.get_available_models()` |
 | `get_current_model()` | Get the model currently in use | `agent.get_current_model()` |
 | `switch_to_next_model()` | Switch to the next fallback model | `agent.switch_to_next_model()` |
 | `reset_model_index()` | Reset back to the primary model | `agent.reset_model_index()` |
 | `is_fallback_available()` | Whether more than one model is configured | `agent.is_fallback_available()` |
 | `check_available_tokens()` | Check available tokens | `agent.check_available_tokens()` |
-| `enable_autosave(interval)` | Enable autosave | `agent.enable_autosave(300)` |
-| `disable_autosave()` | Disable autosave | `agent.disable_autosave()` |
-| `cleanup()` | Cleanup resources | `agent.cleanup()` |
 | `pretty_print(response, loop_count)` | Print formatted response | `agent.pretty_print("Done", 1)` |
 | `call_llm(task)` | Call the language model | `agent.call_llm("Generate text")` |
 | `execute_tools(response, loop_count)` | Execute tools from response | `agent.execute_tools(response, 1)` |
 | `list_output_types()` | List available output types | `agent.list_output_types()` |
 | `update_loop_interval(interval)` | Update loop interval | `agent.update_loop_interval(2)` |
-| `update_retry_attempts(attempts)` | Update retry attempts | `agent.update_retry_attempts(3)` |
-| `update_retry_interval(interval)` | Update retry interval | `agent.update_retry_interval(5)` |
-| `handle_artifacts(text, file_output_path, file_extension)` | Save artifacts from execution | `agent.handle_artifacts("content", "outputs/", ".txt")` |
 | `handle_tool_schema_ops()` | Handle tool schema operations | `agent.handle_tool_schema_ops()` |
 | `handle_sop_ops()` | Handle SOP operations | `agent.handle_sop_ops()` |
 | `mcp_tool_handling(response, current_loop)` | Handle MCP tool execution | `agent.mcp_tool_handling(response, 1)` |
@@ -1009,7 +945,6 @@ def get_agent_role() -> str
 | `check_if_no_prompt_then_autogenerate(task)` | Auto-generate prompt if none set | `agent.check_if_no_prompt_then_autogenerate("Task")` |
 | `output_cleaner_op(response)` | Apply output cleaning operations | `agent.output_cleaner_op(response)` |
 | `stream_response(response, delay)` | Stream response token by token | `agent.stream_response("Response", 0.001)` |
-| `tokens_checks()` | Perform token checks | `agent.tokens_checks()` |
 | `temp_llm_instance_for_tool_summary()` | Create temp LLM for tool summaries | `agent.temp_llm_instance_for_tool_summary()` |
 | `load_skills_metadata(skills_dir)` | Load Agent Skills metadata | `agent.load_skills_metadata("./skills")` |
 | `load_full_skill(skill_name)` | Load complete skill content | `agent.load_full_skill("my-skill")` |
@@ -1829,8 +1764,8 @@ The workspace directory is controlled by the `WORKSPACE_DIR` environment variabl
 ### Async and Concurrent Execution
 
 ```python
-# Run a task concurrently
-response = await agent.run_concurrent("Concurrent task")
+# Run several tasks concurrently on a call-scoped thread pool
+results = agent.run_concurrent_tasks(["Task A", "Task B"])
 
 # Run multiple tasks concurrently
 tasks = [
