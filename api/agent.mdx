@@ -269,8 +269,8 @@ Each collaborator is independently usable and independently documented — reach
   Name of the user in conversation history
 </ParamField>
 
-<ParamField path="saved_state_path" type="str">
-  Path to save agent state
+<ParamField path="saved_state_path" type="str" default="Auto-generated">
+  Path that `save()` writes to when called with no argument. When unset, falls back to an auto-generated `{api_key}_state.json` filename inside the agent workspace.
 </ParamField>
 
 <ParamField path="sop" type="str">
@@ -425,8 +425,14 @@ Each collaborator is independently usable and independently documented — reach
   Enable reasoning mode for supported models (e.g. o1, o3, Claude with extended thinking).
 </ParamField>
 
-<ParamField path="reasoning_effort" type="str" default="medium">
-  Effort level for reasoning models: `"low"`, `"medium"`, or `"high"`.
+<ParamField path="reasoning_effort" type="str" default="None">
+  Effort level for reasoning models: `"minimal"`, `"low"`, `"medium"`, `"high"`, `"xhigh"`, `"ultra"`, `"max"`, or `"none"`.
+
+  Left unset, the parameter is not sent to the provider at all.
+
+  <Warning>
+    Do not combine `reasoning_effort` with `tools` on OpenAI reasoning models such as `gpt-5.4-mini`. `/v1/chat/completions` rejects the pair with `BadRequestError: Function tools with reasoning_effort are not supported`. This is why the default is `None`: it previously defaulted to `"medium"`, which shipped on every request and made `Agent(model_name="gpt-5.4-mini", tools=[...])` fail out of the box.
+  </Warning>
 </ParamField>
 
 <ParamField path="thinking_tokens" type="int" default="1024">
@@ -2033,7 +2039,7 @@ Opt out with `SWARMS_TELEMETRY_ON=false`, which reduces the cost to ~0.14 µs pe
 | `safety_prompt_on`   | Add safety constraints to agent responses                          |
 | `reasoning_prompt_on`| Enable multi-loop reasoning for complex tasks                      |
 | `reasoning_enabled`  | Enable reasoning capabilities for supported models (e.g., o1)     |
-| `reasoning_effort`   | Set reasoning effort level: "low", "medium", or "high"            |
+| `reasoning_effort`   | Reasoning effort level; unset by default, omit when using `tools` |
 | `thinking_tokens`    | Maximum number of thinking tokens for reasoning models            |
 
 ### Performance and Resource Management

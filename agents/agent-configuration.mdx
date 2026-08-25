@@ -342,11 +342,15 @@ asyncio.run(main())
 </ParamField>
 
 <ParamField path="saved_state_path" type="str" default="Auto-generated">
-  Path to save agent state.
+  Path to save agent state. `save()` writes here when called with no argument.
 
   <Note>
-    In the current release, this constructor argument is accepted but `self.saved_state_path` is unconditionally overwritten during initialization with an auto-generated `{api_key}_state.json` filename. A custom `saved_state_path` passed at construction time currently has no effect — this is a known limitation, not documented API behavior.
+    Earlier releases accepted this argument and then overwrote `self.saved_state_path` during initialization with an auto-generated `{api_key}_state.json` filename, so a custom path had no effect. It is now honoured; omit it to keep the auto-generated name.
   </Note>
+
+  <Warning>
+    Pass a file path, not a directory. The value is used as a filename, so a trailing slash such as `"./agent_states/"` resolves to `./agent_states/.json` — a hidden file. While the argument was ignored this was harmless; now that it is honoured it is not.
+  </Warning>
   
   ```python
   agent = Agent(
