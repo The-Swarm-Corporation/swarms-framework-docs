@@ -153,47 +153,74 @@ result = tool.execute_tool_by_name("add", '{"a": 1, "b": 2}')
   The result of executing the tool
 </ResponseField>
 
-## Tool Decorator
+## Tool Registry
 
-A decorator function that generates an OpenAI function schema from a Python function.
+`swarms.tools` exports a small registry pair: the `ToolStorage` class, which holds named tool callables, and the `tool_registry` decorator, which registers a function into a `ToolStorage` instance at import time.
 
 ```python
-from swarms.tools import tool
+from swarms.tools import ToolStorage, tool_registry
 
-@tool(name="calculator", description="Perform arithmetic operations")
-def calculate(a: int, b: int, operation: str) -> int:
-    """Calculate result of operation on two numbers."""
-    if operation == "add":
-        return a + b
-    elif operation == "multiply":
-        return a * b
+storage = ToolStorage(
+    name="Math Tools",
+    description="Arithmetic helpers for the agent",
+)
+
+@tool_registry(storage)
+def add(a: int, b: int) -> int:
+    """Add two numbers together."""
+    return a + b
+
+# Look the tool back up by name and call it
+add_fn = storage.get_tool("add")
+print(add_fn(2, 3))  # 5
 ```
 
+<Note>
+There is no `tool` decorator in `swarms.tools`. To hand a plain Python function to an agent, pass it directly via `Agent(tools=[my_function])` — the framework generates the OpenAI schema from the function's type hints and docstring. Use `tool_registry` only when you also want name-based lookup through a `ToolStorage`.
+</Note>
+
+### ToolStorage
+
 <ParamField path="name" type="str" default="None">
-  The name of the OpenAI function
+  Name of the registry
 </ParamField>
 
 <ParamField path="description" type="str" default="None">
-  The description of the OpenAI function
+  Description of the registry
 </ParamField>
 
-<ParamField path="return_dict" type="bool" default="True">
-  Whether to return the schema as a dictionary
+<ParamField path="verbose" type="bool" default="None">
+  Enable detailed logging output
 </ParamField>
 
-<ParamField path="verbose" type="bool" default="True">
-  Enable verbose logging
+<ParamField path="tools" type="List[Callable]" default="None">
+  Initial list of tool functions
 </ParamField>
 
-<ParamField path="return_string" type="bool" default="False">
-  Whether to return the schema as a string
+#### Methods
+
+| Method | Description |
+|---|---|
+| `add_tool(func)` | Add a single tool. Raises `ValueError` if a tool with the same name already exists |
+| `add_many_tools(funcs)` | Add a list of tools concurrently |
+| `get_tool(name)` | Return the callable registered under `name`. Raises `ValueError` if not found |
+| `list_tools()` | Return the registry contents as a formatted JSON string (name, documentation, creation time per tool) |
+| `set_setting(key, value)` | Store an arbitrary setting on the registry |
+| `get_setting(key)` | Read a setting back. Raises `KeyError` if not set |
+
+<Warning>
+`list_tools()` returns a JSON **string** built from the registry's metadata schema, not a list of tool names.
+</Warning>
+
+### tool_registry
+
+<ParamField path="storage" type="ToolStorage" default="None">
+  The storage instance to register the decorated function in
 </ParamField>
 
-<ParamField path="return_yaml" type="bool" default="False">
-  Whether to return the schema as YAML
-</ParamField>
-
-**Note:** `name` and `description` are declared with a default of `None`, but the decorator asserts both are strings at call time — omitting either raises `AssertionError`. Also, calling the decorated function executes the original function body but returns its generated schema (not the function's return value).
+<ResponseField name="return" type="Callable">
+  A decorator that registers the function and returns a logging wrapper around it
+</ResponseField>
 
 ## Utility Functions
 
@@ -284,16 +311,32 @@ Full migration notes, including the two behavioral differences, are in the [MCPM
 
 ## Additional Utilities
 
-A few other utilities are exported from `swarms.tools` for less common use cases:
+A few other symbols are exported from `swarms.tools` for less common use cases:
 
-- **`base_model_to_json`** — Convert a Pydantic `BaseModel` class to a formatted JSON schema string.
-- **`ToolStorage`** / **`tool_registry`** — Register and look up tools by name in a shared, process-wide tool registry.
-- **`create_computer_use_tools`** — Create a dict of pre-configured computer-use tools (file read/write, shell execution) scoped to a workspace directory. `from swarms.tools import create_computer_use_tools`.
-- **`execute_multiple_tools_on_multiple_mcp_servers`** / **`execute_multiple_tools_on_multiple_mcp_servers_sync`** — Execute several tool calls across several MCP servers concurrently (async and sync variants).
+- **`multi_base_model_to_openai_function`** — Convert several Pydantic `BaseModel` classes to a combined OpenAI function schema.
+- **`Function`** / **`ToolFunction`** — Pydantic models describing an OpenAI function and a tool wrapping one.
+- **`load_basemodels_if_needed`** / **`get_load_param_if_needed_function`** — Coerce raw dict arguments into the Pydantic models a tool's signature declares.
+- **`get_parameters`** / **`get_required_params`** — Extract the JSON-schema parameter block and the list of required parameter names from a callable.
+- **`ToolStorage`** / **`tool_registry`** — Register and look up tools by name; see [Tool Registry](#tool-registry) above.
+- **`MCPManager`** / **`MCPFileTokenStorage`** — MCP transport, auth, discovery, and routing; see the [MCPManager reference](/api/mcp-manager).
 
 ## Exceptions
 
-The tools module defines several custom exceptions:
+`BaseTool` raises the exceptions below. They are defined in `swarms.tools.base_tool` and are **not** re-exported from `swarms.tools`, so import them from the module directly:
+
+```python
+from swarms.tools.base_tool import (
+    BaseToolError,
+    ToolValidationError,
+    ToolExecutionError,
+    ToolNotFoundError,
+    FunctionSchemaError,
+    ToolDocumentationError,
+    ToolTypeHintError,
+)
+```
+
+All of them subclass `BaseToolError`.
 
 ### BaseToolError
 
@@ -335,7 +378,7 @@ Raised when tool type hints are missing or invalid.
 ## Example: Complete Tool Setup
 
 ```python
-from swarms.tools import BaseTool, tool
+from swarms.tools import BaseTool
 from pydantic import BaseModel
 
 # Define a Pydantic model

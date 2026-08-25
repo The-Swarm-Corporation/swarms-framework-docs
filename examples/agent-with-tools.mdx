@@ -135,7 +135,7 @@ def exa_search(query: str) -> str:
 agent = Agent(
     agent_name="Quantitative-Trading-Agent",
     agent_description="Advanced quantitative trading and algorithmic analysis agent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     dynamic_temperature_enabled=True,
     max_loops=1,
     tools=[exa_search],
@@ -283,14 +283,14 @@ Integrate tools from external libraries:
 
 ```python
 # Pip install swarms-tools
-from swarms_tools import exa_search, browser_use
+from swarms_tools import exa_search
 from swarms import Agent
 
 # Agent with pre-built tools
 agent = Agent(
     agent_name="Research-Agent",
     model_name="gpt-5.4",
-    tools=[exa_search, browser_use],
+    tools=[exa_search],
 )
 
 result = agent.run("Find the latest AI research papers from 2024")
@@ -474,22 +474,48 @@ agent = Agent(
 
 ### Tool Registry
 
+`swarms.tools.tool_registry` provides `ToolStorage`, a named registry of tool callables. Tools are keyed by their function name — `add_tool` reads `func.__name__`, so there is no separate label to pass.
+
 ```python
-from swarms.tools.tool_registry import ToolRegistry
+from swarms import Agent
+from swarms.tools.tool_registry import ToolStorage
 
-# Create tool registry
-registry = ToolRegistry()
+# Create tool storage
+registry = ToolStorage(
+    name="Research Tools",
+    description="Search and analysis tools for the agent",
+)
 
-# Register tools
-registry.register("search", exa_search)
-registry.register("calculate", calculate_metrics)
+# Register tools (keyed by function name: "exa_search", "calculate_metrics")
+registry.add_many_tools([exa_search, calculate_metrics])
 
-# Use registered tools
+# Pull a specific tool back out by name
+search = registry.get_tool("exa_search")
+
+# Hand the registered tools to an agent
 agent = Agent(
     model_name="gpt-5.4",
-    tools=registry.get_all_tools(),
+    tools=[registry.get_tool(name) for name in ("exa_search", "calculate_metrics")],
 )
 ```
+
+The `tool_registry` decorator registers a function into a `ToolStorage` at definition time:
+
+```python
+from swarms.tools.tool_registry import ToolStorage, tool_registry
+
+storage = ToolStorage(name="Math Tools", description="Arithmetic helpers")
+
+@tool_registry(storage)
+def calculate_roi(investment: float, return_amount: float) -> str:
+    """Calculate return on investment as a percentage."""
+    roi = ((return_amount - investment) / investment) * 100
+    return f"ROI: {roi:.2f}%"
+```
+
+<Note>
+`ToolStorage.list_tools()` returns a JSON string of registry metadata, not a list of callables — build the agent's `tools` list with `get_tool(name)` as shown above.
+</Note>
 
 ## Output Examples
 

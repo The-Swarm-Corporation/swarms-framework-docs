@@ -88,7 +88,6 @@ agent = Agent(
     agent_name="Resilient-Agent",
     model_name="claude-sonnet-4-6",
     retry_attempts=5,  # Number of retry attempts
-    retry_interval=2,  # Initial retry interval (seconds)
     max_loops=3,
 )
 ```
@@ -145,7 +144,7 @@ agent = Agent(
     fallback_models=[
         "claude-sonnet-4-6",           # Primary model
         "gpt-5.4",      # First fallback
-        "gpt-3.5-turbo",    # Second fallback
+        "gpt-5.4-mini",    # Second fallback
     ],
     max_loops=3,
 )
@@ -206,7 +205,7 @@ agent = Agent(
 )
 
 # Control logging in AOP
-from swarms import AOP
+from swarms.structs.aop import AOP
 
 deployer = AOP(
     server_name="ProductionCluster",

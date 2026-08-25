@@ -126,6 +126,18 @@ Each layer:
   Model for the aggregator agent
 </ParamField>
 
+<ParamField path="max_workers" type="int" default="None">
+  Cap on how many worker agents run concurrently within a single layer. Forwarded to `run_agents_concurrently()`. When omitted, the pool is sized by agent count.
+</ParamField>
+
+<ParamField path="aggegrator_args" type="Dict[str, Any]" default="None">
+  Extra `Agent` keyword arguments forwarded to the **automatically created** aggregator. Ignored entirely when you pass your own `aggregator_agent`.
+</ParamField>
+
+<Warning>
+  The parameter is spelled `aggegrator_args` in the code — note the transposed letters. That misspelling is the name you must type; `aggregator_args` is not accepted and raises `TypeError`.
+</Warning>
+
 ## Methods
 
 ### run()
@@ -263,11 +275,29 @@ moa = MixtureOfAgents(
 
 # Automatic aggregator created with:
 # - agent_name="Aggregator Agent"
-# - Default AGGREGATOR_SYSTEM_PROMPT_MAIN
-# - Specified model_name
-# - temperature=0.5
+# - system_prompt=AGGREGATOR_SYSTEM_PROMPT_MAIN (or your aggregator_system_prompt)
+# - model_name=aggregator_model_name
 # - max_loops=1
+# - output_type="final"
+# - dynamic_context_window=True
 ```
+
+Use `aggegrator_args` to pass any other `Agent` keyword argument through to that
+auto-created aggregator:
+
+```python
+moa = MixtureOfAgents(
+    name="Analysis-Team",
+    agents=[expert1, expert2, expert3],
+    aggregator_model_name="claude-sonnet-4-20250514",
+    aggegrator_args={"temperature": 0.2, "max_tokens": 4096},
+)
+```
+
+<Note>
+  `aggegrator_args` only applies when the aggregator is auto-created. If you pass your own
+  `aggregator_agent`, configure it on that `Agent` directly — `aggegrator_args` is ignored.
+</Note>
 
 ## Architecture Flow
 

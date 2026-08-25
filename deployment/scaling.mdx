@@ -224,7 +224,8 @@ results = run_agents_with_different_tasks(
 For production deployments, use AOP's queue-based execution:
 
 ```python
-from swarms import Agent, AOP
+from swarms import Agent
+from swarms.structs.aop import AOP
 
 # Create agents
 agents = [

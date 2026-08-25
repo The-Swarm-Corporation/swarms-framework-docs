@@ -58,8 +58,8 @@ swarms models --info claude-opus-4-7
 You'll see context window, supported features, and per-million-token pricing. For this tutorial we'll use:
 
 - `claude-opus-4-7` for the writer (quality matters most)
-- `gpt-4o` for the researcher (good cost/quality tradeoff)
-- `gpt-4o` for the reviewer
+- `gpt-5.4` for the researcher (good cost/quality tradeoff)
+- `gpt-5.4` for the reviewer
 
 If you only have one provider key, use that provider's strongest model for all three. The pipeline still works.
 
@@ -75,7 +75,7 @@ The most ergonomic way to define a reusable agent is a markdown file with YAML f
 ---
 name: Researcher
 description: Researches a topic thoroughly with citations
-model_name: gpt-4o
+model_name: gpt-5.4
 temperature: 0.2
 ---
 
@@ -116,7 +116,7 @@ Use plain language. Cut every word that doesn't earn its place.
 ---
 name: Reviewer
 description: Critiques the writing for accuracy, clarity, and concision
-model_name: gpt-4o
+model_name: gpt-5.4
 temperature: 0.1
 ---
 
@@ -151,7 +151,7 @@ swarms agent \
   --description "Researches a topic thoroughly" \
   --system-prompt "You are a senior research analyst. Produce a detailed summary with citations." \
   --task "What's the current state of mRNA vaccine development for cancer?" \
-  --model-name "gpt-4o" \
+  --model-name "gpt-5.4" \
   --streaming-on
 ```
 
@@ -166,7 +166,7 @@ Create `pipeline.yaml`:
 ```yaml
 agents:
   - name: Researcher
-    model_name: gpt-4o
+    model_name: gpt-5.4
     temperature: 0.2
     system_prompt: |
       You are a senior research analyst. Given a topic, produce
@@ -182,7 +182,7 @@ agents:
       lede, three-paragraph body, and one-sentence takeaway.
 
   - name: Reviewer
-    model_name: gpt-4o
+    model_name: gpt-5.4
     temperature: 0.1
     system_prompt: |
       You are a senior editor. Given a draft briefing and the
@@ -202,7 +202,7 @@ Run it:
 swarms run-agents --yaml-file pipeline.yaml
 ```
 
-Each agent receives the previous one's output as context. The Researcher's notes flow into the Writer's brief, which flows into the Reviewer's critique. Total cost on `gpt-4o` + `claude-opus-4-7` will be a few cents.
+Each agent receives the previous one's output as context. The Researcher's notes flow into the Writer's brief, which flows into the Reviewer's critique. Total cost on `gpt-5.4` + `claude-opus-4-7` will be a few cents.
 
 ---
 
@@ -214,13 +214,13 @@ The same agents can run as a Concurrent Workflow (all three see the same task in
 # pipeline-concurrent.yaml
 agents:
   - name: Optimist
-    model_name: gpt-4o
+    model_name: gpt-5.4
     system_prompt: Argue the strongest case for the topic
   - name: Pessimist
     model_name: claude-opus-4-7
     system_prompt: Argue the strongest case against the topic
   - name: Realist
-    model_name: gpt-4o
+    model_name: gpt-5.4
     system_prompt: Provide a balanced analysis of the topic
 
 swarm:
@@ -246,7 +246,7 @@ When you don't know which architecture fits, let the CLI design one:
 ```bash
 swarms autoswarm \
   --task "Produce a competitive analysis of CRISPR-based cancer therapies in 2026" \
-  --model "gpt-4o" \
+  --model "gpt-5.4" \
   --no-run \
   -o ./generated_swarm.py
 ```
@@ -258,7 +258,7 @@ To run it immediately, drop `--no-run`:
 ```bash
 swarms autoswarm \
   --task "Produce a competitive analysis of CRISPR-based cancer therapies in 2026" \
-  --model "gpt-4o"
+  --model "gpt-5.4"
 ```
 
 ---
@@ -272,7 +272,7 @@ swarms heavy-swarm \
   --task "What are the second-order economic effects of AI coding assistants on the software labor market over the next five years?" \
   --loops-per-agent 3 \
   --worker-model-name "claude-opus-4-7" \
-  --question-agent-model-name "gpt-4o" \
+  --question-agent-model-name "gpt-5.4" \
   --verbose
 ```
 

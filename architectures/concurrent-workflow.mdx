@@ -116,7 +116,15 @@ results = workflow.run(
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="True">
-  Automatically save conversation history
+  Automatically save conversation history to the workflow workspace directory after each run
+</ParamField>
+
+<Warning>
+  `ConcurrentWorkflow.__init__` accepts **two** similarly named parameters: `autosave` and `auto_save` (both default `True`). Only `autosave` has any effect — it is the flag that enables the workspace writer. `auto_save` is stored on the instance and never read, so setting `auto_save=False` does **not** turn saving off. Always use `autosave`.
+</Warning>
+
+<ParamField path="verbose" type="bool" default="False">
+  Emit debug-level logging for workspace and autosave operations
 </ParamField>
 
 <ParamField path="on_error" type="str" default="store">

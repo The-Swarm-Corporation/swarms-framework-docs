@@ -80,8 +80,8 @@ swarms heavy-swarm --task "Analyze the current state of quantum computing"
 swarms heavy-swarm \
     --task "Research renewable energy market trends" \
     --loops-per-agent 2 \
-    --question-agent-model-name gpt-4o-mini \
-    --worker-model-name gpt-4o-mini \
+    --question-agent-model-name gpt-5.4-mini \
+    --worker-model-name gpt-5.4-mini \
     --verbose
 ```
 
@@ -125,8 +125,8 @@ swarms heavy-swarm --task "<your task>" [options]
 |--------|---------|-------------|
 | `--task` | - | **Required.** The research task |
 | `--loops-per-agent` | 1 | Number of loops per agent |
-| `--question-agent-model-name` | gpt-4o-mini | Model for question agent |
-| `--worker-model-name` | gpt-4o-mini | Model for worker agents |
+| `--question-agent-model-name` | gpt-5.4 | Model for question agent |
+| `--worker-model-name` | gpt-5.4 | Model for worker agents |
 | `--random-loops-per-agent` | False | Randomize loops per agent |
 | `--verbose` | False | Enable detailed output |
 

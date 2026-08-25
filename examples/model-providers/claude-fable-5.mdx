@@ -25,7 +25,7 @@ Fable 5 is automatically routed through LiteLLM by Swarms. As long as your `ANTH
 <Warning>
 **Two important limitations:**
 
-- **Tools / function calling are not supported on Fable 5.** Leave `tools=None` and `tools_list_dictionary=None` on every Fable 5 agent. If you need tool use, route those calls to a different model (e.g. `claude-sonnet-4-6` or `gpt-4.1`) and use Fable 5 as the reasoning/synthesis layer.
+- **Tools / function calling are not supported on Fable 5.** Leave `tools=None` and `tools_list_dictionary=None` on every Fable 5 agent. If you need tool use, route those calls to a different model (e.g. `claude-sonnet-4-6` or `gpt-5.4`) and use Fable 5 as the reasoning/synthesis layer.
 - **`temperature` is not supported.** Always pass `temperature=None`. Setting a numeric value will be ignored at best and rejected at worst — the model uses its own internal sampling.
 
 `top_p` should likewise be left as `None`.
@@ -381,7 +381,7 @@ workers = [
     ),
     Agent(
         agent_name="Worker-GPT",
-        model_name="gpt-4.1",
+        model_name="gpt-5.4",
         max_loops=1,
     ),
 ]

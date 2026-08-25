@@ -68,9 +68,8 @@ SwarmRouter(
     swarm_type: SwarmType = "SequentialWorkflow",
     autosave: bool = False,
     rearrange_flow: Optional[str] = None,
-    shared_memory_system: Any = None,
-    output_type: OutputType = "dict-all-except-first",
-    multi_agent_collab_prompt: bool = True,
+    output_type: OutputType = "dict",
+    multi_agent_collab_prompt: bool = False,
     list_all_agents: bool = False,
     conversation: Any = None,
     agents_config: Optional[Dict[Any, Any]] = None,
@@ -80,12 +79,13 @@ SwarmRouter(
     heavy_swarm_variant: SwarmVariant = "default",
     heavy_swarm_max_loops: int = 1,
     heavy_swarm_timeout: int = 900,
-    telemetry_enabled: bool = False,
     council_judge_model_name: str = "gpt-5.4",
     verbose: bool = False,
     worker_tools: Optional[List[Callable]] = None,
     chairman_model: str = "gpt-5.1",
     autosave_use_timestamp: bool = True,
+    director_model_name: str = "gpt-5.4",
+    director_settings: Optional[Dict[str, Any]] = None,
     *args,
     **kwargs,
 )
@@ -121,24 +121,10 @@ SwarmRouter(
   Output formatter applied to the conversation. One of `'list'`, `'dict'`, `'dictionary'`, `'string'`, `'str'`, `'final'`, `'last'`, `'json'`, `'all'`, `'yaml'`, `'xml'`, `'dict-all-except-first'`, `'str-all-except-first'`, `'basemodel'`, `'dict-final'`, `'list-final'`.
 </ParamField>
 
-<ParamField path="telemetry_enabled" type="bool" default="False">
-  **Does not exist in code.** See the warning below.
-  When `True`, snapshot each agent's serialized config into `self.agent_config` during the reliability check.
-</ParamField>
-
 ### Behavior modifiers
 
 <ParamField path="multi_agent_collab_prompt" type="bool" default="False">
   Inject the built-in collaboration prompt into each agent so they understand they are part of a multi-agent team. Applied during `setup()` via `update_system_prompt_for_agent_in_swarm()`.
-</ParamField>
-
-<Warning>
-`shared_memory_system` and `telemetry_enabled` **do not exist** on `SwarmRouter`. Because `__init__` accepts `**kwargs`, passing them is silently ignored rather than raising, so code following the old docs appears to work while wiring up nothing. There is no `activate_shared_memory()` method either.
-</Warning>
-
-<ParamField path="shared_memory_system" type="Any" optional>
-  **Does not exist in code.** See the warning below.
-  Shared memory backend (e.g. a vector store) attached to every agent's `long_term_memory`.
 </ParamField>
 
 <ParamField path="list_all_agents" type="bool" default="False">
@@ -209,6 +195,16 @@ These are only consulted when the corresponding `swarm_type` is selected.
 
 <ParamField path="worker_tools" type="List[Callable]" optional>
   Tools made available to every worker agent in `HeavySwarm`.
+</ParamField>
+
+#### HierarchicalSwarm
+
+<ParamField path="director_model_name" type="str" default="gpt-5.4">
+  Model used by the auto-created director agent. Forwarded to `HierarchicalSwarm` by `_create_hierarchical_swarm()`.
+</ParamField>
+
+<ParamField path="director_settings" type="Dict[str, Any]" optional>
+  Extra `Agent` keyword arguments for the auto-created director. `HierarchicalSwarm` reads the keys `agent_name`, `model_name`, `system_prompt`, `temperature`, and `top_p` from this dict, and each one overrides the corresponding default — including `director_model_name`.
 </ParamField>
 
 #### CouncilAsAJudge
@@ -330,7 +326,7 @@ Validates the configuration (swarm type, per-type required parameters, `max_loop
 
 ### `setup()`
 
-Applies pre-run configuration to the agents: auto-prompt-engineering (`auto_generate_prompts`), shared-memory activation (`shared_memory_system`), rules injection (`rules`), and the multi-agent collaboration prompt (`multi_agent_collab_prompt`). Called automatically during construction via `reliability_check()`. The underlying swarm itself is created lazily on the first `run()`.
+Applies pre-run configuration to the agents: the multi-agent collaboration prompt (`multi_agent_collab_prompt`) and the agent roster (`list_all_agents`). Called automatically during construction via `reliability_check()`. The underlying swarm itself is created lazily on the first `run()`.
 
 ---
 
@@ -352,9 +348,9 @@ Return the underlying conversation as a single formatted string.
 
 ---
 
-### `activate_shared_memory()` · `update_system_prompt_for_agent_in_swarm()` · `list_agents_to_eachother()`
+### `update_system_prompt_for_agent_in_swarm()` · `list_agents_to_eachother()`
 
-Internal helpers invoked by `setup()`: attach `shared_memory_system` to every agent's `long_term_memory`, append the multi-agent collaboration prompt to each agent, and (when `list_all_agents=True`) add the agent roster to the swarm conversation. `agent_config()` returns a `{agent_name: agent.to_dict()}` snapshot used when `telemetry_enabled=True`. Rarely called directly.
+Internal helpers invoked by `setup()`: append the multi-agent collaboration prompt to each agent, and (when `list_all_agents=True`) add the agent roster to the swarm conversation. Rarely called directly.
 
 ## Required parameters by `swarm_type`
 

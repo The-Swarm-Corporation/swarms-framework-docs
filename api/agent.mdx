@@ -18,7 +18,7 @@ graph TD
     E -->|Returns Data| C
     C -->|Provides Data| F[Memory Interaction]
     F -->|Stores and Retrieves Data| G[RAG System]
-    G -->|ChromaDB/Pinecone| H[Enhanced Data]
+    G -->|Vector Store / Retriever| H[Enhanced Data]
     F -->|Provides Enhanced Data| I[Final LLM Processing]
     I -->|Generates Final Response| J[Output]
     C -->|No Tools Available| K[Skip Tool Usage]
@@ -75,7 +75,7 @@ from swarms import Agent
 | `agent.marketplace` | [`AgentMarketplaceHandler`](/api/agent-marketplace-handler) | Fetching and publishing marketplace prompts |
 
 ```python
-agent = Agent(agent_name="Analyst", model_name="gpt-4o-mini")
+agent = Agent(agent_name="Analyst", model_name="gpt-5.4-mini")
 
 # These are equivalent
 agent.get_current_model()
@@ -86,8 +86,8 @@ Each collaborator is independently usable and independently documented — reach
 
 ## Initialization
 
-<ParamField path="id" type="str" default="agent-{uuid}">
-  Unique identifier for the agent instance
+<ParamField path="id" type="Optional[str]" default="None">
+  Unique identifier for the agent instance. When omitted the agent generates one via `generate_id("agent")`, of the form `agent-` followed by 32 hex characters (`secrets.token_hex(16)`) — not a UUID.
 </ParamField>
 
 <ParamField path="agent_name" type="str" default="swarm-worker-01">
@@ -98,8 +98,8 @@ Each collaborator is independently usable and independently documented — reach
   A description of the agent's purpose and capabilities. Shown to orchestrators when routing tasks.
 </ParamField>
 
-<ParamField path="system_prompt" type="str">
-  The system prompt that defines the agent's behavior and personality
+<ParamField path="system_prompt" type="Optional[str]" default="AGENT_SYSTEM_PROMPT_3">
+  The system prompt that defines the agent's behavior and personality. Defaults to the framework's general-purpose `AGENT_SYSTEM_PROMPT_3` rather than an empty prompt.
 </ParamField>
 
 <ParamField path="llm" type="Any">
@@ -141,7 +141,7 @@ Each collaborator is independently usable and independently documented — reach
   Single fallback model used when the primary model fails.
 </ParamField>
 
-<ParamField path="max_loops" type="Union[int, str]" default="1">
+<ParamField path="max_loops" type="Optional[Union[int, str]]" default="1">
   Maximum number of reasoning loops. Use "auto" for autonomous mode with dynamic planning
 </ParamField>
 
@@ -153,12 +153,8 @@ Each collaborator is independently usable and independently documented — reach
   Temperature for LLM sampling (0.0 to 1.0)
 </ParamField>
 
-<ParamField path="max_tokens" type="int" default="16000">
-  Maximum number of tokens in the LLM response.
-
-  <Warning>
-  The value you pass is currently overwritten during setup: the agent uses the model's own maximum output-token limit, falling back to `16000`. Passing `max_tokens` has no effect today.
-  </Warning>
+<ParamField path="max_tokens" type="Optional[int]" default="None">
+  Maximum number of tokens in the LLM response. A positive value you pass is kept and forwarded to the LLM. Leave it as `None` (or pass `0`/a negative number) and the agent resolves the model's own maximum output-token limit, falling back to `16000` when that lookup fails.
 </ParamField>
 
 <ParamField path="context_length" type="int" default="None">
@@ -185,11 +181,11 @@ Each collaborator is independently usable and independently documented — reach
   Optional pre/post-processing transforms applied to the conversation history.
 </ParamField>
 
-<ParamField path="streaming_on" type="bool" default="false">
+<ParamField path="streaming_on" type="bool" default="False">
   Enable basic streaming with formatted panels
 </ParamField>
 
-<ParamField path="stream" type="bool" default="false">
+<ParamField path="stream" type="bool" default="False">
   Enable detailed token-by-token streaming with metadata (citations, tokens used, etc.)
 </ParamField>
 
@@ -197,11 +193,11 @@ Each collaborator is independently usable and independently documented — reach
   Callback function to receive streaming tokens in real-time. Use with `agent.run_stream` / `agent.arun_stream` for generator-style consumption.
 </ParamField>
 
-<ParamField path="interactive" type="bool" default="false">
+<ParamField path="interactive" type="bool" default="False">
   Enable interactive mode (REPL-style) — prompt the user for input between loops.
 </ParamField>
 
-<ParamField path="verbose" type="bool" default="false">
+<ParamField path="verbose" type="bool" default="False">
   Enable verbose logging for debugging.
 </ParamField>
 
@@ -210,31 +206,27 @@ Each collaborator is independently usable and independently documented — reach
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default="str-all-except-first">
-  Output format: 'str', 'string', 'list', 'json', 'dict', 'yaml', 'xml'
+  How the run's result is formatted. See [Output Types](#output-types) for all 17 accepted values.
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="false">
+<ParamField path="autosave" type="bool" default="False">
   Automatically save agent state during execution
 </ParamField>
 
-<ParamField path="dashboard" type="bool" default="false">
+<ParamField path="dashboard" type="bool" default="False">
   Display agent dashboard on initialization
 </ParamField>
 
-<ParamField path="long_term_memory" type="Union[Callable, Any]">
-  Long-term memory backend (e.g. vector database) for RAG.
+<ParamField path="long_term_memory" type="Optional[Union[Callable, Any]]" default="None">
+  A store that is written out with agent state. The agent never queries it — only `.save(path)` is ever called on it, so this does not provide RAG. For retrieval, expose the lookup as a tool instead.
 </ParamField>
 
 <ParamField path="fallback_models" type="List[str]">
   List of fallback models to try in order if the primary model fails.
 </ParamField>
 
-<ParamField path="retry_attempts" type="int" default="3">
+<ParamField path="retry_attempts" type="Optional[int]" default="3">
   Number of retry attempts for LLM calls
-</ParamField>
-
-<ParamField path="retry_interval" type="int" default="1">
-  Interval in seconds between retry attempts
 </ParamField>
 
 <ParamField path="stopping_token" type="str">
@@ -249,11 +241,11 @@ Each collaborator is independently usable and independently documented — reach
   Alternative stopping function
 </ParamField>
 
-<ParamField path="dynamic_temperature_enabled" type="bool" default="false">
+<ParamField path="dynamic_temperature_enabled" type="bool" default="False">
   Enable dynamic temperature adjustment during execution
 </ParamField>
 
-<ParamField path="dynamic_loops" type="bool" default="false">
+<ParamField path="dynamic_loops" type="bool" default="False">
   Enable dynamic loop count adjustment (sets max_loops="auto")
 </ParamField>
 
@@ -265,11 +257,11 @@ Each collaborator is independently usable and independently documented — reach
   Token the user can type in interactive mode to exit the loop.
 </ParamField>
 
-<ParamField path="preset_stopping_token" type="bool" default="false">
+<ParamField path="preset_stopping_token" type="bool" default="False">
   When `True`, append the framework's preset stopping marker to the system prompt.
 </ParamField>
 
-<ParamField path="auto_generate_prompt" type="bool" default="false">
+<ParamField path="auto_generate_prompt" type="bool" default="False">
   Auto-generate a system prompt from the task description when one is not provided.
 </ParamField>
 
@@ -297,16 +289,12 @@ Each collaborator is independently usable and independently documented — reach
   Prompt for planning phase
 </ParamField>
 
-<ParamField path="plan_enabled" type="bool" default="false">
+<ParamField path="plan_enabled" type="bool" default="False">
   Enable planning phase before execution
 </ParamField>
 
-<ParamField path="multi_modal" type="bool">
+<ParamField path="multi_modal" type="Optional[bool]" default="None">
   Enable multi-modal processing (images, etc.).
-</ParamField>
-
-<ParamField path="summarize_multiple_images" type="bool" default="false">
-  When multiple images are provided, summarise them into a single context entry before invoking the LLM.
 </ParamField>
 
 <ParamField path="tool_call_summary" type="bool" default="True">
@@ -321,7 +309,7 @@ Each collaborator is independently usable and independently documented — reach
   Display tool inputs/outputs in the agent's printed output.
 </ParamField>
 
-<ParamField path="tools_list_dictionary" type="List[Dict[str, Any]]" default="[]">
+<ParamField path="tools_list_dictionary" type="Optional[List[Dict[str, Any]]]" default="None">
   Pre-built OpenAI function-calling tool schemas. Use when you want to bypass the auto-generated schema.
 </ParamField>
 
@@ -337,16 +325,44 @@ Each collaborator is independently usable and independently documented — reach
   Pydantic models registered for structured-output prompting.
 </ParamField>
 
-<ParamField path="mcp_url" type="Union[str, MCPConnection]">
-  URL or connection object for a single MCP server.
+<ParamField path="mcp_url" type="Optional[Union[str, MCPConnection, Dict]]" default="None">
+  A single MCP server. Pass a URL string for an unauthenticated server, or an `MCPConnection`/dict to configure auth, transport, headers and timeouts.
 </ParamField>
 
-<ParamField path="mcp_urls" type="List[str]">
-  List of MCP server URLs for connecting to multiple servers.
+<ParamField path="mcp_urls" type="Optional[List[Union[str, MCPConnection, Dict]]]" default="None">
+  Several MCP servers. Each entry may be a URL string, an `MCPConnection`, or a dict. Tools from every server are merged and each tool call is routed back to the server that owns it.
 </ParamField>
 
-<ParamField path="mcp_config" type="MCPConnection">
-  Single MCP connection configuration object.
+<ParamField path="mcp_config" type="Optional[Union[MCPConnection, Dict]]" default="None">
+  A single MCP server given as a connection object (or the equivalent dict).
+</ParamField>
+
+<ParamField path="mcp_configs" type="Optional[List[Union[MCPConnection, Dict]]]" default="None">
+  Several MCP servers given as connection objects (or dicts).
+</ParamField>
+
+<ParamField path="mcp_api_key" type="Optional[str]" default="None">
+  API key applied to every MCP server that does not define its own. Sent as `Authorization: Bearer <key>` by default; override the header or prefix per-server with `MCPConnection(api_key_header=..., api_key_prefix=...)`. Supports `"env:MY_VAR"` / `"${MY_VAR}"` indirection so secrets stay out of code.
+</ParamField>
+
+<ParamField path="mcp_authorization_token" type="Optional[str]" default="None">
+  Bearer token applied to every MCP server that does not define its own. Equivalent to `mcp_api_key` with the default header and prefix.
+</ParamField>
+
+<ParamField path="mcp_oauth" type="Optional[Union[MCPOAuthConfig, Dict]]" default="None">
+  OAuth 2.1 settings applied to every MCP server without its own. Supports the interactive authorization-code flow (PKCE plus dynamic client registration, tokens cached on disk), the headless `client_credentials` grant, and pre-issued access tokens.
+</ParamField>
+
+<ParamField path="mcp_headers" type="Optional[Dict[str, str]]" default="None">
+  Extra headers merged into every MCP request.
+</ParamField>
+
+<ParamField path="mcp_transport" type="Optional[Literal['streamable_http', 'sse', 'stdio', 'auto']]" default="None">
+  Force a transport for every MCP server. `None` auto-detects from the URL.
+</ParamField>
+
+<ParamField path="mcp_timeout" type="Optional[int]" default="None">
+  Request timeout in seconds for every MCP server. Falls back to the per-connection default of 30.
 </ParamField>
 
 <ParamField path="handoffs" type="Union[Sequence[Callable], Any]">
@@ -377,7 +393,7 @@ Each collaborator is independently usable and independently documented — reach
   UUID of a prompt from the Swarms marketplace to use as the system prompt.
 </ParamField>
 
-<ParamField path="publish_to_marketplace" type="bool" default="false">
+<ParamField path="publish_to_marketplace" type="bool" default="False">
   When `True`, publish this agent to the Swarms marketplace on initialization.
 </ParamField>
 
@@ -385,11 +401,19 @@ Each collaborator is independently usable and independently documented — reach
   Path to a directory of Agent Skills (Anthropic `SKILL.md` format).
 </ParamField>
 
-<ParamField path="selected_tools" type="Union[str, List[str]]" default="all">
-  Tools to enable for the autonomous looper when `max_loops="auto"`. Use `"all"` or a list of tool names.
+<ParamField path="selected_tools" type="Optional[Union[str, List[str]]]" default="all">
+  Tools to enable for the autonomous looper when `max_loops="auto"`. Use `"all"`, or a list of tool names — the list filters the **entire** loop tool set, control-flow tools included, so include `create_plan` and `complete_task` unless you intend to remove them. `agent.get_all_selected_tools()` returns every valid name.
 </ParamField>
 
-<ParamField path="react_on" type="bool" default="false">
+<ParamField path="think_tool" type="bool" default="False">
+  Give the autonomous looper (`max_loops="auto"`) a `think` tool for an explicit reasoning turn. Off by default: it costs a full round-trip to produce reasoning most models can emit inline alongside their actions. When `False` the system prompt is adjusted to match, so the model is never told to call a tool it does not have.
+</ParamField>
+
+<ParamField path="dynamic_tools" type="bool" default="True">
+  Defer tool schemas behind a `tool_search` tool instead of sending them all on every request. See [Dynamic Tool Loading](#dynamic-tool-loading) below.
+</ParamField>
+
+<ParamField path="react_on" type="bool" default="False">
   Enable ReAct-style reasoning prompting.
 </ParamField>
 
@@ -397,32 +421,28 @@ Each collaborator is independently usable and independently documented — reach
   Whether to prepend the framework's reasoning preamble to the system prompt.
 </ParamField>
 
-<ParamField path="reasoning_enabled" type="bool" default="false">
+<ParamField path="reasoning_enabled" type="bool" default="False">
   Enable reasoning mode for supported models (e.g. o1, o3, Claude with extended thinking).
 </ParamField>
 
-<ParamField path="reasoning_effort" type="str">
+<ParamField path="reasoning_effort" type="str" default="medium">
   Effort level for reasoning models: `"low"`, `"medium"`, or `"high"`.
 </ParamField>
 
-<ParamField path="thinking_tokens" type="int">
+<ParamField path="thinking_tokens" type="int" default="1024">
   Maximum extended-thinking budget for Claude reasoning models.
 </ParamField>
 
-<ParamField path="safety_prompt_on" type="bool" default="false">
+<ParamField path="safety_prompt_on" type="bool" default="False">
   Prepend the framework's safety preamble to the system prompt.
 </ParamField>
 
-<ParamField path="random_models_on" type="bool" default="false">
+<ParamField path="random_models_on" type="bool" default="False">
   Randomly select from a pool of models on each call (load-balancing/experimentation).
 </ParamField>
 
-<ParamField path="tokenizer" type="Any" default="None">
-  Optional tokenizer instance used for local token counting.
-</ParamField>
-
 <ParamField path="workspace_dir" type="str">
-  Not a constructor argument — any value passed here is ignored. The workspace directory is always read from the `WORKSPACE_DIR` environment variable (must be set, e.g. via a `.env` file; see `.env.example` for the conventional value `agent_workspace`). Each agent gets its own subdirectory at `workspace_dir/agents/{agent-name}-{uuid}/`.
+  Not a constructor argument — any value passed here is ignored. The workspace root is read from the `WORKSPACE_DIR` environment variable; set it explicitly (e.g. via a `.env` file — `.env.example` uses `agent_workspace`). When it is unset, `agent.workspace_dir` resolves to `None` and an error is logged; the workspace manager behind `agent.workspace` then falls back to `{cwd}/agent_workspace` the first time it needs a directory. Each agent gets its own subdirectory at `{workspace}/agents/{agent-name}-{id12}/`, where `id12` is the last 12 characters of `agent.id`. Read the resolved path from `agent.workspace.dir`.
 </ParamField>
 
 <ParamField path="load_state_path" type="str" default="None">
@@ -525,10 +545,11 @@ Alternative syntax for running the agent (calls `run` internally).
 
 ```python
 def __call__(
-    task: str,
+    task: Optional[str] = None,
+    img: Optional[str] = None,
     *args,
     **kwargs
-) -> str
+) -> Any
 ```
 
 ### arun
@@ -537,7 +558,7 @@ Async version of `run`.
 
 ```python
 async def arun(
-    task: Optional[Union[str, Any]] = None,
+    task: Optional[str] = None,
     img: Optional[str] = None,
     *args,
     **kwargs,
@@ -546,7 +567,7 @@ async def arun(
 
 ### run_batched
 
-Run multiple tasks concurrently in batch mode.
+Run multiple tasks **sequentially**, one after another, and collect the results. For concurrent execution use `run_concurrent_tasks` instead.
 
 ```python
 def run_batched(
@@ -558,11 +579,11 @@ def run_batched(
 ```
 
 <ParamField path="tasks" type="List[str]">
-  List of tasks to run concurrently
+  List of tasks to run, in order
 </ParamField>
 
-<ParamField path="imgs" type="List[str]">
-  List of images to process with each task
+<ParamField path="imgs" type="List[str]" default="None">
+  One image per task, paired by position. Omit to run the tasks without images. A length mismatch raises `ValueError` rather than silently dropping the extras.
 </ParamField>
 
 <ResponseField name="return" type="List[Any]">
@@ -771,20 +792,21 @@ Talk to multiple agents concurrently.
 
 ```python
 def talk_to_multiple_agents(
-    agents: List[Any],
+    agents: List[Union[Any, Callable]],
     task: str,
     *args,
     **kwargs
-) -> List[Any]
+) -> Any
 ```
 
-### receive_message / receive_message / send_agent_message
+Returns one entry per agent, in the order the agents were given. An agent whose conversation raised contributes `None`.
 
-`receive_message` formats an incoming message from another agent and runs it through the agent's normal `run()` loop, returning the agent's response. `receive_message` (note: this exact spelling is the method name in source) instead appends the message directly to short-term memory without invoking the LLM. `send_agent_message` runs a message addressed to another agent through `run()` and returns the result.
+### receive_message / send_agent_message
+
+`receive_message` wraps an incoming message from another agent in a short preamble and runs it through the agent's normal `run()` loop, returning the agent's response. `send_agent_message` prefixes a message with `To: {agent_name}:` and runs that through `run()`, returning the result.
 
 ```python
 def receive_message(agent_name: str, task: str, *args, **kwargs) -> Any
-def receive_message(name: str, message: str) -> None
 def send_agent_message(agent_name: str, message: str, *args, **kwargs) -> str
 ```
 
@@ -794,11 +816,15 @@ def send_agent_message(agent_name: str, message: str, *args, **kwargs) -> str
 
 ### reset
 
-Reset the agent's memory and state.
+Drop the agent's short-term memory by setting `agent.short_memory = None`. Nothing is re-initialized in its place.
 
 ```python
 def reset() -> None
 ```
+
+<Warning>
+  After `reset()` the agent cannot run again until `short_memory` is replaced with a fresh `Conversation`. Construct a new agent instead unless you intend to rebuild it yourself.
+</Warning>
 
 ### plan
 
@@ -824,7 +850,7 @@ Display the agent's configuration in a formatted table.
 def showcase_config() -> None
 ```
 
-### update_system_prompt / update_max_loops / update_loop_interval / update_retry_attempts / update_retry_interval
+### update_system_prompt / update_max_loops / update_loop_interval
 
 In-place setters for runtime reconfiguration.
 
@@ -832,19 +858,34 @@ In-place setters for runtime reconfiguration.
 def update_system_prompt(system_prompt: str) -> None
 def update_max_loops(max_loops: Union[int, str]) -> None
 def update_loop_interval(loop_interval: int) -> None
-def update_retry_attempts(retry_attempts: int) -> None
-def update_retry_interval(retry_interval: int) -> None
 ```
 
-### enable_autosave / disable_autosave / cleanup
+### Tool Management
 
-Control the agent's background autosave loop.
+Methods backing dynamic tool loading and MCP tool discovery. See [Dynamic Tool Loading](#dynamic-tool-loading).
 
 ```python
-def enable_autosave(interval: int = 300) -> None
-def disable_autosave() -> None
-def cleanup() -> None
+def setup_dynamic_tools(always_loaded: Optional[List[dict]] = None) -> DynamicToolLoader
+def defer_tool_schemas(schemas: List[dict]) -> None
+def defer_mcp_tools() -> int
+def add_mcp_tools_to_memory() -> List[Dict[str, Any]]
+def get_all_selected_tools() -> List[str]
 ```
+
+| Method | Behaviour |
+|---|---|
+| `setup_dynamic_tools(always_loaded)` | Rebuild the agent's [`DynamicToolLoader`](/api/dynamic-tool-loader), deferring its tool schemas behind `tool_search`. Schemas in `always_loaded` are never deferred — control-flow tools belong there, since an agent that has to search for its own `complete_task` cannot finish. Schemas already registered (handoff tools, MCP tools) are preserved. Runs automatically during `__init__` when `dynamic_tools` applies. Returns the loader, also stored on `agent.tool_loader`. |
+| `defer_tool_schemas(schemas)` | Add pre-built OpenAI function-calling schemas to the deferred catalog. No-op when no loader is active. |
+| `defer_mcp_tools()` | Move this agent's MCP tool schemas into the deferred catalog and return how many were added. The fetch is a network call and runs once per agent. |
+| `add_mcp_tools_to_memory()` | Fetch the tool schemas exposed by the configured MCP servers, as OpenAI function-calling definitions. Connections, authentication, and transport selection are delegated to [`MCPManager`](/api/mcp-manager). |
+| `get_all_selected_tools()` | Every autonomous-loop tool name, e.g. `["create_plan", "think", "subtask_done", ...]`. Build a `selected_tools` list from this instead of hardcoding names. |
+
+Two related properties:
+
+| Property | Type | Value |
+|---|---|---|
+| `agent.workspace` | `WorkspaceManager` | The agent's workspace manager, created on first access and rooted at `{workspace}/agents/{name}-{id12}`. Read the resolved path from `agent.workspace.dir`. |
+| `agent.mcp_enabled` | `bool` | Whether at least one MCP server is configured. Backed by [`MCPManager`](/api/mcp-manager), which normalizes `mcp_url`, `mcp_urls`, `mcp_config`, and `mcp_configs` into one list of connections. |
 
 ### get_llm_parameters
 
@@ -893,7 +934,7 @@ Setting `marketplace_prompt_id` loads a prompt during construction; setting `pub
 | Method | Description | Usage Example |
 |--------|-------------|---------------|
 | `run(task, img, imgs, correct_answer, streaming_callback, n)` | Run the autonomous agent loop | `agent.run("Generate a report")` |
-| `run_batched(tasks, imgs)` | Run multiple tasks in batch | `agent.run_batched(["Task 1", "Task 2"])` |
+| `run_batched(tasks, imgs)` | Run multiple tasks sequentially | `agent.run_batched(["Task 1", "Task 2"])` |
 | `__call__(task, img)` | Alternative way to call `run` | `agent("Generate a report")` |
 | `arun(task, img)` | Async version of `run` | `await agent.arun("Task")` |
 | `run_stream(task, img)` | Sync streaming generator | `for t in agent.run_stream("Task"): ...` |
@@ -919,11 +960,10 @@ Setting `marketplace_prompt_id` loads a prompt during construction; setting `pub
 | `talk_to(agent, task)` | Talk to another agent | `agent.talk_to(other, "Collaborate")` |
 | `talk_to_multiple_agents(agents, task)` | Talk to multiple agents | `agent.talk_to_multiple_agents([a1], "Task")` |
 | `receive_message(agent_name, task)` | Run a message received from another agent through `run()` | `agent.receive_message("User", "Hello")` |
-| `receive_message(name, message)` | Append a message directly to memory (no LLM call) | `agent.receive_message("User", "Hello")` |
 | `send_agent_message(agent_name, message)` | Send a message | `agent.send_agent_message("AgentX", "Done")` |
 | `update_system_prompt(prompt)` | Update system prompt | `agent.update_system_prompt("New prompt")` |
 | `update_max_loops(max_loops)` | Update max loops | `agent.update_max_loops(5)` |
-| `reset()` | Reset memory | `agent.reset()` |
+| `reset()` | Drop short-term memory (leaves the agent unusable until rebuilt) | `agent.reset()` |
 | `print_dashboard()` | Display dashboard | `agent.print_dashboard()` |
 | `showcase_config()` | Display config table | `agent.showcase_config()` |
 | `get_llm_parameters()` | Get LLM parameters (as a string) | `agent.get_llm_parameters()` |
@@ -948,6 +988,11 @@ Setting `marketplace_prompt_id` loads a prompt during construction; setting `pub
 | `temp_llm_instance_for_tool_summary()` | Create temp LLM for tool summaries | `agent.temp_llm_instance_for_tool_summary()` |
 | `load_skills_metadata(skills_dir)` | Load Agent Skills metadata | `agent.load_skills_metadata("./skills")` |
 | `load_full_skill(skill_name)` | Load complete skill content | `agent.load_full_skill("my-skill")` |
+| `setup_dynamic_tools(always_loaded)` | Defer tool schemas behind `tool_search` | `agent.setup_dynamic_tools()` |
+| `defer_tool_schemas(schemas)` | Add pre-built schemas to the deferred catalog | `agent.defer_tool_schemas(schemas)` |
+| `defer_mcp_tools()` | Move MCP tool schemas into the deferred catalog | `agent.defer_mcp_tools()` |
+| `add_mcp_tools_to_memory()` | Fetch tool schemas from the configured MCP servers | `agent.add_mcp_tools_to_memory()` |
+| `get_all_selected_tools()` | List every autonomous-loop tool name | `agent.get_all_selected_tools()` |
 
 ## Advanced Capabilities
 
@@ -1039,29 +1084,80 @@ print(out)
 print(str_to_dict(out))
 ```
 
-### Long-term Memory Management
+### Dynamic Tool Loading
 
-The agent supports integration with vector databases for long-term memory management:
+`dynamic_tools=True` is the default, and it changes how tools reach the model.
+
+Tool definitions are re-sent on every request, so a large tool set is paid for on every turn. When `dynamic_tools` is on **and** the agent has something to defer — that is, when `tools` are given, an MCP server is configured, or `max_loops="auto"` — the agent:
+
+1. Appends a notice to the system prompt telling the model that most of its tools are **not** currently loaded.
+2. Sends only a `tool_search` tool (plus anything marked always-loaded, such as the autonomous loop's control-flow tools) instead of the full schema list.
+3. Loads the schemas the model asks for through `tool_search`. **They become callable on the next turn, not the one that searched.**
+
+An agent with no tools, no MCP server, and a fixed `max_loops` has nothing to defer, so nothing changes.
 
 ```python
 from swarms import Agent
-from swarms_memory import ChromaDB
 
-chromadb = ChromaDB(
-    metric="cosine",
-    output_dir="finance_agent_rag",
+# Default: schemas are deferred behind tool_search
+agent = Agent(
+    agent_name="Toolsmith",
+    model_name="gpt-5.4",
+    tools=[search_web, read_file, write_file],
 )
+
+# Opt out: send every schema on every request
+eager_agent = Agent(
+    agent_name="Eager-Toolsmith",
+    model_name="gpt-5.4",
+    tools=[search_web, read_file, write_file],
+    dynamic_tools=False,
+)
+```
+
+<Note>
+  Deferral is a separate mechanism from `selected_tools`. `selected_tools` decides which autonomous-loop tools exist at all; `dynamic_tools` decides which of the existing schemas are sent up front.
+</Note>
+
+See the [Dynamic Tools guide](/agents/dynamic-tools) and the [DynamicToolLoader reference](/api/dynamic-tool-loader) for the search behaviour, pre-warming, and the always-loaded set.
+
+### External Knowledge and Retrieval
+
+Swarms bundles no vector database, and `Agent` performs no retrieval of its own. To give an agent access to an external knowledge base, expose the lookup as a **tool** — the agent then decides when to query it and the result enters the conversation like any other tool output.
+
+```python
+from swarms import Agent
+
+
+def search_knowledge_base(query: str) -> str:
+    """Search the company knowledge base for passages matching a query.
+
+    Args:
+        query: What to search for.
+
+    Returns:
+        The matching passages, as text.
+    """
+    # Call whatever store you already run - Chroma, Qdrant, Pinecone, Postgres.
+    hits = my_vector_store.query(query, top_k=3)
+    return "\n\n".join(h.text for h in hits)
+
 
 agent = Agent(
     agent_name="Financial-Analysis-Agent",
     model_name="claude-sonnet-4-6",
-    long_term_memory=chromadb,
-    system_prompt="You are a financial analysis agent with access to long-term memory.",
+    system_prompt="You answer using the company knowledge base.",
+    tools=[search_knowledge_base],
+    max_loops=3,
 )
 
 response = agent.run("What are the components of a startup's stock incentive equity plan?")
 print(response)
 ```
+
+<Warning>
+`long_term_memory` is a constructor parameter, but the agent never queries it. The only method invoked on it is `.save(path)`, and only when agent state is written to disk. Passing a vector store here does **not** give the agent retrieval — use a tool, as above.
+</Warning>
 
 ### Memory Persistence and Context Compression
 
@@ -1069,31 +1165,32 @@ The agent ships with two complementary memory controls that work together to man
 
 #### Persistent Memory
 
-By default (`persistent_memory=True`) the agent reads and writes a `MEMORY.md` file under `$WORKSPACE_DIR/agents/{agent_name}/MEMORY.md`. Every message is appended to this file, and on the next run the file is loaded back so the agent remembers prior interactions.
+With `persistent_memory=True` the agent reads and writes a `MEMORY.md` file under `$WORKSPACE_DIR/agents/{agent_name}/MEMORY.md`. Every message is appended to this file, and on the next run the file is loaded back so the agent remembers prior interactions.
 
-Set `persistent_memory=False` to disable all on-disk state — the agent starts from a blank slate every run.
+The default is `persistent_memory=False` — no on-disk state at all, so the agent starts from a blank slate every run. Opt in explicitly for agents that should remember across runs, and use the same `agent_name` each time, since the memory file is keyed on it.
 
 ```python
 from swarms import Agent
 
-# Default: memory survives process restarts
+# Opt in: memory survives process restarts
 agent = Agent(
     agent_name="Persistent-Agent",
     model_name="gpt-5.4",
     system_prompt="You are a helpful assistant.",
-    # persistent_memory=True is the default
+    persistent_memory=True,
 )
 
 agent.run("My name is Alice and I work in finance.")
-# On the next run the agent will still know the user's name and role.
+# On the next run — same agent_name, persistent_memory=True again —
+# the agent will still know the user's name and role.
 
 
-# Stateless: no cross-session memory
+# Default: stateless, no cross-session memory
 stateless_agent = Agent(
     agent_name="Stateless-Agent",
     model_name="gpt-5.4",
     system_prompt="You are a helpful assistant.",
-    persistent_memory=False,
+    # persistent_memory=False is the default
 )
 
 stateless_agent.run("Summarise the latest news.")
@@ -1227,7 +1324,7 @@ When `max_loops="auto"` and `interactive=False`, the agent has access to special
 | Tool | Description | Parameters |
 |------|-------------|------------|
 | `create_plan` | Break the task into subtasks with dependencies | `task_description` (str), `steps` (list of dicts) |
-| `think` | Pause and reason about the current state before acting | `current_state` (str), `analysis` (str), `next_actions` (list), `confidence` (float) |
+| `think` *(only when `think_tool=True`)* | Pause and reason about the current state before acting | `current_state` (str), `analysis` (str), `next_actions` (list), `confidence` (float) |
 | `subtask_done` | Mark the current subtask complete and advance to the next | `task_id` (str), `summary` (str), `success` (bool) |
 | `complete_task` | Mark the whole task complete and produce a final summary | `task_id` (str), `summary` (str), `success` (bool), `results` (str, optional), `lessons_learned` (str, optional) |
 | `respond_to_user` | Send messages to the user | `message` (str), `message_type` (str) |
@@ -1237,12 +1334,21 @@ When `max_loops="auto"` and `interactive=False`, the agent has access to special
 | `list_directory` | List files and directories | `directory_path` (str) |
 | `delete_file` | Delete a file (with safety checks) | `file_path` (str) |
 | `run_bash` | Execute a bash command | `command` (str), `timeout_seconds` (int) |
+| `grep` | Search files for a pattern, returning matching lines. Preferred over `run_bash` for searches | `pattern` (str), `path` (str), `recursive` (bool), `case_insensitive` (bool), `include_line_numbers` (bool), `file_pattern` (str), `context_lines` (int) |
 | `create_sub_agent` | Create specialized sub-agents | `agents` (array of agent specs) |
 | `assign_task` | Assign tasks to sub-agents | `assignments` (array), `wait_for_completion` (bool) |
+| `check_sub_agent_status` | Inspect the async task status of a sub-agent via the sub-agent registry | `agent_name` (str) |
+| `cancel_sub_agent_tasks` | Cancel a sub-agent's pending or running async tasks | `agent_name` (str) |
 
-The `create_plan`, `think`, `subtask_done`, and `complete_task` tools are the framework's own planning/control-flow tools; the remainder are governed by `selected_tools`.
+<Warning>
+  `selected_tools` filters this entire list, including the control-flow tools. Passing a list that omits `create_plan` or `complete_task` leaves the agent unable to plan or to declare itself finished — include them explicitly, or leave `selected_tools="all"`.
+</Warning>
 
-All file operations use the agent's workspace directory (`$WORKSPACE_DIR/agents/{agent-name}-{uuid}/`).
+<Note>
+  `think` is opt-in. It is stripped from the tool list unless the agent is constructed with `think_tool=True`, and the system prompt is adjusted to match so the model is never told to call a tool it lacks.
+</Note>
+
+All file operations use the agent's workspace directory (`$WORKSPACE_DIR/agents/{agent-name}-{id12}/`, reachable as `agent.workspace.dir`).
 
 ```python
 from swarms.structs.agent import Agent
@@ -1303,7 +1409,7 @@ print(result)
 
 ### Batch Processing
 
-Process multiple tasks efficiently with `run_batched`:
+Run a list of tasks one after another with `run_batched`. It is sequential, not concurrent — reach for `run_concurrent_tasks` when the tasks are independent and you want them in parallel:
 
 ```python
 tasks = [
@@ -1399,7 +1505,6 @@ image_agent = Agent(
     agent_name="Image-Analysis-Agent",
     system_prompt="You are an expert at analyzing images.",
     multi_modal=True,
-    summarize_multiple_images=True,
 )
 
 images = ["product1.jpg", "product2.jpg", "product3.jpg"]
@@ -1494,7 +1599,7 @@ agent.run("Tell me a short story about a robot learning to paint.")
 ```python
 agent = Agent(
     agent_name="Reliable-Agent",
-    fallback_models=["claude-sonnet-4-6", "gpt-5.4", "gpt-3.5-turbo"],
+    fallback_models=["claude-sonnet-4-6", "gpt-5.4", "gpt-5.4-mini"],
     max_loops=1
 )
 
@@ -1538,9 +1643,8 @@ from swarms import Agent
 from swarms.schemas.mcp_schemas import MCPConnection
 
 mcp_config = MCPConnection(
-    server_path="http://localhost:8000",
-    server_name="my_mcp_server",
-    capabilities=["tools", "filesystem"]
+    url="http://localhost:8000",
+    name="my_mcp_server",
 )
 
 mcp_agent = Agent(
@@ -1740,7 +1844,7 @@ agent.run("Continue with the task")
 
 ### Autosave
 
-When `autosave=True`, the agent saves its configuration at each loop step to `workspace_dir/agents/{agent-name}-{uuid}/config.json`. Files are written atomically to prevent corruption.
+When `autosave=True`, the agent saves its configuration at each loop step to `{workspace}/agents/{agent-name}-{id12}/config.json` via its `WorkspaceManager`. Files are written atomically to prevent corruption.
 
 ```python
 from swarms import Agent
@@ -1755,11 +1859,11 @@ agent = Agent(
 
 response = agent.run("Complete a complex multi-step task")
 
-workspace = agent._get_agent_workspace_dir()
+workspace = agent.workspace.dir
 print(f"Files saved to: {workspace}")
 ```
 
-The workspace directory is controlled by the `WORKSPACE_DIR` environment variable (defaults to `agent_workspace`).
+The workspace root comes from the `WORKSPACE_DIR` environment variable. Autosave goes through `WorkspaceManager`, which falls back to `{cwd}/agent_workspace` (and sets `WORKSPACE_DIR` to it) when the variable is unset. Other readers are stricter: `agent.workspace_dir`, resolved during construction, is `None` when the variable was unset at that moment. Set `WORKSPACE_DIR` explicitly rather than relying on the fallback.
 
 ### Async and Concurrent Execution
 
@@ -1815,7 +1919,6 @@ agent = Agent(
     top_p=0.95,
 
     retry_attempts=3,
-    retry_interval=2,
     tags=["analysis", "multi-modal", "advanced"],
     use_cases=[{"name": "Data Analysis", "description": "Process and analyze complex datasets"}],
     verbose=True,
@@ -1851,13 +1954,22 @@ agent.print_dashboard()
 
 The agent supports multiple output formats via the `output_type` parameter:
 
-- `"str"` or `"string"`: Returns the last response as a string
-- `"str-all-except-first"`: Returns all responses except system prompt as string (default)
-- `"list"`: Returns conversation as a list of messages
-- `"json"`: Returns conversation as JSON string
-- `"dict"`: Returns conversation as dictionary
-- `"yaml"`: Returns conversation as YAML string
-- `"xml"`: Returns conversation as XML string
+| Value | Returns |
+|---|---|
+| `"str"`, `"string"`, `"all"` | The whole conversation as a string |
+| `"str-all-except-first"` | The conversation as a string, minus the first message (default) |
+| `"list"` | The conversation as a list of message dicts |
+| `"list-final"` | The final message, wrapped in a list |
+| `"dict"`, `"dictionary"` | The conversation as a dictionary |
+| `"dict-all-except-first"` | The conversation as a dictionary, minus the first message |
+| `"dict-final"` | The final message as a dictionary |
+| `"final"`, `"last"` | The content of the final message |
+| `"json"` | The conversation as a JSON string |
+| `"yaml"` | The conversation as a YAML string |
+| `"xml"` | The conversation as an XML string |
+| `"basemodel"` | Accepted by the type but **not** implemented by the formatter — raises `ValueError` at runtime. |
+
+The accepted values are the `HistoryOutputType` literal in `swarms.utils.output_types`; anything outside it raises `ValueError`.
 
 ## Error Handling
 
@@ -1868,9 +1980,7 @@ The Agent class includes comprehensive error handling:
 - **AgentRunError**: Raised when execution fails
 - **AgentLLMError**: Raised when LLM encounters issues
 - **AgentLLMInitializationError**: Raised when the LLM fails to initialize
-- **AgentToolError**: Raised when tool execution fails
 - **AgentToolExecutionError**: Raised when the agent fails to execute a tool
-- **AgentMemoryError**: Raised for memory-related issues
 
 These live in `swarms.schemas.agent_errors` so collaborator classes can raise and catch them without importing `Agent`. They remain importable from `swarms.structs.agent` and `swarms.schemas`, and every path returns the same object:
 
@@ -1902,11 +2012,18 @@ Opt out with `SWARMS_TELEMETRY_ON=false`, which reduces the cost to ~0.14 µs pe
 
 ### MCP (Model Context Protocol) Integration
 
-| Parameter      | Description                                         |
-|----------------|-----------------------------------------------------|
-| `mcp_url`      | Connect to a single MCP server                      |
-| `mcp_urls`     | Connect to multiple MCP servers                     |
-| `mcp_config`   | Advanced MCP configuration options for a single server |
+| Parameter                 | Description                                                                              |
+|---------------------------|------------------------------------------------------------------------------------------|
+| `mcp_url`                 | A single MCP server: URL string, `MCPConnection`, or dict                                  |
+| `mcp_urls`                | Several MCP servers, each a URL string, `MCPConnection`, or dict                           |
+| `mcp_config`              | A single MCP server as a connection object (or dict)                                       |
+| `mcp_configs`             | Several MCP servers as connection objects (or dicts)                                       |
+| `mcp_api_key`             | API key applied to every server without its own; supports `env:`/`${...}` indirection      |
+| `mcp_authorization_token` | Bearer token applied to every server without its own                                       |
+| `mcp_oauth`               | OAuth 2.1 settings (`MCPOAuthConfig` or dict) applied to every server without its own       |
+| `mcp_headers`             | Extra headers merged into every MCP request                                                |
+| `mcp_transport`           | Force `streamable_http`, `sse`, `stdio`, or `auto` for every server                         |
+| `mcp_timeout`             | Request timeout in seconds for every server                                                |
 
 ### Advanced Reasoning and Safety
 
@@ -1925,7 +2042,6 @@ Opt out with `SWARMS_TELEMETRY_ON=false`, which reduces the cost to ~0.14 µs pe
 |------------------------------|--------------------------------------------------------------------------|
 | `dynamic_context_window`     | Automatically adjust context window based on available tokens             |
 | `tool_retry_attempts`        | Configure retry behavior for tool execution                              |
-| `summarize_multiple_images`  | Automatically summarize results from multiple image processing           |
 
 ### Advanced Memory and Context
 
@@ -1934,7 +2050,7 @@ Opt out with `SWARMS_TELEMETRY_ON=false`, which reduces the cost to ~0.14 µs pe
 | `auto_generate_prompt`   | Automatically generate system prompts based on tasks                    |
 | `plan_enabled`           | Enable planning functionality for complex tasks                          |
 | `context_compression`    | Auto-summarize MEMORY.md once token usage crosses 90% of context_length |
-| `persistent_memory`      | Read/write MEMORY.md across sessions; set `False` to start fresh each run |
+| `persistent_memory`      | Off by default; set `True` to read/write MEMORY.md across sessions        |
 
 ### Enhanced Tool Management
 
@@ -1969,12 +2085,11 @@ Opt out with `SWARMS_TELEMETRY_ON=false`, which reduces the cost to ~0.14 µs pe
 | `system_prompt`                                         | Always provide a clear and concise system prompt to guide the agent's behavior.                  |
 | `tools`                                                 | Use tools to extend the agent's capabilities for specific tasks.                                 |
 | `retry_attempts` & error handling                       | Implement error handling and utilize the retry_attempts feature for robust execution.            |
-| `long_term_memory`                                      | Leverage long_term_memory for tasks that require persistent information.                         |
 | `interactive` & `dashboard`                             | Use interactive mode for real-time conversations and dashboard for monitoring.                   |
 | `autosave`, `save`/`load`                               | Utilize autosave and save/load methods for continuity across sessions.                           |
-| `dynamic_context_window` & `tokens_checks()`             | Optimize token usage with the dynamic_context_window parameter and the tokens_checks() method.   |
+| `dynamic_context_window` & `check_available_tokens()`    | Optimize token usage with the dynamic_context_window parameter and the check_available_tokens() method. |
 | `concurrent` & `async` methods                          | Use concurrent and async methods for performance-critical applications.                          |
-| `run_batched`                                           | Leverage run_batched for efficient processing of multiple related tasks.                         |
+| `run_batched`                                           | Leverage run_batched to process a list of related tasks in order; use run_concurrent_tasks for parallelism. |
 | `mcp_url` or `mcp_urls`                                 | Use mcp_url or mcp_urls to extend agent capabilities with external tools.                        |
 | `react_on`                                              | Enable react_on for complex reasoning tasks requiring step-by-step analysis.                     |
 | `tool_retry_attempts`                                   | Configure tool_retry_attempts for robust tool execution in production environments.              |
@@ -1994,8 +2109,6 @@ Opt out with `SWARMS_TELEMETRY_ON=false`, which reduces the cost to ~0.14 µs pe
 
 **Everything else**
 
-- [BaseSwarm](/api/base-swarm) - Base class for multi-agent systems
-- [BaseStructure](/api/base-structure) - Foundation for swarm structures
 - [Tools](/concepts/tools) - Creating and using agent tools
 - [Memory](/agents/agent-memory) - Long-term memory systems
 - [Telemetry](/deployment/telemetry) - Tracing agent and swarm runs

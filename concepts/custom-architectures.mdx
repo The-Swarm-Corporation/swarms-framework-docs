@@ -36,17 +36,19 @@ A **Swarm** refers to a collection of agents that collaborate to solve a problem
   </Card>
 </CardGroup>
 
-## Core Requirements for Swarm Classes
+## The Convention for Custom Structures
 
-Every Swarm class must adhere to these fundamental requirements:
+A custom architecture is an ordinary Python class. There is no base class to subclass and nothing to register — the framework only cares that your class follows the same conventions as the built-in structures documented in the [structures catalog](/architectures/structures-catalog).
 
-### Required Methods and Attributes
+### Conventions
 
-- **`run(task: str, img: str, *args, **kwargs)` method**: The primary execution method for tasks
-- **`name`**: A descriptive name for the swarm
-- **`description`**: A clear description of the swarm's purpose
-- **`agents`**: A list of callables representing the agents
-- **`conversation`**: A conversation structure for message storage and history management
+- **Subclass nothing.** A plain Python class is all that is required.
+- **Accept a `List[Agent]`** as the first meaningful argument, plus whatever structure-specific configuration your pattern needs.
+- **Expose `run(task)`** as the primary entry point.
+- **Expose `batch_run(tasks)`** where it makes sense, so a list of tasks can be processed in one call.
+- **Let the existing helpers do the boring parts** — `Conversation` for message storage, `find_agent_by_name` for lookups, and the utilities in `swarms.structs.multi_agent_exec` for concurrency.
+
+A `name` and `description` are conventional too, and a `Conversation` instance gives you a full audit trail of every agent interaction for free.
 
 ### Required Agent Structure
 
@@ -61,13 +63,12 @@ Each Agent within the swarm must contain:
 ### Required Dependencies
 
 ```python
-from typing import List, Union, Any, Optional, Callable
-from loguru import logger
-from swarms.structs.base_swarm import BaseSwarm
-from swarms.structs.conversation import Conversation
-from swarms.structs.agent import Agent
 import concurrent.futures
-import os
+import time
+from typing import Any, List, Optional
+
+from loguru import logger
+from swarms import Agent, Conversation
 ```
 
 ### Custom Exception Handling
@@ -87,7 +88,7 @@ class AgentValidationError(Exception):
 ### Basic Swarm Structure
 
 ```python
-class CustomSwarm(BaseSwarm):
+class CustomSwarm:
     """
     A custom swarm class to manage and execute tasks with multiple agents.
 
@@ -97,7 +98,7 @@ class CustomSwarm(BaseSwarm):
     Attributes:
         name (str): The name of the swarm.
         description (str): A brief description of the swarm's purpose.
-        agents (List[Callable]): A list of callables representing the agents.
+        agents (List[Agent]): The agents this swarm orchestrates.
         conversation (Conversation): Conversation management for message storage.
         max_workers (int): Maximum number of concurrent workers for parallel execution.
         autosave_conversation (bool): Whether to automatically save conversation history.
@@ -107,7 +108,7 @@ class CustomSwarm(BaseSwarm):
         self,
         name: str,
         description: str,
-        agents: List[Callable],
+        agents: List[Agent],
         max_workers: int = 4,
         autosave_conversation: bool = True,
         conversation_config: Optional[dict] = None,
@@ -118,12 +119,11 @@ class CustomSwarm(BaseSwarm):
         Args:
             name (str): The name of the swarm.
             description (str): A description of the swarm.
-            agents (List[Callable]): A list of callables that provide the agents for the swarm.
+            agents (List[Agent]): The agents for the swarm.
             max_workers (int): Maximum number of concurrent workers.
             autosave_conversation (bool): Whether to automatically save conversations.
             conversation_config (dict): Configuration for conversation management.
         """
-        super().__init__(name=name, description=description, agents=agents)
         self.name = name
         self.description = description
         self.agents = agents
@@ -262,7 +262,24 @@ class CustomSwarm(BaseSwarm):
                 results.append(f"FAILED: {error_msg}")
 
         return results
+
+    def batch_run(self, tasks: List[str], img: str = None, *args: Any, **kwargs: Any) -> List[Any]:
+        """
+        Run a list of tasks through the swarm, one after another.
+
+        Args:
+            tasks (List[str]): The tasks to execute.
+            img (str): Optional image input applied to every task.
+
+        Returns:
+            List[Any]: One entry per task, each holding that task's agent results.
+        """
+        return [self.run(task, img, *args, **kwargs) for task in tasks]
 ```
+
+<Tip>
+`run(task)` and `batch_run(tasks)` are the two methods the rest of the ecosystem expects. Implementing both means your structure can be dropped into the same call sites as any built-in structure.
+</Tip>
 
 ### Enhanced Swarm with Concurrent Execution
 
@@ -333,7 +350,7 @@ class CustomSwarm(BaseSwarm):
 
         return results
 
-    def _run_single_agent(self, agent: Callable, task: str, img: str = None, *args, **kwargs) -> Any:
+    def _run_single_agent(self, agent: Agent, task: str, img: str = None, *args, **kwargs) -> Any:
         """
         Execute a single agent with error handling.
 
@@ -543,7 +560,7 @@ class CustomAgent:
 You can also use the built-in Agent class from the Swarms framework:
 
 ```python
-from swarms.structs.agent import Agent
+from swarms import Agent
 
 def create_financial_agent() -> Agent:
     """Create a financial analysis agent."""

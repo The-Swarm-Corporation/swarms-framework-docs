@@ -202,7 +202,7 @@ Don't know which architecture fits your task? Let the CLI design one:
 ```bash
 swarms autoswarm \
   --task "Produce a competitive analysis of the AI chip market" \
-  --model "gpt-4o"
+  --model "gpt-5.4"
 ```
 
 The CLI calls a planning LLM, generates a complete swarm spec, writes a ready-to-run Python file to disk, and (by default) executes it. Add `--no-run` to inspect the file before running:
@@ -210,7 +210,7 @@ The CLI calls a planning LLM, generates a complete swarm spec, writes a ready-to
 ```bash
 swarms autoswarm \
   --task "Build me a multi-agent customer support pipeline" \
-  --model "gpt-4o" \
+  --model "gpt-5.4" \
   --no-run \
   -o ./customer_support_swarm.py
 ```
@@ -228,7 +228,7 @@ swarms heavy-swarm \
   --task "What are the second-order consequences of widespread AI coding assistants on the software job market?" \
   --loops-per-agent 3 \
   --worker-model-name "claude-opus-4-7" \
-  --question-agent-model-name "gpt-4o"
+  --question-agent-model-name "gpt-5.4"
 ```
 
 Each worker reasons for `--loops-per-agent` iterations on its sub-question, which gives meaningfully deeper output than a single LLM call. With high loop counts this gets expensive — check costs first with `swarms models --info <name>` to know what you're paying per million tokens.
@@ -267,7 +267,7 @@ For repeatable workflows, define agents in a YAML or markdown file and load them
 ```yaml
 agents:
   - name: Researcher
-    model_name: gpt-4o
+    model_name: gpt-5.4
     system_prompt: You research a topic thoroughly with citations.
   - name: Writer
     model_name: claude-opus-4-7

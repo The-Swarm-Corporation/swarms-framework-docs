@@ -163,14 +163,6 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="retry_interval" type="int" default="1">
-  Delay in seconds between retry attempts.
-  
-  ```python
-  agent = Agent(retry_attempts=3, retry_interval=2)
-  ```
-</ParamField>
-
 ### Output Configuration
 
 <ParamField path="output_type" type="str" default="str-all-except-first">
@@ -229,7 +221,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Writer",
-    model_name="gpt-4.1-mini",
+    model_name="gpt-5.4-mini",
     max_loops=3,
 )
 
@@ -247,7 +239,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Writer",
-    model_name="gpt-4.1-mini",
+    model_name="gpt-5.4-mini",
     max_loops=1,
 )
 
@@ -382,7 +374,7 @@ asyncio.run(main())
       fallback_models=[
           "claude-sonnet-4-6",
           "gpt-5.4",
-          "gpt-3.5-turbo"
+          "gpt-5.4-mini"
       ]
   )
   ```
@@ -424,7 +416,6 @@ production_agent = Agent(
     temperature=0.3,
     max_tokens=4096,
     retry_attempts=5,
-    retry_interval=2,
     autosave=True,
     verbose=True,
     dynamic_context_window=True,

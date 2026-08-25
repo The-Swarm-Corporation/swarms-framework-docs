@@ -177,7 +177,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="OpenRouter-Agent",
-    model_name="openrouter/anthropic/claude-3-opus",
+    model_name="openrouter/anthropic/claude-opus-4-6",
     max_loops=1,
 )
 ```
@@ -200,7 +200,7 @@ agent = Agent(
 
 Swarms uses the following naming pattern for models:
 
-- **Direct provider models**: `"gpt-4"`, `"claude-3-opus-20240229"`
+- **Direct provider models**: `"gpt-4"`, `"claude-opus-4-6"`
 - **Provider prefix**: `"groq/llama-3.1-70b-versatile"`, `"ollama/llama2"`
 - **OpenRouter**: `"openrouter/provider/model-name"`
 
@@ -237,7 +237,7 @@ def get_agent_for_task(task_type: str) -> Agent:
         # Use Claude for coding tasks
         return Agent(
             agent_name="Coding-Agent",
-            model_name="claude-3-opus-20240229",
+            model_name="claude-opus-4-6",
             max_loops=1,
         )
     elif task_type == "analysis":
@@ -277,7 +277,7 @@ from swarms import Agent, SequentialWorkflow
 # Research with Claude (good at analysis)
 researcher = Agent(
     agent_name="Researcher",
-    model_name="claude-3-opus-20240229",
+    model_name="claude-opus-4-6",
     system_prompt="Research the topic thoroughly.",
 )
 
@@ -319,7 +319,7 @@ simple_agent = Agent(
 # Use premium models only when needed
 complex_agent = Agent(
     agent_name="Complex-Task-Agent",
-    model_name="claude-3-opus-20240229",  # Most capable
+    model_name="claude-opus-4-6",  # Most capable
     max_loops=1,
 )
 ```

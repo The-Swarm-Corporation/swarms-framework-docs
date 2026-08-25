@@ -4,7 +4,7 @@ description: "Configure persistent agent memory, context compression, archives, 
 icon: "database"
 ---
 
-Swarms agents have disk-backed persistent memory through the `Conversation` class. When `persistent_memory=True` (the default), each agent writes its active interaction log to a `MEMORY.md` file and reloads that file when another process starts an agent with the same `agent_name`. Set `persistent_memory=False` for ephemeral agents that should keep no on-disk state.
+Swarms agents can keep disk-backed persistent memory through the `Conversation` class. When `persistent_memory=True`, each agent writes its active interaction log to a `MEMORY.md` file and reloads that file when another process starts an agent with the same `agent_name`. The flag is `False` by default, so agents are ephemeral and keep no on-disk state unless you opt in.
 
 Use this page to understand:
 
@@ -12,38 +12,38 @@ Use this page to understand:
 - How context compression keeps memory within the model context window
 - How archived transcripts preserve raw chat history
 - How to inspect, compact, export, or disable memory in code
-- When to use persistent memory versus RAG-based long-term memory
+- How to give an agent external knowledge with a retrieval tool
 
 <Note>
-  Persistent memory is keyed by `agent_name`. Reusing the same `agent_name` (with `persistent_memory=True`) resumes the same memory across process restarts. Changing the name starts a separate memory folder; setting `persistent_memory=False` keeps the agent fully ephemeral.
+  Persistent memory is keyed by `agent_name`. Reusing the same `agent_name` (with `persistent_memory=True`) resumes the same memory across process restarts. Changing the name starts a separate memory folder. Leaving `persistent_memory` at its default of `False` keeps the agent fully ephemeral.
 </Note>
 
 ## The `persistent_memory` flag
 
 `persistent_memory` is the top-level switch that controls whether the agent reads from and writes to `MEMORY.md`.
 
-<ParamField path="persistent_memory" type="bool" default="True">
-  Enables disk-backed persistent memory. When `True`, the agent creates `MEMORY.md` on first run, preloads it on subsequent runs, and writes new turns through to disk. When `False`, the agent runs fully in-process — no `MEMORY.md`, no `archive/`, fresh state every run.
+<ParamField path="persistent_memory" type="bool" default="False">
+  Enables disk-backed persistent memory. When `True`, the agent creates `MEMORY.md` on first run, preloads it on subsequent runs, and writes new turns through to disk. When `False` (the default), the agent runs fully in-process — no `MEMORY.md`, no `archive/`, fresh state every run.
 
   ```python
   from swarms import Agent
 
-  # Persistent agent (default behavior).
+  # Persistent agent — opt in explicitly.
   # On first run it creates MEMORY.md. On subsequent runs it picks up
   # where it left off — the model sees the prior conversation as a
   # system preamble.
   persistent_agent = Agent(
       agent_name="ResearchAssistant",
       agent_description="Remembers context across sessions",
-      model_name="gpt-4.1",
+      model_name="gpt-5.4",
       max_loops=1,
-      persistent_memory=True,  # default — state survives restarts
+      persistent_memory=True,  # state survives restarts
   )
 
-  # Ephemeral agent — no disk writes, no preload, fresh every run.
+  # Ephemeral agent (default) — no disk writes, no preload, fresh every run.
   ephemeral_agent = Agent(
       agent_name="OneShotAgent",
-      model_name="gpt-4.1",
+      model_name="gpt-5.4",
       max_loops=1,
       persistent_memory=False,
   )
@@ -61,9 +61,8 @@ An agent can use several memory layers at the same time:
 | `archive/history_<timestamp>.md` | Raw transcripts saved before compaction | Disk-backed |
 | `Conversation.compact()` | Replaces raw active history with a summary | Disk-backed summary |
 | `ContextCompressor` | Automatically calls compaction near the context limit | Runtime behavior |
-| `long_term_memory` | Optional vector database for external knowledge retrieval | Depends on database |
 
-`MEMORY.md` is not the same thing as RAG. Persistent memory records the agent's own interaction history. RAG retrieves knowledge from external documents or a vector database.
+`MEMORY.md` records the agent's own interaction history. To let an agent look things up in external documents or a database, give it a [retrieval tool](#external-knowledge) instead.
 
 ## Disk layout
 
@@ -87,9 +86,10 @@ $WORKSPACE_DIR/agents/{agent_name}/
   agent = Agent(
       agent_name="ResearchAgent",
       model_name="claude-sonnet-4-6",
+      persistent_memory=True,
   )
 
-  # Memory path:
+  # Memory path (when persistent_memory=True):
   # $WORKSPACE_DIR/agents/ResearchAgent/MEMORY.md
   ```
 </ParamField>
@@ -137,7 +137,7 @@ The resulting prompt order is:
 [0] System: <system_prompt>
 [1] User: <rules>                       # if provided
 [2] User: <custom_rules_prompt>         # if provided
-[3] System: [Persistent Memory - MEMORY.md]
+[3] System: [Persistent Memory — MEMORY.md]
             ... full MEMORY.md contents ...
 ```
 
@@ -153,12 +153,12 @@ Every `conversation.add(role, content)` call:
 The on-disk format looks like this:
 
 ```markdown
-### User - 2026-04-20T18:35:04
+### User — 2026-04-20T18:35:04
 Research cloud database options for low-latency analytics.
 
 ---
 
-### ResearchAgent - 2026-04-20T18:35:21
+### ResearchAgent — 2026-04-20T18:35:21
 I recommend evaluating BigQuery, ClickHouse Cloud, and AlloyDB...
 
 ---
@@ -181,6 +181,7 @@ Without compression, a long-running agent could eventually exceed the model's co
       model_name="claude-sonnet-4-6",
       max_loops=5,
       context_compression=True,
+      context_length=32000,  # required — compression measures against this
   )
   ```
 </ParamField>
@@ -190,10 +191,15 @@ Without compression, a long-running agent could eventually exceed the model's co
 Compression can run when all of these are true:
 
 - `context_compression=True`
+- `context_length` is set to a non-zero value
 - The token usage of `short_memory.return_history_as_string()` is greater than or equal to `threshold * context_length`
 - The agent is at the top of a loop iteration
 
 The default threshold is `0.9`, so compression starts when the active prompt reaches about 90% of the context window.
+
+<Warning>
+  `context_length` defaults to `None`. With no `context_length`, the compressor measures a usage ratio of `0.0` and never fires, even with `context_compression=True`. Set `context_length` on any long-running agent that relies on compression.
+</Warning>
 
 Compression works for both `max_loops="auto"` and integer `max_loops` runs. The `context_compression` flag is the gate.
 
@@ -221,7 +227,7 @@ MEMORY.md:
   # Agent Memory
   ...
   ## Interaction Log
-  ### System - <timestamp>
+  ### System — <timestamp>
   [Compressed Memory Summary] ...<summary>
 
 archive/history_<previous-timestamp>.md:
@@ -242,6 +248,7 @@ agent = Agent(
     model_name="claude-sonnet-4-6",
     max_loops=5,
     context_compression=True,
+    context_length=32000,
 )
 ```
 
@@ -269,6 +276,7 @@ agent = Agent(
     model_name="claude-sonnet-4-6",
     max_loops=5,
     context_compression=True,
+    context_length=32000,
 )
 
 agent._context_compressor = ContextCompressor(
@@ -289,12 +297,13 @@ from swarms import Agent
 agent = Agent(
     agent_name="ResearchAgent",
     model_name="claude-sonnet-4-6",
+    persistent_memory=True,
 )
 
 agent.run("Research low-latency data warehouse options.")
 agent.run("Narrow the recommendation to GCP.")
 
-# Path to the active on-disk memory file
+# Path to the active on-disk memory file (None when persistent_memory=False)
 print(agent.short_memory.memory_md_path)
 
 # Full prompt-ready history
@@ -349,15 +358,15 @@ matches = agent.short_memory.search_keyword_in_conversation("latency")
 
 ## Disable disk-backed memory
 
-The clean way to keep an agent fully in-process is `persistent_memory=False`. Nothing is preloaded, nothing is written to `MEMORY.md`, and no `archive/` directory is created:
+`persistent_memory=False` is the default, and it keeps an agent fully in-process. Nothing is preloaded, nothing is written to `MEMORY.md`, and no `archive/` directory is created:
 
 ```python
 from swarms import Agent
 
 agent = Agent(
     agent_name="EphemeralAgent",
-    model_name="gpt-4.1",
-    persistent_memory=False,
+    model_name="gpt-5.4",
+    persistent_memory=False,  # default
 )
 
 agent.run("This updates conversation_history but does not write to MEMORY.md.")
@@ -371,24 +380,39 @@ agent.short_memory.memory_md_path = None
 
 This stops future writes but does not retroactively delete `MEMORY.md`. Neither approach disables `conversation_history` — that always tracks the current run in memory.
 
-## Persistent memory vs RAG
+## External knowledge
 
-Use `MEMORY.md` for the agent's own interaction history. Use RAG when the agent needs to retrieve information from documents, databases, or external knowledge stores.
+`MEMORY.md` holds the agent's own interaction history. When the agent needs to look things up in documents, a database, or any other external store, give it a retrieval **tool**. The agent calls the tool during its loop and the results enter the conversation like any other tool output.
 
 ```python
 from swarms import Agent
-from swarms_memory import ChromaDB
 
-vector_db = ChromaDB(
-    output_dir="agent_memory",
-    docs_folder="knowledge_base",
-)
+KNOWLEDGE = {
+    "storage": "Grid-scale batteries now cover 4-hour peaks at $95/kWh.",
+    "solar": "Utility solar LCOE fell to $29/MWh in 2025.",
+}
+
+
+def search_knowledge_base(query: str) -> str:
+    """Search the internal knowledge base and return matching passages.
+
+    Args:
+        query: Words to look for in the knowledge base.
+
+    Returns:
+        Matching passages, or a message saying nothing matched.
+    """
+    hits = [
+        text for key, text in KNOWLEDGE.items() if key in query.lower()
+    ]
+    return "\n".join(hits) if hits else "No matching documents."
+
 
 agent = Agent(
     agent_name="KnowledgeAgent",
     model_name="claude-sonnet-4-6",
-    long_term_memory=vector_db,
-    max_loops=1,
+    tools=[search_knowledge_base],
+    max_loops=2,
 )
 
 response = agent.run(
@@ -396,22 +420,24 @@ response = agent.run(
 )
 ```
 
-<ParamField path="long_term_memory" type="Union[Callable, Any]" default="None">
-  Vector database (or callable) attached to the agent for long-term storage.
+Swap the dictionary lookup for a real vector store, SQL query, or HTTP call and the shape of the code stays the same. See [Agent Tools](/agents/agent-tools) for the full tool interface.
 
-  <Note>
-    In the current release, `long_term_memory` is persisted via `.save()` when `autosave` writes agent state to disk, but `agent.run()` does not automatically query it for retrieval-augmented context — there is no built-in `rag_every_loop` or `memory_chunk_size` parameter, and no automatic `.query()` call in the run loop. If you need RAG-style retrieval inside the loop, wire the vector database up as a [tool](/agents/agent-tools) instead of relying on `long_term_memory` alone.
-  </Note>
+<ParamField path="long_term_memory" type="Union[Callable, Any]" default="None">
+  An arbitrary object attached to the agent and stored on `agent.long_term_memory`.
+
+  <Warning>
+    `agent.run()` never queries this object. The only method Swarms calls on it is `.save(path)`, and only when `autosave` writes agent state to disk. There is no automatic retrieval in the run loop and no built-in vector database ships with Swarms. Use a retrieval tool, as shown above, for anything the agent must actually read during a run.
+  </Warning>
 </ParamField>
 
 ## Best practices
 
 - Use stable, descriptive `agent_name` values for agents that should remember previous work.
-- Keep `context_compression=True` for autonomous or long-running agents.
+- Keep `context_compression=True` and set `context_length` for autonomous or long-running agents.
 - Tune `ContextCompressor.threshold` lower for agents with large tool outputs or long responses.
 - Compact manually after major milestones to preserve the important state and reduce prompt size.
-- Use RAG for external knowledge. Do not rely on `MEMORY.md` as a document database.
-- Set `memory_md_path = None` for privacy-sensitive or one-off agents that should not write a transcript.
+- Use a retrieval tool for external knowledge. Do not rely on `MEMORY.md` as a document database.
+- Leave `persistent_memory` at its default `False` for privacy-sensitive or one-off agents that should not write a transcript.
 
 ## Why it works this way
 

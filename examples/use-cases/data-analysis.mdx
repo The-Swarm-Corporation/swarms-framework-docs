@@ -375,19 +375,17 @@ incremental_analyst = Agent(
 )
 ```
 
-### Caching for Repeated Analyses
+### Carrying Context Across Runs
+
+Set `persistent_memory=True` so the analyst keeps prior findings between
+sessions instead of re-deriving them each run.
 
 ```python
-from swarms_memory import ChromaDB
-
-analysis_memory = ChromaDB(
-    output_dir="analysis_cache",
-    n_results=3,
-)
-
 statistical_analyst = Agent(
     agent_name="Statistical-Analyst",
-    long_term_memory=analysis_memory,  # Cache common analyses
+    persistent_memory=True,   # off by default; opt in explicitly
+    context_compression=True,
+    context_length=32000,
     # ... other params
 )
 ```

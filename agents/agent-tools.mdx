@@ -305,6 +305,23 @@ agent = Agent(
   `tool_choice` is **not** an `Agent` constructor parameter. Whenever `tools` (or MCP tools) are configured, the agent always sends `tool_choice="auto"` to the underlying LLM call — passing `tool_choice=...` to `Agent(...)` is silently absorbed into `**kwargs` and has no effect.
 </Note>
 
+<ParamField path="dynamic_tools" type="bool" default="True">
+  Defer tool schemas behind a searchable `tool_search` tool instead of sending every schema on every request. On by default whenever the agent has `tools`, an MCP connection, or `max_loops="auto"`.
+
+  ```python
+  agent = Agent(
+      tools=[tool1, tool2, tool3],
+      dynamic_tools=False,  # send every schema on every request
+  )
+  ```
+
+  See [Dynamic Tool Loading](/agents/dynamic-tools) for how deferral, search ranking, and turn budgeting work.
+</ParamField>
+
+<Warning>
+  With deferral active, a tool costs one extra round trip: the model must call `tool_search` before it can call the tool. With `max_loops=1` it can search but never call what it found — raise `max_loops` or set `dynamic_tools=False`.
+</Warning>
+
 <ParamField path="show_tool_execution_output" type="bool" default="True">
   Display tool execution results.
   
@@ -572,6 +589,9 @@ def get_user_info(user_id: str) -> str:
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Dynamic Tool Loading" icon="magnifying-glass-arrow-right" href="/agents/dynamic-tools">
+    Defer tool schemas behind a searchable catalog
+  </Card>
   <Card title="Agent Skills" icon="graduation-cap" href="/agents/agent-skills">
     Learn about the Agent Skills system
   </Card>

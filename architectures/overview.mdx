@@ -1,9 +1,11 @@
 ---
 title: Multi-Agent Architectures Overview
-description: Comprehensive guide to all multi-agent architectures in Swarms with comparison table and use cases
+description: Comprehensive guide to all multi-agent architectures in Swarms with comparison tables, selection guidance, and shared runtime behavior
 ---
 
 Swarms provides a comprehensive suite of multi-agent architectures for orchestrating complex workflows. Each architecture is designed for specific use cases and collaboration patterns.
+
+The architectures below are the ones with a full guide on this site. For every orchestration class and function shipped in the library — including the ones that only have an API reference page — see the [Multi-Agent Structures Catalog](/architectures/structures-catalog).
 
 ## Quick Comparison
 
@@ -15,10 +17,41 @@ Swarms provides a comprehensive suite of multi-agent architectures for orchestra
 | [Mixture of Agents](/architectures/mixture-of-agents) | Parallel + aggregation | Expert synthesis | Medium |
 | [Swarm Router](/architectures/swarm-router) | Dynamic selection | Unified orchestration | Medium |
 | [Hierarchical Swarm](/architectures/hierarchical-swarm) | Director-worker pattern | Project management | High |
-| [Heavy Swarm](/architectures/heavy-swarm) | 5-phase analysis | Research & analysis | High |
-| [Group Chat](/architectures/group-chat) | Conversational | Debate & collaboration | Medium |
+| [Heavy Swarm](/architectures/heavy-swarm) | Question-driven analysis | Research & analysis | High |
+| [Group Chat](/architectures/group-chat) | Conversational bidding | Debate & collaboration | Medium |
 | [Graph Workflow](/architectures/graph-workflow) | DAG-based | Complex dependencies | High |
 | [Social Algorithms](/architectures/social-algorithms) | Custom patterns | Flexible communication | Medium |
+
+### Consensus and Evaluation
+
+These reach a decision rather than producing a pipeline result. Each has an API reference page.
+
+| Architecture | Execution Pattern | Best For |
+|--------------|------------------|----------|
+| [Majority Voting](/api/majority-voting) | Independent answers, consensus agent picks | Discrete decisions, noise reduction |
+| [Council as a Judge](/api/council-as-judge) | Multi-dimension evaluation council | Scoring output against several criteria |
+| [LLM Council](/api/llm-council) | Members answer, rank anonymized peers, chairman synthesizes | High-stakes questions with peer review |
+| [Debate with Judge](/api/debate-with-judge) | Pro/con debate adjudicated by a judge | Adversarial examination of a claim |
+| [Advisor Swarm](/api/advisor-swarm) | Executor consults a stronger advisor on demand | Cheap model with expensive backup |
+
+### Planning and Delegation
+
+| Architecture | Execution Pattern | Best For |
+|--------------|------------------|----------|
+| [Planner Worker Swarm](/api/planner-worker-swarm) | Planner emits a dependency-aware queue, workers claim tasks | Parallelizable work with dependencies |
+| [Planner Generator Evaluator](/api/planner-generator-evaluator) | Plan → generate → evaluate per step, with retries | Work that must pass a per-step contract |
+| [HHCS](/api/hhcs) | Router dispatches to a list of `SwarmRouter` clusters | Routing across whole swarms, not agents |
+| [Hierarchical Communication](/api/hierarchical-communication-framework) | Supervisor, generators, evaluators, refiners | Structured generate-and-critique loops |
+
+### Distribution and Batching
+
+| Architecture | Execution Pattern | Best For |
+|--------------|------------------|----------|
+| [Round Robin Swarm](/api/round-robin-swarm) | Deterministic rotation through agents | Even turn distribution |
+| [Batched Grid Workflow](/api/batched-grid-workflow) | Agent *i* gets task *i* | One-to-one agent/task pairing |
+| [Spreadsheet Swarm](/api/spreadsheet-swarm) | Concurrent execution with CSV output | Bulk runs you need as a table |
+| [Self MoA Seq](/api/self-moa-seq) | One model sampled N times, windowed aggregation | Ensemble quality from a single model |
+| [Forest Swarm](/api/forest-swarm) | Trees of agents selected by embedding similarity | Large rosters with topical routing |
 
 ## Architecture Categories
 
@@ -33,7 +66,7 @@ These architectures execute tasks in a straightforward manner:
 
 These provide flexible orchestration patterns:
 
-- **Agent Rearrange**: Define custom flows with → and , operators
+- **Agent Rearrange**: Define custom flows with `→` and `,` operators
 - **Swarm Router**: Dynamically select and execute any swarm type
 - **Social Algorithms**: Upload arbitrary communication patterns
 
@@ -41,8 +74,8 @@ These provide flexible orchestration patterns:
 
 These implement structured command patterns:
 
-- **Hierarchical Swarm**: Director coordinates specialized workers
-- **Heavy Swarm**: 5-phase workflow with question generation
+- **Hierarchical Swarm**: Director decomposes the task and issues orders to workers
+- **Heavy Swarm**: A question agent generates role-specific questions for a fixed specialist roster
 
 ### Collaborative Architectures
 
@@ -61,21 +94,85 @@ These do not execute anything themselves — they produce the agents that the ar
 
 Because a generated roster is just a list of agents, it drops into any architecture on this page.
 
+## One Interface, Any Architecture
+
+[`SwarmRouter`](/architectures/swarm-router) wraps most of the architectures above behind a single `swarm_type` string, so you can swap strategies without rewriting orchestration code.
+
+```python
+from swarms import Agent, SwarmRouter
+
+agents = [
+    Agent(agent_name="Analyst", model_name="gpt-5.4", max_loops=1),
+    Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1),
+]
+
+router = SwarmRouter(
+    agents=agents,
+    swarm_type="SequentialWorkflow",
+    max_loops=1,
+)
+result = router.run("Write a brief on transformer architectures.")
+```
+
+The 15 values that resolve to a real architecture:
+
+```python
+"AgentRearrange"        "MixtureOfAgents"     "SequentialWorkflow"
+"ConcurrentWorkflow"    "GroupChat"           "MultiAgentRouter"
+"HierarchicalSwarm"     "MajorityVoting"      "CouncilAsAJudge"
+"HeavySwarm"            "BatchedGridWorkflow" "LLMCouncil"
+"DebateWithJudge"       "RoundRobin"          "PlannerWorkerSwarm"
+```
+
+<Warning>
+`"auto"` is present in the `SwarmType` type hint but has **no registered factory**. It passes construction and then raises `ValueError` the first time you call `run()`. `"AutoSwarmBuilder"` is not a valid `SwarmType` at all and fails at construction. To have the framework choose for you, instantiate [`AutoSwarmBuilder`](/api/auto-swarm-builder) directly instead of routing through `SwarmRouter`.
+</Warning>
+
+<Note>
+The literal is `"RoundRobin"`, not `"RoundRobinSwarm"` — the class name and the router key differ.
+</Note>
+
+## Shared Context Behavior
+
+Every architecture that runs several agents against one shared conversation now handles context the same way, which changes what your agents actually see.
+
+<AccordionGroup>
+  <Accordion title="Agents receive only what is new to them">
+    Handing an agent the whole shared conversation on each invocation puts that history into the agent's own memory, so the next invocation sends it again on top of what the agent already holds — context grows exponentially across loops, and the agent sees its own output twice, the second time mislabelled as something the user said.
+
+    Structures now track a per-agent cursor and send only the messages that agent has not been given yet, with the agent's own messages excluded. When there is nothing new, the agent is told to continue from its own previous response rather than receiving an empty instruction.
+  </Accordion>
+
+  <Accordion title="Agents contribute their answer, not their transcript">
+    `Agent.run` honours the agent's `output_type`, which defaults to `"str-all-except-first"` — the agent's *entire* conversation, not its answer. Writing that into the shared conversation re-injects everything the agent was given, which every later agent then reads.
+
+    Structures now record the agent's final message instead. This is why a `SequentialWorkflow` result reads as a clean handoff chain rather than a compounding transcript.
+  </Accordion>
+
+  <Accordion title="No shared default-named conversation file">
+    `Conversation` no longer auto-loads a shared default-named file into every swarm, so two unrelated swarms running on the same machine cannot bleed history into each other.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+The practical effect is that context grows linearly instead of exponentially. If you previously worked around runaway context by capping `max_loops`, you can raise that cap again.
+</Tip>
+
 ## Choosing the Right Architecture
 
 <Steps>
   <Step title="Identify Your Pattern">
     Determine if your task needs sequential, parallel, or mixed execution
   </Step>
-  
+
   <Step title="Consider Complexity">
     Match architecture complexity to task requirements
   </Step>
-  
+
   <Step title="Evaluate Features">
     Review specific features like feedback loops, aggregation, or dynamic routing
   </Step>
-  
+
   <Step title="Test and Iterate">
     Start simple and upgrade to more complex architectures as needed
   </Step>
@@ -133,28 +230,37 @@ Because a generated roster is just a list of agents, it drops into any architect
 - Arbitrary agent interactions
 - Flexible orchestration needed
 
+### Use a Consensus Architecture When:
+- The output is a decision rather than a document
+- You want noise reduction across independent answers
+- The result should be defensible, with the reasoning recorded
+
 ## Next Steps
 
 Explore each architecture in detail:
 
 <CardGroup cols={2}>
+  <Card title="Structures Catalog" icon="table-list" href="/architectures/structures-catalog">
+    Every orchestration class and function in the library
+  </Card>
+
   <Card title="Auto Agent Builder" icon="wand-magic-sparkles" href="/api/auto-agent-builder">
     Generate the agent roster from a task
   </Card>
-  
+
   <Card title="Sequential Workflow" icon="arrow-right" href="/architectures/sequential-workflow">
     Linear agent execution
   </Card>
-  
+
   <Card title="Concurrent Workflow" icon="layer-group" href="/architectures/concurrent-workflow">
     Parallel agent processing
   </Card>
-  
+
   <Card title="Agent Rearrange" icon="diagram-project" href="/architectures/agent-rearrange">
     Custom flow patterns
   </Card>
-  
-  <Card title="Mixture of Agents" icon="users" href="/architectures/mixture-of-agents">
-    Expert synthesis
+
+  <Card title="Swarm Router" icon="shuffle" href="/architectures/swarm-router">
+    One interface for every architecture
   </Card>
 </CardGroup>

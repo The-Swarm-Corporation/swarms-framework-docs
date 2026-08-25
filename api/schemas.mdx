@@ -5,112 +5,44 @@ description: Pydantic schemas for agents, conversations, and API interactions in
 
 ## Overview
 
-The `swarms.schemas` module provides Pydantic BaseModel schemas for structured data validation, API interactions, and agent step tracking. These schemas ensure type safety and data consistency across the Swarms framework.
+The `swarms.schemas` module provides Pydantic models and exception classes used for structured data validation across the framework. Everything importable from `swarms.schemas` falls into three groups:
 
-## Agent Step Schemas
-
-### Step
-
-Represents a single execution step in an agent's workflow.
+| Group | Exports |
+|---|---|
+| **MCP schemas** | `MCPConnection`, `MCPOAuthConfig` |
+| **Agent errors** | `AgentError`, `AgentInitializationError`, `AgentRunError`, `AgentLLMError`, `AgentLLMInitializationError`, `AgentToolExecutionError`, `AgentMCPError`, `AgentMCPConnectionError`, `AgentMCPToolError` |
+| **Planner/worker schemas** | `TaskPriority`, `PlannerTaskStatus`, `PlannerTask`, `PlannerTaskOutput`, `PlannerTaskSpec`, `CycleVerdict` |
 
 ```python
-from swarms.schemas import Step
-
-step = Step(
-    step_id="unique-step-id",
-    time=1.234,
-    response=agent_response
+from swarms.schemas import (
+    MCPConnection,
+    MCPOAuthConfig,
+    AgentError,
+    PlannerTask,
+    CycleVerdict,
 )
 ```
 
-<ParamField path="step_id" type="str" default="uuid.uuid4().hex">
-  Unique identifier for the task step
-</ParamField>
-
-<ParamField path="time" type="float" default="current_time">
-  Time taken to complete the task step
-</ParamField>
-
-<ParamField path="response" type="AgentChatCompletionResponse" required>
-  Agent's response for this step
-</ParamField>
-
-### ManySteps
-
-Tracks multiple execution steps and agent run metadata.
-
-```python
-from swarms.schemas import ManySteps
-
-run_data = ManySteps(
-    agent_id="financial-agent-1",
-    agent_name="FinancialAnalyst",
-    task="Analyze Q4 earnings",
-    max_loops=3,
-    steps=[step1, step2, step3],
-    total_tokens=5000
-)
-```
-
-<ParamField path="agent_id" type="str" required>
-  Unique identifier of the agent
-</ParamField>
-
-<ParamField path="agent_name" type="str" required>
-  Name of the agent
-</ParamField>
-
-<ParamField path="task" type="str" required>
-  Description of the task being executed
-</ParamField>
-
-<ParamField path="max_loops" type="Any" required>
-  Maximum number of execution loops
-</ParamField>
-
-<ParamField path="run_id" type="str" default="uuid.uuid4().hex">
-  Unique identifier for this execution run
-</ParamField>
-
-<ParamField path="steps" type="List[Union[Step, Any]]" default="[]">
-  List of execution steps
-</ParamField>
-
-<ParamField path="full_history" type="str" required>
-  Complete execution history as a string
-</ParamField>
-
-<ParamField path="total_tokens" type="int" required>
-  Total number of tokens consumed
-</ParamField>
-
-<ParamField path="stopping_token" type="str" required>
-  Token that caused execution to stop
-</ParamField>
-
-<ParamField path="interactive" type="bool" required>
-  Whether the task was interactive
-</ParamField>
-
-<ParamField path="dynamic_temperature_enabled" type="bool" required>
-  Whether dynamic temperature adjustment was enabled
-</ParamField>
+<Note>
+These 17 names are the complete public surface of `swarms.schemas`.
+</Note>
 
 ## MCP Schemas
 
 ### MCPConnection
 
-Defines connection parameters for a Model Context Protocol (MCP) server reachable over HTTP/SSE.
+Defines connection parameters for a Model Context Protocol (MCP) server.
 
 ```python
 from swarms.schemas import MCPConnection
 
 mcp = MCPConnection(
-    url="http://localhost:8000/sse",
+    url="http://localhost:8000/mcp",
+    name="filesystem",
     transport="streamable_http",
     authorization_token="secret-token",
     headers={"X-Custom-Header": "value"},
-    timeout=10,
+    timeout=30,
 )
 ```
 
@@ -122,38 +54,206 @@ mcp = MCPConnection(
   The URL endpoint for the MCP server
 </ParamField>
 
+<ParamField path="name" type="str" default="None">
+  Human readable name for the server, used in logs and tool routing
+</ParamField>
+
 <ParamField path="tool_configurations" type="Dict[Any, Any]" default="None">
   Dictionary containing configuration settings for MCP tools
 </ParamField>
 
 <ParamField path="authorization_token" type="str" default="None">
-  Authentication token for accessing the MCP server
+  Bearer token for accessing the MCP server
+</ParamField>
+
+<ParamField path="api_key" type="str" default="None">
+  API key for the MCP server. Sent using `api_key_header` / `api_key_prefix`
+</ParamField>
+
+<ParamField path="api_key_header" type="str" default="Authorization">
+  Header used to send the API key, e.g. `"Authorization"` or `"X-API-Key"`
+</ParamField>
+
+<ParamField path="api_key_prefix" type="str" default="Bearer">
+  Prefix prepended to the API key value. Set to `None`/`""` for raw keys
+</ParamField>
+
+<ParamField path="auth_type" type="Literal['none', 'api_key', 'bearer', 'oauth', 'custom']" default="None">
+  Explicit auth mode. Inferred from the other fields when omitted
+</ParamField>
+
+<ParamField path="oauth" type="MCPOAuthConfig" default="None">
+  OAuth 2.1 configuration for this server
 </ParamField>
 
 <ParamField path="transport" type="str" default="streamable_http">
-  The transport protocol to use for the MCP server
+  Transport protocol: `"streamable_http"`, `"sse"`, `"stdio"`, or `"auto"`
 </ParamField>
 
 <ParamField path="headers" type="Dict[str, str]" default="None">
   Headers to send to the MCP server
 </ParamField>
 
-<ParamField path="timeout" type="int" default="10">
-  Timeout (in seconds) for the MCP server
+<ParamField path="timeout" type="int" default="30">
+  Request timeout (in seconds) for the MCP server
+</ParamField>
+
+<ParamField path="sse_read_timeout" type="int" default="300">
+  How long to wait for streamed events before giving up
+</ParamField>
+
+<ParamField path="tool_timeout" type="int" default="120">
+  How long a single tool call may run before timing out. Separate from `timeout`, which bounds HTTP requests
+</ParamField>
+
+<ParamField path="command" type="str" default="None">
+  Executable to launch for the `stdio` transport
+</ParamField>
+
+<ParamField path="args" type="List[str]" default="None">
+  Arguments passed to the `stdio` command
+</ParamField>
+
+<ParamField path="env" type="Dict[str, str]" default="None">
+  Environment variables for the `stdio` command
 </ParamField>
 
 This model allows extra fields (`extra = "allow"`), so additional keys will not raise a validation error, but only the fields above are read by the framework.
 
-### MultipleMCPConnections
+### MCPOAuthConfig
 
-Manages multiple MCP server connections.
+OAuth 2.1 configuration for an MCP server, passed as `MCPConnection.oauth`. Three flavours are supported:
+
+1. `grant_type="authorization_code"` (default) — the interactive browser flow. PKCE and RFC 7591 dynamic client registration are handled by the MCP SDK, so `client_id` is optional. Tokens are cached on disk so the browser prompt only happens once.
+2. `grant_type="client_credentials"` — a headless machine-to-machine flow. Requires `client_id`/`client_secret`.
+3. `access_token=...` — a token obtained elsewhere. No flow is run; the token is sent as a bearer credential.
+
+Any string field may use `"env:MY_VAR"` or `"${MY_VAR}"` to read the value from the environment instead of hardcoding a secret.
 
 ```python
-from swarms.schemas import MultipleMCPConnections
+from swarms.schemas import MCPConnection, MCPOAuthConfig
 
-connections = MultipleMCPConnections(
-    connections=[mcp1, mcp2, mcp3]
+mcp = MCPConnection(
+    url="https://mcp.example.com/mcp",
+    oauth=MCPOAuthConfig(
+        grant_type="client_credentials",
+        client_id="env:MCP_CLIENT_ID",
+        client_secret="env:MCP_CLIENT_SECRET",
+        scopes=["mcp:tools"],
+    ),
 )
+```
+
+<ParamField path="grant_type" type="Literal['authorization_code', 'client_credentials']" default="authorization_code">
+  OAuth grant to use when no static `access_token` is supplied
+</ParamField>
+
+<ParamField path="client_id" type="str" default="None">
+  OAuth client id. Optional for `authorization_code` when the server supports dynamic client registration
+</ParamField>
+
+<ParamField path="client_secret" type="str" default="None">
+  OAuth client secret. Required for `client_credentials`
+</ParamField>
+
+<ParamField path="scopes" type="List[str]" default="None">
+  Scopes to request, e.g. `['mcp:tools', 'offline_access']`
+</ParamField>
+
+<ParamField path="redirect_uri" type="str" default="http://127.0.0.1:8765/callback">
+  Loopback redirect URI used to capture the authorization code
+</ParamField>
+
+<ParamField path="client_name" type="str" default="Swarms Agent">
+  Client name sent during dynamic client registration
+</ParamField>
+
+<ParamField path="client_uri" type="str" default="None">
+  Client homepage sent during dynamic client registration
+</ParamField>
+
+<ParamField path="authorization_url" type="str" default="None">
+  Explicit authorization endpoint. Discovered automatically when omitted
+</ParamField>
+
+<ParamField path="token_url" type="str" default="None">
+  Explicit token endpoint. Discovered automatically when omitted
+</ParamField>
+
+<ParamField path="access_token" type="str" default="None">
+  Pre-obtained access token. When set, no OAuth flow is performed
+</ParamField>
+
+<ParamField path="refresh_token" type="str" default="None">
+  Pre-obtained refresh token, paired with `access_token`
+</ParamField>
+
+<ParamField path="token_storage_path" type="str" default="None">
+  File used to cache OAuth tokens. Defaults to `~/.swarms/mcp_auth/<server>.json`
+</ParamField>
+
+<ParamField path="use_token_cache" type="bool" default="True">
+  Persist tokens to disk so the browser flow is only run once
+</ParamField>
+
+<ParamField path="open_browser" type="bool" default="True">
+  Open the system browser for the authorization step. When `False` the URL is logged instead
+</ParamField>
+
+<ParamField path="callback_timeout" type="int" default="300">
+  Seconds to wait for the user to complete the browser flow
+</ParamField>
+
+## Agent Error Schemas
+
+Exception classes raised by agents. All of them are plain Python exceptions — not Pydantic models — so they are caught with ordinary `try`/`except`.
+
+Two independent hierarchies are exported:
+
+```
+AgentError                          AgentMCPError
+├── AgentInitializationError        ├── AgentMCPConnectionError
+├── AgentRunError                   └── AgentMCPToolError
+├── AgentLLMError
+├── AgentLLMInitializationError
+└── AgentToolExecutionError
+```
+
+<Note>
+`AgentMCPError` inherits from `Exception`, **not** from `AgentError`. Catching `AgentError` will not catch MCP failures — catch both if you want blanket coverage.
+</Note>
+
+| Exception | Raised when |
+|---|---|
+| `AgentError` | Base class for all agent-related exceptions |
+| `AgentInitializationError` | The agent fails to initialize; check configuration and parameters |
+| `AgentRunError` | The agent errors during execution; check the task and environment |
+| `AgentLLMError` | There is an issue with the language model; verify availability and compatibility |
+| `AgentLLMInitializationError` | The LLM fails to initialize; check configuration and parameters |
+| `AgentToolExecutionError` | The agent fails to execute a tool; check the tool's configuration and availability |
+| `AgentMCPError` | Base class for MCP-related failures |
+| `AgentMCPConnectionError` | Connecting to an MCP server fails |
+| `AgentMCPToolError` | An MCP tool call fails |
+
+```python
+from swarms import Agent
+from swarms.schemas import (
+    AgentError,
+    AgentLLMError,
+    AgentMCPConnectionError,
+    AgentMCPError,
+)
+
+agent = Agent(agent_name="Analyst", model_name="gpt-5.4", max_loops=1)
+
+try:
+    result = agent.run("Summarise Q4 earnings.")
+except AgentLLMError as e:
+    print(f"Model problem: {e}")
+except AgentMCPConnectionError as e:
+    print(f"Could not reach the MCP server: {e}")
+except (AgentError, AgentMCPError) as e:
+    print(f"Agent failed: {e}")
 ```
 
 ## Planner/Worker Schemas
@@ -168,16 +268,25 @@ Schemas used by `PlannerWorkerSwarm` to represent tasks in the shared task queue
 
 `str, Enum` of task statuses: `PENDING`, `CLAIMED`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`.
 
+Valid transitions:
+
+```
+PENDING -> CLAIMED -> RUNNING -> COMPLETED
+PENDING -> CLAIMED -> RUNNING -> FAILED -> PENDING   (retry)
+any non-terminal -> CANCELLED
+```
+
 ### PlannerTask
 
-A single task in the shared planner-worker task queue.
+A single task in the shared planner-worker task queue. Created by planner agents, consumed by worker agents. The `version` field enables optimistic concurrency control.
 
 ```python
-from swarms.schemas import PlannerTask
+from swarms.schemas import PlannerTask, TaskPriority
 
 task = PlannerTask(
     title="Research competitors",
     description="Gather competitor pricing data",
+    priority=TaskPriority.HIGH,
 )
 ```
 
@@ -233,6 +342,18 @@ task = PlannerTask(
   Optimistic concurrency version counter
 </ParamField>
 
+<ParamField path="created_at" type="float" default="time.time()">
+  Unix timestamp of task creation
+</ParamField>
+
+<ParamField path="completed_at" type="float" default="None">
+  Unix timestamp of task completion
+</ParamField>
+
+<ParamField path="metadata" type="Dict" default="{}">
+  Arbitrary metadata
+</ParamField>
+
 ### PlannerTaskOutput
 
 A single task definition as output from a planner agent.
@@ -257,8 +378,28 @@ A single task definition as output from a planner agent.
 
 Structured output from a planner agent: a plan narrative plus a list of concrete tasks.
 
+```python
+from swarms.schemas import PlannerTaskOutput, PlannerTaskSpec
+
+spec = PlannerTaskSpec(
+    plan="Research the market, then summarise the findings.",
+    tasks=[
+        PlannerTaskOutput(
+            title="Research competitors",
+            description="Gather competitor pricing data",
+            priority=2,
+        ),
+        PlannerTaskOutput(
+            title="Write summary",
+            description="Summarise the pricing research",
+            depends_on_titles=["Research competitors"],
+        ),
+    ],
+)
+```
+
 <ParamField path="plan" type="str" required>
-  Narrative explanation of the plan
+  Narrative explanation of the plan: what needs to be done, in what order, and why
 </ParamField>
 
 <ParamField path="tasks" type="List[PlannerTaskOutput]" required>
@@ -290,302 +431,21 @@ Structured output from the judge agent after evaluating a planning cycle.
 </ParamField>
 
 <ParamField path="needs_fresh_start" type="bool" default="False">
-  True if accumulated drift requires discarding all prior tasks and restarting from the original goal
+  True if accumulated drift or systemic issues require a complete restart rather than incremental gap-filling. When True, all prior tasks are discarded and the planner begins from scratch with the original goal plus judge feedback
 </ParamField>
-
-## Base Schemas
-
-### ModelCard
-
-Metadata about a machine learning model.
-
-```python
-from swarms.schemas.base_schemas import ModelCard
-
-model = ModelCard(
-    id="gpt-4",
-    object="model",
-    created=1234567890,
-    owned_by="openai"
-)
-```
-
-<ParamField path="id" type="str" required>
-  Model identifier
-</ParamField>
-
-<ParamField path="object" type="str" default="model">
-  Object type (always "model")
-</ParamField>
-
-<ParamField path="created" type="int" default="current_timestamp">
-  Unix timestamp of model creation
-</ParamField>
-
-<ParamField path="owned_by" type="str" default="owner">
-  Model owner/organization
-</ParamField>
-
-<ParamField path="root" type="str" default="None">
-  Root model identifier
-</ParamField>
-
-<ParamField path="parent" type="str" default="None">
-  Parent model identifier
-</ParamField>
-
-<ParamField path="permission" type="list" default="None">
-  Model permissions
-</ParamField>
-
-### ChatMessageInput
-
-Input message for chat completions.
-
-```python
-from swarms.schemas.base_schemas import ChatMessageInput
-
-message = ChatMessageInput(
-    role="user",
-    content="Analyze this financial report"
-)
-
-# Multi-modal message
-multimodal_message = ChatMessageInput(
-    role="user",
-    content=[
-        {"type": "text", "text": "What's in this image?"},
-        {"type": "image_url", "image_url": {"url": "https://..."}}
-    ]
-)
-```
-
-<ParamField path="role" type="str" required>
-  Role of message sender: 'user', 'assistant', or 'system'
-</ParamField>
-
-<ParamField path="content" type="Union[str, List[ContentItem]]" required>
-  Message content (text or multi-modal)
-</ParamField>
-
-### ChatCompletionRequest
-
-Request schema for chat completions.
-
-```python
-from swarms.schemas.base_schemas import ChatCompletionRequest
-
-request = ChatCompletionRequest(
-    model="gpt-4",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Hello!"}
-    ],
-    temperature=0.7,
-    max_tokens=1000,
-    stream=False
-)
-```
-
-<ParamField path="model" type="str" default="gpt-5.4">
-  Model to use for completion
-</ParamField>
-
-<ParamField path="messages" type="List[ChatMessageInput]" required>
-  List of messages in the conversation
-</ParamField>
-
-<ParamField path="temperature" type="float" default="0.8">
-  Sampling temperature (0.0 to 2.0)
-</ParamField>
-
-<ParamField path="top_p" type="float" default="0.8">
-  Nucleus sampling parameter
-</ParamField>
-
-<ParamField path="max_tokens" type="int" default="4000">
-  Maximum tokens to generate
-</ParamField>
-
-<ParamField path="stream" type="bool" default="False">
-  Enable streaming responses
-</ParamField>
-
-<ParamField path="repetition_penalty" type="float" default="1.0">
-  Penalty for token repetition
-</ParamField>
-
-<ParamField path="echo" type="bool" default="False">
-  Whether to echo the prompt in addition to the completion
-</ParamField>
-
-### ChatCompletionResponse
-
-Response schema for chat completions.
-
-```python
-from swarms.schemas.base_schemas import ChatCompletionResponse
-
-response = ChatCompletionResponse(
-    model="gpt-4",
-    object="chat.completion",
-    choices=[
-        {
-            "index": 0,
-            "message": {"role": "assistant", "content": "Hello! How can I help?"},
-            "input": "Hello!"
-        }
-    ],
-    created=1234567890
-)
-```
-
-<ParamField path="model" type="str" required>
-  Model used for completion
-</ParamField>
-
-<ParamField path="object" type="Literal['chat.completion', 'chat.completion.chunk']" required>
-  Response object type
-</ParamField>
-
-<ParamField path="choices" type="List[Union[ChatCompletionResponseChoice, ChatCompletionResponseStreamChoice]]" required>
-  List of completion choices
-</ParamField>
-
-<ParamField path="created" type="int" default="current_timestamp">
-  Unix timestamp of response creation
-</ParamField>
-
-### AgentChatCompletionResponse
-
-Agent-specific chat completion response with tracking metadata.
-
-```python
-from swarms.schemas.base_schemas import AgentChatCompletionResponse
-
-response = AgentChatCompletionResponse(
-    id="agent-abc123",
-    agent_name="FinancialAnalyst",
-    object="chat.completion",
-    choices=choice_data,
-    created=1234567890
-)
-```
-
-<ParamField path="id" type="str" default="agent-{uuid}">
-  Unique identifier for this agent response
-</ParamField>
-
-<ParamField path="agent_name" type="str" required>
-  Name of the agent that generated the response
-</ParamField>
-
-<ParamField path="object" type="Literal['chat.completion', 'chat.completion.chunk']" default="None">
-  Response object type
-</ParamField>
-
-<ParamField path="choices" type="ChatCompletionResponseChoice" default="None">
-  Completion choice data
-</ParamField>
-
-<ParamField path="created" type="int" default="current_timestamp">
-  Unix timestamp of response creation
-</ParamField>
-
-### UsageInfo
-
-Token usage information for API calls.
-
-```python
-from swarms.schemas.base_schemas import UsageInfo
-
-usage = UsageInfo(
-    prompt_tokens=150,
-    completion_tokens=300,
-    total_tokens=450
-)
-```
-
-<ParamField path="prompt_tokens" type="int" default="0">
-  Number of tokens in the prompt
-</ParamField>
-
-<ParamField path="total_tokens" type="int" default="0">
-  Total tokens used (prompt + completion)
-</ParamField>
-
-<ParamField path="completion_tokens" type="int" default="0">
-  Number of tokens in the completion
-</ParamField>
-
-## Example: Complete Agent Tracking
-
-```python
-from swarms.schemas import Step, ManySteps
-from swarms.schemas.base_schemas import AgentChatCompletionResponse
-import time
-
-# Track individual steps
-steps = []
-
-for i in range(3):
-    step_start = time.time()
-    
-    # Simulate agent execution
-    response = AgentChatCompletionResponse(
-        agent_name="FinancialAnalyst",
-        choices={"message": {"role": "assistant", "content": f"Analysis {i+1}"}}
-    )
-    
-    step = Step(
-        step_id=f"step-{i}",
-        time=time.time() - step_start,
-        response=response
-    )
-    steps.append(step)
-
-# Create complete run record
-run_record = ManySteps(
-    agent_id="financial-agent-1",
-    agent_name="FinancialAnalyst",
-    task="Analyze Q4 earnings reports",
-    max_loops=3,
-    run_id="run-abc123",
-    steps=steps,
-    full_history="Complete execution history...",
-    total_tokens=5000,
-    stopping_token="<END>",
-    interactive=False,
-    dynamic_temperature_enabled=True
-)
-
-print(f"Run ID: {run_record.run_id}")
-print(f"Total steps: {len(run_record.steps)}")
-print(f"Total tokens: {run_record.total_tokens}")
-```
 
 ## Example: MCP Connection Setup
 
 ```python
-from swarms.schemas import MCPConnection, MultipleMCPConnections
-
-# Define individual connections
-filesystem_mcp = MCPConnection(
-    url="http://localhost:8000/sse",
-)
-
-web_search_mcp = MCPConnection(
-    url="http://localhost:8001/sse",
-    authorization_token="your-api-key",
-)
-
-# Combine multiple connections
-connections = MultipleMCPConnections(
-    connections=[filesystem_mcp, web_search_mcp]
-)
-
-# Use a single connection with an agent
 from swarms import Agent
+from swarms.schemas import MCPConnection
+
+# Describe a server with a full connection object
+filesystem_mcp = MCPConnection(
+    url="http://localhost:8000/mcp",
+    name="filesystem",
+    timeout=30,
+)
 
 agent = Agent(
     agent_name="MultiTool-Agent",
@@ -597,23 +457,55 @@ agent = Agent(
 # (not MCPConnection objects):
 agent = Agent(
     agent_name="MultiServer-Agent",
-    mcp_urls=["http://localhost:8000/sse", "http://localhost:8001/sse"],
+    mcp_urls=["http://localhost:8000/mcp", "http://localhost:8001/mcp"],
     model_name="gpt-5.4",
 )
 ```
 
+## Example: Tracking Planner Tasks
+
+```python
+import time
+
+from swarms.schemas import PlannerTask, PlannerTaskStatus, TaskPriority
+
+queue = [
+    PlannerTask(
+        title="Collect filings",
+        description="Download the last four 10-Q filings",
+        priority=TaskPriority.HIGH,
+    ),
+    PlannerTask(
+        title="Summarise filings",
+        description="Write a one-page summary of the filings",
+    ),
+]
+
+# A worker claims and completes the first task
+task = queue[0]
+task.status = PlannerTaskStatus.RUNNING
+task.assigned_worker = "Worker-1"
+task.result = "Downloaded 4 filings."
+task.status = PlannerTaskStatus.COMPLETED
+task.completed_at = time.time()
+task.version += 1
+
+print(f"{task.id}: {task.status.value} by {task.assigned_worker}")
+```
+
 ## Best Practices
 
-1. **Type Safety**: Always use the provided schemas for type-safe data handling
+1. **Type Safety**: Use the provided schemas for type-safe data handling
 2. **Validation**: Leverage Pydantic's validation to catch errors early
 3. **Serialization**: Use `.model_dump()` and `.model_dump_json()` for serialization
-4. **Step Tracking**: Track all agent steps for debugging and analysis
-5. **Token Monitoring**: Monitor token usage through UsageInfo schemas
-6. **MCP Configuration**: Use MCPConnection schemas for consistent tool integration
+4. **Error Handling**: Catch the narrowest agent exception that fits, and remember `AgentError` and `AgentMCPError` are separate hierarchies
+5. **MCP Configuration**: Use `MCPConnection` for consistent tool integration, and `MCPOAuthConfig` with `"env:VAR"` references instead of hardcoded secrets
+6. **Concurrency**: Bump `PlannerTask.version` on every mutation so optimistic concurrency checks work
 
 ## Schema Inheritance
 
-All schemas inherit from Pydantic's `BaseModel`, providing:
+The Pydantic models above (`MCPConnection`, `MCPOAuthConfig`, `PlannerTask`, `PlannerTaskOutput`, `PlannerTaskSpec`, `CycleVerdict`) inherit from Pydantic's `BaseModel`, providing:
+
 - Automatic validation
 - JSON serialization/deserialization
 - Schema generation
@@ -621,11 +513,15 @@ All schemas inherit from Pydantic's `BaseModel`, providing:
 - Type checking
 
 ```python
+from swarms.schemas import PlannerTask
+
+task = PlannerTask(title="Research", description="Do research")
+
 # Serialization
-step_dict = step.model_dump()
-step_json = step.model_dump_json(indent=2)
+task_dict = task.model_dump()
+task_json = task.model_dump_json(indent=2)
 
 # Deserialization
-step_from_dict = Step(**step_dict)
-step_from_json = Step.model_validate_json(step_json)
+task_from_dict = PlannerTask(**task_dict)
+task_from_json = PlannerTask.model_validate_json(task_json)
 ```

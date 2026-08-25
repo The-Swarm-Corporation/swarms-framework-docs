@@ -130,6 +130,22 @@ rearrange = AgentRearrange(
   Optional memory system for persistence
 </ParamField>
 
+<ParamField path="verbose" type="bool" default="True">
+  Log every flow step and agent transition. **This defaults to `True`**, so a fresh `AgentRearrange` is noisy out of the box — pass `verbose=False` for quiet runs.
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="True">
+  Persist workflow state. Defaults to `True`.
+</ParamField>
+
+<ParamField path="time_enabled" type="bool" default="False">
+  Record an ISO timestamp on every conversation message.
+</ParamField>
+
+<ParamField path="message_id_on" type="bool" default="False">
+  Attach a unique id to every conversation message.
+</ParamField>
+
 ## Methods
 
 ### run()
@@ -207,6 +223,40 @@ Pass `with_events=True` to receive structured `agent_start` / `token` / `agent_e
 <Note>
   `max_loops > 1` and `custom_tasks` are not supported in streaming mode. Use `run()` for those.
 </Note>
+
+### explain()
+
+Print or return the resolved execution plan for the current flow. It validates the flow, then lists every step in order and marks each as sequential or parallel. No agents or LLMs are invoked, which makes it cheap enough for CI smoke tests and pre-flight checks.
+
+<ParamField path="return_str" type="bool" default="False">
+  When `True`, return the plan as a string. When `False`, print it and return `None`.
+</ParamField>
+
+<ResponseField name="return" type="Optional[str]">
+  The plan string when `return_str=True`; otherwise `None`.
+</ResponseField>
+
+```python
+rearrange = AgentRearrange(
+    agents=[ingestor, tech, business, legal, synthesizer],
+    flow="Ingestor -> Tech, Business, Legal -> Synthesizer",
+)
+
+rearrange.explain()
+# Flow: Ingestor -> Tech, Business, Legal -> Synthesizer
+#
+# Step 1: Ingestor               [sequential]
+# Step 2: Tech, Business, Legal  [parallel, 3 agents]
+# Step 3: Synthesizer            [sequential]
+#
+# 3 steps, 5 agent invocations across 1 loop(s).
+
+plan = rearrange.explain(return_str=True)
+```
+
+<Warning>
+  `explain()` validates the flow first and raises if it is invalid — the same error `run()` would raise.
+</Warning>
 
 ## Team Awareness
 

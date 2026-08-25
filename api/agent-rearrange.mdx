@@ -13,7 +13,6 @@ The `AgentRearrange` class enables complex workflows where multiple agents can w
 - **Flexible Flow Syntax**: Define sequential (`->`) and concurrent (`,`) agent execution in one flow
 - **Custom Flow Patterns**: Mix sequential and concurrent execution patterns
 - **Team Awareness**: Agents can be aware of their position in the workflow
-- **Memory System Support**: Optional persistent memory across agent interactions
 - **Batch Processing**: Process multiple tasks with the same flow
 - **Concurrent Execution**: Run multiple tasks in parallel
 - **Async Support**: Asynchronous execution for non-blocking operations
@@ -82,7 +81,7 @@ class AgentRearrange:
 </ParamField>
 
 <ParamField path="memory_system" type="Any" default="None">
-  Optional memory system for persistence across interactions
+  Accepted for backwards compatibility. The value is stored on the instance and is not read by the workflow. Configure memory on the individual agents with `persistent_memory` instead.
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default="all">
@@ -466,26 +465,6 @@ system.set_custom_flow("researcher -> editor -> writer")
 
 # Run with new flow
 result2 = system.run("Task 2")
-```
-
-### With Memory System
-
-```python
-from swarms_memory import ChromaDB
-
-# Create memory system
-memory = ChromaDB(
-    output_dir="./agent_memory",
-    n_results=5
-)
-
-system = AgentRearrange(
-    agents=[researcher, writer],
-    flow="researcher -> writer",
-    memory_system=memory  # Persist conversation across runs
-)
-
-result = system.run("Analyze AI trends")
 ```
 
 ### With Team Awareness

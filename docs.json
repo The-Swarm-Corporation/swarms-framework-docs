@@ -70,6 +70,7 @@
               "agents/agent-configuration",
               "agents/agent-memory",
               "agents/agent-tools",
+              "agents/dynamic-tools",
               "agents/agent-skills",
               "agents/structured-outputs",
               "agents/prompt-caching"
@@ -155,9 +156,8 @@
               "api/mcp-manager",
               "api/skills-manager",
               "api/agent-marketplace-handler",
-              "api/base-swarm",
-              "api/base-structure",
-              "api/conversation"
+              "api/conversation",
+              "api/agent-loader"
             ]
           },
           {
@@ -179,7 +179,6 @@
               "api/self-moa-seq",
               "api/advisor-swarm",
               "api/planner-worker-swarm",
-              "api/skill-orchestra",
               "api/orchestration-methods",
               "api/debate-with-judge",
               "api/majority-voting",
@@ -192,12 +191,14 @@
               "api/auto-swarm-builder",
               "api/swarm-rearrange",
               "api/model-router",
-              "api/swarm-matcher",
               "api/agent-router",
               "api/multi-swarm-orchestration",
               "api/hierarchical-communication-framework",
               "api/hhcs",
               "api/multi-agent-execution-utilities",
+              "api/async-subagent",
+              "api/ma-blocks",
+              "api/swarming-architectures",
               "api/social-algorithms"
             ]
           },
@@ -205,6 +206,7 @@
             "group": "Tools & Utilities",
             "pages": [
               "api/tools",
+              "api/dynamic-tool-loader",
               "api/prompts",
               "api/schemas",
               "api/utils"
@@ -237,6 +239,7 @@
               "examples/overviews/basic-overview",
               "examples/basic-agent",
               "examples/agent-with-tools",
+              "examples/tools/dynamic-tool-usage",
               "examples/vision-agent",
               "examples/streaming",
               "examples/agent-streaming-example"
@@ -368,7 +371,6 @@
             "group": "Integrations",
             "pages": [
               "examples/overviews/tools-overview",
-              "examples/integrations/computer-use",
               "examples/integrations/exa-search",
               "examples/integrations/browser-use",
               "examples/integrations/mcp-datastax",

@@ -135,15 +135,6 @@ moa_result = moa.run(task)
   Required when `swarm_type="AgentRearrange"`. Flow DSL like `"A -> B, C -> D"`.
 </ParamField>
 
-<Warning>
-`shared_memory_system` and `telemetry_enabled` **do not exist** on `SwarmRouter`. Because `__init__` accepts `**kwargs`, passing them is silently ignored rather than raising, so code following the old docs appears to work while wiring up nothing. There is no `activate_shared_memory()` method either.
-</Warning>
-
-<ParamField path="shared_memory_system" type="Any">
-  **Does not exist in code.** See the warning below.
-  Memory backend injected into every agent's `long_term_memory`.
-</ParamField>
-
 <ParamField path="multi_agent_collab_prompt" type="bool" default="False">
   Append the multi-agent collaboration preamble to every agent's system prompt.
 </ParamField>
@@ -158,11 +149,6 @@ moa_result = moa.run(task)
 
 <ParamField path="agents_config" type="Dict[Any, Any]">
   Optional per-agent config overrides.
-</ParamField>
-
-<ParamField path="telemetry_enabled" type="bool" default="False">
-  **Does not exist in code.** See the warning below.
-  When `True`, snapshot each agent's config into `self.agent_config`.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -228,13 +214,34 @@ router = SwarmRouter(
 
 ### `HierarchicalSwarm`
 
+<ParamField path="director_model_name" type="str" default='"gpt-5.4"'>
+  Model used by the auto-created director agent.
+</ParamField>
+
+<ParamField path="director_settings" type="Dict[str, Any]">
+  Extra `Agent` keyword arguments for the auto-created director. Recognised keys are
+  `agent_name`, `model_name`, `system_prompt`, `temperature`, and `top_p`; each one
+  overrides the corresponding `HierarchicalSwarm` default (including
+  `director_model_name`).
+</ParamField>
+
 ```python
 router = SwarmRouter(
     swarm_type="HierarchicalSwarm",
     agents=worker_agents,
     max_loops=2,    # feedback loops
+    director_model_name="claude-sonnet-4-6",
+    director_settings={
+        "agent_name": "LeadDirector",
+        "temperature": 0.2,
+    },
 )
 ```
+
+<Note>
+  Both parameters are forwarded only when `swarm_type="HierarchicalSwarm"`; other swarm
+  types ignore them.
+</Note>
 
 ### `CouncilAsAJudge`
 
@@ -249,24 +256,6 @@ router = SwarmRouter(
 </ParamField>
 
 ## Advanced Features
-
-### Shared Memory
-
-`shared_memory_system` accepts any object and is assigned directly to every agent's `long_term_memory` attribute (`activate_shared_memory()` in `swarm_router.py`); the router does not ship a built-in backend. Supply your own memory object that satisfies whatever interface your agents expect:
-
-```python
-memory = MyMemoryBackend()  # any object exposing the interface your agents expect
-
-router = SwarmRouter(
-    swarm_type="SequentialWorkflow",
-    agents=agents,
-    shared_memory_system=memory,
-)
-```
-
-<Note>
-  `swarms.memory` / `ChromaDB` no longer exist in this version of the framework. For built-in persistence, prefer each agent's own `persistent_memory=True` (writes/reads `MEMORY.md` per agent) instead of a router-level shared backend.
-</Note>
 
 ### Autosave
 
@@ -499,8 +488,7 @@ router = SwarmRouter(
     autosave_use_timestamp=True,
     multi_agent_collab_prompt=True,
     list_all_agents=True,
-    shared_memory_system=memory,
-    telemetry_enabled=True,
+    director_model_name="gpt-5.4",
     verbose=True,
 )
 ```

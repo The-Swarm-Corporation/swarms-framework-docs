@@ -415,36 +415,6 @@ print(models)
   List of supported model name strings
 </ResponseField>
 
-## Code Processing
-
-### extract_code_from_markdown
-
-Extract code blocks from markdown text.
-
-```python
-from swarms.utils import extract_code_from_markdown
-
-markdown = """
-Here's some code:
-```python
-def hello():
-    print("Hello")
-```
-"""
-
-code = extract_code_from_markdown(markdown)
-print(code)
-# Output: def hello():\n    print("Hello")
-```
-
-<ParamField path="markdown_text" type="str" required>
-  Markdown text containing code blocks
-</ParamField>
-
-<ResponseField name="return" type="str">
-  Extracted code without markdown formatting
-</ResponseField>
-
 ## Agent Loading
 
 ### load_agent_from_markdown
@@ -473,49 +443,66 @@ agents = load_agents_from_markdown([
 
 ### MarkdownAgentLoader
 
-Class for loading agents from markdown with advanced options.
+Class for loading agents from markdown with advanced options. `load_agent_from_markdown` and `load_agents_from_markdown` are thin wrappers around it.
 
 ```python
 from swarms.utils import MarkdownAgentLoader
 
-loader = MarkdownAgentLoader()
-agent = loader.load("agent_config.md")
+loader = MarkdownAgentLoader(max_workers=4)
+
+agent = loader.load_single_agent("agent_config.md")
+agents = loader.load_multiple_agents("./agent_configs")
 ```
+
+<ParamField path="max_workers" type="int" default="None">
+  Worker count used when loading multiple files concurrently
+</ParamField>
+
+| Method | Description |
+|---|---|
+| `load_single_agent(file_path, **kwargs)` | Load one agent from a markdown file |
+| `load_multiple_agents(file_paths, **kwargs)` | Load agents from a directory path or a list of file paths |
+| `parse_markdown_file(file_path)` | Parse a markdown file into a `MarkdownAgentConfig` without building an `Agent` |
+| `parse_yaml_frontmatter(content)` | Parse just the YAML frontmatter out of markdown content |
 
 ## Context Window Management
 
-### dynamic_auto_chunking
+### Conversation.dynamic_auto_chunking
 
-Truncate text from the beginning so the remainder fits within a token budget, using a binary search over token counts. Note this returns a single trimmed string (the tail of the input that fits), not a list of chunks.
+Trim the conversation history from the beginning so the remainder fits within the conversation's token budget, using a binary search over token counts. It returns a single trimmed string (the tail of the history that fits), not a list of chunks.
+
+<Note>
+This is a **method on `Conversation`**, not a standalone helper — there is no `dynamic_auto_chunking` in `swarms.utils`. The budget and tokenizer come from the `Conversation`'s own `context_length` and `tokenizer_model_name`, so the method itself takes no arguments.
+</Note>
 
 ```python
-from swarms.utils import dynamic_auto_chunking
+from swarms.structs.conversation import Conversation
 
-long_text = "...very long document..."
-trimmed = dynamic_auto_chunking(
-    content=long_text,
+conversation = Conversation(
     context_length=4000,
     tokenizer_model_name="gpt-5.4",
 )
 
+conversation.add("user", "...very long document...")
+conversation.add("assistant", "...long analysis...")
+
+trimmed = conversation.dynamic_auto_chunking()
 print(f"Trimmed length: {len(trimmed)} chars")
 ```
 
-<ParamField path="content" type="str" required>
-  Text to chunk
-</ParamField>
+<ResponseField name="return" type="str">
+  The conversation history trimmed to fit within `context_length` tokens. Returns the full history unchanged if it already fits, or if chunking fails.
+</ResponseField>
+
+Relevant `Conversation` constructor parameters:
 
 <ParamField path="context_length" type="int" default="8192">
-  Maximum number of tokens allowed
+  Maximum number of tokens allowed in the conversation history
 </ParamField>
 
 <ParamField path="tokenizer_model_name" type="str" default="gpt-5.4">
-  Model to use for token counting
+  Model used for token counting
 </ParamField>
-
-<ResponseField name="return" type="str">
-  The trimmed text that fits within `context_length` tokens. Returns the original `content` unchanged if it already fits, or if chunking fails.
-</ResponseField>
 
 ## Output History Formatting
 
@@ -588,6 +575,39 @@ except LiteLLMException as e:
     print(f"LiteLLM error: {e}")
 ```
 
+## Workspace Management
+
+### WorkspaceManager
+
+Creates a swarm's autosave directory once and writes to it on demand. The directory is `{WORKSPACE_DIR}/swarms/{ClassName}/{name}-{stamp}`, created eagerly so `dir` is usable straight after construction.
+
+```python
+from swarms.utils import WorkspaceManager
+
+manager = WorkspaceManager(owner=my_swarm, verbose=True)
+print(manager.dir)
+```
+
+<ParamField path="owner" type="Any" required>
+  The swarm instance. Its class name and `name` attribute pick the directory, and it is the default source for conversation and config data
+</ParamField>
+
+<ParamField path="name" type="str" default="None">
+  Overrides `owner.name` in the path
+</ParamField>
+
+<ParamField path="use_timestamp" type="bool" default="True">
+  Timestamp in the directory name when `True`, otherwise a short UUID
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Log the directory and each successful write
+</ParamField>
+
+<ParamField path="enabled" type="bool" default="True">
+  When `False` nothing is created or written and `dir` stays `None`
+</ParamField>
+
 ## Example: Complete Utility Usage
 
 ```python
@@ -595,8 +615,7 @@ from swarms.utils import (
     initialize_logger,
     create_file_in_folder,
     count_tokens,
-    extract_code_from_markdown,
-    sanitize_file_path
+    sanitize_file_path,
 )
 from swarms.utils.formatter import Formatter
 
@@ -611,21 +630,13 @@ formatter = Formatter(md=True)
 markdown_content = """
 # Analysis Results
 
-Here's the code:
-```python
-def analyze():
-    return "results"
-```
+The quarter closed **above** forecast.
 """
 
-# Extract code
-code = extract_code_from_markdown(markdown_content)
-logger.info(f"Extracted code: {code}")
-
 # Count tokens
-tokens = count_tokens(code, model="gpt-4")
+tokens = count_tokens(markdown_content, model="gpt-5.4")
 formatter.print_panel(
-    f"Code has {tokens} tokens",
+    f"Report has {tokens} tokens",
     title="Token Count",
     style="bold cyan"
 )
@@ -655,5 +666,5 @@ formatter.print_markdown(
 3. **Count tokens**: Monitor token usage to stay within model limits
 4. **Format output**: Use Formatter for consistent, beautiful CLI output
 5. **Handle errors**: Wrap file operations in try-catch blocks
-6. **Chunk large texts**: Use dynamic_auto_chunking for long documents
+6. **Chunk large texts**: Use `Conversation.dynamic_auto_chunking()` to keep long histories inside the context window
 7. **Stream responses**: Use print_streaming_panel for real-time output

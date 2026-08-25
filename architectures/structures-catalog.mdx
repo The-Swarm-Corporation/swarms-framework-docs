@@ -13,8 +13,8 @@ The catalog roughly clusters into a handful of recurring patterns:
 - **Routers and selectors** — `SwarmRouter`, `MultiAgentRouter`, `AgentRouter`, `ModelRouter`, `AuctionSwarm`. These don't run a fixed plan; they look at the incoming task and pick which agent(s) (or which model) should handle it. The selector itself is either an LLM ("boss"), an embedding match, a skill-graph lookup, or — for `AuctionSwarm` — a market: each agent bids its own confidence and estimated cost, and the auctioneer awards the task to the best bid instead of trusting a boss LLM's guess. Use these when the input space is broader than any single agent's competence.
 - **Hierarchies and delegation** — `HierarchicalSwarm`, `HierarchicalStructuredCommunicationFramework`, `HybridHierarchicalClusterSwarm`, `PlannerWorkerSwarm`. A director or supervisor decomposes the task and delegates pieces to workers, then synthesizes. The variants differ in how strictly the communication protocol is defined and whether the workers themselves can cluster and talk peer-to-peer.
 - **Ensembles and consensus** — `MixtureOfAgents`, `SelfMoASeq`, `HeavySwarm`, `MajorityVoting`, `CouncilAsAJudge`, `LLMCouncil`, `DebateWithJudge`. The shared assumption is that one model's first answer is rarely the best answer. These structures sample multiple opinions and combine them — by aggregator synthesis, by vote, by judge ruling, or by structured adversarial debate.
-- **Dialogue and discussion** — `GroupChat`, `ForestSwarm`, `AdvisorSwarm`, plus the named-ritual templates in `multi_agent_debates.py` (`OneOnOneDebate`, `RoundTableDiscussion`, `PeerReviewProcess`, `TrialSimulation`, and friends). These run scripted conversational patterns end-to-end so you don't have to reimplement "moderated panel" or "academic peer review" by hand.
-- **Topology experiments** — the `*Swarm` family in `various_alt_swarms.py` (`CircularSwarm`, `MeshSwarm`, `FibonacciSwarm`, `SigmoidSwarm`, etc.) and the matching functional helpers in `swarming_architectures.py`. These exist for research and exploration: what happens if you only activate agents at prime indices? Sinusoidal positions? They're cheap to try because they share a tiny common interface.
+- **Dialogue and discussion** — `GroupChat`, `ForestSwarm`, `AdvisorSwarm`, plus the two named-ritual templates that remain in `multi_agent_debates.py`: `OneOnOneDebate` (turn-based two-agent debate) and `ExpertPanelDiscussion` (moderator-guided expert panel). These run scripted conversational patterns end-to-end so you don't have to reimplement "moderated panel" or "structured debate" by hand. The other rituals — interview series, peer review, mediation, negotiation, brainstorming, council meeting, mentorship, trial simulation — have moved out of the library and now live under `examples/multi_agent/alternate_debates/`; copy the file you need rather than importing it.
+- **Communication primitives and topology experiments** — the three message-passing primitives in `various_alt_swarms.py` (`OneToOne`, `Broadcast`, `OneToThree`) and the seven functional helpers in `swarming_architectures.py` (`circular_swarm`, `grid_swarm`, `star_swarm`, `mesh_swarm`, `pyramid_swarm`, `one_to_one`, and the async `broadcast`). These are the smallest possible building blocks: a sender, a receiver set, and a task. They exist for research and exploration — wiring a topology by hand to see whether the shape of the conversation, rather than the agents in it, is what moves the result. They're cheap to try because they share a tiny common interface.
 - **Self-improvement and auto-construction** — `PlannerGeneratorEvaluator`, `AutoAgentBuilder`, `AutoSwarmBuilder`, `SocialAlgorithms`. These build or refine swarms dynamically: a planner negotiates contracts with a generator and evaluator; a builder reads a high-level description and spits out a configured swarm; `SocialAlgorithms` lets you upload an entirely custom communication protocol over a fixed agent set.
 
 A few practical notes that apply across the whole catalog:
@@ -24,6 +24,14 @@ A few practical notes that apply across the whole catalog:
 3. **Topology choice is a lever, not a guess.** Sequential is cheapest and most deterministic. Concurrent is fastest end-to-end but loses ordering. Hierarchical pays an extra LLM call to the director in exchange for cleaner delegation. Ensembles pay N× tokens for variance reduction. Pick the trade-off, not the buzzword.
 
 The table below lists every multi-agent structure currently shipped, with a one-line description and a direct link to its source file on GitHub.
+
+<Note>
+  **Not everything in this table is re-exported from the top-level package.** These names ship in the library but are absent from `__all__` in `swarms/structs/__init__.py`, so `from swarms import X` raises `ImportError` — import them by full module path instead, e.g. `from swarms.structs.tree_swarm import ForestSwarm`:
+
+  `AgentRouter`, `AuctionSwarm`, `HierarchicalStructuredCommunicationFramework`, `PlannerWorkerSwarm`, `ForestSwarm`, `OneToOne`, `Broadcast`, `OneToThree`, `OneOnOneDebate`, `ExpertPanelDiscussion`, `AOP`, `AOPCluster`, `ImageAgentBatchProcessor`, `AgentRegistry`.
+
+  Everything else in the table is importable directly as `from swarms import X`.
+</Note>
 
 ## Catalog
 
@@ -36,16 +44,17 @@ The table below lists every multi-agent structure currently shipped, with a one-
 | `GraphWorkflow` | Full DAG executor with topological sort, per-node callbacks, and token streaming. | [graph_workflow.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/graph_workflow.py) |
 | `BatchedGridWorkflow` | Runs an agent×task grid of batched executions. | [batched_grid_workflow.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/batched_grid_workflow.py) |
 | `SpreadSheetSwarm` | Treats a spreadsheet as the task table; each row becomes a concurrent agent run. | [spreadsheet_swarm.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/spreadsheet_swarm.py) |
+| `ImageAgentBatchProcessor` | Runs one agent over a batch of images concurrently with per-image error isolation. | [image_batch_processor.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/image_batch_processor.py) |
 | `SwarmRouter` | Single entry point that dispatches to any supported swarm type by name. | [swarm_router.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarm_router.py) |
 | `MultiAgentRouter` | LLM-driven "boss" routes a task to one or many specialist agents by capability. | [multi_agent_router.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_router.py) |
 | `AgentRouter` | Embedding-based router: matches a task to the best agent via cosine similarity over descriptions. | [agent_router.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/agent_router.py) |
 | `ModelRouter` | Routes a task to the best *model* (not agent) given task requirements. | [model_router.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/model_router.py) |
-| `SkillOrchestra` | Skill-aware orchestration — picks agents by declared skills and cost. **No longer shipped in the library**; available as an example only. | [skill_orchestra.py](https://github.com/kyegomez/swarms/blob/master/examples/multi_agent/skill_orchestra_examples/skill_orchestra.py) |
 | `AuctionSwarm` | Agents bid `(confidence, estimated_cost)` on a task via a forced tool call; the top-scoring bidder(s) execute it. | [auction_swarm.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/auction_swarm.py) |
 | `HierarchicalSwarm` | Director agent decomposes the task and delegates to workers; synthesizes results. | [hiearchical_swarm.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/hiearchical_swarm.py) |
 | `HierarchicalStructuredCommunicationFramework` | "Talk Structurally, Act Hierarchically" — structured messages between supervisor / generator / evaluator / refiner roles. | [hierarchical_structured_communication_framework.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/hierarchical_structured_communication_framework.py) |
 | `HybridHierarchicalClusterSwarm` | Hierarchy routes to clusters; inside clusters agents communicate peer-to-peer. | [hybrid_hiearchical_peer_swarm.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/hybrid_hiearchical_peer_swarm.py) |
 | `PlannerWorkerSwarm` | Planner emits a task queue; a worker pool claims and executes tasks concurrently. | [planner_worker_swarm.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/planner_worker_swarm.py) |
+| `SubagentRegistry` | Async subagent spawning with status tracking, result aggregation, retry policy, and depth-limited recursion. | [async_subagent.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/async_subagent.py) |
 | `MixtureOfAgents` | N workers respond in parallel for L layers; aggregator synthesizes the final answer. | [mixture_of_agents.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/mixture_of_agents.py) |
 | `SelfMoASeq` | Sequential self-MoA: many samples from one strong model, sliding-window aggregation. | [self_moa_seq.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/self_moa_seq.py) |
 | `HeavySwarm` | Decomposes a problem into specialized questions, runs each through deep multi-loop agents. | [heavy_swarm.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/heavy_swarm.py) |
@@ -61,41 +70,23 @@ The table below lists every multi-agent structure currently shipped, with a one-
 | `AutoAgentBuilder` | Generates only the agent roster — name, description, system prompt, model — via a forced function call, leaving the architecture to you. | [auto_agent_builder.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/auto_agent_builder.py) |
 | `AutoSwarmBuilder` | Takes a high-level description and auto-generates agents, roles, and swarm structure. | [auto_swarm_builder.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/auto_swarm_builder.py) |
 | `SocialAlgorithms` | Framework for uploading user-defined communication algorithms over a fixed agent set. | [social_algorithms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/social_algorithms.py) |
-| `CircularSwarm` | Agents pass tasks around a ring. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `StarSwarm` | One central agent processes; others orbit. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `MeshSwarm` | Agents pull tasks from a shared queue at random. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `PyramidSwarm` | Agents arranged in a pyramid; tasks flow top-down. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `FibonacciSwarm` | Tasks land on Fibonacci-indexed agents. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `PrimeSwarm` | Prime-indexed agents handle the work. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `PowerSwarm` | Power-of-two-indexed agents handle the work. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `LogSwarm` | Logarithmic spacing of active agents. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `ExponentialSwarm` | Exponential spacing of active agents. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `GeometricSwarm` | Geometric progression of active agents. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `HarmonicSwarm` | Harmonically spaced active agents. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `StaircaseSwarm` | Staircase-pattern indices process the task. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `SigmoidSwarm` | Sigmoid-distributed agent activations. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
-| `SinusoidalSwarm` | Sinusoidal agent activations. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
+| `AOP` | Deploys a list of agents as individually-callable MCP tools with a task queue, retries, and persistence-mode restart. | [aop.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/aop.py) |
+| `AOPCluster` | Discovers and aggregates tools across multiple running AOP MCP servers. | [aop.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/aop.py) |
+| `AgentRegistry` | Thread-safe registry of named agents with schema validation and lookup. | [agent_registry.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/agent_registry.py) |
 | `Broadcast` | One sender broadcasts to many receivers. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
 | `OneToOne` | Pair-wise direct communication between two agents. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
 | `OneToThree` | One sender hands off to exactly three receivers. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
 | `OneOnOneDebate` | Turn-based debate between two agents for N loops. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `RoundTableDiscussion` | Each participant speaks in order; cycle repeats. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
 | `ExpertPanelDiscussion` | Moderator-guided panel of expert agents. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `InterviewSeries` | Structured interview with follow-up questions. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `PeerReviewProcess` | Academic peer review with reviewers + author rebuttals. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `MediationSession` | Mediator resolves conflict between two or more parties. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `NegotiationSession` | Multi-party negotiation toward agreement. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `BrainstormingSession` | Participants build on each other's ideas. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `CouncilMeeting` | Structured council discussion + decision-making. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `MentorshipSession` | Structured mentor / mentee learning and feedback. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
-| `TrialSimulation` | Legal trial with structured phases and roles. | [multi_agent_debates.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/multi_agent_debates.py) |
 | `circular_swarm` | Functional `(agents, tasks)` circular topology. | [swarming_architectures.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py) |
 | `grid_swarm` | Functional agent×task grid execution. | [swarming_architectures.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py) |
 | `star_swarm` | Functional star topology — central hub, peripheral workers. | [swarming_architectures.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py) |
 | `mesh_swarm` | Functional mesh topology — random task pull. | [swarming_architectures.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py) |
 | `pyramid_swarm` | Functional pyramid topology — top-down task flow. | [swarming_architectures.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py) |
 | `one_to_one` | Functional direct send/reply between two agents. | [swarming_architectures.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py) |
-| `broadcast` | Functional one-sender-to-many-receivers. | [swarming_architectures.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py) |
+| `broadcast` | Functional one-sender-to-many-receivers (**async** — must be awaited). | [swarming_architectures.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/swarming_architectures.py) |
+| `one_on_one_debate` | Functional turn-based two-agent debate; procedural twin of `OneOnOneDebate`. | [deep_discussion.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/deep_discussion.py) |
+| `aggregate` | Runs N agents concurrently on one task and synthesizes their outputs via an aggregator agent. | [ma_blocks.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/ma_blocks.py) |
 
 ## Conclusion
 
@@ -106,7 +97,7 @@ A pragmatic way to use the catalog:
 1. **Start with the simplest structure that could plausibly work.** A `SequentialWorkflow` or `ConcurrentWorkflow` is usually enough for a first pass and forces you to confirm the underlying agents are doing their jobs before you add coordination overhead.
 2. **Reach for `SwarmRouter` when prototyping.** Swapping `swarm_type=` between `"SequentialWorkflow"`, `"MixtureOfAgents"`, `"HierarchicalSwarm"`, and `"MajorityVoting"` is a one-line change and a fast way to see which topology actually helps on your task.
 3. **Escalate to a heavier pattern only when you can name the failure it fixes.** Adding `CouncilAsAJudge` because the single-agent answers are inconsistent across criteria is a good reason; adding it because "more agents is better" usually just buys variance and cost.
-4. **Treat the topology swarms in `various_alt_swarms.py` and `swarming_architectures.py` as a research playground.** They share a tiny interface, are cheap to try, and are useful when you want to ask empirical questions like "does this task benefit from non-uniform agent activation?"
+4. **Treat the primitives in `various_alt_swarms.py` and `swarming_architectures.py` as a research playground.** `OneToOne`, `Broadcast`, and `OneToThree` — plus the functional helpers alongside them — are bare message-passing wiring rather than finished orchestrators. They share a tiny interface, are cheap to try, and are useful when you want to ask empirical questions like "does this task benefit from a fan-out step before the agents converge?"
 5. **Reach for `SocialAlgorithms` or the auto-builders only when nothing in the built-in set fits.** Most production workloads land cleanly on one of the canonical patterns; reinventing the protocol or auto-generating the swarm is a last resort, not a default.
 
 If you're adding a new pattern of your own, the convention is straightforward: subclass nothing required, accept a `List[Agent]` and any structure-specific config, expose `.run(task)` and (ideally) `.batch_run(tasks)`, and let `find_agent_by_name`, `Conversation`, and the helpers in `multi_agent_exec` handle the boring parts. Drop the new file in `swarms/structs/`, export it from `swarms/structs/__init__.py`, and add a row to this table.

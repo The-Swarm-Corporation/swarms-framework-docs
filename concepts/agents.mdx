@@ -46,7 +46,7 @@ Tools extend the agent's capabilities beyond text generation:
 
 Memory enables agents to maintain context across interactions:
 - **Short-term memory**: Conversation history for the current session
-- **Long-term memory**: Vector database for retrieval-augmented generation (RAG)
+- **Persistent memory**: An opt-in `MEMORY.md` file that survives process restarts
 - **Dynamic context window**: Automatic context management for long conversations
 
 ### 4. System Prompt
@@ -197,20 +197,36 @@ agent = Agent(
 response = agent.run("Tell me a story")
 ```
 
-### Long-Term Memory
+### Knowledge Retrieval
 
-Integrate vector databases for RAG:
+Give an agent access to external documents or a database with a retrieval tool:
 
 ```python
-from swarms_memory import ChromaDB
+KNOWLEDGE = {
+    "storage": "Grid-scale batteries cover 4-hour peaks at $95/kWh.",
+    "solar": "Utility solar LCOE fell to $29/MWh in 2025.",
+}
 
-memory = ChromaDB()
+def search_knowledge_base(query: str) -> str:
+    """Search the internal knowledge base and return matching passages.
+
+    Args:
+        query: Words to look for in the knowledge base.
+
+    Returns:
+        Matching passages, or a message saying nothing matched.
+    """
+    hits = [t for k, t in KNOWLEDGE.items() if k in query.lower()]
+    return "\n".join(hits) if hits else "No matching documents."
 
 agent = Agent(
     model_name="gpt-5.4",
-    long_term_memory=memory,
+    tools=[search_knowledge_base],
+    max_loops=3,
 )
 ```
+
+Swap the dictionary for a vector store, SQL query, or HTTP call — the shape stays the same.
 
 ## Best Practices
 
@@ -235,7 +251,7 @@ agent = Agent(
     ```python
     agent = Agent(
         model_name="gpt-5.4",
-        fallback_models=["claude-sonnet-4-6", "gpt-3.5-turbo"],
+        fallback_models=["claude-sonnet-4-6", "gpt-5.4-mini"],
         retry_attempts=3,
     )
     ```

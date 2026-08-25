@@ -249,16 +249,32 @@ print(result.successful_steps)
 
 ### run_async()
 
-Asynchronous execution.
+Run the algorithm on a worker thread and block until it finishes. Despite the name, `run_async` is an ordinary **synchronous** method — do not `await` it. Internally it wraps `run()` in `asyncio.to_thread()` and drives that with `asyncio.run()`, so the call returns a `SocialAlgorithmResult`, not a coroutine.
 
 ```python
-import asyncio
-
 result = social_alg.run_async(
     task="Task description",
     algorithm_args={"custom_param": "value"},
 )
+
+print(result.final_outputs)
 ```
+
+<Warning>
+  Because `run_async()` calls `asyncio.run()` internally, it cannot be called from inside a
+  running event loop — doing so raises
+  `RuntimeError: asyncio.run() cannot be called from a running event loop`. From async code,
+  offload the plain `run()` method instead:
+
+  ```python
+  import asyncio
+
+  async def main():
+      return await asyncio.to_thread(social_alg.run, "Task description")
+
+  result = asyncio.run(main())
+  ```
+</Warning>
 
 ### add_agent() / remove_agent()
 

@@ -43,7 +43,7 @@ from voice_agents import StreamingTTSCallback
 
 tts = StreamingTTSCallback(voice="alloy", model="openai/tts-1")
 
-agent = Agent(model_name="gpt-4.1", max_loops=1)
+agent = Agent(model_name="gpt-5.4", max_loops=1)
 result = agent.run(task="Hello!", streaming_callback=tts)
 tts.flush()  # emit any remaining text in the buffer
 ```

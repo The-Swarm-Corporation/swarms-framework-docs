@@ -227,21 +227,21 @@ technical_agent = Agent(
     agent_name="Technical-Analysis-Quant",
     system_prompt=TECHNICAL_ANALYSIS_PROMPT,
     max_loops=1,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
 )
 
 fundamental_agent = Agent(
     agent_name="Fundamental-Analysis-Quant",
     system_prompt=FUNDAMENTAL_ANALYSIS_PROMPT,
     max_loops=1,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
 )
 
 risk_agent = Agent(
     agent_name="Risk-Management-Quant",
     system_prompt=RISK_MANAGEMENT_PROMPT,
     max_loops=1,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
 )
 
 # Create the majority voting swarm
@@ -274,21 +274,21 @@ agents = [
         agent_description="Market trend analyst",
         system_prompt="You are a market analyst specializing in identifying growth opportunities and market trends.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="Risk-Assessment-Agent",
         agent_description="Risk analysis expert",
         system_prompt="You are a risk assessment expert focused on evaluating investment risks and volatility.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="Portfolio-Strategy-Agent",
         agent_description="Portfolio optimization specialist",
         system_prompt="You are a portfolio strategist focused on diversification and long-term growth strategies.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     )
 ]
 
@@ -326,25 +326,25 @@ content_agents = [
         agent_name="Creative-Writer",
         system_prompt="You are a creative writer who produces engaging, story-driven content with vivid descriptions.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="Technical-Writer",
         system_prompt="You are a technical writer who focuses on clarity, accuracy, and structured information.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="SEO-Optimized-Writer",
         system_prompt="You are an SEO specialist who creates content optimized for search engines while maintaining quality.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="Conversational-Writer",
         system_prompt="You are a conversational writer who creates relatable, engaging content that connects with readers.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     )
 ]
 
@@ -385,31 +385,31 @@ research_agents = [
         agent_name="Quantitative-Researcher",
         system_prompt="You are a quantitative researcher who analyzes data, statistics, and numerical evidence.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="Qualitative-Researcher",
         system_prompt="You are a qualitative researcher who focuses on patterns, themes, and contextual understanding.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="Literature-Review-Specialist",
         system_prompt="You are a literature review specialist who synthesizes existing research and identifies knowledge gaps.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="Methodology-Expert",
         system_prompt="You are a methodology expert who evaluates research design, validity, and reliability.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     ),
     Agent(
         agent_name="Ethics-Reviewer",
         system_prompt="You are an ethics reviewer who ensures research practices are responsible and unbiased.",
         max_loops=1,
-        model_name="gpt-4.1"
+        model_name="gpt-5.4"
     )
 ]
 
@@ -474,7 +474,7 @@ agent = Agent(
     agent_description="Personal finance advisor agent",
     system_prompt=FINANCIAL_AGENT_SYS_PROMPT,
     max_loops=1,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     dynamic_temperature_enabled=True,
     max_tokens=4000,
     streaming_on=True,

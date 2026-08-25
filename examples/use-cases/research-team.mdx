@@ -197,17 +197,16 @@ report_writer = Agent(
 
 ### Add Memory for Long Projects
 
+Set `persistent_memory=True` so the researcher picks up where it left off across
+sessions. Memory is keyed by `agent_name` and stored in `MEMORY.md` under the
+workspace directory.
+
 ```python
-from swarms_memory import ChromaDB
-
-memory = ChromaDB(
-    output_dir="research_memory",
-    n_results=5,
-)
-
 researcher_agent = Agent(
     agent_name="Primary-Researcher",
-    long_term_memory=memory,
+    persistent_memory=True,   # off by default; opt in explicitly
+    context_compression=True, # summarize when nearing the context limit
+    context_length=32000,
     # ... other params
 )
 ```

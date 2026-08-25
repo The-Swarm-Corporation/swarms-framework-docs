@@ -480,8 +480,13 @@ agent = Agent(
     tool_retry_attempts=3,  # Retry failed tool executions
     show_tool_execution_output=True,  # Display tool outputs
     tool_call_summary=True,  # Summarize tool calls
+    dynamic_tools=True,  # Defer schemas behind tool_search (default)
 )
 ```
+
+<Note>
+`dynamic_tools` defaults to `True`. Rather than sending every tool schema on every request, the agent exposes a single `tool_search` tool and loads the rest on demand — cutting prompt cost and improving selection accuracy on larger tool sets. See [Dynamic Tool Loading](/agents/dynamic-tools).
+</Note>
 
 ## BaseTool API Reference
 
