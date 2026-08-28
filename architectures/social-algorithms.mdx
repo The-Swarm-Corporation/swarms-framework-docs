@@ -213,21 +213,16 @@ def consensus_algorithm(agents, task, threshold=0.7, **kwargs):
   Format for output (dict, list, str)
 </ParamField>
 
-<ParamField path="enable_communication_logging" type="bool" default="False">
-  Log all agent communications
-</ParamField>
-
-<ParamField path="parallel_execution" type="bool" default="False">
-  Enable parallel execution where possible
-</ParamField>
-
-<ParamField path="max_workers" type="int">
-  Maximum number of workers to use for parallel execution.
-</ParamField>
-
 <ParamField path="verbose" type="bool" default="False">
   Enable detailed logging
 </ParamField>
+
+<Note>
+  `enable_communication_logging`, `parallel_execution` and `max_workers` were removed.
+  Agent messages are now always recorded into `conversation`, and the two parallel
+  options were stored but never used. Passing them is still accepted and ignored,
+  so existing call sites do not break.
+</Note>
 
 ## Methods
 
@@ -296,22 +291,41 @@ social_alg.agents = [a for a in social_alg.agents if a.agent_name != "OldAgent"]
 
 ### get_communication_history()
 
-Retrieve communication logs (if enabled).
+Every agent message produced while the algorithm runs, oldest first. Recording is
+always on — there is no flag to enable.
 
 ```python
 social_alg = SocialAlgorithms(
     agents=agents,
     social_algorithm=algorithm,
-    enable_communication_logging=True,
 )
 
 result = social_alg.run("Task")
 history = social_alg.get_communication_history()
 
-# Each step: CommunicationStep(
-#   sender_agent, receiver_agent, message, timestamp
-# )
+# Each entry is a conversation message dict:
+#   {"role": "<agent_name>", "content": "<the agent's answer>", ...}
 ```
+
+The same messages are reachable through the standard Conversation API, which is
+usually the nicer way to read them:
+
+```python
+print(social_alg.conversation.get_str())
+
+for message in social_alg.conversation.conversation_history:
+    print(message["role"], message["content"])
+```
+
+<Note>
+  This returns message dicts, not `CommunicationStep` objects. That dataclass was
+  removed when `Conversation` took over the transcript.
+</Note>
+
+### clear_communication_history()
+
+Empties the recorded messages. The conversation otherwise accumulates across runs,
+so call this if you are reusing one instance for unrelated tasks.
 
 ## SocialAlgorithmResult
 
@@ -324,9 +338,9 @@ class SocialAlgorithmResult:
     total_steps: int
     successful_steps: int
     failed_steps: int
-    communication_history: List[CommunicationStep]
-    final_outputs: Dict[str, Any]
-    metadata: Optional[Dict[str, Any]]
+    communication_history: List[Dict[str, Any]]
+    final_outputs: Any
+    metadata: Dict[str, Any]
 
 # Access results
 result = social_alg.run("Task")
@@ -426,24 +440,34 @@ expert_panel = SocialAlgorithms(
 
 ## Communication Logging
 
-Track all agent interactions:
+Every agent call made while the algorithm runs is recorded automatically — the
+algorithm itself reports nothing. The task lands as `User`, each agent's output
+under its own `agent_name`, and the final result under the algorithm's name:
 
 ```python
 social_alg = SocialAlgorithms(
+    name="Demo",
     agents=agents,
     social_algorithm=algorithm,
-    enable_communication_logging=True,
     verbose=True,
 )
 
 result = social_alg.run("Task")
 
-# Access communication history
-for step in result.communication_history:
-    print(f"{step.sender_agent} -> {step.receiver_agent}")
-    print(f"Message: {step.message[:100]}...")
-    print(f"Timestamp: {step.timestamp}")
+for message in result.communication_history:
+    print(f"{message['role']}: {str(message['content'])[:100]}")
 ```
+
+```
+User: Task
+Researcher: Researcher handled: Research: Task
+Analyst: Analyst handled: Analyze: ...
+Demo: Analyst handled: Analyze: ...
+```
+
+`talk_to` calls record the receiver in the message metadata. The conversation
+accumulates across runs, so call `clear_communication_history()` between
+unrelated tasks.
 
 ## Execution Timeout
 

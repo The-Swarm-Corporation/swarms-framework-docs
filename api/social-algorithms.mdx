@@ -62,16 +62,17 @@ from swarms import SocialAlgorithms
   Whether to enable verbose logging.
 </ParamField>
 
-<ParamField path="enable_communication_logging" type="bool" default="False">
-  Whether to log communication steps.
-</ParamField>
+<Note>
+  `enable_communication_logging`, `parallel_execution` and `max_workers` were
+  removed. Agent messages are now always recorded, and the two parallel options
+  were stored but never used. Passing them is accepted and ignored.
+</Note>
 
-<ParamField path="parallel_execution" type="bool" default="False">
-  Whether to enable parallel execution where possible.
-</ParamField>
+## Attributes
 
-<ParamField path="max_workers" type="int" default="None">
-  Maximum number of workers for parallel execution.
+<ParamField path="conversation" type="Conversation">
+  The transcript of every agent message, kept across runs. Read it with the
+  standard Conversation API, for example `social_alg.conversation.get_str()`.
 </ParamField>
 
 ## Methods
@@ -147,13 +148,13 @@ The current implementation removes via `del self.agents[agent_name]`, which inde
 
 ### get_communication_history()
 
-Get the communication history for this algorithm execution.
+Get the recorded agent messages, oldest first.
 
 ```python
-def get_communication_history(self) -> List[CommunicationStep]
+def get_communication_history(self) -> List[Dict[str, Any]]
 ```
 
-**Returns:** List of communication steps.
+**Returns:** The conversation messages, each a `{"role", "content", ...}` dict.
 
 ---
 
@@ -179,19 +180,6 @@ def get_algorithm_info(self) -> Dict[str, Any]
 
 ## Data Models
 
-### CommunicationStep
-
-Represents a single step in a social algorithm.
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `step_id` | `str` | Unique identifier for the communication step |
-| `sender_agent` | `str` | Name of the sending agent |
-| `receiver_agent` | `str` | Name of the receiving agent |
-| `message` | `str` | The message being sent |
-| `timestamp` | `float` | Timestamp when the communication occurred |
-| `metadata` | `Optional[Dict[str, Any]]` | Additional metadata about the communication |
-
 ### SocialAlgorithmResult
 
 Result of executing a social algorithm.
@@ -203,17 +191,16 @@ Result of executing a social algorithm.
 | `total_steps` | `int` | Total number of communication steps |
 | `successful_steps` | `int` | Number of successful communication steps |
 | `failed_steps` | `int` | Number of failed communication steps |
-| `communication_history` | `List[CommunicationStep]` | Complete history of all communications |
-| `final_outputs` | `Dict[str, Any]` | The final outputs from the algorithm |
-| `metadata` | `Optional[Dict[str, Any]]` | Additional metadata about the execution |
+| `communication_history` | `List[Dict[str, Any]]` | Every agent message, as conversation dicts |
+| `final_outputs` | `Any` | The final output, shaped by `output_type` |
+| `metadata` | `Dict[str, Any]` | Additional metadata about the execution |
 
 <Note>
-Only the `SocialAlgorithms` class itself is exported from the top-level `swarms` package. `CommunicationStep`, `SocialAlgorithmResult`, and the exception classes below must be imported from the submodule:
+Only the `SocialAlgorithms` class itself is exported from the top-level `swarms` package. `SocialAlgorithmResult` and the exception classes below must be imported from the submodule:
 
 ```python
 from swarms.structs.social_algorithms import (
     SocialAlgorithmResult,
-    CommunicationStep,
     SocialAlgorithmError,
     InvalidAlgorithmError,
     AgentNotFoundError,
@@ -466,11 +453,19 @@ def negotiation_algorithm(agents, task, **kwargs):
 
 ### Communication Logging
 
-The framework automatically logs all communication between agents when `enable_communication_logging=True`, including all `agent.run()` calls, `agent.talk_to()` calls, and timestamps with metadata.
+Every `agent.run()` and `agent.talk_to()` call made while the algorithm runs is recorded into `conversation`, under the calling agent's own name. This is always on; the algorithm does not have to report anything itself.
 
 ### Timeout Protection
 
 Algorithms are executed with timeout protection to prevent infinite loops. The default is 300 seconds (5 minutes), customizable via `max_execution_time`.
+
+<Warning>
+  The timeout is implemented with `signal.SIGALRM`, which only works on the main
+  thread of the main interpreter and does not exist on Windows. Calling `run()`
+  from a worker thread raises `ValueError: signal only works in main thread`.
+  `signal.alarm` also truncates to whole seconds, so a sub-second
+  `max_execution_time` rounds to `alarm(0)` and disables the timeout entirely.
+</Warning>
 
 ### Error Handling
 
@@ -479,10 +474,6 @@ Comprehensive error handling with `InvalidAlgorithmError`, `AgentNotFoundError`,
 ### Output Formatting
 
 Results can be formatted as `"dict"` (default), `"list"`, or `"str"`.
-
-### Parallel Execution
-
-When `parallel_execution=True`, the framework can execute independent operations in parallel for improved performance.
 
 ## Integration
 

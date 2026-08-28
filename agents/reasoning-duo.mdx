@@ -17,7 +17,7 @@ Task Input → Reasoning Agent → Structured Analysis → Main Agent → Final 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `id` | `str` | random `uuid4()` | Unique identifier for the duo |
-| `agent_name` | `str` | `"reasoning-agent-01"` | Name identifier shared by both internal agents |
+| `agent_name` | `str` | `"reasoning-agent-01"` | Base name for the two internal agents, which are suffixed `-reasoning` and `-main` |
 | `agent_description` | `str` | `"A highly intelligent..."` | Description passed to both internal agents |
 | `model_name` | `str` | `"gpt-5.4"` | Stored on the instance; not currently used to configure either internal agent |
 | `description` | `str` | `"A highly intelligent..."` | Description of the reasoning duo's capabilities |

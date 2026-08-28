@@ -225,7 +225,8 @@ def export_and_count_categories(self) -> Dict[str, int]
 | `get_cache_stats()` | Returns `{hits, misses, cached_tokens, hit_rate}` for the history-string cache (only meaningful when `cache_enabled=True`) |
 | `get_last_message_as_string()` | Returns the last message formatted as `"role: content"` |
 | `get_final_message()` / `get_final_message_content()` | Returns the last message dict / just its content |
-| `return_messages_as_list()` / `return_messages_as_dictionary()` | Formatted views of the full history |
+| `return_messages_as_list()` / `return_messages_as_dictionary()` | The history as `{"role", "content"}` dicts |
+| `return_messages_as_strings()` | The history rendered as `"role: content"` strings |
 | `return_all_except_first()` / `return_all_except_first_string()` | History excluding the first (system) message |
 | `to_dict()` / `to_json()` / `to_yaml()` / `to_list()` | Serialize the conversation (config + history) |
 | `count_messages_by_role()` | Dict of message counts keyed by role |

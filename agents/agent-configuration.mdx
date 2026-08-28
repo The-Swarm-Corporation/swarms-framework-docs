@@ -87,8 +87,9 @@ The `Agent` class provides extensive configuration options to customize behavior
 
 ### Agent Identity
 
-<ParamField path="agent_name" type="str" default="swarm-worker-01">
-  Unique name for the agent. Used in multi-agent systems and logging.
+<ParamField path="agent_name" type="str" default="Generated">
+  Unique name for the agent. Used in multi-agent systems and logging. Omitted,
+  it is generated per instance as `agent-k3f9q`.
   
   ```python
   agent = Agent(

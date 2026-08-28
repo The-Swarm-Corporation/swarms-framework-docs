@@ -42,6 +42,7 @@ class AgentRearrange:
         team_awareness: bool = False,
         time_enabled: bool = False,
         message_id_on: bool = False,
+        collab_prompt: Optional[str] = None,
     )
 ```
 
@@ -94,6 +95,13 @@ class AgentRearrange:
 
 <ParamField path="team_awareness" type="bool" default="False">
   Whether agents should be aware of team structure and sequential flow
+</ParamField>
+
+<ParamField path="collab_prompt" type="str" optional>
+  Guidance prepended to every agent's messages as a system turn for the duration
+  of the run. It is not written to the shared conversation, so other agents never
+  see it, and the caller's `Agent` objects are not modified. `SequentialWorkflow`
+  passes its collaboration preamble through this parameter.
 </ParamField>
 
 <ParamField path="time_enabled" type="bool" default="False">

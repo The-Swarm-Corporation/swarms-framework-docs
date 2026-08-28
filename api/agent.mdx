@@ -90,8 +90,18 @@ Each collaborator is independently usable and independently documented — reach
   Unique identifier for the agent instance. When omitted the agent generates one via `generate_id("agent")`, of the form `agent-` followed by 32 hex characters (`secrets.token_hex(16)`) — not a UUID.
 </ParamField>
 
-<ParamField path="agent_name" type="str" default="swarm-worker-01">
-  The name of the agent, used for identification and logging
+<ParamField path="agent_name" type="str" default="Generated">
+  The name of the agent, used for identification and logging. Omit it and the
+  agent generates a unique name of the form `agent-k3f9q` (five random
+  lowercase alphanumerics), fresh per instance.
+
+  <Note>
+    This used to default to the literal `"swarm-worker-01"`, so every agent
+    that did not set a name shared it. Anything keyed on the name then
+    collided — concurrent result dictionaries kept one entry for the whole
+    group, and `MEMORY.md` folders were shared. Pass an explicit name whenever
+    you need it to be stable across restarts.
+  </Note>
 </ParamField>
 
 <ParamField path="agent_description" type="str" default="An autonomous agent that can perform tasks and learn from experience powered by Swarms">
@@ -496,6 +506,25 @@ def run(
 
 <ParamField path="n" type="int" default="1">
   Number of times to run the task. When `n > 1`, `run` recursively calls itself `n` times and returns a list of results.
+</ParamField>
+
+<ParamField path="messages" type="List[Dict[str, Any]]">
+  Prior conversation as typed chat turns. When given, these replace the transcript
+  the agent would otherwise derive from its own memory, and `task` is appended as
+  the new user turn. Multi-agent structures use this to hand an agent the shared
+  room with roles intact — the agent's own turns as `assistant`, everyone else's
+  as labelled `user` turns — instead of one flattened string.
+
+  ```python
+  agent.run(
+      task="What did the analyst conclude?",
+      messages=[
+          {"role": "user", "content": "Summarise the Q3 numbers."},
+          {"role": "assistant", "content": "Revenue rose 12%."},
+          {"role": "user", "content": "Analyst: margins are the risk."},
+      ],
+  )
+  ```
 </ParamField>
 
 <ResponseField name="return" type="Any">
@@ -939,7 +968,7 @@ Setting `marketplace_prompt_id` loads a prompt during construction; setting `pub
 
 | Method | Description | Usage Example |
 |--------|-------------|---------------|
-| `run(task, img, imgs, correct_answer, streaming_callback, n)` | Run the autonomous agent loop | `agent.run("Generate a report")` |
+| `run(task, img, imgs, correct_answer, streaming_callback, n, messages)` | Run the autonomous agent loop | `agent.run("Generate a report")` |
 | `run_batched(tasks, imgs)` | Run multiple tasks sequentially | `agent.run_batched(["Task 1", "Task 2"])` |
 | `__call__(task, img)` | Alternative way to call `run` | `agent("Generate a report")` |
 | `arun(task, img)` | Async version of `run` | `await agent.arun("Task")` |

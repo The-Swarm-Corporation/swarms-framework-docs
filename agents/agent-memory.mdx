@@ -77,8 +77,14 @@ $WORKSPACE_DIR/agents/{agent_name}/
     `-- ...
 ```
 
-<ParamField path="agent_name" type="str" default="swarm-worker-01">
+<ParamField path="agent_name" type="str" default="Generated">
   Stable name used to identify the agent's memory folder.
+
+  <Warning>
+    Set this explicitly when using `persistent_memory`. An omitted name is
+    generated fresh on every construction, so a restarted agent gets a new
+    folder and will not find its previous `MEMORY.md`.
+  </Warning>
 
   ```python
   from swarms import Agent

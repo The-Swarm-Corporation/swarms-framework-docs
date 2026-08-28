@@ -124,11 +124,13 @@ SwarmRouter(
 ### Behavior modifiers
 
 <ParamField path="multi_agent_collab_prompt" type="bool" default="False">
-  Inject the built-in collaboration prompt into each agent so they understand they are part of a multi-agent team. Applied during `setup()` via `update_system_prompt_for_agent_in_swarm()`.
+  Deliver the built-in collaboration prompt to each agent so they understand they are part of a multi-agent team. It is passed to the swarm at construction and reaches the agents as a **system turn** at run time; the caller's `Agent` objects are never modified.
+
+  Only `SequentialWorkflow` and `AgentRearrange` can deliver it. For any other `swarm_type` a warning is logged and the flag has no effect.
 </ParamField>
 
 <ParamField path="list_all_agents" type="bool" default="False">
-  When `True`, embed a manifest of every agent (name + description) into the conversation so each agent can see its peers.
+  When `True`, every agent receives a manifest of its peers (name + description) in the same system turn as the collaboration prompt.
 </ParamField>
 
 <ParamField path="conversation" type="Any" optional>
@@ -348,9 +350,13 @@ Return the underlying conversation as a single formatted string.
 
 ---
 
-### `update_system_prompt_for_agent_in_swarm()` · `list_agents_to_eachother()`
+### `list_agents_to_eachother()`
 
-Internal helpers invoked by `setup()`: append the multi-agent collaboration prompt to each agent, and (when `list_all_agents=True`) add the agent roster to the swarm conversation. Rarely called directly.
+Internal helper. Points `self.conversation` at the underlying swarm's conversation. Called after each run, because the swarm is built lazily on the first `run()` and several structures replace their conversation object per task. Rarely called directly.
+
+<Note>
+  `update_system_prompt_for_agent_in_swarm()` was removed. It appended the collaboration prompt to each agent's `system_prompt` **after** the LLM had been built, so the text never reached the model, while accumulating on the caller's live agents on every construction. The preamble is now passed through the swarm constructor and delivered as a system turn instead.
+</Note>
 
 ## Required parameters by `swarm_type`
 

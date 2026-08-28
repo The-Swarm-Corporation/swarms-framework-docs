@@ -38,6 +38,7 @@ class SequentialWorkflow:
         output_type: OutputType = "dict",
         shared_memory_system: callable = None,
         multi_agent_collab_prompt: bool = False,
+        collab_prompt: Optional[str] = None,
         team_awareness: bool = False,
         autosave: bool = True,
         verbose: bool = False,
@@ -80,8 +81,22 @@ class SequentialWorkflow:
 </ParamField>
 
 <ParamField path="multi_agent_collab_prompt" type="bool" default="False">
-  If True, appends a collaborative prompt to each agent's system prompt
+  If True, each agent receives a collaboration preamble as a system turn for the
+  duration of the run.
 </ParamField>
+
+<ParamField path="collab_prompt" type="str" optional>
+  Overrides the default preamble text. Ignored unless `multi_agent_collab_prompt`
+  is `True`.
+</ParamField>
+
+<Note>
+  This used to append the preamble to every agent's `system_prompt` with `+=`, on
+  the caller's live `Agent` objects, at construction time — so constructing the
+  workflow twice appended it twice, and the text never reached the model because
+  the prompt is baked into the LLM when it is built. It is now passed through to
+  `AgentRearrange` and delivered as a system turn instead.
+</Note>
 
 <ParamField path="team_awareness" type="bool" default="False">
   Whether agents are aware of the team structure and their position
@@ -257,7 +272,7 @@ Validates the workflow configuration and prepares agents for execution.
 | `max_loops` | int | Maximum number of times to execute the workflow |
 | `output_type` | OutputType | Format of the output from the workflow |
 | `shared_memory_system` | callable | Optional shared memory helper |
-| `multi_agent_collab_prompt` | bool | Whether the collaboration prompt is appended to each agent |
+| `multi_agent_collab_prompt` | bool | Whether each agent receives the collaboration preamble as a system turn |
 | `team_awareness` | bool | Whether team-awareness is enabled on the underlying `AgentRearrange` |
 | `autosave` | bool | Whether conversation history is autosaved to disk |
 | `verbose` | bool | Whether verbose logging is on |

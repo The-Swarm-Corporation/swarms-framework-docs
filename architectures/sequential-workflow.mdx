@@ -114,7 +114,13 @@ workflow = SequentialWorkflow(
 </ParamField>
 
 <ParamField path="multi_agent_collab_prompt" type="bool" default="False">
-  Add collaboration instructions to agent prompts
+  Give each agent a collaboration preamble for the duration of the run. It is
+  delivered as a system turn; your `Agent` objects are not modified.
+</ParamField>
+
+<ParamField path="collab_prompt" type="str" optional>
+  Override the default preamble text. Ignored unless `multi_agent_collab_prompt`
+  is `True`.
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="True">
