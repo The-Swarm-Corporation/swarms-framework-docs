@@ -219,52 +219,6 @@ results = run_agents_with_different_tasks(
 )
 ```
 
-## Queue-Based Scaling
-
-For production deployments, use AOP's queue-based execution:
-
-```python
-from swarms import Agent
-from swarms.structs.aop import AOP
-
-# Create agents
-agents = [
-    Agent(agent_name=f"Worker-{i}", model_name="claude-sonnet-4-6")
-    for i in range(10)
-]
-
-# Deploy with queue-based execution
-deployer = AOP(
-    server_name="ScalableCluster",
-    agents=agents,
-    queue_enabled=True,
-    max_workers_per_agent=5,  # 5 workers per agent
-    max_queue_size_per_agent=1000,  # Large queue capacity
-)
-
-deployer.run()
-```
-
-### Queue Configuration for Scale
-
-```python
-deployer = AOP(
-    server_name="HighThroughputCluster",
-    queue_enabled=True,
-    
-    # Worker configuration
-    max_workers_per_agent=10,  # More workers = more throughput
-    
-    # Queue configuration
-    max_queue_size_per_agent=10000,  # Large queue
-    processing_timeout=60,  # Adjust based on task complexity
-    retry_delay=0.5,  # Quick retries
-    
-    # Performance tuning
-    verbose=False,  # Reduce logging overhead
-)
-```
-
 ## Performance Optimization
 
 ### Worker Configuration
@@ -509,7 +463,6 @@ for task in tasks:
 - **I/O-bound tasks** (API calls): Use `run_agents_concurrently` with high worker count
 - **CPU-bound tasks**: Use `run_agents_concurrently` with worker count = CPU cores
 - **Async workloads**: Use `run_agents_concurrently_async` (optionally with `uvloop` installed as the event loop policy)
-- **Large scale**: Use AOP with queue-based execution
 - **Mixed tasks**: Use `batched_grid_agent_execution`
 
 ### 2. Configure Workers Appropriately
@@ -570,9 +523,7 @@ def check_resources():
 ### 5. Use Appropriate Timeouts
 
 `Agent` itself does not take a `timeout` constructor parameter. Enforce timeouts at the
-execution layer instead — via `AOP.add_agent(..., timeout=...)` when deploying agents as
-services (see [Agent Orchestration Protocol](/deployment/agent-orchestration-protocol)),
-or by bounding a future's result when running concurrently:
+execution layer instead, by bounding a future's result when running concurrently:
 
 ```python
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
@@ -592,7 +543,6 @@ with ThreadPoolExecutor(max_workers=1) as executor:
 
 ## Related Resources
 
-- [Agent Orchestration Protocol](/deployment/agent-orchestration-protocol)
 - [Production Best Practices](/deployment/production-best-practices)
 - [Monitoring Guide](/deployment/monitoring)
 - [Multi-Agent Execution API](/api/multi-agent-execution-utilities)

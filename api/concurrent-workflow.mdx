@@ -75,7 +75,9 @@ class ConcurrentWorkflow:
 </ParamField>
 
 <ParamField path="auto_generate_prompts" type="bool" default="False">
-  Whether to enable automatic prompt engineering for all agents
+  Accepted and stored, but never read — setting it has no effect. The
+  `activate_auto_prompt_engineering()` method that once consumed it no longer
+  exists.
 </ParamField>
 
 <ParamField path="show_dashboard" type="bool" default="False">
@@ -176,20 +178,12 @@ Configure agents for dashboard mode. Disables printing (`agent.print_on = False`
   The configured list of agents
 </ResponseField>
 
-### `cleanup()`
-
-Clean up resources and connections. Called automatically after each run.
-
 ### `reliability_check()`
 
 Validate workflow configuration.
 
 **Raises:**
 - `ValueError`: If no agents are provided or agents list is empty
-
-### `activate_auto_prompt_engineering()`
-
-Enable automatic prompt engineering for all agents in the workflow.
 
 ### `display_agent_dashboard(title="ConcurrentWorkflow Dashboard", is_final=False)`
 
@@ -386,19 +380,6 @@ workflow = ConcurrentWorkflow(
 
 result = workflow.run("Analyze market trends")
 # Conversation saved to ./analysis_workspace/swarms/ConcurrentWorkflow/
-```
-
-### Auto Prompt Engineering
-
-```python
-# Enable automatic prompt engineering
-workflow = ConcurrentWorkflow(
-    agents=[technical_analyst, business_analyst],
-    auto_generate_prompts=True  # Agents will auto-optimize their prompts
-)
-
-workflow.activate_auto_prompt_engineering()
-result = workflow.run("Complex analysis task")
 ```
 
 ## Error Handling

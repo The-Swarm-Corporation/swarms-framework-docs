@@ -203,16 +203,6 @@ agent = Agent(
     verbose=True,  # Enable verbose logging
     print_on=True,  # Print outputs to console
 )
-
-# Control logging in AOP
-from swarms.structs.aop import AOP
-
-deployer = AOP(
-    server_name="ProductionCluster",
-    verbose=True,
-    traceback_enabled=True,  # Enable detailed tracebacks
-    log_level="INFO",  # Set log level
-)
 ```
 
 ### Contextual Logging
@@ -566,7 +556,6 @@ def test_agent_integration():
 
 ## Related Resources
 
-- [Agent Orchestration Protocol](/deployment/agent-orchestration-protocol)
 - [Scaling Guide](/deployment/scaling)
 - [Monitoring Guide](/deployment/monitoring)
 - [Agent API Reference](/api/agent)

@@ -2017,17 +2017,24 @@ The Agent class includes comprehensive error handling:
 - **AgentLLMInitializationError**: Raised when the LLM fails to initialize
 - **AgentToolExecutionError**: Raised when the agent fails to execute a tool
 
-These live in `swarms.schemas.agent_errors` so collaborator classes can raise and catch them without importing `Agent`. They remain importable from `swarms.structs.agent` and `swarms.schemas`, and every path returns the same object:
+These live in `swarms.schemas.agent_errors` so collaborator classes can raise and catch them without importing `Agent`:
 
 ```python
 from swarms.schemas import AgentError, AgentRunError        # canonical home
-from swarms.structs.agent import AgentError                 # also works
 
 try:
     agent.run(task)
 except AgentError as e:      # catches every agent exception
     ...
 ```
+
+<Warning>
+  Only the subclasses are re-exported from `swarms.structs.agent`
+  (`AgentInitializationError`, `AgentLLMError`, `AgentRunError`,
+  `AgentToolExecutionError`). The base `AgentError` is not, so
+  `from swarms.structs.agent import AgentError` raises `ImportError`. Import the
+  base class from `swarms.schemas`.
+</Warning>
 
 MCP-specific failures use a separate hierarchy in `swarms.schemas.agent_mcp_errors`: `AgentMCPError`, `AgentMCPConnectionError`, `AgentMCPToolError`.
 

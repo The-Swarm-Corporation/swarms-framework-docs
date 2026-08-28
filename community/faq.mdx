@@ -564,24 +564,10 @@ icon: "circle-question"
        - Load balancing
        - High availability
 
-    3. **Agent Orchestration Protocol (AOP):**
-       ```python
-       from swarms.structs.aop import AOP
-
-       deployer = AOP(
-           server_name="ProductionSwarm",
-           port=8000
-       )
-       deployer.add_agent(agent)
-       deployer.run()
-       ```
-
-    4. **Cloud Platforms:**
+    3. **Cloud Platforms:**
        - AWS Lambda
        - Google Cloud Run
        - Azure Functions
-
-    See the [AOP documentation](/deployment/agent-orchestration-protocol).
   </Accordion>
 
   <Accordion title="How do I monitor and observe my agents in production?">

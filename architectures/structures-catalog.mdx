@@ -28,7 +28,7 @@ The table below lists every multi-agent structure currently shipped, with a one-
 <Note>
   **Not everything in this table is re-exported from the top-level package.** These names ship in the library but are absent from `__all__` in `swarms/structs/__init__.py`, so `from swarms import X` raises `ImportError` — import them by full module path instead, e.g. `from swarms.structs.tree_swarm import ForestSwarm`:
 
-  `AgentRouter`, `AuctionSwarm`, `HierarchicalStructuredCommunicationFramework`, `PlannerWorkerSwarm`, `ForestSwarm`, `OneToOne`, `Broadcast`, `OneToThree`, `OneOnOneDebate`, `ExpertPanelDiscussion`, `AOP`, `AOPCluster`, `ImageAgentBatchProcessor`, `AgentRegistry`.
+  `AgentRouter`, `AuctionSwarm`, `HierarchicalStructuredCommunicationFramework`, `PlannerWorkerSwarm`, `ForestSwarm`, `OneToOne`, `Broadcast`, `OneToThree`, `OneOnOneDebate`, `ExpertPanelDiscussion`, `ImageAgentBatchProcessor`, `AgentRegistry`.
 
   Everything else in the table is importable directly as `from swarms import X`.
 </Note>
@@ -70,8 +70,6 @@ The table below lists every multi-agent structure currently shipped, with a one-
 | `AutoAgentBuilder` | Generates only the agent roster — name, description, system prompt, model — via a forced function call, leaving the architecture to you. | [auto_agent_builder.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/auto_agent_builder.py) |
 | `AutoSwarmBuilder` | Takes a high-level description and auto-generates agents, roles, and swarm structure. | [auto_swarm_builder.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/auto_swarm_builder.py) |
 | `SocialAlgorithms` | Framework for uploading user-defined communication algorithms over a fixed agent set. | [social_algorithms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/social_algorithms.py) |
-| `AOP` | Deploys a list of agents as individually-callable MCP tools with a task queue, retries, and persistence-mode restart. | [aop.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/aop.py) |
-| `AOPCluster` | Discovers and aggregates tools across multiple running AOP MCP servers. | [aop.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/aop.py) |
 | `AgentRegistry` | Thread-safe registry of named agents with schema validation and lookup. | [agent_registry.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/agent_registry.py) |
 | `Broadcast` | One sender broadcasts to many receivers. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |
 | `OneToOne` | Pair-wise direct communication between two agents. | [various_alt_swarms.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/various_alt_swarms.py) |

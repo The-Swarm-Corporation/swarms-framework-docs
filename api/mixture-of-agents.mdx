@@ -55,6 +55,22 @@ from swarms import MixtureOfAgents
   The model name for the aggregator agent
 </ParamField>
 
+<ParamField path="max_workers" type="int" optional>
+  Cap on concurrent worker agents per layer. Defaults to the executor's own
+  behaviour when omitted.
+</ParamField>
+
+<ParamField path="aggegrator_args" type="Dict[str, Any]" optional>
+  Extra keyword arguments forwarded to the aggregator `Agent` when one is built
+  for you.
+
+  <Warning>
+    The parameter is spelled `aggegrator_args` in the code — the letters are
+    transposed. That misspelling is the name you must type; `aggregator_args`
+    raises `TypeError`.
+  </Warning>
+</ParamField>
+
 ## Methods
 
 ### `reliability_check()`
