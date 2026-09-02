@@ -160,16 +160,16 @@ from swarms import Agent
 # Set workspace directory
 os.environ["WORKSPACE_DIR"] = "/path/to/custom/workspace"
 
-# Or specify per-agent
-agent = Agent(
-    model_name="gpt-5.4",
-    workspace_dir="./my_agent_workspace"
-)
+agent = Agent(model_name="gpt-5.4")
 ```
 
 <Tip>
   Use absolute paths for workspace directories in production environments to avoid path resolution issues.
 </Tip>
+
+<Note>
+  The workspace directory can only be set via the `WORKSPACE_DIR` environment variable. `Agent` has no `workspace_dir` constructor parameter — a value passed there is ignored, and the agent always reads its workspace location from the environment.
+</Note>
 
 ## Loading Environment Variables
 

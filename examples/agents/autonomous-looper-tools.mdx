@@ -42,7 +42,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Full-Access-Agent",
-    model_name="anthropic/claude-sonnet-4-5",
+    model_name="anthropic/claude-sonnet-4-6",
     max_loops="auto",
     selected_tools="all",  # Default - all tools available
 )
@@ -53,7 +53,7 @@ agent = Agent(
 ```python
 agent = Agent(
     agent_name="Planning-Only-Agent",
-    model_name="anthropic/claude-sonnet-4-5",
+    model_name="anthropic/claude-sonnet-4-6",
     max_loops="auto",
     selected_tools=[
         "create_plan",
@@ -70,7 +70,7 @@ agent = Agent(
 ```python
 agent = Agent(
     agent_name="File-Operations-Agent",
-    model_name="anthropic/claude-sonnet-4-5",
+    model_name="anthropic/claude-sonnet-4-6",
     max_loops="auto",
     selected_tools=[
         "create_plan",
@@ -93,7 +93,7 @@ Enable file operations and terminal command execution:
 ```python
 agent = Agent(
     agent_name="File-and-Terminal-Agent",
-    model_name="anthropic/claude-sonnet-4-5",
+    model_name="anthropic/claude-sonnet-4-6",
     max_loops="auto",
     selected_tools=[
         "create_plan",
@@ -115,7 +115,7 @@ agent = Agent(
 ```python
 agent = Agent(
     agent_name="Minimal-Agent",
-    model_name="anthropic/claude-sonnet-4-5",
+    model_name="anthropic/claude-sonnet-4-6",
     max_loops="auto",
     selected_tools=[
         "create_plan",

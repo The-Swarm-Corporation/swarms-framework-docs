@@ -889,12 +889,15 @@ query_specialist_agent = Agent(
 )
 
 # =============================================================================
-# DATABASE DIRECTOR AGENT (COORDINATOR)
+# DATABASE DIRECTOR SETTINGS
 # =============================================================================
-database_director_agent = Agent(
-    agent_name="Database-Director",
-    agent_description="Senior database director who orchestrates comprehensive database operations across all specialized teams",
-    system_prompt="""You are the Database Director, the senior executive responsible for orchestrating comprehensive database operations and coordinating a team of specialized database experts. Your role is to:
+# HierarchicalSwarm builds its own director internally (with the structured
+# OrderBatch output wiring it needs to delegate to workers), so a custom
+# director's config is supplied via `director_settings=` rather than as a
+# standalone Agent passed in `agents=`.
+database_director_settings = {
+    "agent_name": "Database-Director",
+    "system_prompt": """You are the Database Director, the senior executive responsible for orchestrating comprehensive database operations and coordinating a team of specialized database experts. Your role is to:
 
     STRATEGIC COORDINATION:
     - Analyze complex database tasks and break them down into specialized operations
@@ -937,11 +940,10 @@ database_director_agent = Agent(
     - Database security and best practices implementation
 
     You deliver comprehensive database solutions that leverage the full expertise of your specialized team, ensuring all database operations work together to provide reliable, efficient, and secure data management.""",
-    model_name="claude-sonnet-4-20250514",
-    max_loops=1,
-    temperature=0.5,
-    dynamic_temperature_enabled=True,
-)
+    "model_name": "claude-sonnet-4-20250514",
+    "temperature": 0.5,
+    "dynamic_temperature_enabled": True,
+}
 
 # =============================================================================
 # HIERARCHICAL DATABASE SWARM
@@ -958,7 +960,7 @@ database_specialists = [
 smart_database_swarm = HierarchicalSwarm(
     name="Smart-Database-Swarm",
     description="A comprehensive database management system with specialized agents for creation, schema management, data operations, and querying, coordinated by a database director",
-    director_model_name="gpt-5.4",
+    director_settings=database_director_settings,
     agents=database_specialists,
     max_loops=1,
     verbose=True,

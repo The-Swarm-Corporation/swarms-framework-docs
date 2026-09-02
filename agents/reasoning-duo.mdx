@@ -16,7 +16,7 @@ Task Input → Reasoning Agent → Structured Analysis → Main Agent → Final 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `id` | `str` | random `uuid4()` | Unique identifier for the duo |
+| `id` | `str` | `generate_id("reasoning-duo")` | Unique identifier for the duo (`<prefix>-<32 hex chars>`) |
 | `agent_name` | `str` | `"reasoning-agent-01"` | Base name for the two internal agents, which are suffixed `-reasoning` and `-main` |
 | `agent_description` | `str` | `"A highly intelligent..."` | Description passed to both internal agents |
 | `model_name` | `str` | `"gpt-5.4"` | Stored on the instance; not currently used to configure either internal agent |
@@ -32,7 +32,7 @@ Task Input → Reasoning Agent → Structured Analysis → Main Agent → Final 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
 | `step` | `task: str, img: Optional[str] = None` | `None` | Runs one reasoning-agent → main-agent cycle and appends to the conversation |
-| `run` | `task: str, img: Optional[str] = None` | Formatted per `output_type` (e.g. `dict` by default) | Processes a task through both agents for `max_loops` iterations |
+| `run` | `task: str, img: Optional[str] = None` | Formatted per `output_type` | Processes a task through both agents for `max_loops` iterations |
 | `batched_run` | `tasks: List[str], imgs: Optional[List[str]] = None` | `list` | Processes multiple tasks sequentially |
 
 ## Quick Start

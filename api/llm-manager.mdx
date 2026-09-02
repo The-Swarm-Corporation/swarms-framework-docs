@@ -140,6 +140,7 @@ Reset the LLM's temperature to a random value in `[0.0, 1.0]`. Used between loop
 def call(
     task: str,
     img: Optional[str] = None,
+    imgs: Optional[List[str]] = None,
     current_loop: int = 0,
     streaming_callback: Optional[Callable[[str], None]] = None,
     *args,
@@ -170,6 +171,10 @@ Direct `llm.run()` returning the complete string. Used when neither `stream` nor
 
 <ParamField path="img" type="str">
   Image input for multimodal models — file path, URL, data URI, or raw base64.
+</ParamField>
+
+<ParamField path="imgs" type="List[str]">
+  Multiple image inputs for multimodal models, same accepted forms as `img`.
 </ParamField>
 
 <ParamField path="current_loop" type="int" default="0">
@@ -211,7 +216,7 @@ Each of these delegates straight to the manager and remains the supported public
 | `Agent` method | Delegates to |
 |---|---|
 | `llm_handling(*args, **kwargs)` | `build()` |
-| `call_llm(task, img, current_loop, streaming_callback)` | `call()` |
+| `call_llm(task, img, imgs, current_loop, streaming_callback)` | `call()` |
 | `get_available_models()` | `get_available_models()` |
 | `get_current_model()` | `get_current_model()` |
 | `switch_to_next_model()` | `switch_to_next_model()` |

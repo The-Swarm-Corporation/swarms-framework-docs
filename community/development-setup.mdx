@@ -95,7 +95,6 @@ Understanding the project structure will help you navigate and contribute effect
   - **`utils/`**: Utility functions and helpers
 - **`examples/`**: Includes example scripts and notebooks demonstrating how to use the library
 - **`tests/`**: Unit tests for the library
-- **`docs/`**: Documentation files and guides
 
 ## Development Workflow
 
@@ -129,7 +128,7 @@ Before submitting your changes, run the test suite to ensure everything works:
 pytest tests/
 
 # Run specific test file
-pytest tests/test_agent.py
+pytest tests/structs/test_agent.py
 
 # Run with coverage
 pytest --cov=swarms tests/
@@ -137,17 +136,14 @@ pytest --cov=swarms tests/
 
 ### 5. Lint Your Code
 
-Ensure your code follows PEP 8 standards:
+The CI lint gate runs `black --check` and `ruff check`, so match that locally:
 
 ```bash
-# Using flake8
-flake8 swarms/
-
 # Using black (auto-formatter)
-black swarms/
+black .
 
-# Using pylint
-pylint swarms/
+# Using ruff
+ruff check .
 ```
 
 ### 6. Commit Your Changes
@@ -212,7 +208,7 @@ def test_agent_run():
 
 ```bash
 # Run tests for a specific module
-pytest tests/test_agent.py
+pytest tests/structs/test_agent.py
 
 # Run tests matching a pattern
 pytest -k "test_agent"
@@ -228,17 +224,14 @@ pytest --cov=swarms --cov-report=html tests/
 
 ### Building Documentation Locally
 
-If you're contributing to documentation:
+The Swarms docs live in a separate [swarms-framework-docs](https://github.com/The-Swarm-Corporation/swarms-framework-docs) repository, built with [Mintlify](https://mintlify.com/):
 
 ```bash
-# Install documentation dependencies
-pip install mkdocs mkdocs-material
+# Install the Mintlify CLI
+npm install -g mint
 
-# Serve documentation locally
-mkdocs serve
-
-# Build documentation
-mkdocs build
+# From the docs repo root, serve documentation locally
+mint dev
 ```
 
 ### Writing Documentation
@@ -246,7 +239,7 @@ mkdocs build
 When adding new features, always update the documentation:
 
 - Add docstrings to all public classes and functions
-- Update relevant documentation pages in `docs/`
+- Update the relevant `.mdx` pages in the `swarms-framework-docs` repository
 - Add examples demonstrating the new feature
 - Update the API reference if necessary
 

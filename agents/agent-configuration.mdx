@@ -46,7 +46,11 @@ The `Agent` class provides extensive configuration options to customize behavior
 
 <ParamField path="max_tokens" type="int" default="16000">
   Maximum number of tokens to generate in a single response.
-  
+
+  <Note>
+    The constructor default is actually `None`. When left unset, `self.max_tokens` resolves during `__init__` to the model's real max-output-tokens (via `_default_max_tokens()`), falling back to `16000` only if that lookup fails. Pass `max_tokens` explicitly to override the resolved value.
+  </Note>
+
   ```python
   agent = Agent(model_name="claude-sonnet-4-6", max_tokens=8192)
   ```
@@ -87,10 +91,17 @@ The `Agent` class provides extensive configuration options to customize behavior
 
 ### Agent Identity
 
-<ParamField path="agent_name" type="str" default="Generated">
+<ParamField path="agent_name" type="str" default="swarm-worker-01">
   Unique name for the agent. Used in multi-agent systems and logging. Omitted,
-  it is generated per instance as `agent-k3f9q`.
-  
+  it defaults to the literal string `"swarm-worker-01"` — the same value for
+  every agent that doesn't set one.
+
+  <Warning>
+    Because `MEMORY.md` is keyed on `agent_name`, every agent left at the
+    default name reads and writes the *same* memory folder. Always give
+    long-running or persistent-memory agents a unique `agent_name`.
+  </Warning>
+
   ```python
   agent = Agent(
       agent_name="Financial-Analyst",
@@ -468,4 +479,4 @@ batch_agent = Agent(
 
 ## Reference
 
-Location in source: `swarms/structs/agent.py:348-438` (the `Agent.__init__` signature)
+Location in source: `swarms/structs/agent.py:309-411` (the `Agent.__init__` signature)

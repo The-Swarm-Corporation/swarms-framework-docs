@@ -228,10 +228,9 @@ def export_and_count_categories(self) -> Dict[str, int]
 | `return_messages_as_list()` / `return_messages_as_dictionary()` | The history as `{"role", "content"}` dicts |
 | `return_messages_as_strings()` | The history rendered as `"role: content"` strings |
 | `return_all_except_first()` / `return_all_except_first_string()` | History excluding the first (system) message |
-| `to_dict()` / `to_json()` / `to_yaml()` / `to_list()` | Serialize the conversation (config + history) |
+| `to_dict()` / `to_json()` / `to_yaml()` / `to_list()` | Serialize the conversation history only (no config/metadata) |
 | `count_messages_by_role()` | Dict of message counts keyed by role |
 | `clear()` | Empty the conversation history |
-| `clear_memory()` | Reset in-memory conversation state |
 | `Conversation.load_conversation(name, conversations_dir=None, load_filepath=None)` | Classmethod: load a previously saved conversation by name or explicit file path |
 | `Conversation.list_conversations(...)` / `Conversation.list_cached_conversations(...)` | Classmethods to enumerate saved/cached conversations |
 

@@ -70,10 +70,6 @@ result = debate.run(task=topic)
 
 # Print the refined answer
 print(result)
-
-# Or get just the final synthesis
-final_answer = debate.get_final_answer()
-print(final_answer)
 ```
 
 ---
@@ -107,10 +103,6 @@ print("=" * 60)
 print("DEBATE RESULT:")
 print("=" * 60)
 print(result)
-
-# Access conversation history for detailed analysis
-history = debate_system.get_conversation_history()
-print(f"\nTotal exchanges: {len(history)}")
 ```
 
 ---
@@ -200,7 +192,7 @@ for topic, result in zip(topics, results):
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `preset_agents` | `False` | Use built-in optimized agents |
+| `preset_agents` | `True` | Use built-in optimized agents |
 | `max_loops` | `3` | Number of debate rounds |
 | `model_name` | `"gpt-5.4"` | Model for preset agents |
 | `output_type` | `"str-all-except-first"` | Output format |
@@ -231,6 +223,6 @@ for topic, result in zip(topics, results):
 
 ## Next Steps
 
-- Explore [DebateWithJudge Reference](/api/council-as-judge) for complete API details
+- Explore [DebateWithJudge Reference](/api/debate-with-judge) for complete API details
 - See [Debate Examples](https://github.com/kyegomez/swarms/tree/master/examples/multi_agent/debate_examples) for more use cases
 - Learn about [Orchestration Methods](/architectures/overview) for other debate architectures

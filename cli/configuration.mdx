@@ -17,7 +17,7 @@ The Swarms CLI supports loading agent configurations from YAML files, allowing y
 A Swarms YAML configuration file has two main sections:
 
 1. `agents` - List of agent configurations
-2. `swarm_architecture` (optional) - Swarm configuration
+2. `swarm_architecture` (optional at the schema level, but required in practice — see [Running YAML Configurations](#running-yaml-configurations)) - Swarm configuration
 
 ### Agent Configuration
 
@@ -26,10 +26,9 @@ A Swarms YAML configuration file has two main sections:
 ```yaml
 agents:
   - agent_name: "Research-Agent"
-    model:
-      model_name: "gpt-4"
-      temperature: 0.1
-      max_tokens: 2000
+    model_name: "gpt-4"
+    temperature: 0.1
+    max_tokens: 2000
     system_prompt: "You are an expert research analyst specializing in technology trends."
     max_loops: 1
     autosave: true
@@ -42,18 +41,24 @@ agents:
     context_length: 4000
     return_step_meta: false
     output_type: "str"
-    task: "Analyze the latest developments in quantum computing"
+
+swarm_architecture:
+  name: "Research-Swarm"
+  description: "A single-agent swarm that researches a topic"
+  swarm_type: "SequentialWorkflow"
+  task: "Analyze the latest developments in quantum computing"
 ```
+
+`swarm_architecture` is required here — `run-agents` always runs through a `SwarmRouter`, so a YAML file with only an `agents` section will fail. See [Running YAML Configurations](#running-yaml-configurations) below.
 
 #### Multiple Agents Example
 
 ```yaml
 agents:
   - agent_name: "Financial-Analysis-Agent"
-    model:
-      model_name: "gpt-4"
-      temperature: 0.1
-      max_tokens: 2000
+    model_name: "gpt-4"
+    temperature: 0.1
+    max_tokens: 2000
     system_prompt: "You are a financial analyst expert."
     max_loops: 1
     autosave: true
@@ -66,13 +71,11 @@ agents:
     context_length: 4000
     return_step_meta: false
     output_type: "str"
-    task: "How can I establish a ROTH IRA to buy stocks and get a tax break?"
 
   - agent_name: "Stock-Analysis-Agent"
-    model:
-      model_name: "gpt-4"
-      temperature: 0.2
-      max_tokens: 1500
+    model_name: "gpt-4"
+    temperature: 0.2
+    max_tokens: 1500
     system_prompt: "You are a stock market analysis expert."
     max_loops: 2
     autosave: true
@@ -85,7 +88,12 @@ agents:
     context_length: 4000
     return_step_meta: true
     output_type: "json"
-    task: "What is the best strategy for long-term stock investment?"
+
+swarm_architecture:
+  name: "Financial-Advisory-Swarm"
+  description: "A swarm of agents working together to provide comprehensive financial advice"
+  swarm_type: "SequentialWorkflow"
+  task: "How can I establish a ROTH IRA to buy stocks and get a tax break?"
 ```
 
 ### Swarm Architecture Configuration
@@ -141,13 +149,15 @@ swarm_architecture:
 
 ### Model Configuration
 
-Within each agent, you can specify model parameters:
+Model parameters are flat, top-level fields on each agent entry — there is no nested `model:` block. A `model:` block is not rejected (extra fields are allowed), but it is silently ignored and has no effect on the agent:
 
 ```yaml
-model:
-  model_name: "gpt-4"           # Model identifier
-  temperature: 0.1               # Randomness (0.0-2.0)
-  max_tokens: 2000              # Maximum tokens per response
+agents:
+  - agent_name: "My-Agent"
+    system_prompt: "You are a helpful assistant."
+    model_name: "gpt-4"           # Model identifier
+    temperature: 0.1               # Randomness (0.0-2.0)
+    max_tokens: 2000              # Maximum tokens per response
 ```
 
 ### Swarm Architecture Parameters
@@ -177,6 +187,8 @@ With a custom file path:
 ```bash
 swarms run-agents --yaml-file /path/to/my-config.yaml
 ```
+
+`run-agents` hardcodes `return_type="run_swarm"`, so it always builds and runs a `SwarmRouter`. A YAML file that defines `agents` but omits `swarm_architecture` will fail — there is currently no standalone-agent mode for this command.
 
 ## Environment Variables
 
@@ -304,6 +316,8 @@ With concurrent processing:
 swarms load-markdown --markdown-path ./agents/ --concurrent
 ```
 
+`--concurrent` defaults to `true` and there is no `--no-concurrent` flag to disable it, so this flag is currently always on regardless of whether it's passed.
+
 ## Configuration Best Practices
 
 ### 1. API Key Management
@@ -375,7 +389,12 @@ swarms run-agents --yaml-file test-config.yaml
 agents:
   - agent_name: "Simple-Agent"
     system_prompt: "You are a helpful assistant"
-    task: "Hello, world!"
+
+swarm_architecture:
+  name: "Simple-Swarm"
+  description: "A single simple agent"
+  swarm_type: "SequentialWorkflow"
+  task: "Hello, world!"
 ```
 
 ### Production Agent Config
@@ -383,10 +402,9 @@ agents:
 ```yaml
 agents:
   - agent_name: "Production-Agent"
-    model:
-      model_name: "gpt-4"
-      temperature: 0.2
-      max_tokens: 4000
+    model_name: "gpt-4"
+    temperature: 0.2
+    max_tokens: 4000
     system_prompt: "You are a production-ready agent with error handling."
     max_loops: 3
     autosave: true
@@ -397,7 +415,12 @@ agents:
     saved_state_path: "prod_agent.json"
     user_name: "production"
     output_type: "json"
-    task: "Process production workload"
+
+swarm_architecture:
+  name: "Production-Swarm"
+  description: "A single production-ready agent"
+  swarm_type: "SequentialWorkflow"
+  task: "Process production workload"
 ```
 
 ### Multi-Agent Swarm
@@ -406,21 +429,19 @@ agents:
 agents:
   - agent_name: "Researcher"
     system_prompt: "You gather and analyze information."
-    task: "Research the topic"
-    
+
   - agent_name: "Writer"
     system_prompt: "You write clear, engaging content."
-    task: "Write a report"
-    
+
   - agent_name: "Editor"
     system_prompt: "You review and improve content."
-    task: "Edit the final report"
 
 swarm_architecture:
   name: "Content-Creation-Swarm"
   description: "Research, write, and edit content"
   swarm_type: "SequentialWorkflow"
   max_loops: 1
+  task: "Write a report on renewable energy adoption"
   rules: |
     1. Researcher gathers information
     2. Writer creates content from research

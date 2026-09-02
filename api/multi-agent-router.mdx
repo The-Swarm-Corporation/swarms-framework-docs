@@ -16,8 +16,8 @@ pip install -U swarms
 
 ## Attributes
 
-<ParamField path="id" type="str" default="generate_api_key(prefix='multi-agent-router')">
-  Unique identifier for the router instance
+<ParamField path="id" type="Optional[str]" default="None">
+  Unique identifier for the router instance. When left as `None`, resolves to `generate_id("multi-agent-router")`
 </ParamField>
 
 <ParamField path="name" type="str" default="swarm-router">
@@ -73,7 +73,11 @@ def route_task(self, task: str) -> dict
 **Parameters:**
 - `task` (str): The task to be routed
 
-**Returns:** Dictionary containing the routing result, including selected agent(s), reasoning, and response
+**Returns:** The formatted conversation history (shaped by `output_type`), containing the user task and the response(s) that were appended to it.
+
+<Note>
+  When the boss selects multiple agents, `handle_multiple_handoffs()` runs all of them concurrently but only appends the **first** selected agent's response to the conversation — every other agent's output is computed and then discarded. The boss's `reasoning` is never added to the conversation either (it is only printed to the console when `print_on=True`), so it is not present in the returned result.
+</Note>
 
 ### run()
 
@@ -205,6 +209,10 @@ task = "Research quantum computing and write a tutorial with code examples"
 # - WritingAgent for the tutorial writing
 
 result = router.route_task(task)
+
+# NOTE: all selected agents run concurrently, but only the FIRST selected
+# agent's response is appended to the conversation and present in `result`.
+# The other agents' outputs are computed but discarded.
 ```
 
 ### Skip Null Tasks

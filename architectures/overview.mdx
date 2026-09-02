@@ -114,18 +114,18 @@ router = SwarmRouter(
 result = router.run("Write a brief on transformer architectures.")
 ```
 
-The 15 values that resolve to a real architecture:
+The 14 values that resolve to a real architecture:
 
 ```python
 "AgentRearrange"        "MixtureOfAgents"     "SequentialWorkflow"
 "ConcurrentWorkflow"    "GroupChat"           "MultiAgentRouter"
 "HierarchicalSwarm"     "MajorityVoting"      "CouncilAsAJudge"
-"HeavySwarm"            "BatchedGridWorkflow" "LLMCouncil"
-"DebateWithJudge"       "RoundRobin"          "PlannerWorkerSwarm"
+"HeavySwarm"            "LLMCouncil"          "DebateWithJudge"
+"RoundRobin"            "PlannerWorkerSwarm"
 ```
 
 <Warning>
-`"auto"` is present in the `SwarmType` type hint but has **no registered factory**. It passes construction and then raises `ValueError` the first time you call `run()`. `"AutoSwarmBuilder"` is not a valid `SwarmType` at all and fails at construction. To have the framework choose for you, instantiate [`AutoSwarmBuilder`](/api/auto-swarm-builder) directly instead of routing through `SwarmRouter`.
+Neither `"auto"` nor `"BatchedGridWorkflow"` is a valid `SwarmType` any more — both were removed from the `SwarmType` Literal, so passing either now raises `SwarmRouterConfigError` at construction rather than failing later at `run()`. `BatchedGridWorkflow` is a standalone class (its `run()` takes `tasks: List[str]`, not a single task) and was never actually routable through `SwarmRouter`. `"AutoSwarmBuilder"` is likewise not a valid `SwarmType` and fails at construction. To have the framework choose for you, instantiate [`AutoSwarmBuilder`](/api/auto-swarm-builder) directly instead of routing through `SwarmRouter`.
 </Warning>
 
 <Note>

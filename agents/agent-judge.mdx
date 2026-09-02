@@ -41,7 +41,7 @@ graph TD
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `id` | `str` | `uuid4()` | Unique identifier for the judge instance |
+| `id` | `str` | `generate_id("agent-judge")` | Unique identifier for the judge instance (`<prefix>-<32 hex chars>`) |
 | `agent_name` | `str` | `"Agent Judge"` | Name of the agent judge |
 | `description` | `str` | `"You're an expert AI agent judge..."` | Description of the agent's role |
 | `system_prompt` | `str` | `None` | Custom system instructions (uses default if None) |
@@ -58,7 +58,7 @@ graph TD
 Processes a single task and returns the agent's evaluation.
 
 ```python
-result = judge.step(task: str, img: Optional[str] = None) -> str
+result = judge.step(task: str = None, img: Optional[str] = None, messages: Optional[List[Dict[str, str]]] = None) -> str
 ```
 
 ### run()

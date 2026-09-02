@@ -165,7 +165,7 @@ Create `pipeline.yaml`:
 
 ```yaml
 agents:
-  - name: Researcher
+  - agent_name: Researcher
     model_name: gpt-5.4
     temperature: 0.2
     system_prompt: |
@@ -173,7 +173,7 @@ agents:
       a detailed research summary with context, key facts (with
       citations), and open questions.
 
-  - name: Writer
+  - agent_name: Writer
     model_name: claude-opus-4-7
     temperature: 0.5
     system_prompt: |
@@ -181,7 +181,7 @@ agents:
       Turn the research notes into a 400-word briefing with a
       lede, three-paragraph body, and one-sentence takeaway.
 
-  - name: Reviewer
+  - agent_name: Reviewer
     model_name: gpt-5.4
     temperature: 0.1
     system_prompt: |
@@ -190,8 +190,10 @@ agents:
       specific rewrites for the weakest paragraphs, and a
       verdict of Ship/Revise/Restart.
 
-swarm:
-  type: SequentialWorkflow
+swarm_architecture:
+  name: Research-Brief-Swarm
+  description: Research a topic, draft a briefing, then review it
+  swarm_type: SequentialWorkflow
   task: |
     Topic: How are large language models being used in drug discovery in 2026?
 ```
@@ -213,18 +215,20 @@ The same agents can run as a Concurrent Workflow (all three see the same task in
 ```yaml
 # pipeline-concurrent.yaml
 agents:
-  - name: Optimist
+  - agent_name: Optimist
     model_name: gpt-5.4
     system_prompt: Argue the strongest case for the topic
-  - name: Pessimist
+  - agent_name: Pessimist
     model_name: claude-opus-4-7
     system_prompt: Argue the strongest case against the topic
-  - name: Realist
+  - agent_name: Realist
     model_name: gpt-5.4
     system_prompt: Provide a balanced analysis of the topic
 
-swarm:
-  type: ConcurrentWorkflow
+swarm_architecture:
+  name: Perspectives-Swarm
+  description: Three independent takes on the same question
+  swarm_type: ConcurrentWorkflow
   task: |
     Should our R&D team adopt LLMs as a daily tool for protein design?
 ```
@@ -308,7 +312,7 @@ swarms agent \
   --saved-state-path ./helios.json
 ```
 
-The next time you run the same command pointing at `./helios.json`, the agent picks up exactly where it left off — including everything you told it.
+`--saved-state-path` is a write target only: `--autosave` writes agent state to `./helios.json`, but nothing in the CLI or the `Agent` class loads that file back on a later run. Pointing a new `swarms agent` invocation at the same path will not resume the earlier session or its memory.
 
 ---
 
@@ -336,7 +340,7 @@ If a command errors out, the CLI classifies the failure and prints targeted hint
 swarms agent --name X --description Y --system-prompt Z --task "hi" --model-name "gpt-99"
 ```
 
-You'll see a "Could not load info" message with the closest model name suggestions.
+The agent's LLM call fails against the invalid model, and the CLI's error classifier catches it and prints a hint pointing you to `swarms models --search <name>` to find a valid model. (The "Could not load info" message with closest-match suggestions is specific to `swarms models --info <name>`, not the `agent` command.)
 
 ```bash
 swarms agnt   # typo

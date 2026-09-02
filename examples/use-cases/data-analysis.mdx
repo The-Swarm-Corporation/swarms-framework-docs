@@ -166,6 +166,7 @@ prep_workflow = SequentialWorkflow(
     name="Data-Preparation",
     agents=[data_collector, data_cleaner],
     max_loops=1,
+    output_type="final",  # return a string so it can feed the next stage's task=
 )
 
 # Second: Concurrent analysis of different aspects
@@ -173,6 +174,7 @@ analysis_workflow = ConcurrentWorkflow(
     name="Parallel-Analysis",
     agents=[statistical_analyst, trend_analyst, anomaly_detector],
     max_loops=1,
+    output_type="final",  # return a string so it can feed the next stage's task=
 )
 
 # Third: Sequential visualization and reporting
@@ -180,6 +182,7 @@ reporting_workflow = SequentialWorkflow(
     name="Reporting-Pipeline",
     agents=[visualization_expert, report_synthesizer],
     max_loops=1,
+    output_type="final",  # return the final report as a string
 )
 
 # Execute complete data analysis
@@ -306,7 +309,7 @@ real_time_monitor = Agent(
     agent_name="Real-Time-Monitor",
     system_prompt="Monitor streaming data for immediate insights...",
     max_loops="auto",  # Continuous monitoring
-    stopping_condition="critical_threshold_reached",
+    stopping_condition=lambda response: "critical_threshold_reached" in response.lower(),
 )
 ```
 

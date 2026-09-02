@@ -40,11 +40,9 @@ SwarmType = Literal[
     "GroupChat",
     "MultiAgentRouter",
     "HierarchicalSwarm",
-    "auto",
     "MajorityVoting",
     "CouncilAsAJudge",
     "HeavySwarm",
-    "BatchedGridWorkflow",
     "LLMCouncil",
     "DebateWithJudge",
     "RoundRobin",
@@ -53,14 +51,14 @@ SwarmType = Literal[
 ```
 
 <Note>
-  `"AutoSwarmBuilder"` is **not** in the `SwarmType` Literal — passing it raises `SwarmRouterConfigError` at construction. `"auto"` is in the Literal (16 values total) but has no registered factory. Use one of the 15 concrete types.
+  `"AutoSwarmBuilder"` is **not** in the `SwarmType` Literal — passing it raises `SwarmRouterConfigError` at construction. Neither `"auto"` nor `"BatchedGridWorkflow"` is a member either (14 values total) — passing either raises `SwarmRouterConfigError` at construction time, the same as any other invalid value.
 </Note>
 
 ## Constructor
 
 ```python
 SwarmRouter(
-    id: str = generate_api_key(prefix="swarm-router"),
+    id: Optional[str] = None,  # resolves to generate_id("swarm-router") when not set
     name: str = "swarm-router",
     description: str = "Routes your task to the desired swarm",
     max_loops: int = 1,
@@ -93,8 +91,8 @@ SwarmRouter(
 
 ### Core parameters
 
-<ParamField path="id" type="str" default="generate_api_key(prefix='swarm-router')">
-  Unique identifier for the router instance. Used for autosave directory naming and telemetry.
+<ParamField path="id" type="Optional[str]" default="None">
+  Unique identifier for the router instance. When left as `None`, resolves to `generate_id("swarm-router")`. Used for autosave directory naming and telemetry.
 </ParamField>
 
 <ParamField path="name" type="str" default="swarm-router">
@@ -259,7 +257,7 @@ Execute a single task using the configured swarm.
 </ParamField>
 
 <ParamField path="tasks" type="List[str]" optional>
-  List of tasks. Consumed by `BatchedGridWorkflow`.
+  Batch-style task list, forwarded as `tasks=` to the underlying swarm's `run()` in place of `task` when provided. Only meaningful for swarm types whose `run()` accepts a `tasks` argument.
 </ParamField>
 
 **Returns:** `Any` — shape depends on `output_type` and the underlying swarm.
@@ -373,12 +371,13 @@ Internal helper. Points `self.conversation` at the underlying swarm's conversati
 | `LLMCouncil` | `agents` (council members), `chairman_model` |
 | `DebateWithJudge` | `agents` (≥3: pro, con, judge) |
 | `HeavySwarm` | `heavy_swarm_worker_model_name`, `heavy_swarm_question_agent_model_name`, `heavy_swarm_variant` |
-| `BatchedGridWorkflow` | `agents`, `tasks` passed to `run` |
 | `RoundRobin` | `agents` (≥2) |
 | `MultiAgentRouter` | `agents` |
 | `PlannerWorkerSwarm` | `agents` (workers); planner is created automatically |
-| `AutoSwarmBuilder` | *Reserved — not dispatched by the current factory (raises `ValueError` at run)* |
-| `auto` | *Reserved — not dispatched by the current factory (raises `ValueError` at run)* |
+
+<Note>
+  `"AutoSwarmBuilder"`, `"auto"`, and `"BatchedGridWorkflow"` are **not** members of the `SwarmType` Literal — passing any of them raises `SwarmRouterConfigError` at construction time, before `run()` is ever reached.
+</Note>
 
 ## Autosave layout
 

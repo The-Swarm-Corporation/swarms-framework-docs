@@ -23,8 +23,8 @@ logger.error("An error occurred")
 logger.debug("Debug information")
 ```
 
-<ParamField path="log_folder" type="str" default="logs">
-  Name of the folder for log storage
+<ParamField path="log_folder" type="str" default="swarms">
+  Legacy parameter, kept only for backwards compatibility — it no longer sets the log directory. Logs are always written to `{WORKSPACE_DIR}/logs` (via `get_log_dir()`), regardless of what is passed here.
 </ParamField>
 
 <ResponseField name="return" type="Logger">
@@ -283,7 +283,8 @@ Clean and sanitize file paths for cross-platform compatibility.
 from swarms.utils import sanitize_file_path
 
 safe_path = sanitize_file_path("`C:/Users/file<name>.txt`")
-# Returns: C:/Users/file_name_.txt
+# Returns: C__Users_file_name_.txt
+# `:`, `/`, `\`, `<`, `>`, `"`, `|`, `?`, `*`, and backticks are all replaced with `_`
 ```
 
 <ParamField path="file_path" type="str" required>
@@ -540,13 +541,15 @@ Wrapper class for LiteLLM with error handling.
 from swarms.utils import LiteLLM
 
 llm = LiteLLM(
-    model="gpt-4",
+    model_name="gpt-5.4",
     temperature=0.7,
     max_tokens=1000
 )
 
 response = llm.run("Analyze this data")
 ```
+
+The constructor parameter is `model_name`, not `model` — because `LiteLLM.__init__` absorbs unrecognized keywords via `**kwargs`, passing `model=` silently fails to set the model instead of raising an error.
 
 ### NetworkConnectionError
 
@@ -606,6 +609,14 @@ print(manager.dir)
 
 <ParamField path="enabled" type="bool" default="True">
   When `False` nothing is created or written and `dir` stays `None`
+</ParamField>
+
+<ParamField path="subpath" type="Optional[Sequence[str]]" default="None">
+  Path segments joined onto the workspace directory in place of the default `swarms/{ClassName}/{name}-{stamp}` layout — e.g. `("agents", "my-agent-a1b2c3d4e5f6")`
+</ParamField>
+
+<ParamField path="metadata_base" type="Optional[Dict[str, Any]]" default="None">
+  Base fields merged into `_autosave_metadata` on every write, in place of the default `{class_name, swarm_name, swarm_id}`
 </ParamField>
 
 ## Example: Complete Utility Usage

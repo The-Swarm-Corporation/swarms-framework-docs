@@ -61,8 +61,8 @@ graph TD
   A list of exactly 3 agents in order: `[pro_agent, con_agent, judge_agent]`. Takes precedence over individual agent parameters.
 </ParamField>
 
-<ParamField path="preset_agents" type="bool" default="False">
-  If `True`, creates default Pro, Con, and Judge agents automatically with optimized system prompts.
+<ParamField path="preset_agents" type="bool" default="True">
+  If `True`, creates default Pro, Con, and Judge agents automatically with optimized system prompts when no `agents` list or individual agents are supplied. Defaults to `True`, so `DebateWithJudge()` with no agent arguments works out of the box.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="3">
@@ -181,26 +181,6 @@ def batched_run(self, tasks: List[str]) -> List[str]
 
 **Returns:** List of final refined answers, one for each input task
 
-### get_conversation_history()
-
-Get the full conversation history from the debate.
-
-```python
-def get_conversation_history(self) -> List[dict]
-```
-
-**Returns:** List of message dictionaries containing the conversation history
-
-### get_final_answer()
-
-Get the final refined answer from the judge.
-
-```python
-def get_final_answer(self) -> str
-```
-
-**Returns:** The content of the final judge synthesis
-
 ## Output Types
 
 The `output_type` parameter controls how the conversation history is formatted:
@@ -234,13 +214,10 @@ topic = (
     "Discuss the balance between innovation and safety."
 )
 
-# Run the debate
+# Run the debate -- with output_type="str-all-except-first" (default),
+# result is already the formatted conversation history as a string
 result = debate_system.run(task=topic)
 print(result)
-
-# Get the final refined answer
-final_answer = debate_system.get_final_answer()
-print(final_answer)
 ```
 
 ### Policy Debate with Custom Agents
@@ -314,13 +291,10 @@ topic = (
     "regulatory capture). Provide a nuanced analysis."
 )
 
-# Run the debate
+# Run the debate -- with output_type="str-all-except-first" (default),
+# result is already the formatted conversation history as a string
 result = debate_system.run(task=topic)
 print(result)
-
-# Get the final refined answer
-final_answer = debate_system.get_final_answer()
-print(final_answer)
 ```
 
 ### Using Agent List
@@ -490,17 +464,11 @@ strategy_question = (
     "Which strategy should they pursue?"
 )
 
-# Run the debate
+# Run the debate -- with output_type="dict", result is already the
+# conversation history formatted as a dictionary; the final judge synthesis
+# is the last entry
 result = strategy_debate.run(task=strategy_question)
 print(result)
-
-# Get the full conversation history for detailed analysis
-history = strategy_debate.get_conversation_history()
-print(history)
-
-# Get the final refined answer
-final_answer = strategy_debate.get_final_answer()
-print(final_answer)
 ```
 
 ## Best Practices

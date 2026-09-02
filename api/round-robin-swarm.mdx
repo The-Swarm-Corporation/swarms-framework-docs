@@ -202,11 +202,9 @@ for i, result in enumerate(results):
 
 ## Per-turn prompt
 
-Each agent receives the running transcript followed by a generated header and a standing instruction, produced by `build_turn_header` and `build_collaborative_task`:
+Each agent receives a generated header and a standing instruction, produced by `build_turn_header` and `build_collaborative_task`. The running transcript is **not** concatenated into this prompt string — `run()` calls `build_collaborative_task(conversation_context="", turn_header=turn_header)`, so the prior-turns transcript is delivered separately to the agent via the `messages` argument of `agent.run()`, not as literal text in the task prompt:
 
 ```
-[Full conversation transcript so far]
-
 You are Analyst, agent 1 of 3 in loop 1 of 2. Previous speaker:
 (none — you open the conversation). Next speaker: Strategist.
 Other participants: Strategist, Implementer.

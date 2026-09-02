@@ -12,7 +12,7 @@ icon: "cubes"
 |---|---|
 | `aggregate` | Run a list of agents concurrently on the same task, then synthesize via an aggregator agent |
 | `run_agent` | Run a single agent with argument validation and error wrapping |
-| `find_agent_by_name` | Look up an agent by `.agent_name` (or `.name`) in a list |
+| `find_agent_by_name` | Look up an agent by `.agent_name` in a list |
 | `find_agent_by_id` | Look up an agent by `.id` in a list |
 | `find_multiple_agents_by_name` | Look up several agents by `.agent_name` at once |
 | `return_all_agent_names` | Return every agent's `.agent_name` |
@@ -104,7 +104,7 @@ def run_agent(
 
 ## find_agent_by_name()
 
-Look up an agent by name. Builds a `name -> agent` index the first time it is called for a given `agents` list — matching against both `.agent_name` and `.name` (if `.name` is set and differs from `.agent_name`) — and caches that index for subsequent lookups against the same list, turning repeated calls from O(n) into O(1).
+Look up an agent by name. Performs a plain linear scan over `agents`, matching each agent's `.agent_name` against `agent_name` and returning the first match — O(n) per call, with no caching and no fallback to `.name`.
 
 ```python
 def find_agent_by_name(
@@ -118,7 +118,7 @@ def find_agent_by_name(
 </ParamField>
 
 <ParamField path="agent_name" type="str" required>
-  Name to match. Checked against each agent's `.agent_name` first, then `.name` if set and different.
+  Name to match against each agent's `.agent_name`.
 </ParamField>
 
 **Raises:**
@@ -246,7 +246,7 @@ agents = [
 writer = find_agent_by_name(agents, "Writer")
 ```
 
-`find_agent_by_name` matches against `.agent_name` first, and falls back to `.name` if an agent has a `.name` attribute set that differs from its `.agent_name`.
+`find_agent_by_name` matches only against `.agent_name` -- there is no fallback to `.name`.
 
 ### Other Lookup Helpers
 

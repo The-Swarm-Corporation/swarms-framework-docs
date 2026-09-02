@@ -69,8 +69,8 @@ from swarms.tools.mcp_manager import MCPManager
   Force `streamable_http`, `sse`, or `stdio`. Auto-detected otherwise; hyphenated forms like `streamable-http` are normalized.
 </ParamField>
 
-<ParamField path="timeout" type="int" default="30">
-  Request timeout in seconds.
+<ParamField path="timeout" type="int" default="None">
+  Request timeout in seconds, applied to every configured connection. Left unset by default — a `None` value falls through to `MCPConnection.timeout`'s own default of `30` seconds.
 </ParamField>
 
 <ParamField path="agent_name" type="str" default="agent">
@@ -102,6 +102,10 @@ fresh = manager.get_tools(force_refresh=True)  # bypass cache
 ```
 
 Async form: `await manager.aget_tools(...)`.
+
+<Note>
+`aget_tools` only populates `self._tools_cache` / `self._tool_routes` when `format == "openai"`. On a multi-server manager, calling `get_tools(format="mcp")` alone leaves tool routing unpopulated, and a later `call_tool()` can fail with "No configured MCP server exposes a tool named …" until `get_tools()` (the default `"openai"` format) has been called at least once.
+</Note>
 
 ### list_tool_names
 
@@ -152,12 +156,13 @@ Run the tool calls contained in an LLM response. Each call is routed to the serv
 Async form: `await manager.aexecute_tool_calls(...)`. To re-render results you already hold, use the static `MCPManager.format_results(results, output_type)`.
 
 <Note>
-When a tool returns structured data, its payload arrives as a **JSON string** in the `result` field:
+Under the default `output_type="dict"`, `result` is already a native Python value, not a JSON string — a `str` for text content, or a `dict` for structured content (`structuredContent` / `structured_content`, or a text+content mix). Use it directly:
 
 ```python
-import json
-payload = json.loads(results[0]["result"])
+payload = results[0]["result"]
 ```
+
+Calling `json.loads()` on it will raise `TypeError` when `result` is a dict. JSON-string framing only applies when the whole envelope is serialized via `output_type="json"` (or `MCPManager.format_results(..., output_type="json")`).
 </Note>
 
 ## Configuration management
@@ -217,8 +222,10 @@ MCPManager(mcp_urls=[
 | Exception | Raised when |
 |---|---|
 | `AgentMCPConnectionError` | The server is unreachable, or authentication fails |
-| `AgentMCPToolError` | A tool call fails on the server |
+| `AgentMCPToolError` | Raised at call time only when no configured server exposes the requested tool name (a routing failure) — not when the tool itself fails |
 | `AgentMCPError` | Base class for both |
+
+An execution or session failure on the server side is never raised — it's captured and returned as an `is_error: True` result envelope (from `call_tool`/`execute_tool_calls` and their async forms) so a batch of calls can't be aborted by one failing tool.
 
 All live in `swarms.schemas.agent_mcp_errors`. Operations retry with backoff up to `retry_attempts` before raising.
 

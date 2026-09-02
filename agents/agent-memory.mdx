@@ -77,13 +77,15 @@ $WORKSPACE_DIR/agents/{agent_name}/
     `-- ...
 ```
 
-<ParamField path="agent_name" type="str" default="Generated">
+<ParamField path="agent_name" type="str" default="swarm-worker-01">
   Stable name used to identify the agent's memory folder.
 
   <Warning>
-    Set this explicitly when using `persistent_memory`. An omitted name is
-    generated fresh on every construction, so a restarted agent gets a new
-    folder and will not find its previous `MEMORY.md`.
+    Set this explicitly when using `persistent_memory`. An omitted name
+    defaults to the same literal string, `"swarm-worker-01"`, for every
+    agent — so multiple default-named agents don't just lose history on
+    restart, they all read and write the *same* `MEMORY.md` folder at the
+    same time, corrupting each other's memory.
   </Warning>
 
   ```python
@@ -187,7 +189,7 @@ Without compression, a long-running agent could eventually exceed the model's co
       model_name="claude-sonnet-4-6",
       max_loops=5,
       context_compression=True,
-      context_length=32000,  # required — compression measures against this
+      context_length=32000,  # optional — overrides the resolved default
   )
   ```
 </ParamField>
@@ -203,9 +205,9 @@ Compression can run when all of these are true:
 
 The default threshold is `0.9`, so compression starts when the active prompt reaches about 90% of the context window.
 
-<Warning>
-  `context_length` defaults to `None`. With no `context_length`, the compressor measures a usage ratio of `0.0` and never fires, even with `context_compression=True`. Set `context_length` on any long-running agent that relies on compression.
-</Warning>
+<Note>
+  `context_length` accepts `None` as its constructor default, but the agent never runs with an actual `None` value: during `__init__`, an unset `context_length` is resolved to a model-derived value (or `16000` as a fallback), so compression always has a real denominator to measure against. Pass `context_length` explicitly only to override that resolved default — for example, to match a larger context window.
+</Note>
 
 Compression works for both `max_loops="auto"` and integer `max_loops` runs. The `context_compression` flag is the gate.
 

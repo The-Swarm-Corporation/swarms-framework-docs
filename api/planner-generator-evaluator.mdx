@@ -63,7 +63,7 @@ pip install -U swarms
 ## Attributes
 
 <ParamField path="id" type="str" default="None">
-  Unique identifier for this harness instance. Auto-generated via `swarm_id()` if not provided.
+  Unique identifier for this harness instance. Auto-generated via `generate_id("planner-generator-evaluator")` if not provided.
 </ParamField>
 
 <ParamField path="name" type="str" default="PlannerGeneratorEvaluator">
@@ -196,6 +196,25 @@ def get_harness_result(self) -> Dict[str, Any]
 ```
 
 **Returns:** Dictionary with `id`, `name`, `shared_state_path`, and `conversation` (the full conversation history as a dict)
+
+### `__call__()`
+
+Makes the harness callable directly, as a convenience alias for `run()`.
+
+```python
+def __call__(self, task: str, *args, **kwargs) -> Any
+```
+
+**Parameters:**
+- `task` (str): A short natural-language description of the desired task
+- `*args`, `**kwargs`: Forwarded to `run()`
+
+**Returns:** Same as `run()`
+
+```python
+harness = PlannerGeneratorEvaluator(model_name="gpt-5.4")
+result = harness("Write a short guide on sourdough starters")  # same as harness.run(...)
+```
 
 ## Return Types
 

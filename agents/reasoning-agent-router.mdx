@@ -51,8 +51,8 @@ The following values are supported for the `swarm_type` parameter:
 
 - `"reasoning-duo"` or `"reasoning-agent"`
 - `"self-consistency"` or `"consistency-agent"`
-- `"ire"` or `"ire-agent"`
-- `"ReflexionAgent"`
+- `"ire"` or `"ire-agent"` — `_create_ire_agent` passes `max_loops=self.num_samples` when building the underlying agent, so the router's own `max_loops` is ignored for this type; `num_samples` controls the number of IRE iterations instead.
+- `"ReflexionAgent"` — `run()` returns the raw `list` produced by `ReflexionAgent.run()` directly; it bypasses `history_output_formatter`, so `output_type` has no effect for this swarm type (every other type is formatted according to `output_type`).
 - `"GKPAgent"`
 - `"AgentJudge"`
 

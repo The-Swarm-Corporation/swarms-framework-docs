@@ -29,13 +29,13 @@ pip install -U swarms
 class AgentRearrange:
     def __init__(
         self,
-        id: str = swarm_id(),
+        id: str = None,
         name: str = "AgentRearrange",
         description: str = "A swarm of agents for rearranging tasks.",
         agents: List[Union[Agent, Callable]] = None,
         flow: str = None,
         max_loops: int = 1,
-        verbose: bool = True,
+        verbose: bool = False,
         memory_system: Any = None,
         output_type: OutputType = "all",
         autosave: bool = True,
@@ -53,7 +53,7 @@ class AgentRearrange:
 ## Parameters
 
 <ParamField path="id" type="str" default="auto-generated">
-  Unique identifier for the agent rearrange system. Auto-generated if not provided.
+  Unique identifier for the agent rearrange system. Auto-generated via `generate_id("agent-rearrange")` if not provided, producing `agent-rearrange-<32 hex chars>`.
 </ParamField>
 
 <ParamField path="name" type="str" default="AgentRearrange">

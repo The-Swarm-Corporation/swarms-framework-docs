@@ -54,7 +54,7 @@ pip install -U swarms
 ## Attributes
 
 <ParamField path="id" type="str" default="None">
-  Unique identifier for this swarm instance. Auto-generated via `swarm_id()` if not provided.
+  Unique identifier for this swarm instance. Auto-generated via `generate_id("advisor-swarm")` if not provided, producing `advisor-swarm-<32 hex chars>`.
 </ParamField>
 
 <ParamField path="name" type="str" default="AdvisorSwarm">

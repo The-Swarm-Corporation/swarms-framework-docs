@@ -90,9 +90,9 @@ pip install -r requirements.txt
 After installation, verify that Swarms is correctly installed:
 
 ```python
-import swarms
+from importlib.metadata import version
 
-print(f"Swarms version: {swarms.__version__}")
+print(f"Swarms version: {version('swarms')}")
 print("Swarms is ready!")
 ```
 
@@ -167,18 +167,12 @@ If you're planning to contribute to Swarms or need the latest development featur
   Installing in editable mode (`-e` flag) allows you to modify the source code and see changes immediately without reinstalling.
 </Info>
 
-## Optional Dependencies
+## Development Dependencies
 
-Swarms has optional dependencies for specific features:
+The `swarms` package on PyPI has no pip extras (no `swarms[all]`, `[tools]`, `[ui]`, or `[dev]`). If you're working from a development checkout and need the extra tooling used to test and lint the project, install it from `requirements.txt` instead:
 
 ```bash
-# Install with all optional dependencies
-pip3 install swarms[all]
-
-# Install with specific extras
-pip3 install swarms[tools]      # Additional tool integrations
-pip3 install swarms[ui]         # Web UI components
-pip3 install swarms[dev]        # Development tools
+pip install -r requirements.txt
 ```
 
 ## Virtual Environments (Recommended)

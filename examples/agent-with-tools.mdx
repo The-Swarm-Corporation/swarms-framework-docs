@@ -239,41 +239,30 @@ agent = Agent(
 )
 ```
 
-### 2. BaseTool Class
+### 2. Custom Tool with Configuration
 
-For more complex tools, use the `BaseTool` class:
+For tools that need configuration such as an API key, read it inside a plain function and pass the function directly:
 
 ```python
-from swarms.tools.base_tool import BaseTool
-from pydantic import Field
+import os
 
-class WebSearchTool(BaseTool):
+def web_search(query: str) -> str:
     """
-    Web search tool for finding information online
-    """
-    name: str = "web_search"
-    description: str = "Search the web for information"
-    api_key: str = Field(..., description="API key for search service")
-    
-    def run(self, query: str) -> str:
-        """
-        Execute web search
-        
-        Args:
-            query (str): Search query
-            
-        Returns:
-            str: Search results
-        """
-        # Implementation
-        return f"Search results for: {query}"
+    Search the web for information
 
-# Use the tool
-search_tool = WebSearchTool(api_key=os.getenv("SEARCH_API_KEY"))
+    Args:
+        query (str): Search query
+
+    Returns:
+        str: Search results
+    """
+    api_key = os.getenv("SEARCH_API_KEY")
+    # Implementation
+    return f"Search results for: {query}"
 
 agent = Agent(
     model_name="gpt-5.4",
-    tools=[search_tool],
+    tools=[web_search],
 )
 ```
 

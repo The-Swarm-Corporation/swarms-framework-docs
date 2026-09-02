@@ -77,11 +77,15 @@ swarm = HierarchicalSwarm(
     director_model_name="gpt-5.4",
     director_temperature=0.7,
     director_top_p=None,
+    director_settings={
+        "streaming_on": True,
+        "streaming_callback": tts_callbacks["Director"],
+    },
     planning_enabled=True,
 )
 ```
 
-`planning_enabled=True` makes the director draft an explicit plan before delegating work.
+`planning_enabled=True` makes the director draft an explicit plan before delegating work. `director_settings` is merged into the director agent's own construction, so this is what actually wires the `"Director"` TTS callback up — without it, that callback is built but never attached to anything and the director stays silent.
 
 ## Step 5: Run, then flush every callback
 

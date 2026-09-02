@@ -40,7 +40,7 @@ The council evaluates responses across six key dimensions:
 </ParamField>
 
 <ParamField path="model_name" type="str" default="gpt-5.4">
-  Model name for judge agents (if not using random models)
+  Currently has no effect on judge selection. Judge agents are always built with `judge_agent_model_name` (see below); `reliability_check()` only ever overwrites this attribute with a random model string when `random_model_name=True`, and nothing reads it back afterward.
 </ParamField>
 
 <ParamField path="output_type" type="str" default="final">
@@ -52,7 +52,7 @@ The council evaluates responses across six key dimensions:
 </ParamField>
 
 <ParamField path="random_model_name" type="bool" default="True">
-  Whether to use random model names for diversity
+  Currently has no effect on judge selection. When `True`, `reliability_check()` assigns a random model string to `self.model_name`, but `_create_judges()` never reads `self.model_name` -- judge models are controlled solely by `judge_agent_model_name`.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
@@ -60,11 +60,11 @@ The council evaluates responses across six key dimensions:
 </ParamField>
 
 <ParamField path="aggregation_model_name" type="str" default="gpt-5.4">
-  Model name for the aggregator agent
+  Model name for the aggregator agent. This one does correctly control the aggregator.
 </ParamField>
 
 <ParamField path="judge_agent_model_name" type="Optional[str]" default="None">
-  Specific model for judge agents (overrides model_name)
+  The model used to build every judge agent (`_create_judges()` passes it as `model_name` for each dimension judge). This is the only parameter that controls judge models. Since it defaults to `None`, judges are built with `model_name=None` unless you set this explicitly.
 </ParamField>
 
 ## Methods
@@ -113,24 +113,13 @@ print(evaluation)
 ### Custom Model Configuration
 
 ```python
-# Use specific models for evaluation
+# Use specific models for evaluation.
+# NOTE: model_name has no effect on judge agents -- use judge_agent_model_name
+# to control the model judges run on (random_model_name also has no effect).
 council = CouncilAsAJudge(
-    model_name="claude-sonnet-4-6",  # For judge agents
+    judge_agent_model_name="claude-sonnet-4-6",  # For judge agents
     aggregation_model_name="claude-sonnet-4-6",  # For final synthesis
-    random_model_name=False,  # Don't randomize
     output_type="dict"
-)
-
-evaluation = council.run(task_response)
-```
-
-### With Random Model Diversity
-
-```python
-# Use random models for diverse perspectives
-council = CouncilAsAJudge(
-    random_model_name=True,  # Each judge uses different model
-    output_type="final"
 )
 
 evaluation = council.run(task_response)
@@ -159,7 +148,6 @@ for message in full_evaluation:
 council = CouncilAsAJudge(
     judge_agent_model_name="anthropic/claude-sonnet-4-5",
     aggregation_model_name="claude-sonnet-4-6",
-    random_model_name=False
 )
 
 evaluation = council.run(task_response)
@@ -249,7 +237,7 @@ evaluation = council.run(task_response)
    - Use `"json"` for integration with other systems
 
 2. **Model Selection**:
-   - Enable `random_model_name=True` for diverse perspectives
+   - Set `judge_agent_model_name` to control which model judges run on -- `model_name` and `random_model_name` currently have no effect on judge selection
    - Use stronger models (GPT-4, Claude) for critical evaluations
    - Use faster models (GPT-4o-mini) for development/testing
 

@@ -15,7 +15,7 @@ The Job Finding Swarm consists of three specialized agents, each responsible for
 | Agent Name                  | Role                        | Responsibilities                                                                                  |
 | :-------------------------- | :-------------------------- | :----------------------------------------------------------------------------------------------- |
 | **Sarah-Requirements-Analyzer** | Clarifies requirements      | Gathers and analyzes user job preferences; generates 3-5 search queries.                         |
-| **David-Search-Executor**   | Runs job searches           | Uses `exa_search` for each query; analyzes and categorizes job results by match strength.        |
+| **David-Search-Executor**   | Runs job searches           | Uses `get_jobs` (RapidAPI's JSearch API) for each query; analyzes and categorizes job results by match strength. |
 | **Lisa-Results-Curator**    | Organizes results           | Filters, prioritizes, and presents jobs; provides top picks and refines search with user input.  |
 
 ## Step 1: Setup and Installation
@@ -40,13 +40,13 @@ The Job Finding Swarm consists of three specialized agents, each responsible for
     pip install httpx swarms_tools
     ```
 2.  **Set up API Keys:**
-    The `Property Research Agent` utilizes the `exa_search` tool, which requires an `EXA_API_KEY`.
+    The `David-Search-Executor` agent's `get_jobs` tool calls the JSearch API on RapidAPI, which requires a RapidAPI key sent as the `x-rapidapi-key` header. Subscribe to the [JSearch API](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) on RapidAPI to get a key.
     Create a `.env` file in the root directory of your project (or wherever your application loads environment variables) and add your API keys:
     ```
-    EXA_API_KEY="YOUR_EXA_API_KEY"
+    RAPIDAPI_KEY="YOUR_RAPIDAPI_KEY"
     OPENAI_API_KEY="OPENAI_API_KEY"
     ```
-    Replace `"YOUR_EXA_API_KEY"` & `"OPENAI_API_KEY"` with your actual API keys.
+    Replace `"YOUR_RAPIDAPI_KEY"` & `"OPENAI_API_KEY"` with your actual API keys. Load `RAPIDAPI_KEY` (e.g. with `python-dotenv` and `os.getenv("RAPIDAPI_KEY")`) and pass it as the `x-rapidapi-key` header value in `get_jobs` instead of the hardcoded empty string in the snippet below.
 
 ## Step 2: Running the Job Finding Swarm
 
@@ -356,32 +356,29 @@ if __name__ == "__main__":
 
 Upon execution, the swarm will:
 1.  Analyze the provided `user_requirements`.
-2.  Generate and execute search queries using Exa.
+2.  Generate a search query and execute it against the JSearch API via `get_jobs`.
 3.  Curate and present the results in a structured format, including top recommendations and a prompt for user feedback.
 
 The output will be printed to the console, showing the progression of the agents through each phase of the job search.
 
 ## Workflow Stages
 
-The `JobSearchSwarm` processes the job search through a continuous, iterative workflow:
+`main()` runs the three agents through a single `SequentialWorkflow` pass, each agent's output feeding the next as context:
 
-1.  **Phase 1: Analyze Requirements (`analyze_requirements`)**: The `Sarah-Requirements-Analyzer` agent processes the user's input and conversation history to extract job criteria and generate optimized search queries.
-2.  **Phase 2: Execute Searches (`execute_searches`)**: The `David-Search-Executor` agent takes the generated queries, uses the `exa_search` tool to find job listings, and analyzes their relevance against the user's requirements.
-3.  **Phase 3: Curate Results (`curate_results`)**: The `Lisa-Results-Curator` agent reviews, filters, and organizes the search results, presenting top recommendations and asking for user feedback to guide further iterations.
-4.  **Phase 4: Get User Feedback (`end`)**: In a full implementation, this stage gathers explicit user feedback to determine if the search needs refinement or can be concluded. For demonstration, this is a simulated step.
+1.  **Stage 1: Analyze Requirements**: The `Sarah-Requirements-Analyzer` agent processes `user_requirements` to extract job criteria and generate an optimized search query.
+2.  **Stage 2: Execute Search**: The `David-Search-Executor` agent takes that query, calls the `get_jobs` tool (JSearch API on RapidAPI) to find job listings, and analyzes their relevance against the user's requirements.
+3.  **Stage 3: Curate Results**: The `Lisa-Results-Curator` agent reviews, filters, and organizes the search results, presenting top recommendations and asking for user feedback to guide further iterations.
 
-The swarm continues these phases in a loop until the `search_concluded` flag is set to `True` or `max_loops` is reached.
+The workflow runs once end to end (`max_loops=1`); wrap the `workflow.run(...)` call in your own loop and feed refined requirements back in if you want iterative refinement.
 
 ## Customization
 
-You can customize the `JobSearchSwarm` by modifying the `JobSearchSwarm` class parameters or the agents' prompts:
+You can customize this example by modifying the `SequentialWorkflow` parameters or the agents' prompts:
 
-*   **`name` and `description`**: Customize the swarm's identity.
-*   **`user_name`**: Define the name of the user interacting with the swarm.
-*   **`output_type`**: Specify the desired output format for the conversation history (e.g., "json" or "list").
-*   **`max_loops`**: Control the number of internal reasoning iterations each agent performs (set during agent initialization).
+*   **`name` and `description`**: Customize the workflow's identity.
+*   **`team_awareness`**: Whether each agent sees the prior agents' outputs as shared context.
+*   **`max_loops`**: Control the number of internal reasoning iterations each agent performs (set during agent initialization), as well as how many end-to-end passes the workflow makes.
 *   **`system_prompt`**: Modify the `REQUIREMENTS_ANALYZER_PROMPT`, `SEARCH_EXECUTOR_PROMPT`, and `RESULTS_CURATOR_PROMPT` to refine agent behavior and output.
-*   **`max_loops`**: Limit the total number of search cycles the swarm performs.
 
 ## Best Practices
 
@@ -390,11 +387,11 @@ To get the most out of the AI Job Finding Swarm:
 *   **Provide Clear Requirements**: Start with a detailed and unambiguous `initial_user_input` to help the Requirements Analyzer generate effective queries.
 *   **Iterate and Refine**: In a live application, leverage the user feedback loop to continuously refine search criteria and improve result relevance.
 *   **Monitor Agent Outputs**: Regularly review the outputs from each agent to ensure they are performing as expected and to identify areas for prompt improvement.
-*   **Manage API Usage**: Be mindful of your Exa API key usage, especially when experimenting with `max_loops` or a large number of search queries.
+*   **Manage API Usage**: Be mindful of your RapidAPI (JSearch) usage, especially when experimenting with `max_loops` or a large number of search queries.
 
 ## Limitations
 
 *   **Prompt Engineering Dependency**: The quality of the search results heavily depends on the clarity and effectiveness of the agent `system_prompt`s and the initial user input.
-*   **Exa Search Scope**: The `exa_search` tool's effectiveness is tied to the breadth and depth of Exa's indexed web content.
-*   **Iteration Control**: The current `end` method in `examples/demos/apps/job_finding.py` is simplified for demonstration. A robust production system would require a more sophisticated user interaction mechanism to determine when to stop or refine the search.
+*   **Job Search Scope**: The `get_jobs` tool's effectiveness is tied to the coverage of the JSearch API's job listing sources, and results are limited to a single query per run.
+*   **Iteration Control**: The example above runs a single pass (`max_loops=1`) and prints the result. A robust production system would need its own loop and a more sophisticated user interaction mechanism to determine when to stop or refine the search.
 *   **Verification Needed**: All AI-generated outputs, including job matches and summaries, should be independently verified by the user.

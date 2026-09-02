@@ -52,8 +52,8 @@ pip install -U swarms
 
 ## Attributes
 
-<ParamField path="id" type="str" default="swarm_id()">
-  Unique identifier for the workflow.
+<ParamField path="id" type="str" default="auto-generated">
+  Unique identifier for the workflow. Auto-generated via `generate_id("batched-grid-workflow")` if not provided, producing `batched-grid-workflow-<32 hex chars>`.
 </ParamField>
 
 <ParamField path="name" type="str" default="BatchedGridWorkflow">

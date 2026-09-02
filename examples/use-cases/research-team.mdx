@@ -108,6 +108,7 @@ research_team = HierarchicalSwarm(
     description="Autonomous research team for comprehensive analysis",
     agents=[researcher_agent, data_analyst, critical_analyst, report_writer],
     max_loops=1,
+    output_type="final",  # return the final report as a string
 )
 
 # Execute research project
@@ -171,7 +172,7 @@ researcher_agent = Agent(
     agent_name="Primary-Researcher",
     # ... other params
     max_loops=3,  # Allow multiple research iterations
-    stopping_condition="research is comprehensive",
+    stopping_condition=lambda response: "research is comprehensive" in response.lower(),
 )
 ```
 
@@ -249,7 +250,7 @@ results = [parallel_research.run(topic) for topic in topics]
 researcher_agent = Agent(
     agent_name="Primary-Researcher",
     # ... other params
-    cache_enabled=True,  # Reuse similar research queries
+    prompt_caching=True,  # Enable provider-side prompt caching
 )
 ```
 

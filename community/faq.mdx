@@ -117,8 +117,8 @@ icon: "circle-question"
 
     3. **Verify installation:**
        ```python
-       import swarms
-       print(swarms.__version__)
+       from importlib.metadata import version
+       print(version("swarms"))
        ```
 
     4. **Check for virtual environment conflicts:**
@@ -334,7 +334,8 @@ icon: "circle-question"
 
        agent = Agent(
            agent_name="StructuredAgent",
-           output_type=Response
+           list_base_models=[Response],  # Adds the schema to the agent's memory as guidance
+           output_type="final",          # Return just the model's final text response
        )
        ```
   </Accordion>
@@ -577,32 +578,21 @@ icon: "circle-question"
        ```python
        agent = Agent(
            verbose=True,
-           save_state=True
+           autosave=True
        )
        ```
 
-    2. **Custom Callbacks:**
-       ```python
-       def on_agent_complete(result):
-           # Log to your monitoring system
-           logger.info(f"Agent completed: {result}")
-
-       agent = Agent(
-           on_complete=on_agent_complete
-       )
-       ```
-
-    3. **Metrics Collection:**
+    2. **Metrics Collection:**
        - Track execution time
        - Monitor token usage
        - Count errors and retries
 
-    4. **Integration with Observability Tools:**
+    3. **Integration with Observability Tools:**
        - Datadog
        - New Relic
        - Prometheus + Grafana
 
-    5. **Dashboard:**
+    4. **Dashboard:**
        ```python
        from swarms import HeavySwarm
 

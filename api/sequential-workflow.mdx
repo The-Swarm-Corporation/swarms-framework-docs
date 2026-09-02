@@ -177,9 +177,9 @@ Executes the specified task through the agents asynchronously.
   The final result after processing through all agents
 </ResponseField>
 
-### `run_concurrent(tasks)`
+### `async run_concurrent(tasks)`
 
-Executes a batch of tasks through the agents concurrently using ThreadPoolExecutor.
+Executes a batch of tasks through the agents concurrently using ThreadPoolExecutor. This method is `async` and must be awaited.
 
 <ParamField path="tasks" type="List[str]" required>
   A list of tasks for the agents to execute. Must be a non-empty list of strings.
@@ -355,6 +355,8 @@ for task, result in zip(tasks, results):
 
 ### Concurrent Task Execution
 
+`run_concurrent` is `async`, so it must be awaited:
+
 ```python
 import asyncio
 
@@ -365,8 +367,12 @@ tasks = [
     "Research machine learning"
 ]
 
-results = workflow.run_concurrent(tasks)
-print(f"Processed {len(results)} tasks concurrently")
+async def main():
+    results = await workflow.run_concurrent(tasks)
+    print(f"Processed {len(results)} tasks concurrently")
+    return results
+
+results = asyncio.run(main())
 ```
 
 ### Async Execution

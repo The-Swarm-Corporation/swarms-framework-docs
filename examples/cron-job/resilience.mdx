@@ -8,18 +8,20 @@ A job that runs every thirty seconds for a week will fail sometimes. A rate limi
 
 ## The model
 
-A task that raises is **logged and retried on the next tick**. It does not take the schedule down. That is how cron behaves, and it is the only sensible default for something meant to run unattended.
+A task that raises is **logged and retried**. It does not take the schedule down. Under the hood, `CronJob` polls the underlying `schedule` library roughly once a second, and `schedule` only advances a job's `next_run` on success — a raised exception leaves the job due immediately, so it gets retried on the *next ~1-second poll tick*, not paced by the configured `interval`. That is the only sensible default for something meant to run unattended, but it does mean a failing job can be retried far more often than its `interval` suggests.
 
 ```
-tick ──> agent.run(task) ──> raised?
-                               │
-                               ├── no  ──> execution_count += 1
-                               │           consecutive_errors = 0
-                               │
-                               └── yes ──> log with traceback
-                                           error_count += 1
-                                           consecutive_errors += 1
-                                           ... wait for next tick, try again
+~1s poll ──> due? ──> agent.run(task) ──> raised?
+                                            │
+                                            ├── no  ──> execution_count += 1
+                                            │           consecutive_errors = 0
+                                            │           next_run advances by `interval`
+                                            │
+                                            └── yes ──> log with traceback
+                                                        error_count += 1
+                                                        consecutive_errors += 1
+                                                        next_run does NOT advance
+                                                        ... still due, retried on the next ~1s poll
 ```
 
 <Note>
@@ -143,7 +145,7 @@ else:
     print(f"Stopped cleanly: {s['execution_count']} ok, {s['error_count']} failed.")
 ```
 
-A representative run: **19 successful executions and 21 failures over sixty seconds**, never stopping, because the failures never stacked ten deep in a row.
+A representative run: **19 successful executions and 21 failures over sixty seconds**, never stopping, because the failures never stacked ten deep in a row. That total (40 runs) is higher than a naive "one tick every 2 seconds" model would predict — failures are retried on CronJob's ~1-second poll loop rather than waiting out the full `interval`, so a flaky job burns through attempts faster than its configured interval implies.
 
 ## Budgets across a fleet
 

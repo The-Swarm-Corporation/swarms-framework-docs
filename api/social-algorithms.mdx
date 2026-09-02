@@ -75,6 +75,16 @@ from swarms import SocialAlgorithms
   standard Conversation API, for example `social_alg.conversation.get_str()`.
 </ParamField>
 
+### Constructor Validation
+
+The constructor calls `_validate_inputs()` before returning, which raises:
+
+| Exception | Condition |
+|---|---|
+| `ValueError` | `agents` is empty, or any element of `agents` is not an `Agent` instance |
+| `ValueError` | `max_execution_time` is not positive (`<= 0`) |
+| `InvalidAlgorithmError` | `social_algorithm` is set but not callable |
+
 ## Methods
 
 ### run()
@@ -94,22 +104,6 @@ def run(self, task: str, algorithm_args: Optional[Dict[str, Any]] = None, **kwar
 **Raises:**
 - `InvalidAlgorithmError`: If no social algorithm is defined.
 - `TimeoutError`: If the algorithm execution exceeds max_execution_time.
-
----
-
-### run_async()
-
-Execute the social algorithm asynchronously under the hood (via `asyncio.run`) but exposed as a regular synchronous method — call it directly, do not `await` it.
-
-```python
-def run_async(self, task: str, algorithm_args: Optional[Dict[str, Any]] = None, **kwargs) -> SocialAlgorithmResult
-```
-
-**Parameters:**
-- `task` (str): The task to execute using the social algorithm.
-- `algorithm_args` (Dict[str, Any]): Additional arguments for the algorithm.
-
-**Returns:** `SocialAlgorithmResult`
 
 ---
 
@@ -140,9 +134,8 @@ def remove_agent(self, agent_name: str) -> None
 **Parameters:**
 - `agent_name` (str): Name of the agent to remove.
 
-<Note>
-The current implementation removes via `del self.agents[agent_name]`, which indexes the `agents` list directly rather than looking up an agent by name. Passing a name (rather than a valid list index) will raise a `TypeError`, not `AgentNotFoundError`.
-</Note>
+**Raises:**
+- `AgentNotFoundError`: If no agent with `agent_name` is found.
 
 ---
 

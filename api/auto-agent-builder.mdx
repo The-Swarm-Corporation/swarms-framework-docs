@@ -116,6 +116,28 @@ Generates the roster in the shape this builder was configured for.
 
 ---
 
+### `batch_run()`
+
+```python
+def batch_run(self, tasks: List[str]) -> Any
+```
+
+Generates a roster for each task in sequence by calling `run()` once per task.
+
+**Parameters:**
+
+<ParamField path="tasks" type="List[str]" required>
+  The tasks the generated team should be able to handle
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="List[Union[List[Agent], List[Dict[str, str]]]]">
+  The roster generated for each task, in the same shape `run()` would return per task
+</ResponseField>
+
+---
+
 ### `build_agents()`
 
 ```python
