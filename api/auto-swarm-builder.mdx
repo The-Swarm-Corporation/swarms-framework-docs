@@ -35,14 +35,6 @@ from swarms import AutoSwarmBuilder
   The LLM model to use for the boss agent that designs the swarm architecture
 </ParamField>
 
-<ParamField path="generate_router_config" type="bool" default="False">
-  Whether to generate SwarmRouter configuration (legacy parameter)
-</ParamField>
-
-<ParamField path="interactive" type="bool" default="False">
-  Whether to enable interactive mode
-</ParamField>
-
 <ParamField path="max_tokens" type="int" default="8000">
   Maximum tokens for the LLM responses from the boss agent
 </ParamField>
@@ -57,6 +49,10 @@ from swarms import AutoSwarmBuilder
 
 <ParamField path="additional_llm_args" type="dict" default="{}">
   Additional arguments to pass to the LiteLLM wrapper
+</ParamField>
+
+<ParamField path="auto_execute" type="bool" default="False">
+  Default value for `run()`'s `execute` parameter. When `True`, `run()` builds real `Agent` objects from a freshly generated spec and executes them through a `SwarmRouter` (via `build_and_run_swarm()`) instead of returning a spec-only result
 </ParamField>
 
 ## Execution Types
@@ -103,7 +99,7 @@ Returns instantiated Agent objects ready for use:
 ### `run()`
 
 ```python
-def run(self, task: str, *args, **kwargs) -> Any
+def run(self, task: str, execute: Optional[bool] = None, *args, **kwargs) -> Any
 ```
 
 Runs the swarm builder on a given task, creating agents based on execution type.
@@ -114,10 +110,14 @@ Runs the swarm builder on a given task, creating agents based on execution type.
   The task to execute. The boss agent will analyze this task and design an appropriate swarm architecture
 </ParamField>
 
+<ParamField path="execute" type="Optional[bool]" default="None">
+  When `True`, builds real agents and a `SwarmRouter` from a freshly generated spec and runs it (see `build_and_run_swarm()`), returning a dict that includes the execution output. When `False`, only a spec-only result is returned, per `swarm_type`. Defaults to `self.auto_execute` when left as `None`
+</ParamField>
+
 **Returns:**
 
 <ResponseField name="result" type="Any">
-  The result depends on swarm_type:
+  When executing (`execute` resolves to `True`): a dict from `build_and_run_swarm()`. Otherwise, the result depends on swarm_type:
   - "return-agents": Dictionary with agent specifications
   - "return-swarm-router-config": SwarmRouter configuration dictionary
   - "return-agents-objects": List of instantiated Agent objects
@@ -126,6 +126,28 @@ Runs the swarm builder on a given task, creating agents based on execution type.
 **Raises:**
 - `ValueError`: If swarm_type is invalid
 - `Exception`: If there's an error during swarm execution
+
+---
+
+### `build_and_run_swarm()`
+
+```python
+def build_and_run_swarm(self, task: str) -> dict
+```
+
+Designs a multi-agent team for `task` and executes it. Generates one validated `SwarmRouterConfig`, builds the real `Agent` objects from that same spec's agents, and runs a `SwarmRouter` with them — so the agents that execute are exactly the ones described in the returned metadata, unlike chaining `create_agents()` and `initialize_swarm_router()` (which make two independent, potentially-disagreeing LLM calls). This is what `run()` calls when `execute` resolves to `True`.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to design and run a swarm for
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="dict">
+  `{"name", "description", "agents" (names actually built), "swarm_type", "task", "output"}` where `output` is the `SwarmRouter`'s execution result
+</ResponseField>
 
 ---
 

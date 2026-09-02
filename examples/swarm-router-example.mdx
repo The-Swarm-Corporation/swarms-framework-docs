@@ -357,9 +357,9 @@ tasks = [
 ]
 sequential_results = router.batch_run(tasks)
 
-# Single task in a separate thread
-threaded_result = router.concurrent_run(
-    "Summarize the 2026 generative-AI consumer landscape."
+# Tasks run concurrently, one per thread
+threaded_results = router.concurrent_run(
+    ["Summarize the 2026 generative-AI consumer landscape."]
 )
 ```
 
@@ -378,7 +378,6 @@ threaded_result = router.concurrent_run(
 | Adversarial debate with a judge | `"DebateWithJudge"` |
 | Council deliberates, judge rules | `"CouncilAsAJudge"` |
 | Round-robin task distribution | `"RoundRobin"` |
-| Batched grid execution | `"BatchedGridWorkflow"` |
 | LLM-driven council decisions | `"LLMCouncil"` |
 | Task-aware routing to one agent | `"MultiAgentRouter"` |
 

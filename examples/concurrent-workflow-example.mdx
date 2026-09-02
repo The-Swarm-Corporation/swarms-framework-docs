@@ -65,7 +65,7 @@ print(results)
    - Market Analyst examines market trends
    - Financial Analyst evaluates financial implications
    - Risk Analyst identifies potential risks
-3. **Result Collection**: All three analyses are collected and returned as a dictionary
+3. **Result Collection**: All three analyses are collected and returned as a list of role/content message dicts
 4. **Comprehensive Output**: You receive multiple perspectives on the same topic in the time it takes for the slowest agent to complete
 
 ## Common Use Cases
@@ -127,9 +127,9 @@ investment_workflow = ConcurrentWorkflow(
 analysis = investment_workflow.run("Should we invest in NVIDIA stock right now?")
 
 # Process results from each analyst
-for analyst_name, analysis_result in analysis.items():
-    print(f"\n=== {analyst_name} ===")
-    print(analysis_result)
+for entry in analysis:
+    print(f"\n=== {entry['role']} ===")
+    print(entry['content'])
 ```
 
 ### Content Variation Generator

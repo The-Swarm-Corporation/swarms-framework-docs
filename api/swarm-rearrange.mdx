@@ -16,8 +16,8 @@ pip install -U swarms
 
 ## Attributes
 
-<ParamField path="id" type="str" default="UUID">
-  Unique identifier for the swarm arrangement.
+<ParamField path="id" type="str" default="generate_id('swarm-rearrange')">
+  Unique identifier for the swarm arrangement, e.g. `swarm-rearrange-<32 hex>` — not a UUID.
 </ParamField>
 
 <ParamField path="name" type="str" default="SwarmRearrange">
@@ -57,7 +57,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="output_type" type="HistoryOutputType" default="dict-all-except-first">
-  Format applied to the conversation history. Options include `"dict-all-except-first"`, `"dict"`, `"list"`, `"str"`, `"final"`.
+  Currently has no effect: `self.output_type` is stored but never read. `run()` never calls `history_output_formatter` and always returns `current_task`, a plain string (see `run()` below).
 </ParamField>
 
 ## Methods
@@ -144,7 +144,7 @@ def run(self, task: str = None, img: str = None, custom_tasks: Dict[str, str] = 
 - `custom_tasks` (Dict[str, str], optional): Custom tasks mapped to specific swarms
 - `*args`, `**kwargs`: Forwarded to each swarm's `run()` call
 
-**Returns:** The result of the swarm execution
+**Returns:** A plain `str` -- always `current_task` (the final swarm's textual output), regardless of `output_type`. `run()` catches all exceptions internally and, on failure, returns `str(e)` instead of raising -- so callers must check the returned string for error text rather than relying on a `try`/`except` around `run()`.
 
 ## Flow Pattern Syntax
 
@@ -342,7 +342,7 @@ result = arrangement.run("Initial task")
 | Best Practice | Description |
 |--------------|-------------|
 | **Flow Validation** | Always validate flows before execution |
-| **Error Handling** | Implement try-catch blocks around `run()` calls |
+| **Error Handling** | `run()` never raises -- it catches all exceptions internally and returns `str(e)`. Inspect the returned string for error text rather than wrapping `run()` in try/catch |
 | **History Tracking** | Use `track_history()` for monitoring swarm execution |
 | **Resource Management** | Set appropriate `max_loops` to prevent infinite execution |
 | **Logging** | Enable verbose mode during development for detailed logging |

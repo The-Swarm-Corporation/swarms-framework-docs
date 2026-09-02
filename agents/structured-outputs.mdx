@@ -18,6 +18,10 @@ Swarms supports multiple output formats through the `output_type` parameter. `ou
 - `"list"` — the conversation as a list of message dicts
 - `"yaml"` — the conversation history as a YAML string
 - `"xml"` — the conversation history as an XML string
+- `"all"` — the conversation as a string (same as `"string"`)
+- `"dict-all-except-first"` — all messages except the first, as a list of message dicts. This is the default `output_type` used internally by several multi-agent harnesses (`HeavySwarm`, `HierarchicalSwarm`, `SwarmRouter`, `LLMCouncil`, `PlannerWorkerSwarm`, and others)
+- `"list-final"` — the content of the last message, wrapped in a single-item list
+- `"dict-final"` — the content of the last message, as a `(content, content)` tuple
 
 ```python
 from swarms import Agent
@@ -504,4 +508,4 @@ class Address(BaseModel):
 
 - Output type formatting: `swarms/utils/history_output_formatter.py`
 - Pydantic integration: `swarms/tools/pydantic_to_json.py`
-- Tool/list-base-model schema handling: `swarms/structs/agent.py:3989-4017` (`handle_tool_schema_ops`)
+- Tool/list-base-model schema handling: `swarms/structs/agent.py:3059-3087` (`handle_tool_schema_ops`)

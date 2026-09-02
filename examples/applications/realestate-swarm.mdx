@@ -10,8 +10,8 @@ The Real Estate Swarm is a multi-agent system designed to automate and streamlin
 
 The `RealEstateSwarm` operates as a **sequential workflow**, where each agent's output feeds into the next, ensuring a cohesive and comprehensive process. The swarm consists of the following agents:
 
-1.  **Lead Generation Agent (Alex)**: Identifies and qualifies potential real estate clients by gathering their property requirements, budget, preferred locations, and investment goals. This agent also uses the `exa_search` tool for initial lead information.
-2.  **Property Research Agent (Emma)**: Conducts in-depth research on properties matching client criteria and market trends. It leverages the `exa_search` tool to gather up-to-date information on local market trends, property values, investment potential, and neighborhood insights.
+1.  **Lead Generation Agent (Alex)**: Identifies and qualifies potential real estate clients by gathering their property requirements, budget, preferred locations, and investment goals. This agent works from the brief you supply and carries no tools of its own.
+2.  **Property Research Agent (Emma)**: Conducts in-depth research on properties matching client criteria and market trends. It is the only agent equipped with the `get_properties` tool, which queries live listings from the Realty-in-US API on RapidAPI.
 3.  **Marketing Agent (Jack)**: Develops and executes marketing strategies to promote properties. This includes creating compelling listings, implementing digital marketing campaigns, and managing client interactions.
 4.  **Transaction Management Agent (Sophia)**: Handles all documentation, legal, and financial aspects of property transactions, ensuring compliance and smooth closing processes.
 5.  **Property Maintenance Agent (Michael)**: Manages property condition, oversees maintenance and repairs, and prepares properties for sale or rental, including staging and enhancing curb appeal.
@@ -42,13 +42,13 @@ To set up and run the Real Estate Swarm, follow these steps:
     pip install httpx swarms_tools
     ```
 2.  **Set up API Keys:**
-    The `Property Research Agent` utilizes the `exa_search` tool, which requires an `EXA_API_KEY`.
+    The `get_properties` tool below calls the Realty-in-US API on RapidAPI, which requires a `RAPIDAPI_KEY`.
     Create a `.env` file in the root directory of your project (or wherever your application loads environment variables) and add your API keys:
     ```
-    EXA_API_KEY="YOUR_EXA_API_KEY"
-    OPENAI_API_KEY="OPENAI_API_KEY"
+    RAPIDAPI_KEY="YOUR_RAPIDAPI_KEY"
+    OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
     ```
-    Replace `"YOUR_EXA_API_KEY"` & `"OPENAI_API_KEY"` with your actual API keys.
+    Replace both values with your actual API keys. Never hardcode a key into the tool body — the example reads it with `os.getenv`.
 
 ## Step 2: Running the Real Estate Swarm
 
@@ -57,6 +57,7 @@ To set up and run the Real Estate Swarm, follow these steps:
 from swarms import Agent, SequentialWorkflow
 import http.client
 import json
+import os
 
 def get_properties(postal_code: str, min_price: int, max_price: int, limit: int = 1) -> str:
     """
@@ -80,7 +81,7 @@ def get_properties(postal_code: str, min_price: int, max_price: int, limit: int 
 
     conn = http.client.HTTPSConnection("realty-in-us.p.rapidapi.com")
     headers = {
-        "x-rapidapi-key": "35ae958601msh5c0eae51c54f989p1463c4jsn098ec5be18b8",
+        "x-rapidapi-key": os.getenv("RAPIDAPI_KEY"),
         "x-rapidapi-host": "realty-in-us.p.rapidapi.com",
         "Content-Type": "application/json"
     }

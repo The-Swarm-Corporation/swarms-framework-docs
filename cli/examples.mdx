@@ -66,21 +66,27 @@ Create `research_team.yaml`:
 
 ```yaml
 agents:
-  - name: "Data Collector"
+  - agent_name: "Data Collector"
     model_name: "claude-sonnet-4-6"
     system_prompt: "Gather and organize relevant information."
     temperature: 0.1
     max_loops: 3
-  - name: "Data Analyzer"
+  - agent_name: "Data Analyzer"
     model_name: "claude-sonnet-4-6"
     system_prompt: "Analyze data and extract insights."
     temperature: 0.2
     max_loops: 4
-  - name: "Report Writer"
+  - agent_name: "Report Writer"
     model_name: "claude-sonnet-4-6"
     system_prompt: "Write a clear report from the analysis."
     temperature: 0.3
     max_loops: 3
+
+swarm_architecture:
+  name: "Research-Team-Swarm"
+  description: "Collect data, analyze it, and write a report"
+  swarm_type: "SequentialWorkflow"
+  task: "Research the current state of solid-state batteries"
 ```
 
 Run:
@@ -102,11 +108,17 @@ Each `.md` file uses frontmatter for `name`, `model_name`, `temperature`, `max_l
 ```yaml
 # simple_agent.yaml
 agents:
-  - name: "Simple Assistant"
+  - agent_name: "Simple Assistant"
     model_name: "claude-sonnet-4-6"
     system_prompt: "You are a helpful AI assistant."
     temperature: 0.7
     max_loops: 1
+
+swarm_architecture:
+  name: "Simple-Assistant-Swarm"
+  description: "A single general-purpose assistant"
+  swarm_type: "SequentialWorkflow"
+  task: "Hello, world!"
 ```
 
 ## Troubleshooting

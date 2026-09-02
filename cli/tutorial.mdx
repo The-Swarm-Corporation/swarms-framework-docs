@@ -99,7 +99,7 @@ The fastest way to talk to a model:
 swarms chat
 ```
 
-That's it. The CLI builds an Agent with autonomous looping enabled (`max_loops="auto"`), drops you into an interactive REPL, and streams responses back. Type `exit` or hit `Ctrl-C` to leave — your session state is autosaved so you can resume later.
+That's it. The CLI builds an Agent with autonomous looping enabled (`max_loops="auto"`) and drops you into an interactive REPL. Responses print once each is complete — `swarms chat` does not enable streaming or autosave by default. Type `exit` or hit `Ctrl-C` to leave the session.
 
 Customize the persona:
 
@@ -266,14 +266,17 @@ For repeatable workflows, define agents in a YAML or markdown file and load them
 
 ```yaml
 agents:
-  - name: Researcher
+  - agent_name: Researcher
     model_name: gpt-5.4
     system_prompt: You research a topic thoroughly with citations.
-  - name: Writer
+  - agent_name: Writer
     model_name: claude-opus-4-7
     system_prompt: You turn research into engaging prose.
-swarm:
-  type: SequentialWorkflow
+
+swarm_architecture:
+  name: Research-Brief-Swarm
+  description: Research a topic, then write a brief from the research
+  swarm_type: SequentialWorkflow
   task: Write a 500-word brief on the future of robotic surgery
 ```
 
@@ -308,7 +311,7 @@ Markdown loading is the most ergonomic format if you're building a library of re
 
 ## 10. The `tips` Engine
 
-The CLI ships with ~75 categorized tips covering every command and flag. The banner rotates one per invocation, but you can also pull them on demand:
+The CLI ships with 83 categorized tips covering every command and flag. The banner rotates one per invocation, but you can also pull them on demand:
 
 ```bash
 swarms tips              # one random tip
@@ -344,13 +347,13 @@ echo "Summarize this for a non-technical audience" | \
 swarms agent ... --streaming-on --verbose
 ```
 
-**Save and resume an agent's memory:**
+**Persist an agent's state to disk:**
 
 ```bash
 swarms agent ... --autosave --saved-state-path ./research.json
-# Later, same path
-swarms agent ... --saved-state-path ./research.json
 ```
+
+`--saved-state-path` is a write target only — nothing in the CLI or the `Agent` class loads it back on a later run, so pointing a new invocation at the same path does not resume the earlier session.
 
 **Cap context for long sessions:**
 

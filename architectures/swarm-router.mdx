@@ -17,7 +17,7 @@ The underlying swarm is built lazily on the first `run()` call and cached on the
 
 ## Key Features
 
-- 15 concrete swarm types, plus `"auto"` (16 `SwarmType` values total — see the note below on `"auto"`)
+- 14 concrete swarm types (see the note below on `"auto"`)
 - Factory pattern with O(1) lookup and per-instance swarm cache
 - Pre-flight reliability checks
 - Optional autosave of `config.json` / `state.json` / `metadata.json`
@@ -42,16 +42,14 @@ from swarms import SwarmType
 "MajorityVoting"
 "CouncilAsAJudge"
 "HeavySwarm"
-"BatchedGridWorkflow"
 "LLMCouncil"
 "DebateWithJudge"
 "RoundRobin"
 "PlannerWorkerSwarm"
-"auto"             # accepted by validation, but see warning below
 ```
 
 <Warning>
-  `"AutoSwarmBuilder"` is **not** a valid `SwarmType` at all — passing it raises `SwarmRouterConfigError` at construction, not at `run()`. `"auto"` is a valid Literal value but has no registered factory, so it fails when the swarm is built. If you want the framework to auto-configure agents and swarm choice for you, instantiate `AutoSwarmBuilder` directly (`from swarms import AutoSwarmBuilder`) instead of going through `SwarmRouter`.
+  `"AutoSwarmBuilder"` is **not** a valid `SwarmType` at all — passing it raises `SwarmRouterConfigError` at construction, not at `run()`. Neither is `"auto"` any more — it was removed from the `SwarmType` Literal, so passing it also raises `SwarmRouterConfigError` at construction. `BatchedGridWorkflow` was likewise dropped from `SwarmType`: it is a standalone class (its `run()` takes `tasks: List[str]`, not a single task) and was never actually routable through `SwarmRouter`. If you want the framework to auto-configure agents and swarm choice for you, instantiate `AutoSwarmBuilder` directly (`from swarms import AutoSwarmBuilder`) instead of going through `SwarmRouter`.
 </Warning>
 
 ## Basic Example

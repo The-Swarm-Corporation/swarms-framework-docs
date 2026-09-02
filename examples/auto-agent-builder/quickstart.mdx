@@ -10,7 +10,7 @@ Writing a multi-agent system normally starts with you hand-authoring every agent
 
 | Feature | Description |
 |---------|-------------|
-| **Forced function call** | The builder must call `build_agents` — the provider enforces the schema, so there is no JSON to parse out of prose |
+| **Function-calling schema** | The builder is given `build_agents` as a tool with `tool_choice="auto"` — the model is *not* forced to call it, so a malformed or missing call raises a `ValueError` rather than being silently retried |
 | **Four fields per agent** | `name`, `description`, `system_prompt`, `model_name` — exactly what `Agent` needs |
 | **Two output shapes** | Configuration dicts for inspection, or constructed `Agent` objects for execution |
 | **No architecture lock-in** | The builder picks the team; you pick how they run |
@@ -19,7 +19,7 @@ Writing a multi-agent system normally starts with you hand-authoring every agent
 task
   │
   ▼
-builder agent ──forced build_agents() call──▶ roster
+builder agent ──build_agents() tool call──▶ roster
                                                │
                           ┌────────────────────┼────────────────────┐
                           ▼                    ▼                    ▼

@@ -242,35 +242,6 @@ print(result.execution_time)
 print(result.successful_steps)
 ```
 
-### run_async()
-
-Run the algorithm on a worker thread and block until it finishes. Despite the name, `run_async` is an ordinary **synchronous** method — do not `await` it. Internally it wraps `run()` in `asyncio.to_thread()` and drives that with `asyncio.run()`, so the call returns a `SocialAlgorithmResult`, not a coroutine.
-
-```python
-result = social_alg.run_async(
-    task="Task description",
-    algorithm_args={"custom_param": "value"},
-)
-
-print(result.final_outputs)
-```
-
-<Warning>
-  Because `run_async()` calls `asyncio.run()` internally, it cannot be called from inside a
-  running event loop — doing so raises
-  `RuntimeError: asyncio.run() cannot be called from a running event loop`. From async code,
-  offload the plain `run()` method instead:
-
-  ```python
-  import asyncio
-
-  async def main():
-      return await asyncio.to_thread(social_alg.run, "Task description")
-
-  result = asyncio.run(main())
-  ```
-</Warning>
-
 ### add_agent() / remove_agent()
 
 Dynamic agent management.
@@ -281,13 +252,11 @@ new_agent = Agent(agent_name="NewExpert", ...)
 social_alg.add_agent(new_agent)
 ```
 
-<Warning>
-  `remove_agent(agent_name: str)` is currently broken in the installed version: it calls `del self.agents[agent_name]`, but `self.agents` is a `list`, not a dict — passing a string name raises `TypeError: list indices must be integers or slices, not str`, regardless of whether an agent with that name exists. Until this is fixed upstream, remove an agent manually instead:
+`remove_agent(agent_name: str)` scans `self.agents` for a matching `agent_name` and deletes that entry. If no agent with that name exists, it raises `AgentNotFoundError` instead of silently no-op'ing.
 
 ```python
-social_alg.agents = [a for a in social_alg.agents if a.agent_name != "OldAgent"]
+social_alg.remove_agent("OldAgent")
 ```
-</Warning>
 
 ### get_communication_history()
 

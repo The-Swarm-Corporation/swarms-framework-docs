@@ -17,7 +17,7 @@ Swarms offers multiple execution patterns for different scaling scenarios:
 | **Concurrent** | I/O-bound tasks, API calls | 95% of CPU cores | Thread-based |
 | **Async** | High-throughput async operations | Configurable | Event loop |
 | **Batch** | Large-scale processing | Configurable | Batched |
-| **Grid** | Different tasks per agent | 90% of CPU cores | Thread-based |
+| **Grid** | Different tasks per agent | 95% of CPU cores | Thread-based |
 
 ## Concurrent Execution
 
@@ -188,7 +188,7 @@ tasks = [
 results = batched_grid_agent_execution(
     agents=agents,
     tasks=tasks,
-    max_workers=None,  # Uses 90% of CPU cores
+    max_workers=None,  # Uses 95% of CPU cores
 )
 
 # Results maintain order of input agents

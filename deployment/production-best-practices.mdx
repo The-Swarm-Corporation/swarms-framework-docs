@@ -15,13 +15,12 @@ Deploying multi-agent systems in production requires careful attention to error 
 Swarms provides a comprehensive exception hierarchy for different failure modes:
 
 ```python
-from swarms.structs.agent import (
+from swarms.schemas.agent_errors import (
     AgentError,  # Base exception
     AgentInitializationError,  # Initialization failures
     AgentRunError,  # Runtime failures
     AgentLLMError,  # LLM-related errors
-    AgentToolError,  # Tool execution errors
-    AgentMemoryError,  # Memory errors
+    AgentLLMInitializationError,  # LLM initialization failures
     AgentToolExecutionError,  # Tool execution failures
 )
 
@@ -38,7 +37,7 @@ except AgentInitializationError as e:
 except AgentLLMError as e:
     logger.error(f"LLM error: {e}")
     # Handle LLM failures (e.g., switch to fallback model)
-except AgentToolError as e:
+except AgentToolExecutionError as e:
     logger.error(f"Tool error: {e}")
     # Handle tool failures (e.g., disable problematic tool)
 except AgentRunError as e:
@@ -361,7 +360,7 @@ agent = Agent(
 ### Configuration Validation
 
 ```python
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 class AgentConfig(BaseModel):
     agent_name: str = Field(..., min_length=1)
@@ -370,7 +369,8 @@ class AgentConfig(BaseModel):
     retry_attempts: int = Field(default=3, ge=0, le=10)
     timeout: int = Field(default=120, ge=1)
     
-    @validator('model_name')
+    @field_validator('model_name')
+    @classmethod
     def validate_model(cls, v):
         allowed_models = ["claude-sonnet-4-6", "gpt-5.4", "claude-sonnet-3.5"]
         if v not in allowed_models:
@@ -384,7 +384,7 @@ config = AgentConfig(
     max_loops=5,
 )
 
-agent = Agent(**config.dict())
+agent = Agent(**config.model_dump())
 ```
 
 ## Security Best Practices

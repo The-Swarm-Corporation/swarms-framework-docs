@@ -493,7 +493,7 @@ git clone https://github.com/myorg/agent-skills-library.git skills
 
 ## Reference
 
-- Skills handling: `swarms/structs/agent.py:687-764` (`handle_skills`, `_load_static_skills`, `_load_dynamic_skills_for_task`)
+- Skills handling: `swarms/structs/agent.py` (`handle_skills`, a short delegate) plus `swarms/agents/skills_manager.py` (`SkillsManager._static_prompt`, `SkillsManager._dynamic_prompt`) for the tiered static/dynamic loading logic
 - Dynamic skills loader: `swarms/structs/dynamic_skills_loader.py`
 - Example skills: `examples/single_agent/agent_skill_examples/`
-- Anthropic Agent Skills: [Agent Skills Documentation](/agents/agent-skills)
+- Anthropic Agent Skills: [Agent Skills announcement](https://www.anthropic.com/news/agent-skills)

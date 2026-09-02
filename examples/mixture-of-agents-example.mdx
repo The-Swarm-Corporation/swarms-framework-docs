@@ -291,8 +291,7 @@ print(review)
 You can also use MoA through the SwarmRouter for flexible orchestration:
 
 ```python
-from swarms import Agent
-from swarms.structs.swarm_router import SwarmRouter, SwarmType
+from swarms import Agent, SwarmRouter
 
 # Define agents
 writer = Agent(
@@ -320,11 +319,11 @@ aggregator = Agent(
     model_name="gpt-5.4"
 )
 
-# Use SwarmRouter for MoA
+# Use SwarmRouter for MoA — SwarmRouter always uses the LAST agent in the
+# `agents` list as the aggregator, so it must be listed last here.
 moa_router = SwarmRouter(
-    swarm_type=SwarmType.MixtureOfAgents,
-    agents=[writer, editor, reviewer],
-    aggregator_agent=aggregator,
+    swarm_type="MixtureOfAgents",
+    agents=[writer, editor, reviewer, aggregator],
 )
 
 aggregated_output = moa_router.run(

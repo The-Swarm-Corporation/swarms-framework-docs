@@ -117,16 +117,31 @@ def concurrent_run(self, tasks: list) -> list
 
 ### async_run()
 
-Asynchronous task execution with coroutine support.
+<Warning>
+`async_run()` is currently broken and should not be used. Its implementation is `return asyncio.create_task(self.run(task, *args, **kwargs))`, but `run()` is a plain **sync** `def` -- so `self.run(...)` executes eagerly (blocking the event loop) and returns a plain `str` before `asyncio.create_task()` ever sees it. Passing that string to `create_task()` raises `TypeError: a coroutine was expected`, which `async_run()` catches and re-raises as `RuntimeError: Async execution failed: ...`. Every `await router.async_run(...)` call site fails. Use the synchronous `run()` (optionally wrapped in `asyncio.to_thread()` from an async context) or `concurrent_run()` / `batch_run()` for parallel execution instead.
+</Warning>
+
+Documented (broken) signature:
 
 ```python
 async def async_run(self, task: str) -> asyncio.Task
 ```
 
-**Parameters:**
-- `task` (str): The task to be executed
+**Working alternative from an async context:**
 
-**Returns:** `asyncio.Task` - An asyncio Task object
+```python
+import asyncio
+from swarms import ModelRouter
+
+router = ModelRouter()
+
+async def run_task(task: str):
+    # Offloads the blocking, synchronous run() call to a thread
+    # so it doesn't block the event loop.
+    return await asyncio.to_thread(router.run, task)
+
+result = asyncio.run(run_task("Analyze the sentiment in this feedback"))
+```
 
 ## Usage Examples
 
@@ -202,6 +217,8 @@ for task, result in zip(analysis_tasks, results):
 
 ### Asynchronous Execution
 
+`async_run()` is currently broken (see the [Warning above](#async-run)). To call `ModelRouter` from an async context without blocking the event loop, offload the synchronous `run()` to a thread with `asyncio.to_thread()`:
+
 ```python
 import asyncio
 from swarms import ModelRouter
@@ -210,8 +227,7 @@ async def process_data_stream():
     router = ModelRouter()
     tasks = []
     async for data in data_stream:
-        task = await router.async_run(f"Process data: {data}")
-        tasks.append(task)
+        tasks.append(asyncio.to_thread(router.run, f"Process data: {data}"))
 
     results = await asyncio.gather(*tasks)
     return results
@@ -314,8 +330,10 @@ class MedicalDataProcessor:
             """
             analysis_tasks.append(task)
 
+        # async_run() is currently broken -- offload the synchronous
+        # run() to a thread instead (see the Warning under async_run()).
         results = await asyncio.gather(*[
-            self.router.async_run(task) for task in analysis_tasks
+            asyncio.to_thread(self.router.run, task) for task in analysis_tasks
         ])
 
         return [self._parse_medical_analysis(r) for r in results]

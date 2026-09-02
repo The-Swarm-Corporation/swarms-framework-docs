@@ -156,7 +156,7 @@ Example output:
   Model used when the director generates feedback on worker outputs.
 </ParamField>
 
-<ParamField path="director_feedback_on" type="bool" default="True">
+<ParamField path="director_feedback_on" type="bool" default="False">
   Enable director feedback after each loop.
 </ParamField>
 
@@ -240,10 +240,6 @@ results = swarm.batched_run([
     "Strategy for product C",
 ])
 ```
-
-### `run_stream(task, ...)`
-
-Stream output tokens as they arrive from the director and workers. Useful for live UI.
 
 ### `display_hierarchy()`
 

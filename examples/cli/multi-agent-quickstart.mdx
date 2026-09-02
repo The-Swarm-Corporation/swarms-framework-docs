@@ -161,13 +161,15 @@ swarms setup-check --verbose
 
 ### Run Single Agent
 
-Execute a single agent task:
+Execute a single agent task. `--description` and `--system-prompt` are required by the `agent` command, and models are set with `--model-name` (`--model` only applies to `autoswarm`):
 
 ```bash
 swarms agent \
     --name "Research-Agent" \
+    --description "Summarizes recent developments in a field" \
+    --system-prompt "You are a research analyst who summarizes recent developments." \
     --task "Summarize recent AI developments" \
-    --model "gpt-5.4" \
+    --model-name "gpt-5.4" \
     --max-loops 1
 ```
 
@@ -181,10 +183,10 @@ swarms autoswarm --task "Build a content analysis pipeline" --model gpt-4
 
 ### Show All Commands
 
-Display all available CLI features:
+Display all available CLI commands and flags:
 
 ```bash
-swarms show-all
+swarms --help
 ```
 
 ---

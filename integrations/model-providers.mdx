@@ -9,9 +9,9 @@ Swarms supports a wide range of LLM providers, giving you the flexibility to cho
 
 Swarms integrates with all major LLM providers through a consistent API:
 
-- **OpenAI** - GPT-4, GPT-4 Turbo, GPT-3.5
-- **Anthropic** - Claude 3 Opus, Sonnet, Haiku
-- **Groq** - Ultra-fast inference with Llama, Mixtral
+- **OpenAI** - GPT-5.4, o3
+- **Anthropic** - Claude 4.x Opus, Sonnet, Haiku
+- **Groq** - Ultra-fast inference with Llama
 - **DeepSeek** - DeepSeek models
 - **Cohere** - Command models
 - **Ollama** - Local model deployment
@@ -73,10 +73,10 @@ agent = Agent(
     max_loops=1,
 )
 
-# GPT-4o Mini (Cost-effective)
+# GPT-5.4 Mini (Cost-effective)
 agent = Agent(
-    agent_name="GPT4o-Mini-Agent",
-    model_name="gpt-5.4",
+    agent_name="GPT5-Mini-Agent",
+    model_name="gpt-5.4-mini",
     max_loops=1,
 )
 ```
@@ -88,31 +88,24 @@ Claude models excel at long-form content and analysis:
 ```python
 from swarms import Agent
 
-# Claude 3 Opus (Most capable)
+# Claude Opus (Most capable)
 agent = Agent(
     agent_name="Claude-Opus-Agent",
-    model_name="claude-3-opus-20240229",
+    model_name="claude-opus-4-8",
     max_loops=1,
 )
 
-# Claude 3 Sonnet (Balanced)
+# Claude Sonnet (Balanced)
 agent = Agent(
     agent_name="Claude-Sonnet-Agent",
-    model_name="claude-3-sonnet-20240229",
+    model_name="claude-sonnet-4-6",
     max_loops=1,
 )
 
-# Claude 3 Haiku (Fast)
+# Claude Haiku (Fast)
 agent = Agent(
     agent_name="Claude-Haiku-Agent",
-    model_name="claude-3-haiku-20240307",
-    max_loops=1,
-)
-
-# Claude 3.5 Sonnet (Latest)
-agent = Agent(
-    agent_name="Claude-3.5-Sonnet-Agent",
-    model_name="claude-sonnet-3-5-20240620",
+    model_name="claude-haiku-4-5",
     max_loops=1,
 )
 ```
@@ -124,17 +117,17 @@ Groq provides extremely fast inference speeds:
 ```python
 from swarms import Agent
 
-# Llama 3 on Groq
+# Llama 3.3 70B on Groq
 agent = Agent(
     agent_name="Llama3-Groq-Agent",
-    model_name="groq/llama-3.1-70b-versatile",
+    model_name="groq/llama-3.3-70b-versatile",
     max_loops=1,
 )
 
-# Mixtral on Groq
+# Llama 3.1 8B Instant on Groq (lowest latency)
 agent = Agent(
-    agent_name="Mixtral-Groq-Agent",
-    model_name="groq/mixtral-8x7b-32768",
+    agent_name="Llama-Instant-Groq-Agent",
+    model_name="groq/llama-3.1-8b-instant",
     max_loops=1,
 )
 ```
@@ -163,7 +156,7 @@ from swarms import Agent
 # Requires Ollama running locally
 agent = Agent(
     agent_name="Llama-Local-Agent",
-    model_name="ollama/llama2",
+    model_name="ollama/llama3.2",
     max_loops=1,
 )
 ```
@@ -201,7 +194,7 @@ agent = Agent(
 Swarms uses the following naming pattern for models:
 
 - **Direct provider models**: `"gpt-4"`, `"claude-opus-4-6"`
-- **Provider prefix**: `"groq/llama-3.1-70b-versatile"`, `"ollama/llama2"`
+- **Provider prefix**: `"groq/llama-3.3-70b-versatile"`, `"ollama/llama3.2"`
 - **OpenRouter**: `"openrouter/provider/model-name"`
 
 ## Advanced Configuration
@@ -251,11 +244,11 @@ def get_agent_for_task(task_type: str) -> Agent:
         # Use Groq for speed
         return Agent(
             agent_name="Fast-Agent",
-            model_name="groq/llama-3.1-70b-versatile",
+            model_name="groq/llama-3.3-70b-versatile",
             max_loops=1,
         )
     else:
-        # Default to GPT-4o Mini
+        # Default to GPT-5.4
         return Agent(
             agent_name="Default-Agent",
             model_name="gpt-5.4",
@@ -291,7 +284,7 @@ writer = Agent(
 # Fast review with Groq
 reviewer = Agent(
     agent_name="Reviewer",
-    model_name="groq/llama-3.1-70b-versatile",
+    model_name="groq/llama-3.3-70b-versatile",
     system_prompt="Review and provide feedback.",
 )
 

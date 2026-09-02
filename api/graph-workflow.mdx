@@ -39,7 +39,7 @@ pip install rustworkx
 class GraphWorkflow:
     def __init__(
         self,
-        id: Optional[str] = str(uuid.uuid4()),
+        id: Optional[str] = None,
         name: Optional[str] = "Graph-Workflow-01",
         description: Optional[str] = "A customizable workflow system for orchestrating and coordinating multiple agents.",
         nodes: Optional[Dict[str, Node]] = None,
@@ -59,8 +59,8 @@ class GraphWorkflow:
 
 ## Parameters
 
-<ParamField path="id" type="Optional[str]" default="uuid.uuid4()">
-  Unique identifier for the workflow. Auto-generated UUID if not provided.
+<ParamField path="id" type="Optional[str]" default="auto-generated">
+  Unique identifier for the workflow. Auto-generated via `generate_id("graph-workflow")` if not provided, producing `graph-workflow-<32 hex chars>`.
 </ParamField>
 
 <ParamField path="name" type="Optional[str]" default="Graph-Workflow-01">

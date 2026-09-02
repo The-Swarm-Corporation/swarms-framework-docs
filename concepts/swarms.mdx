@@ -277,7 +277,7 @@ realist = Agent(
 # Create group chat
 chat = GroupChat(
     agents=[optimist, critic, realist],
-    max_loops=4,  # Number of conversation rounds
+    max_loops=4,  # Maximum number of messages posted
 )
 
 conversation = chat.run(

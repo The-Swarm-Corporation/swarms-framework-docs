@@ -275,10 +275,11 @@ From the source code (`swarms/structs/agent.py`), agents support:
 - **Function Calling**: Native support for tool execution with OpenAI function calling
 - **MCP Integration**: Model Context Protocol for standardized tool interfaces
 - **Handoffs**: Delegate tasks to specialized agents
-- **Artifacts**: Save outputs to structured files (PDF, MD, TXT)
 - **State Persistence**: Save and load agent state for long-running tasks
 - **Marketplace Integration**: Load prompts from Swarms marketplace
 - **Skills Framework**: Modular, reusable capabilities via SKILL.md files
+
+Separately, `swarms.artifacts.Artifact` (`swarms/artifacts/main_artifact.py`) is a standalone utility for versioning and saving file content (PDF, MD, TXT, and more) — the `Agent` class itself does not use it.
 
 ## Common Use Cases
 

@@ -56,7 +56,7 @@ class AgentResponse(BaseModel):
     execution_time: Optional[float] = None
 
 
-def create_agent(agent_name: str = "default") -> Agent:
+def create_agent(agent_name: str = "default", max_loops: int = 1) -> Agent:
     return Agent(
         agent_name=agent_name,
         agent_description="Versatile AI agent for various tasks",
@@ -65,7 +65,7 @@ def create_agent(agent_name: str = "default") -> Agent:
         ),
         model_name="claude-sonnet-4-20250514",
         dynamic_temperature_enabled=True,
-        max_loops=1,
+        max_loops=max_loops,
         dynamic_context_window=True,
     )
 
@@ -84,8 +84,10 @@ async def health_check():
 async def run_agent(request: AgentRequest):
     try:
         start_time = time.time()
-        agent = create_agent(request.agent_name)
-        result = agent.run(task=request.task, max_loops=request.max_loops)
+        # max_loops only takes effect at Agent construction time, not on
+        # agent.run(), so the requested value must be passed to create_agent().
+        agent = create_agent(request.agent_name, request.max_loops)
+        result = agent.run(task=request.task)
         return AgentResponse(
             success=True,
             result=str(result),
@@ -300,7 +302,7 @@ services:
 - **Timeouts** — long agent runs need higher proxy/uvicorn timeouts; consider returning a job id and polling for results.
 
 <Note>
-  Source: [docs/deployment_solutions/fastapi_agent_api.md](https://github.com/kyegomez/swarms/blob/master/docs/deployment_solutions/fastapi_agent_api.md)
+  Source: [examples/guides/deployment/fastapi/fastapi_agent_api_example.py](https://github.com/kyegomez/swarms/blob/master/examples/guides/deployment/fastapi/fastapi_agent_api_example.py)
 </Note>
 
 ## See also

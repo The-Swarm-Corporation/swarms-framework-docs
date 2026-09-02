@@ -25,7 +25,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="agents" type="List[Agent]" default="None">
-  The agents participating in the swarm. If None, agents will be loaded from load_path
+  The agents participating in the swarm. Required — the constructor runs a reliability check before any CSV loading happens, so a non-empty `agents` list must be supplied even if `load_path` is also set
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="True">
@@ -41,7 +41,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="load_path" type="str" default="None">
-  Path to CSV file containing agent configurations. Required if agents is None
+  Path to a CSV file mapping `agent_name` to `task`. Call `load_from_csv()` explicitly after construction to populate per-agent tasks from it before calling `run_from_config()`
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -143,22 +143,30 @@ print(result)
 
 ### Load from CSV Configuration
 
-Create a CSV file (`agents_config.csv`):
+<Warning>
+  `agents` must be provided at construction. The constructor runs a reliability check before any CSV loading occurs, so calling `SpreadSheetSwarm(load_path="agents_config.csv", ...)` without `agents` raises `ValueError("No agents are provided.")`. Pass real `Agent` instances in `agents`, then call `load_from_csv()` explicitly to map tasks from the CSV onto those agents by `agent_name`.
+</Warning>
+
+Create a CSV file (`agents_config.csv`) mapping each agent name to a task:
 ```csv
-agent_name,description,system_prompt,task,model_name,max_loops
-Research-Agent,Research specialist,You are a research agent,Research quantum computing,openai/gpt-5.4,1
-Analysis-Agent,Data analyst,You are an analysis agent,Analyze the research findings,openai/gpt-5.4,1
+agent_name,description,system_prompt,task
+Research-Agent,Research specialist,You are a research agent,Research quantum computing
+Analysis-Agent,Data analyst,You are an analysis agent,Analyze the research findings
 ```
 
-Then load and run:
+Then construct with agents, load the task mapping, and run:
 ```python
 swarm = SpreadSheetSwarm(
     name="CSV-Swarm",
+    agents=agents,       # non-empty list of Agent instances, e.g. from the example above
     load_path="agents_config.csv",
     max_loops=1
 )
 
-# Run agents with their configured tasks
+# Populate self.agent_tasks from the CSV (matches rows to agents by agent_name)
+swarm.load_from_csv()
+
+# Run each configured agent with its mapped task
 result = swarm.run_from_config()
 ```
 
