@@ -377,6 +377,24 @@
             ]
           },
           {
+            "group": "MCP Tool Integrations",
+            "pages": [
+              "examples/mcp/overview",
+              "examples/mcp/deepwiki-repo-qa",
+              "examples/mcp/gitmcp-repo-docs",
+              "examples/mcp/microsoft-learn-docs",
+              "examples/mcp/exa-web-search",
+              "examples/mcp/firecrawl-web-scraping",
+              "examples/mcp/huggingface-model-search",
+              "examples/mcp/semgrep-security-scan",
+              "examples/mcp/multi-server-agent",
+              "examples/mcp/sequential-workflow",
+              "examples/mcp/dynamic-tool-loading",
+              "examples/mcp/authentication",
+              "examples/mcp/local-server"
+            ]
+          },
+          {
             "group": "Deployment",
             "pages": [
               "examples/deployment-overview",

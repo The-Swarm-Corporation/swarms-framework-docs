@@ -1,0 +1,114 @@
+---
+title: 'MCP examples overview'
+description: 'Step-by-step tutorials for connecting Swarms agents to real MCP servers — DeepWiki, Exa, Firecrawl, Hugging Face, Semgrep, and your own.'
+icon: 'plug'
+---
+
+[MCP](https://modelcontextprotocol.io) lets an agent pull tools in from an external server by pointing at a URL. You do not write tool wrappers, JSON schemas, or HTTP calls — the agent discovers what the server offers on startup and the model calls what it needs.
+
+That is the whole integration:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="DeepWiki-Agent",
+    model_name="claude-sonnet-5",
+    mcp_url="https://mcp.deepwiki.com/mcp",   # free, no API key
+    max_loops=1,
+)
+
+agent.run("What is the swarms framework? Use the deepwiki tools on kyegomez/swarms.")
+```
+
+Every tutorial in this section is a variation on those four lines against a **real, public server**. Each one uses a different model, so you also get a sweep across providers — Anthropic, OpenAI, Google, and Groq — proving the pattern is model-agnostic.
+
+## Pick a tutorial
+
+Start at the top if you are new. The first three need no MCP key at all.
+
+<CardGroup cols={2}>
+  <Card title="DeepWiki — repo Q&A" icon="book" href="/examples/mcp/deepwiki-repo-qa">
+    The starting point. No API key. Ask questions about any public GitHub repo.
+    <br />**Model:** `claude-sonnet-5`
+  </Card>
+  <Card title="GitMCP — one-repo docs bot" icon="github" href="/examples/mcp/gitmcp-repo-docs">
+    Turn a single repository into its own documentation server. No API key.
+    <br />**Model:** `gemini/gemini-2.5-pro`
+  </Card>
+  <Card title="Microsoft Learn — grounded answers" icon="microsoft" href="/examples/mcp/microsoft-learn-docs">
+    Ground an agent in official Azure/.NET docs instead of training data. No API key.
+    <br />**Model:** `groq/llama-3.3-70b-versatile`
+  </Card>
+  <Card title="Exa — live web search" icon="magnifying-glass" href="/examples/mcp/exa-web-search">
+    Real-time web search with citations. Free-tier key, sent as a query parameter.
+    <br />**Model:** `gpt-5.4`
+  </Card>
+  <Card title="Firecrawl — scrape pages to markdown" icon="fire" href="/examples/mcp/firecrawl-web-scraping">
+    Render JavaScript, strip the chrome, hand the model clean markdown. Key in the URL path.
+    <br />**Model:** `claude-opus-5`
+  </Card>
+  <Card title="Hugging Face — find models" icon="face-smile" href="/examples/mcp/huggingface-model-search">
+    Search the Hub for models and datasets. Optional token — anonymous access still works.
+    <br />**Model:** `claude-haiku-4-5`
+  </Card>
+  <Card title="Semgrep — security review" icon="shield-halved" href="/examples/mcp/semgrep-security-scan">
+    A real static analyzer finds the bugs; the model triages and patches them. Bearer token.
+    <br />**Model:** `gpt-5.4`
+  </Card>
+  <Card title="Several servers at once" icon="layer-group" href="/examples/mcp/multi-server-agent">
+    `mcp_urls=[...]` — one agent, the union of every server's tools, routing handled for you.
+    <br />**Model:** `claude-sonnet-5`
+  </Card>
+  <Card title="MCP in a multi-agent workflow" icon="diagram-project" href="/examples/mcp/sequential-workflow">
+    One server per agent in a `SequentialWorkflow`, and why splitting beats piling them on.
+    <br />**Models:** mixed, one per stage
+  </Card>
+  <Card title="Dynamic tool loading" icon="bolt" href="/examples/mcp/dynamic-tool-loading">
+    A server with 40 tools should not put 40 schemas in every request. It does not have to.
+    <br />**Model:** `gpt-5.4-mini`
+  </Card>
+  <Card title="Authentication patterns" icon="key" href="/examples/mcp/authentication">
+    Query parameter, Bearer header, URL path segment, custom header, OAuth 2.1.
+  </Card>
+  <Card title="Build your own server" icon="server" href="/examples/mcp/local-server">
+    Expose your own Python functions over MCP with `FastMCP`, then point an agent at them.
+    <br />**Model:** `gpt-5.4-mini`
+  </Card>
+</CardGroup>
+
+## Which server needs a key?
+
+Servers change their auth requirements over time — Semgrep was open and is now token-gated. Verify before you depend on one.
+
+| Server | URL | Auth | Cost |
+|---|---|---|---|
+| DeepWiki | `https://mcp.deepwiki.com/mcp` | none | free |
+| GitMCP | `https://gitmcp.io/<owner>/<repo>` | none | free |
+| Microsoft Learn | `https://learn.microsoft.com/api/mcp` | none | free |
+| Context7 | `https://mcp.context7.com/mcp` | none | free |
+| Hugging Face | `https://huggingface.co/mcp` | optional token | free |
+| Exa | `https://mcp.exa.ai/mcp?exaApiKey=...` | query parameter | free tier |
+| Firecrawl | `https://mcp.firecrawl.dev/{KEY}/v2/mcp` | URL path segment | free tier |
+| Semgrep | `https://mcp.semgrep.ai/mcp` | Bearer token | free account |
+
+The full catalog lives in [`FREE_MCP_SERVERS.md`](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/FREE_MCP_SERVERS.md).
+
+## Setup, once
+
+```bash
+pip install -U swarms
+export OPENAI_API_KEY="sk-..."        # or ANTHROPIC_API_KEY, GEMINI_API_KEY, GROQ_API_KEY
+```
+
+Each tutorial names the extra key it needs, if any.
+
+<Note>
+  Every tutorial links to the runnable script it is based on, under [`examples/mcp/`](https://github.com/kyegomez/swarms/tree/master/examples/mcp) in the swarms repo.
+</Note>
+
+## See also
+
+- [Model Context Protocol (MCP)](/integrations/mcp) — the reference: connection objects, transports, caching, `MCPManager`.
+- [MCPManager API](/api/mcp-manager) — calling MCP directly, without an agent.
+- [Dynamic tool usage](/examples/tools/dynamic-tool-usage) — deferred tool loading for local Python tools.

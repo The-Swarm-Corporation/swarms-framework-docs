@@ -1,0 +1,182 @@
+---
+title: 'Dynamic tool loading'
+description: 'A server with dozens of tools should not put dozens of schemas in every request. Defer them behind a search tool and load only what a task needs.'
+icon: 'bolt'
+---
+
+Tool definitions are re-sent on **every** request. One MCP server can expose dozens of tools, so a naively connected agent pays for every schema on every call, for the whole run — and a model choosing among forty tools picks wrong more often than one choosing among four.
+
+Dynamic tool loading fixes both. The agent connects, puts every discovered tool into a searchable catalog, and sends only a `tool_search` tool up front. When the model needs something, it searches, the matching schemas are loaded, and they are included from the next request onwards.
+
+| | |
+|---|---|
+| **Server** | `https://mcp.deepwiki.com/mcp` |
+| **Auth** | none |
+| **Model used here** | `gpt-5.4-mini` |
+
+<Note>
+  This is the **default** for MCP agents — `dynamic_tools=True` unless you say otherwise. This page shows how to see it working and when to turn it off.
+</Note>
+
+## Build it
+
+<Steps>
+  <Step title="Install and set your key">
+    ```bash
+    pip install -U swarms python-dotenv
+    export OPENAI_API_KEY="sk-..."
+    ```
+  </Step>
+
+  <Step title="Create the agent">
+    ```python
+    from swarms import Agent
+
+    MCP_SERVER = "https://mcp.deepwiki.com/mcp"
+
+    agent = Agent(
+        agent_name="RepoResearcher",
+        model_name="gpt-5.4-mini",
+        max_loops="auto",
+        mcp_url=MCP_SERVER,
+        mcp_timeout=120,      # read_wiki_contents returns a lot; 30s is not enough
+        dynamic_tools=True,   # MCP tools go into a searchable catalog
+        print_on=False,
+    )
+    ```
+
+    `max_loops="auto"` lets the agent decide when it is done — a good fit here, because searching for a tool and then using it takes an unknown number of turns.
+  </Step>
+
+  <Step title="Force the connection and inspect the catalog">
+    Building the LLM is what pulls the server's tools into the catalog, so do it explicitly when you want to look:
+
+    ```python
+    import json
+
+    agent.llm = agent.llm_handling()
+
+    catalog = agent.tool_loader.deferred_names if agent.tool_loader else []
+    exposed = [t["function"]["name"] for t in agent.tools_list_dictionary]
+
+    print(f"tools in catalog:       {len(catalog)}  {catalog}")
+    print(f"tools sent per request: {len(exposed)}  {exposed}")
+    print(f"schema bytes sent:      {len(json.dumps(agent.tools_list_dictionary)):,}")
+    ```
+
+    The catalog holds the server's tools; the request carries `tool_search` and nothing else. That gap is the saving, repeated on every call of the run.
+  </Step>
+
+  <Step title="Run a task and watch what gets loaded">
+    ```python
+    result = agent.run(
+        "What is the kyegomez/swarms repository for? Search for a tool that can "
+        "answer questions about a GitHub repository, use it, and summarise the "
+        "answer in three sentences."
+    )
+
+    print(f"loaded during the run: {agent.tool_loader.loaded_names}")
+    print(f"still deferred:        {len(agent.tool_loader.deferred_names)}")
+    ```
+
+    After the run, `loaded_names` shows the handful of tools the task actually needed — everything else stayed out of the context window.
+  </Step>
+</Steps>
+
+## The complete script
+
+```python
+import json
+
+from swarms import Agent
+
+MCP_SERVER = "https://mcp.deepwiki.com/mcp"
+
+agent = Agent(
+    agent_name="RepoResearcher",
+    model_name="gpt-5.4-mini",
+    max_loops="auto",
+    mcp_url=MCP_SERVER,
+    mcp_timeout=120,
+    dynamic_tools=True,
+    print_on=False,
+)
+
+# Building the LLM is what pulls the server's tools into the catalog.
+agent.llm = agent.llm_handling()
+
+catalog = agent.tool_loader.deferred_names if agent.tool_loader else []
+exposed = [t["function"]["name"] for t in agent.tools_list_dictionary]
+
+print(f"MCP server:             {MCP_SERVER}")
+print(f"tools in catalog:       {len(catalog)}  {catalog}")
+print(f"tools sent per request: {len(exposed)}  {exposed}")
+print(f"schema bytes sent:      {len(json.dumps(agent.tools_list_dictionary)):,}")
+
+if not catalog:
+    print("\nNo MCP tools were loaded - the server could not be reached.")
+    raise SystemExit(1)
+
+result = agent.run(
+    "What is the kyegomez/swarms repository for? Search for a tool that can "
+    "answer questions about a GitHub repository, use it, and summarise the "
+    "answer in three sentences."
+)
+
+print(f"\nloaded during the run: {agent.tool_loader.loaded_names}")
+print(f"still deferred:        {len(agent.tool_loader.deferred_names)}")
+```
+
+## How the model knows to search
+
+Two things are added when deferral is on:
+
+1. **A `tool_search` tool**, which takes a keyword query and loads the matching schemas.
+2. **A system prompt notice** telling the model that most of its tools are not loaded, that any tool list it has seen describes what *exists* rather than what it can call, and that it should load everything it expects to need for a subtask in one search.
+
+Loading changes the tool list, so the underlying LLM client is rebuilt at that point — otherwise the model could not call what it had just found.
+
+## When to turn it off
+
+```python
+agent = Agent(
+    agent_name="Focused-Agent",
+    model_name="gpt-5.4-mini",
+    mcp_url="https://mcp.deepwiki.com/mcp",
+    dynamic_tools=False,   # send every schema, every request
+    max_loops=1,
+)
+```
+
+| Situation | Setting |
+|---|---|
+| Small server, three or four tools, one-shot task | `dynamic_tools=False` — the search round-trip costs more than the schemas. |
+| Large server, or several servers at once | Leave it on. |
+| Long autonomous runs (`max_loops="auto"`) | Leave it on — the saving compounds on every call. |
+| A weak model that will not reliably search | `dynamic_tools=False`, or narrow the server surface instead. |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="The model says it has no tools">
+    It has `tool_search` and needs to use it. Check that the system prompt notice survived — if you passed your own `system_prompt`, swarms appends the notice, but a prompt that insists "you have exactly these tools" fights it.
+  </Accordion>
+  <Accordion title="`tools in catalog: 0`">
+    The server was unreachable and the agent carried on without those tools by design. Check the URL and any credential; run with `verbose=True` to see the fetch error.
+  </Accordion>
+  <Accordion title="`cannot import name 'streamablehttp_client'`">
+    `mcp` 2.x renamed it. Pin the 1.x line: `pip install 'mcp>=1.28.1,<2.0.0'`.
+  </Accordion>
+  <Accordion title="Timeouts on tools that return a lot of text">
+    Raise `mcp_timeout` on the agent. The default of 30 seconds is short for tools like `read_wiki_contents`.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Source: [examples/mcp/agents/autonomous_agent_dynamic_tools.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/autonomous_agent_dynamic_tools.py)
+</Note>
+
+## Next
+
+- [Dynamic tool usage](/examples/tools/dynamic-tool-usage) — the same mechanism for local Python tools.
+- [Several servers at once](/examples/mcp/multi-server-agent) — where deferral matters most.

@@ -1,0 +1,131 @@
+---
+title: 'GitMCP: one-repo docs bot'
+description: 'Scope an MCP server to a single GitHub repository and build a documentation assistant that cites the file it read.'
+icon: 'github'
+---
+
+GitMCP turns *any* public GitHub repository into its own MCP documentation server. You point the URL at an `owner/repo` and the agent gets tools to search and read that repository's code and docs — nothing else. Free, **no auth**.
+
+Because the server is scoped to one project, this is the cleanest pattern for a documentation assistant: the agent cannot wander, and every answer traces to a file in that repo.
+
+| | |
+|---|---|
+| **Server** | `https://gitmcp.io/<owner>/<repo>` |
+| **Auth** | none |
+| **Tools** | `fetch_<repo>_documentation`, `search_<repo>_code`, … |
+| **Model used here** | `gemini/gemini-2.5-pro` |
+
+## Prerequisites
+
+- Python 3.10+
+- A Google AI Studio key for Gemini. Swap `model_name` for any tool-calling model you already have a key for.
+
+## Build it
+
+<Steps>
+  <Step title="Install and set your key">
+    ```bash
+    pip install -U swarms
+    export GEMINI_API_KEY="..."
+    ```
+  </Step>
+
+  <Step title="Choose the repository">
+    The repo is part of the URL, so make it a variable — that is the one thing you will change when you reuse this script.
+
+    ```python
+    OWNER, REPO = "kyegomez", "swarms"
+    ```
+  </Step>
+
+  <Step title="Build the agent">
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="GitMCP-Docs-Agent",
+        agent_description=f"Documentation expert for the {OWNER}/{REPO} repo via GitMCP.",
+        model_name="gemini/gemini-2.5-pro",
+        mcp_url=f"https://gitmcp.io/{OWNER}/{REPO}",
+        max_loops=1,
+    )
+    ```
+
+    Note the tool names the server advertises are repo-specific — `fetch_swarms_documentation`, not a generic `fetch_docs`. You do not need to know them; the agent discovers them.
+  </Step>
+
+  <Step title="Ask for something a docs bot should be good at">
+    ```python
+    result = agent.run(
+        "Using your tools, show a minimal code example of creating an "
+        "Agent with a tool, and cite the file you found it in."
+    )
+    print(result)
+    ```
+
+    "Cite the file you found it in" is doing real work here — it turns an answer you have to trust into one you can check.
+  </Step>
+</Steps>
+
+## The complete script
+
+```python
+from swarms import Agent
+
+OWNER, REPO = "kyegomez", "swarms"
+
+agent = Agent(
+    agent_name="GitMCP-Docs-Agent",
+    agent_description=f"Documentation expert for the {OWNER}/{REPO} repo via GitMCP.",
+    model_name="gemini/gemini-2.5-pro",
+    mcp_url=f"https://gitmcp.io/{OWNER}/{REPO}",
+    max_loops=1,
+)
+
+if __name__ == "__main__":
+    result = agent.run(
+        "Using your tools, show a minimal code example of creating an "
+        "Agent with a tool, and cite the file you found it in."
+    )
+    print(result)
+```
+
+## Turning it into a support bot
+
+The pattern generalizes with two changes: point the URL at your own repository, and give the agent a persona that knows it is answering users rather than reading code for itself.
+
+```python
+support_agent = Agent(
+    agent_name="Support-Bot",
+    system_prompt=(
+        "You answer user questions about this library using only its own "
+        "documentation and source. Search before answering. Quote the "
+        "relevant snippet, name the file, and say plainly when the docs do "
+        "not cover what was asked instead of filling the gap from memory."
+    ),
+    model_name="gemini/gemini-2.5-pro",
+    mcp_url="https://gitmcp.io/your-org/your-repo",
+    max_loops=2,
+)
+```
+
+`max_loops=2` gives it room to search, read what it found, and then answer — one loop often is not enough when the first search misses.
+
+## DeepWiki or GitMCP?
+
+| | DeepWiki | GitMCP |
+|---|---|---|
+| **Scope** | any public repo, chosen per question | one repo, fixed in the URL |
+| **Best for** | comparing or exploring projects | a support bot for a single project |
+| **Tool surface** | wiki structure, contents, Q&A | docs fetch + code search for that repo |
+
+Use GitMCP when the repository is decided before the question is asked.
+
+<Note>
+  Source: [examples/mcp/agents/02_gitmcp_repo_docs.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/02_gitmcp_repo_docs.py)
+</Note>
+
+## Next
+
+- [Microsoft Learn](/examples/mcp/microsoft-learn-docs) — the same grounding idea against a vendor's official docs.
+- [MCP in a multi-agent workflow](/examples/mcp/sequential-workflow) — chain a repo reader into a docs checker.

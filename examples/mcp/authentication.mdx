@@ -1,0 +1,219 @@
+---
+title: 'Authentication patterns'
+description: 'Every way an MCP server can take a credential — query parameter, Bearer header, URL path, custom header, and OAuth 2.1 — with the swarms code for each.'
+icon: 'key'
+---
+
+MCP does not mandate one authentication scheme, so real servers take credentials in different places. The examples in this section cover every shape you are likely to meet. The `Agent` code barely changes; what changes is where the key goes.
+
+| Shape | Server in these examples | Code |
+|---|---|---|
+| No auth | DeepWiki, GitMCP, Microsoft Learn, Context7 | `mcp_url="https://..."` |
+| Query parameter | Exa | key interpolated into the URL |
+| Bearer header | Semgrep | `mcp_api_key="env:TOKEN"` |
+| URL path segment | Firecrawl | key interpolated into the path |
+| Optional Bearer | Hugging Face | `mcp_api_key=("env:TOKEN" if TOKEN else None)` |
+| Custom header | — | `MCPConnection(api_key_header=...)` |
+| OAuth 2.1 | — | `MCPOAuthConfig(...)` |
+
+## The `env:` prefix
+
+Anywhere swarms takes a credential, `"env:VAR_NAME"` reads it from the environment when the connection is made, instead of embedding it in your source:
+
+```python
+mcp_api_key="env:SEMGREP_APP_TOKEN"
+```
+
+`"${VAR_NAME}"` works too. Prefer either over `os.getenv(...)` at construction time: the literal never enters the agent object, so it cannot leak through a serialized config or a printed repr.
+
+## No authentication
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="claude-sonnet-5",
+    mcp_url="https://mcp.deepwiki.com/mcp",
+    max_loops=1,
+)
+```
+
+## Bearer token
+
+The most common shape. The token is sent as `Authorization: Bearer <key>`.
+
+```python
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="gpt-5.4",
+    mcp_url="https://mcp.semgrep.ai/mcp",
+    mcp_api_key="env:SEMGREP_APP_TOKEN",
+    max_loops=2,
+)
+```
+
+`mcp_api_key` applies to every server that does not define its own credential, which makes it the right choice for a single server and the wrong one when servers need different keys.
+
+## Query parameter
+
+Some hosted servers want the key in the URL's query string. Build the URL from the environment:
+
+```python
+import os
+
+agent = Agent(
+    agent_name="Exa-Search-Agent",
+    model_name="gpt-5.4",
+    mcp_url=f"https://mcp.exa.ai/mcp?exaApiKey={os.getenv('EXA_API_KEY')}",
+    max_loops=2,
+)
+```
+
+## URL path segment
+
+Firecrawl takes the key as part of the path:
+
+```python
+import os
+
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY")
+
+agent = Agent(
+    agent_name="Firecrawl-Analyst",
+    model_name="claude-opus-5",
+    mcp_url=f"https://mcp.firecrawl.dev/{FIRECRAWL_API_KEY}/v2/mcp",
+    max_loops=2,
+)
+```
+
+<Warning>
+  When the key lives in the URL — path or query string — **never log the constructed URL**. URLs end up in application logs, error traces, and crash reports far more readily than headers do. Check for the variable up front so a missing key fails with a clear message instead of a malformed URL.
+</Warning>
+
+## Optional authentication
+
+For a server that serves anonymous traffic, a missing key should lower your rate limit, not crash your program:
+
+```python
+import os
+
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+agent = Agent(
+    agent_name="HuggingFace-Scout",
+    model_name="claude-haiku-4-5",
+    mcp_url="https://huggingface.co/mcp",
+    mcp_api_key=("env:HF_TOKEN" if HF_TOKEN else None),
+    max_loops=2,
+)
+```
+
+## Custom header
+
+When a server wants its key in something other than `Authorization`, use an `MCPConnection` and set the header and prefix explicitly:
+
+```python
+from swarms import Agent
+from swarms.schemas.mcp_schemas import MCPConnection
+
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="gpt-5.4",
+    mcp_config=MCPConnection(
+        url="https://api.example.com/mcp",
+        api_key="env:EXAMPLE_API_KEY",
+        api_key_header="X-API-Key",
+        api_key_prefix=None,      # send the raw key, with no "Bearer " prefix
+    ),
+)
+```
+
+`MCPConnection` is also where per-server timeouts and transports live:
+
+```python
+MCPConnection(
+    url="http://localhost:8000/mcp",
+    name="local-tools",     # shown in logs and used for routing
+    timeout=5,              # HTTP request timeout, seconds
+    tool_timeout=120,       # how long a single tool call may run
+    transport="streamable_http",   # or "sse", "stdio", "auto"
+)
+```
+
+## OAuth 2.1
+
+For servers that speak the MCP authorization spec. The browser flow runs once and the tokens are cached under `~/.swarms/mcp_auth/`, so later runs are silent:
+
+```python
+from swarms import Agent
+from swarms.schemas.mcp_schemas import MCPOAuthConfig
+
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="gpt-5.4",
+    mcp_url="https://api.example.com/mcp",
+    mcp_oauth=MCPOAuthConfig(scopes=["mcp:tools", "offline_access"]),
+)
+```
+
+Headless, for servers that issue machine tokens:
+
+```python
+mcp_oauth = MCPOAuthConfig(
+    grant_type="client_credentials",
+    client_id="env:MCP_CLIENT_ID",
+    client_secret="env:MCP_CLIENT_SECRET",
+)
+```
+
+And when you already hold a token from elsewhere, pass it directly with `access_token=` and no flow is run.
+
+## Different credentials per server
+
+Mix plain URLs and connection objects in the same `mcp_urls` list:
+
+```python
+import os
+
+from swarms import Agent
+from swarms.schemas.mcp_schemas import MCPConnection
+
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="claude-sonnet-5",
+    mcp_urls=[
+        "https://mcp.deepwiki.com/mcp",                                  # open
+        f"https://mcp.exa.ai/mcp?exaApiKey={os.getenv('EXA_API_KEY')}",  # key in URL
+        MCPConnection(                                                    # key in header
+            url="https://mcp.semgrep.ai/mcp",
+            api_key="env:SEMGREP_APP_TOKEN",
+            name="semgrep",
+        ),
+    ],
+    max_loops=3,
+)
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized">
+    Confirm the variable is exported in the shell that runs the script (`echo $TOKEN`), and that you used the shape the server expects — a Bearer token sent as a query parameter fails exactly like a missing one. Note that servers change their requirements: Semgrep once accepted anonymous traffic and no longer does.
+  </Accordion>
+  <Accordion title="The key looks right but the URL is malformed">
+    An unset environment variable interpolates as the string `None`. Check for the variable and exit with a clear message before constructing the URL.
+  </Accordion>
+  <Accordion title="OAuth opens a browser on a server with no display">
+    Set `open_browser=False` on `MCPOAuthConfig` — the authorization URL is logged instead — or use the `client_credentials` grant.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Sources: [deepwiki_minimal.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/deepwiki_minimal.py), [mcp_connection_object.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/mcp_connection_object.py), and [client/05_auth_and_config.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/client/05_auth_and_config.py)
+</Note>
+
+## See also
+
+- [Model Context Protocol (MCP)](/integrations/mcp) — the full connection reference.
+- [MCPManager API](/api/mcp-manager) — auth when you are calling MCP without an agent.
