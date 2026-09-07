@@ -343,17 +343,18 @@ Manual compaction follows the same archive, wipe, and re-seed flow as automatic 
 
 ### Export and load conversations
 
-`MEMORY.md` is the active persistent memory file. You can also export or load conversation history in other formats:
+`MEMORY.md` is the active persistent memory file. To save a separate conversation snapshot, select a format and an explicit filename:
 
 ```python
-# Save conversation snapshots
+agent.short_memory.export_method = "json"
+agent.short_memory.save_filepath = "snapshots/research-session.json"
 agent.short_memory.export(force=True)
-agent.short_memory.save_as_json(force=True)
-agent.short_memory.save_as_yaml(force=True)
 
-# Load a prior exported conversation
-agent.short_memory.load("conversation_agent-123.json")
+# Load the file that was actually exported
+agent.short_memory.load(agent.short_memory.save_filepath)
 ```
+
+For YAML, set `export_method` to `"yaml"` and use a `.yaml` filename. Do not call `save_as_json()` and `save_as_yaml()` consecutively on the same path: both write to `save_filepath`, so the second overwrites the first. `load()` replaces in-memory history; it does not rewrite `MEMORY.md`. See [export and reload](/examples/agents/persistent-memory#export-and-reload) for the complete example.
 
 ### Search memory
 

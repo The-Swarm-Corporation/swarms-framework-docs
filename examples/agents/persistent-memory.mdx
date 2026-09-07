@@ -96,16 +96,29 @@ matches = agent.short_memory.search_keyword_in_conversation("latency")
 
 ## Export and reload
 
-Snapshot memory to JSON or YAML and reload it later:
+Choose one snapshot format and load the exact path that you exported. This example uses the existing agent's in-memory history; it does not call a model:
 
 ```python
-agent.short_memory.export(force=True)
-agent.short_memory.save_as_json(force=True)
-agent.short_memory.save_as_yaml(force=True)
+from pathlib import Path
+
+memory = agent.short_memory
+memory.export_method = "json"
+memory.save_filepath = "snapshots/research-session.json"
+memory.export(force=True)
+
+snapshot = Path(memory.save_filepath)
+if not snapshot.is_file():
+    raise FileNotFoundError(snapshot)
 
 # Restore from a prior snapshot
-agent.short_memory.load("conversation_agent-123.json")
+memory.load(str(snapshot))
 ```
+
+For YAML, set `export_method = "yaml"` and `save_filepath = "snapshots/research-session.yaml"` before calling `export(force=True)`. `export()` selects the writer and adjusts the filename extension to match the format. Read `save_filepath` after exporting to get the resulting path.
+
+Both `save_as_json()` and `save_as_yaml()` write to the current `save_filepath`; calling them one after the other does not create two separate snapshots. The second call overwrites the first file without changing its extension. Use `export()` with a matching format and path for each snapshot instead.
+
+`load()` replaces the in-memory conversation history. It does not restore the agent's constructor settings or rewrite `MEMORY.md`. Keep the snapshot path available to the next process if you want to load it there. An explicit `force=True` export writes a file even when automatic saving is disabled.
 
 ## Disable disk-backed memory
 
