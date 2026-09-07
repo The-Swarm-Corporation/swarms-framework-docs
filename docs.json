@@ -67,6 +67,7 @@
             "group": "Agent Development",
             "pages": [
               "agents/creating-agents",
+              "agents/testing-agents",
               "agents/agent-configuration",
               "agents/agent-memory",
               "agents/agent-tools",

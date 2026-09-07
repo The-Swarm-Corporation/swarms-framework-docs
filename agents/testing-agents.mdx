@@ -1,0 +1,150 @@
+---
+title: Test agents without model API calls
+description: Check agent transcripts, loop limits, stopping conditions, and output handling with a deterministic model double and pytest.
+icon: flask
+---
+
+Use a scripted model to check your agent's control flow before spending money on model calls. You will run the real `Agent` class and replace only the model backend. This lets you reproduce failures with known responses instead of depending on a provider's availability or changing model output.
+
+This guide targets **Swarms 15.0.1** and was exercised with Python 3.12. It covers the non-streaming, text-only path without tools or prompt transforms. Keep provider integration tests separate: a model double cannot establish whether a real model follows instructions, uses tools correctly, or produces a useful answer.
+
+## Prepare an isolated test environment
+
+Create a virtual environment, activate it, and install the tested package version:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install "swarms==15.0.1" pytest
+```
+
+On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1` instead of `source`. Run the example in a new directory without a project `.env` file. You do not need a model API key. Installation needs network access; dependency imports or tokenizer initialization can also need local caches. Avoid treating “no model API calls” as a guarantee that every dependency is air-gapped.
+
+## Create a deterministic model double
+
+Save the following complete example as `test_agent_contract.py`. The environment settings appear **before** the Swarms import because importing the framework initializes its workspace and loads environment configuration.
+
+The temporary workspace keeps incidental files away from your project. `autosave=False` disables agent state snapshots, while `persistent_memory=False` disables persistent agent memory. Neither setting promises that imports and logging write no files. `SWARMS_TELEMETRY_ON=false` opts out of framework telemetry. The LiteLLM setting selects its bundled model-cost map rather than requesting a fresh copy.
+
+`ScriptedLLM.run()` accepts both `task` and `messages`. In the default transcript path in this version, `task` can be `None` while `messages` contains the user and assistant turns. Copy the message list when recording a call: the agent can append responses to its transcript after the model returns. Without that copy, inspecting an earlier call can show content that was not present when that call happened.
+
+```python
+import os
+from copy import deepcopy
+import tempfile
+
+_workspace = tempfile.TemporaryDirectory(prefix="swarms-contract-")
+os.environ["WORKSPACE_DIR"] = _workspace.name
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+
+from swarms import Agent
+
+
+class ScriptedLLM:
+    def __init__(self, responses):
+        self.responses = iter(responses)
+        self.calls = []
+
+    def run(self, task=None, messages=None, **kwargs):
+        self.calls.append({"task": task, "messages": deepcopy(messages)})
+        return next(self.responses)
+
+
+def make_agent(llm, **overrides):
+    options = dict(
+        agent_name="contract-test",
+        system_prompt="Summarize the supplied release notes.",
+        llm=llm,
+        model_name="gpt-4o-mini",
+        max_loops=1,
+        output_type="final",
+        autosave=False,
+        persistent_memory=False,
+        print_on=False,
+        streaming_on=False,
+        stream=False,
+        context_compression=False,
+        dynamic_context_window=False,
+        retry_attempts=1,
+    )
+    options.update(overrides)
+    return Agent(**options)
+
+
+def test_prompt_and_final_output():
+    llm = ScriptedLLM(["Fixed CSV export."])
+    result = make_agent(llm).run("Release 1.2 fixes CSV export.")
+    assert result == "Fixed CSV export."
+    assert len(llm.calls) == 1
+    assert "Release 1.2 fixes CSV export." in str(llm.calls[0]["messages"])
+
+
+def test_second_loop_receives_first_response():
+    llm = ScriptedLLM(["First draft.", "Final summary."])
+    result = make_agent(llm, max_loops=2).run("Summarize release 1.2.")
+    assert result == "Final summary."
+    assert len(llm.calls) == 2
+    assert "First draft." in str(llm.calls[1]["messages"])
+    assert "First draft." not in str(llm.calls[0]["messages"])
+
+
+def test_stopping_condition_ends_before_loop_limit():
+    llm = ScriptedLLM(["DONE"])
+    result = make_agent(
+        llm, max_loops=3, stopping_condition=lambda text: text == "DONE"
+    ).run("Produce a summary.")
+    assert result == "DONE"
+    assert len(llm.calls) == 1
+
+
+def test_new_agents_do_not_share_conversation():
+    first = ScriptedLLM(["First response."])
+    second = ScriptedLLM(["Second response."])
+    make_agent(first).run("unique-first-task-9137")
+    make_agent(second).run("unique-second-task-4286")
+    assert "unique-first-task-9137" not in str(second.calls[0]["messages"])
+    assert "unique-second-task-4286" in str(second.calls[0]["messages"])
+```
+
+Run all four checks:
+
+```bash
+python -m pytest -q test_agent_contract.py
+```
+
+The expected result is `4 passed`. The duration depends on your environment and whether dependency caches already exist.
+
+## Understand what the tests establish
+
+| Test | Behavior checked |
+| --- | --- |
+| Prompt and final output | The user task reaches the model transcript, one call occurs, and `output_type="final"` returns the scripted response. |
+| Two loops | The second call sees the first response, and the saved first-call transcript stays unchanged. |
+| Early stopping | A matching `stopping_condition` ends execution before `max_loops` is reached. |
+| Fresh agent isolation | A newly constructed agent does not inherit another instance's in-memory conversation. |
+
+`model_name="gpt-4o-mini"` supplies a recognized identifier for framework capability checks. Passing `llm=llm` provides the actual backend used here; the scripted object returns strings without invoking that provider. The example disables streaming, context compression, and dynamic context-window processing to keep the test focused. It does not configure tools, MCP servers, planning, fallback models, or automatic prompt generation.
+
+The mock deliberately has a finite response sequence. An unexpected extra call exhausts it. Since the framework may handle model exceptions, do not rely only on a raised exception to fail your test: assert the response and recorded call count as the example does.
+
+## Adapt the checks to your application
+
+Replace the release-note task and expected response with inputs that exercise your application's contract. Keep assertions about observable behavior: whether a required user field reaches the transcript, how many turns run, and how your application consumes the returned value. Avoid asserting an entire timestamped conversation string when one relevant message is enough.
+
+Create a new model double and agent for each independent test. Reusing an agent is appropriate when you intentionally test a continuing conversation; it is a different scenario from isolation between instances. Also distinguish in-memory state from disk persistence: the final test does not prove isolation when persistent memory is enabled.
+
+For system prompts, test your backend configuration separately. The built-in model wrapper receives `system_prompt` during construction. A caller-supplied model double is not that wrapper, and this transcript capture does not establish how a custom backend applies system instructions. Inspect the backend's initialization rather than assuming every call contains a system-role message.
+
+## Keep provider checks separate
+
+After these checks pass, add a small integration test using your actual provider, model, and configuration. Give that test an explicit opt-in marker and its own credentials. Check tool execution, streaming, structured output, retries, and persistence in dedicated tests when your application uses them. A successful scripted test is evidence about the agent's plumbing, not model quality or production readiness.
+
+When upgrading Swarms, rerun these checks before changing expected values. If the transcript format or loop behavior changes, inspect the new implementation and release notes first. A failing assertion can reveal a changed contract that a mock returning the same string unconditionally would conceal.
+
+## Related guides
+
+- [Create agents](/agents/creating-agents)
+- [Configure agents](/agents/agent-configuration)
+- [Understand agent memory](/agents/agent-memory)
+- [Model providers](/integrations/model-providers)
