@@ -36,7 +36,7 @@ The fastest way to get started is to create a `.env` file in your project root:
   </Step>
 
   <Step title="Verify the setup">
-    Load and verify your environment variables:
+    Load your environment variables and check which providers are configured without printing their keys:
     
     ```python
     import os
@@ -45,8 +45,10 @@ The fastest way to get started is to create a `.env` file in your project root:
     # Load environment variables
     load_dotenv()
 
-    # Verify API keys are loaded
-    print(f"OpenAI API Key: {os.getenv('OPENAI_API_KEY')[:10]}...")
+    # Check presence only; you only need the providers you use
+    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY"):
+        status = "Configured" if os.getenv(name) else "Not configured"
+        print(f"{name}: {status}")
     print(f"Workspace: {os.getenv('WORKSPACE_DIR')}")
     ```
   </Step>
