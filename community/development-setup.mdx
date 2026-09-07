@@ -28,11 +28,26 @@ pip3 install -U swarms
 
 ```bash
 # Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
+python -m pip install uv
+
+# Create an isolated environment (including pip for later commands)
+uv venv --seed
 
 # Install swarms using uv
 uv pip install swarms
 ```
+
+Activate the environment before running Python or pip. uv discovers `.venv` automatically; activation makes the later shell commands use that same environment.
+
+<CodeGroup>
+```bash macOS / Linux
+source .venv/bin/activate
+```
+
+```powershell Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+```
+</CodeGroup>
 
 ### Using poetry
 

@@ -47,6 +47,9 @@ pip3 install -U swarms
 # Install uv if you haven't already
 pip install uv
 
+# Create an isolated environment (including pip for later commands)
+uv venv --seed
+
 # Install Swarms using uv
 uv pip install swarms
 ```
@@ -67,6 +70,18 @@ cd swarms
 pip install -r requirements.txt
 ```
 
+</CodeGroup>
+
+If you used uv, activate the environment before running the Python and pip commands below. uv finds `.venv` automatically, but your shell's `python` and `pip` need activation to use it.
+
+<CodeGroup>
+```bash macOS / Linux
+source .venv/bin/activate
+```
+
+```powershell Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+```
 </CodeGroup>
 
 ## Why Use uv? (Recommended)
