@@ -217,9 +217,11 @@ It's recommended to install Swarms in a virtual environment to avoid conflicts w
     # Add Swarms
     poetry add swarms
 
-    # Activate the virtual environment
-    poetry shell
+    # Activate the virtual environment in Bash or Zsh (Poetry 2.x)
+    eval "$(poetry env activate)"
     ```
+
+    `poetry env activate` prints the activation command; `eval` runs it in your current shell. In PowerShell, use `Invoke-Expression (poetry env activate)` instead. See [Poetry's environment guide](https://python-poetry.org/docs/managing-environments/#activating-the-environment) for other shells. `poetry shell` requires the optional shell plugin in Poetry 2.x.
   </Tab>
 </Tabs>
 
