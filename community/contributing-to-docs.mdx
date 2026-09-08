@@ -96,6 +96,33 @@ Prefer [Mintlify components](https://mintlify.com/docs) (for example `Card`, `No
 
 - Keep the change **focused** (one topic or fix per PR when possible) so review stays fast.
 
+### Check links from Windows
+
+The native Windows link checker can report existing nested pages as broken. This behavior is reported in [Mintlify issue #5680](https://github.com/mintlify/docs/issues/5680) and was reproduced with CLI `4.2.876`. Do not remove a link only because it appears in this report. Check whether the target page exists, then compare the same edited checkout with a Linux run.
+
+For Windows contributors who already have WSL, open its Linux terminal and use a Linux installation of Node.js and npm. Check the tools before continuing:
+
+```bash
+command -v node npx
+node -p "process.platform"
+node --version
+```
+
+The platform must be `linux`, and both command paths must identify Linux installations. Reusing Windows npm packages can cause a different failure: a native dependency such as `sharp` cannot load its Linux runtime. Keep the Linux npm cache separate from the Windows cache.
+
+Go to the root of **your edited checkout**, where `docs.json` is located. Then run:
+
+```bash
+npm_config_cache="$HOME/.cache/swarms-mint-linux" npx --yes mint@4.2.876 broken-links
+echo $?
+```
+
+This command pins the version used for the comparison and downloads the CLI into a Linux cache. It does not change the repository's dependencies. Retest newer CLI versions before assuming they have the same behavior. The trade-off is a separate Linux tool installation and cache.
+
+Exit `0` means this check found no broken links; exit `1` indicates reported links to inspect. An installation or runtime error is a failed check, not a clean result. A passing link check does not validate external websites, rendered layout, or Python examples. Continue to preview changed pages.
+
+To verify the checker itself, use a separate test project with a link to an existing nested page. Then add a link to a nonexistent page. In the tested Linux run, the valid project passed and the missing-page control failed. Do not exclude failing pages or ignore the exit code to obtain a pass. Include the CLI version, operating system, source revision, exit code, and unresolved findings in your PR.
+
 ## Conduct and help
 
 - Follow the [Code of Conduct](/community/code-of-conduct).
