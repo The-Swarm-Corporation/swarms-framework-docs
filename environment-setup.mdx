@@ -45,10 +45,15 @@ The fastest way to get started is to create a `.env` file in your project root:
     # Load environment variables
     load_dotenv()
 
-    # Verify API keys are loaded
-    print(f"OpenAI API Key: {os.getenv('OPENAI_API_KEY')[:10]}...")
+    # Check which providers are configured without printing API keys
+    for provider in ("OPENAI", "ANTHROPIC", "GROQ"):
+        configured = bool(os.getenv(f"{provider}_API_KEY"))
+        print(f"{provider} API key configured: {configured}")
     print(f"Workspace: {os.getenv('WORKSPACE_DIR')}")
     ```
+
+    `True` means a nonempty key is set; it does not confirm that the key is valid.
+    `False` is expected for providers you do not use. This check makes no model API calls.
   </Step>
 </Steps>
 
