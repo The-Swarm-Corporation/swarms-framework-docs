@@ -1,0 +1,139 @@
+---
+title: "Test AgentRearrange handoffs"
+description: "Check sequential and parallel AgentRearrange handoffs with deterministic test doubles and blocked sockets."
+icon: "flask"
+---
+
+Test your workflow wiring before spending tokens on a live evaluation. This tutorial runs the real `AgentRearrange` orchestration code while replacing agent answers with explicit test doubles. You check which agents run, what context reaches the next step, and whether an invalid flow fails validation.
+
+<Note>
+  These tests do not evaluate model quality, tool execution, provider authentication, or production behavior. The canned answers are test fixtures, not generated research or evidence of a successful live agent run.
+</Note>
+
+## Install the test dependencies
+
+Create a separate directory and virtual environment. The example was tested with Python 3.11 and `swarms==15.0.2`.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install "swarms==15.0.2" pytest pytest-socket
+```
+
+On Windows, activate the environment with `.venv\Scripts\activate` instead. Package installation requires network access; the tests below do not.
+
+## Block network access before importing Swarms
+
+Save this as `conftest.py` beside your test file. Disabling sockets here covers test-module imports as well as the test bodies. Keep the `--disable-socket` option in the test command so the plugin also applies its per-test restrictions.
+
+```python conftest.py
+import os
+
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+
+from pytest_socket import disable_socket
+
+disable_socket()
+```
+
+Use an isolated test directory without real API keys or a credential-bearing `.env` file. Swarms searches upward for `.env` files. You can place an empty `.env` in this directory to stop that search; do not copy production credentials into it.
+
+An imported dependency may attempt a network lookup and fall back to bundled data. In the tested environment, socket-blocking warnings and a LiteLLM deprecation warning appeared, but the tests passed. Do not remove the network restriction just to silence those warnings.
+
+## Define deterministic agents and test the handoffs
+
+Save the following complete file as `test_workflow.py`. Each `run` method is a `Mock`, so it returns a fixed string and records the arguments supplied by the real workflow.
+
+```python test_workflow.py
+import os
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+
+import pytest
+from swarms import AgentRearrange
+
+
+def stub_agent(name, answer):
+    return SimpleNamespace(
+        agent_name=name,
+        system_prompt=f"You are {name}.",
+        run=Mock(return_value=answer),
+    )
+
+
+def workflow(agents, flow):
+    return AgentRearrange(
+        agents=agents,
+        flow=flow,
+        max_loops=1,
+        autosave=False,
+        output_type="final",
+    )
+
+
+def test_sequential_handoff():
+    researcher = stub_agent("Researcher", "Research complete")
+    writer = stub_agent("Writer", "Draft complete")
+    pipeline = workflow([researcher, writer], "Researcher -> Writer")
+
+    assert pipeline.run("Write a short report") == "Draft complete"
+    researcher.run.assert_called_once()
+    writer.run.assert_called_once()
+    received = writer.run.call_args.kwargs
+    assert received["task"] == "Researcher: Research complete"
+    assert {
+        "role": "user", "content": "Write a short report"
+    } in received["messages"]
+
+
+def test_parallel_answers_reach_the_reviewer():
+    tech = stub_agent("Tech", "Technical notes")
+    legal = stub_agent("Legal", "Legal notes")
+    reviewer = stub_agent("Reviewer", "Review complete")
+    pipeline = workflow(
+        [tech, legal, reviewer], "Tech, Legal -> Reviewer"
+    )
+
+    assert pipeline.run("Review the proposal") == "Review complete"
+    for agent in (tech, legal, reviewer):
+        agent.run.assert_called_once()
+    received = reviewer.run.call_args.kwargs
+    contents = {m["content"] for m in received["messages"]}
+    contents.add(received["task"])
+    assert {"Tech: Technical notes", "Legal: Legal notes"} <= contents
+
+
+def test_invalid_flow_fails_without_running_agents():
+    researcher = stub_agent("Researcher", "Research complete")
+    writer = stub_agent("Writer", "Draft complete")
+    pipeline = workflow([researcher, writer], "Researcher -> Missing")
+
+    with pytest.raises(ValueError, match="Missing"):
+        pipeline.validate_flow()
+    researcher.run.assert_not_called()
+    writer.run.assert_not_called()
+```
+
+## Run the tests
+
+```bash
+python -m pytest --disable-socket -q test_workflow.py
+```
+
+The tested example passed all three tests. Timing and dependency warnings may vary.
+
+## Understand what the assertions prove
+
+- **Sequential handoff:** the writer runs once and receives the researcher's named answer. In Swarms 15.0.2, earlier turns arrive in `messages`, while the newest turn arrives separately as `task`. Looking only at `messages` can miss the most recent answer.
+- **Parallel handoff:** both specialists run once, and their named answers reach the reviewer. The assertion combines `messages` and `task` and checks membership rather than relying on the completion order of concurrent workers. It does not prove that a real provider executes requests concurrently or meets a latency target.
+- **Invalid flow:** `Missing` is not a registered agent. Calling `validate_flow()` raises before either mock runs, so a spelling error can fail a CI check without making a model call.
+
+`autosave=False` disables workflow autosave; it is not a promise that importing dependencies produces no local files. Use a disposable working directory for CI runs.
+
+## Move from unit tests to a live evaluation
+
+Keep these deterministic checks separate from tests that instantiate real agents. A live evaluation needs explicit provider credentials, network access, a budget, and assertions appropriate for nondeterministic answers. Passing these unit tests does not establish those conditions.
+
+See the [AgentRearrange API](/api/agent-rearrange) for the supported methods and the [architecture guide](/architectures/agent-rearrange) for flow patterns.

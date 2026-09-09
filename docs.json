@@ -281,6 +281,7 @@
               "examples/sequential-workflow-example",
               "examples/sequential-workflow-streaming-example",
               "examples/concurrent-workflow-example",
+              "examples/offline-workflow-tests",
               "examples/mixture-of-agents-example",
               "examples/hierarchical-swarm-example",
               "examples/group-chat-example",
