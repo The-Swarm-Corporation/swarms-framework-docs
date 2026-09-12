@@ -81,7 +81,7 @@ async def health_check():
 
 
 @app.post("/agent/run", response_model=AgentResponse)
-async def run_agent(request: AgentRequest):
+def run_agent(request: AgentRequest):
     try:
         start_time = time.time()
         # max_loops only takes effect at Agent construction time, not on
@@ -102,6 +102,11 @@ async def run_agent(request: AgentRequest):
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
+
+`Agent.run()` is synchronous, so the agent endpoints use `def`. FastAPI runs
+these handlers in its thread pool, keeping the event loop available for health
+checks and other requests while the model responds. See [FastAPI's concurrency
+guidance](https://fastapi.tiangolo.com/async/#path-operation-functions).
 
 ## Step 3: Run it
 
@@ -149,7 +154,7 @@ When you want a dedicated endpoint for a specific agent persona, just create the
 
 ```python
 @app.post("/agent/quantitative-trading")
-async def run_quant_agent(request: AgentRequest):
+def run_quant_agent(request: AgentRequest):
     try:
         agent = Agent(
             agent_name="Quantitative-Trading-Agent",
