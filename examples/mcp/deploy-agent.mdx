@@ -1,0 +1,283 @@
+---
+title: 'Deploy an agent over MCP'
+description: 'Serve a Swarms agent as an authenticated MCP tool and call it from another agent or MCPManager'
+icon: 'rocket'
+---
+
+`MCPDeployer` gives the server side of a complete Swarms-to-Swarms MCP workflow. In this tutorial, one process serves a `Researcher` agent as the `researcher` tool. A second process discovers that tool and calls it through an authenticated connection.
+
+## Prerequisites
+
+```bash
+pip install -U swarms
+export OPENAI_API_KEY="sk-..."
+export MCP_DEPLOYER_KEYS="replace-with-a-long-random-key"
+export MCP_DEPLOYER_KEY="replace-with-a-long-random-key"
+```
+
+`MCP_DEPLOYER_KEYS` is the server's comma-separated allowlist. `MCP_DEPLOYER_KEY` is the single key used by the client. The values must match.
+
+<Warning>
+  Do not commit real keys. `api_key_env` reads the server allowlist from the environment, and the client's `env:` reference resolves the key when the connection is created.
+</Warning>
+
+## 1. Serve the agent
+
+Create `research_server.py`:
+
+```python
+from swarms import Agent, MCPDeployer
+
+researcher = Agent(
+    agent_name="Researcher",
+    agent_description="Researches a topic and returns a concise sourced summary.",
+    system_prompt=(
+        "Research the user's topic. Return a concise summary and list the "
+        "sources you relied on. Do not invent citations."
+    ),
+    model_name="gpt-5.4",
+    max_loops=1,
+    print_on=False,
+)
+
+server = MCPDeployer(
+    researcher,
+    api_key_env="MCP_DEPLOYER_KEYS",
+    host="127.0.0.1",
+    port=8000,
+    timeout=120,
+)
+
+if __name__ == "__main__":
+    server.run()
+```
+
+Start it in the first terminal:
+
+```bash
+python research_server.py
+```
+
+The banner shows the tool name, authentication mode, and endpoint. The process keeps running until you stop it.
+
+## 2. Check the process without credentials
+
+The default health route is public:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Expected shape:
+
+```json
+{
+  "status": "ok",
+  "name": "researcher",
+  "tool": "researcher",
+  "tools": ["researcher"],
+  "transport": "streamable-http"
+}
+```
+
+This confirms that the server is listening. It does not prove that credentials work or that the model can complete a request.
+
+## 3. Connect another agent
+
+Create `research_client.py`:
+
+```python
+from swarms import Agent
+from swarms.schemas.mcp_schemas import MCPConnection
+
+connection = MCPConnection(
+    url="http://127.0.0.1:8000/mcp",
+    api_key="env:MCP_DEPLOYER_KEY",
+    timeout=10,
+    tool_timeout=120,
+)
+
+client = Agent(
+    agent_name="Research-Client",
+    system_prompt=(
+        "Use the researcher tool for research requests. Return its answer "
+        "without inventing additional sources."
+    ),
+    model_name="gpt-5.4",
+    mcp_url=connection,
+    max_loops=2,
+    print_on=False,
+    output_type="final",
+)
+
+print(client.run("Research the current Python packaging metadata standards."))
+```
+
+Run it in a second terminal while the server remains active:
+
+```bash
+python research_client.py
+```
+
+`MCPConnection` sends the key as `Authorization: Bearer <key>` by default. `MCPDeployer` accepts that header even though its dedicated raw-key header defaults to `x-api-key`.
+
+## Inspect the server without a model
+
+Take the calling model out of the loop when you debug discovery or authentication:
+
+```python
+from swarms.schemas.mcp_schemas import MCPConnection
+from swarms.tools.mcp_manager import MCPManager
+
+manager = MCPManager(
+    mcp_url=MCPConnection(
+        url="http://127.0.0.1:8000/mcp",
+        api_key="env:MCP_DEPLOYER_KEY",
+    )
+)
+
+print(manager.list_tool_names())
+print(manager.get_tools())
+print(manager.call_tool("researcher", {"task": "Explain PEP 621."}))
+```
+
+If direct discovery and invocation work but an agent chooses the wrong tool, improve the agent prompt or the served target's `agent_description`.
+
+## Serve several tools
+
+A dictionary gives every target a stable MCP name:
+
+```python
+from swarms import Agent, MCPDeployer, SequentialWorkflow
+
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+writer = Agent(
+    agent_name="Writer",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+pipeline = SequentialWorkflow(agents=[researcher, writer])
+
+server = MCPDeployer(
+    {
+        "research": researcher,
+        "write": writer,
+        "research_then_write": pipeline,
+    },
+    api_key_env="MCP_DEPLOYER_KEYS",
+)
+server.run()
+```
+
+Use a dictionary when targets might infer the same name. A duplicate name raises `ValueError` instead of silently replacing a tool.
+
+## Add ordinary Python functions
+
+`extra_tools` exposes functions with their native signatures. Give each one a docstring because MCP uses it as the tool description.
+
+```python
+import datetime
+
+from swarms import MCPDeployer
+
+
+def utc_now() -> str:
+    """Return the current UTC time as an ISO 8601 string."""
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+server = MCPDeployer(
+    researcher,
+    api_key_env="MCP_DEPLOYER_KEYS",
+    extra_tools=[utc_now],
+)
+server.run()
+```
+
+The main target still receives `task` and optional `img`. An `extra_tools` function keeps its own typed signature.
+
+## Run the server in the background
+
+For tests and local integration scripts, use the context manager:
+
+```python
+from swarms import MCPDeployer
+
+with MCPDeployer(
+    researcher,
+    api_keys=["local-test-key"],
+    port=8000,
+) as server:
+    print(f"Serving at {server.url}")
+    # Run client checks here.
+```
+
+Entering the block calls `start()`. Leaving it calls `stop()`, including when client code raises. `start()` is available only for HTTP transports because stdio is owned by the process that launches it.
+
+## Choose a transport
+
+| Transport | Configuration | Endpoint | Authentication behavior |
+|---|---|---|---|
+| Streamable HTTP | `transport="streamable-http"` | `/mcp` by default | HTTP auth middleware applies. Recommended for new networked deployments. |
+| SSE | `transport="sse"` | `/sse` by default | HTTP auth middleware applies. Use for older clients that require SSE. |
+| Stdio | `transport="stdio"` | stdin/stdout | No HTTP headers. The launching host is the security boundary. `run()` only. |
+
+For stdio, configure the MCP host to launch the Python server module. `api_keys`, custom auth, and token verification cannot authenticate stdio calls because the transport carries no headers.
+
+## Production checklist
+
+- Keep keys in a secret manager or environment variable. Rotate them like any service credential.
+- Bind to `127.0.0.1` behind a reverse proxy unless the Python process must accept remote connections directly.
+- Terminate TLS before exposing the endpoint outside a trusted network.
+- Restrict inbound traffic with a firewall or private network. Authentication does not hide the listening service.
+- Keep `stateless_http=True` behind a load balancer unless a client requires session state.
+- Set `timeout` so one slow agent cannot occupy a worker forever. Set the client `tool_timeout` to the same value or slightly higher.
+- Keep `/health` free of secrets. It is public by default and reports server and tool names.
+- Use a custom `auth` callable or `token_verifier` when you need tenants, subjects, expiry, or scopes. Static keys only answer whether a credential is in the allowlist.
+- Run the ASGI application under your production server when you need process supervision:
+
+```python
+from swarms import MCPDeployer
+
+deployer = MCPDeployer(
+    researcher,
+    api_key_env="MCP_DEPLOYER_KEYS",
+    host="0.0.0.0",
+    stateless_http=True,
+)
+app = deployer.app
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="The constructor says that no auth is configured">
+    Confirm that `MCP_DEPLOYER_KEYS` exists in the environment of the server process and contains at least one non-empty value. `api_key_env` is read during construction. Otherwise provide another auth mechanism or explicitly opt into `allow_anonymous=True` behind a trusted boundary.
+  </Accordion>
+  <Accordion title="The client gets 401 Unauthorized">
+    Confirm that the client and server values match. `MCPConnection(api_key=...)` sends `Authorization: Bearer` by default, which the deployer accepts. If you changed the client header or prefix, make sure the server's `api_key_header` matches.
+  </Accordion>
+  <Accordion title="The health check works but tool discovery fails">
+    Verify that the client URL includes the transport path: `/mcp` for streamable HTTP or `/sse` for SSE. `/health` is a separate public route and is not an MCP endpoint.
+  </Accordion>
+  <Accordion title="Two targets produce the same tool name">
+    Pass a dictionary such as `{"research": first, "review": second}`. Inferred names come from `agent_name`, `name`, function name, or class name, so two instances of the same class can collide.
+  </Accordion>
+  <Accordion title="The server starts locally but remote requests fail">
+    `127.0.0.1` accepts only local connections. Bind to an appropriate interface, configure firewall rules, and put TLS plus authentication in front of the service. Confirm that the remote client uses the externally reachable hostname and endpoint path.
+  </Accordion>
+  <Accordion title="An image argument causes the target to fail">
+    Deployed targets expose optional `img`. Swarms first tries `run(task, img=img)` and retries `run(task)` only when that call raises `TypeError`. Confirm that the target either accepts `img` or can run from the task alone.
+  </Accordion>
+</AccordionGroup>
+
+## Next
+
+- [MCPDeployer API](/api/mcp-deployer) — every constructor option, lifecycle method, and authentication rule.
+- [MCP authentication patterns](/examples/mcp/authentication) — configure credentials on the client side.
+- [MCPManager API](/api/mcp-manager) — discover and call tools without an agent.
+- [Model Context Protocol](/integrations/mcp) — connect agents to several MCP servers.

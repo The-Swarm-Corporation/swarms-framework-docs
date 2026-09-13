@@ -214,7 +214,8 @@
           {
             "group": "Deployment",
             "pages": [
-              "api/cron-job"
+              "api/cron-job",
+              "api/mcp-deployer"
             ]
           }
         ]
@@ -380,6 +381,7 @@
             "group": "MCP Tool Integrations",
             "pages": [
               "examples/mcp/overview",
+              "examples/mcp/deploy-agent",
               "examples/mcp/deepwiki-repo-qa",
               "examples/mcp/gitmcp-repo-docs",
               "examples/mcp/microsoft-learn-docs",
