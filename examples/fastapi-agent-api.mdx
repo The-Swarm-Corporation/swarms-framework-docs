@@ -217,8 +217,20 @@ class AgentFactory:
 
 ### Auth + rate limiting
 
+Install the additional dependency:
+
+```bash
+pip install slowapi
+```
+
+In `agent_api.py`, remove the `@app.post("/agent/run", response_model=AgentResponse)`
+decorator from the original `run_agent` function in Step 2. Keep its function body
+as a helper, then add the following code **before** the `if __name__ == "__main__":`
+block. Register `/agent/run` only once: leaving the original route registered lets
+requests reach it without authentication or rate limiting.
+
 ```python
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -243,11 +255,26 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
 @app.post("/agent/run", response_model=AgentResponse)
 @limiter.limit("10/minute")
 async def run_agent_secure(
-    request: AgentRequest,
+    request: Request,
+    payload: AgentRequest,
     token: str = Depends(verify_token),
 ):
-    ...
+    return await run_agent(payload)
 ```
+
+SlowAPI needs the HTTP `request` to identify the caller. FastAPI separately
+validates the JSON body as `payload`. Keep the route decorator above
+`@limiter.limit`, as shown. Replace the example token with your own secret before
+exposing the endpoint.
+
+With valid credentials, the first ten requests from one client IP per minute
+can execute the agent; the next returns HTTP 429 without running it. Missing or
+invalid credentials must be rejected. This example protects `/agent/run` only;
+apply the same pattern to any additional agent endpoints you expose.
+
+The default limit storage is in memory. For the multi-worker deployment below,
+configure a shared [storage backend](https://slowapi.readthedocs.io/en/latest/api/#slowapi.extension.Limiter)
+through `Limiter(storage_uri=...)` so workers share the same counters.
 
 ### Gunicorn for multi-worker production
 
