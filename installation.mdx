@@ -317,11 +317,13 @@ poetry remove swarms
   </Accordion>
 
   <Accordion title="SSL certificate errors">
-    If you encounter SSL errors:
-    
+    Keep certificate verification enabled. Check your system clock and update your operating system's trusted certificates. If your organization uses a TLS-inspecting proxy, ask its administrator for the trusted CA bundle, then pass that file to pip:
+
     ```bash
-    pip3 install --trusted-host pypi.org --trusted-host files.pythonhosted.org swarms
+    python -m pip install --cert /path/to/company-ca-bundle.pem swarms
     ```
+
+    Replace the placeholder with your administrator-provided PEM bundle. Do not use `--trusted-host` as a general workaround: it bypasses certificate verification for that host. See [pip's HTTPS certificate guide](https://pip.pypa.io/en/stable/topics/https-certificates/) for certificate-store options.
   </Accordion>
 
   <Accordion title="Package conflicts">
