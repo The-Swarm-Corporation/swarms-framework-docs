@@ -315,6 +315,7 @@ def insert_data(
         >>> print(result)
         {"status": "success", "table": "employees", "rows_inserted": 2}
     """
+    conn = None
     try:
         # Validate inputs
         if not all([database_path, table_name, data]):
@@ -344,7 +345,6 @@ def insert_data(
         )
 
         if not cursor.fetchone():
-            conn.close()
             raise ValueError(f"Table '{table_name}' does not exist")
 
         rows_inserted = 0
@@ -387,7 +387,6 @@ def insert_data(
             )
 
         conn.commit()
-        conn.close()
 
         result = {
             "status": "success",
@@ -411,6 +410,9 @@ def insert_data(
                 "error": f"Unexpected error: {str(e)}",
             }
         )
+    finally:
+        if conn is not None:
+            conn.close()  # Roll back uncommitted rows and release the write lock.
 
 
 def query_database(
