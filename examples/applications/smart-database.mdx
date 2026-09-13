@@ -642,9 +642,9 @@ def get_database_schema(database_path: str) -> str:
         conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
 
-        # Get all tables
+        # Get application tables, excluding private metadata and SQLite internals
         cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_%'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB '_*' AND name NOT GLOB 'sqlite_*'"
         )
         tables = cursor.fetchall()
 
