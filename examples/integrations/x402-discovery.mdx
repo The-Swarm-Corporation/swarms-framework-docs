@@ -178,8 +178,8 @@ Get services within a specific price range:
 
 ```python
 # Get first 10 services under 100000 atomic units ($0.10 USDC with 6 decimals)
-services = await get_x402_services(limit=10, max_price=100000)
-for service in services:
+result = await query_x402_services(limit=10, max_price=100000)
+for service in result["items"]:
     print(service["resource"])
 ```
 

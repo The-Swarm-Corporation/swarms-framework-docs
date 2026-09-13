@@ -20,6 +20,7 @@ The `SequentialWorkflow` orchestrates multiple agents in a linear chain, where e
 - Team awareness capabilities
 - Conversation history tracking
 - Autosave functionality
+- Optional drift detection: a judge agent scores the final output's alignment with the original task and reruns the pipeline if it falls below a threshold
 
 ## Basic Example
 
@@ -77,18 +78,16 @@ workflow = SequentialWorkflow(
 )
 ```
 
-### With Shared Memory
+### With Drift Detection
 
 ```python
-from swarms.memory.langtrace_memory import LangTrace
-
-# Initialize shared memory
-shared_memory = LangTrace()
-
 workflow = SequentialWorkflow(
     agents=[researcher, writer, editor],
-    shared_memory_system=shared_memory,
     max_loops=1,
+    drift_detection=True,        # score the final output against the task
+    drift_threshold=0.8,         # rerun while the score stays below this
+    drift_model="claude-sonnet-4-5",
+    drift_max_retries=2,         # at most 2 reruns, then return the last output
 )
 ```
 
@@ -115,11 +114,41 @@ workflow = SequentialWorkflow(
 </ParamField>
 
 <ParamField path="multi_agent_collab_prompt" type="bool" default="False">
-  Add collaboration instructions to agent prompts
+  Give each agent a collaboration preamble for the duration of the run. It is
+  delivered as a system turn; your `Agent` objects are not modified.
+</ParamField>
+
+<ParamField path="collab_prompt" type="str" optional>
+  Override the default preamble text. Ignored unless `multi_agent_collab_prompt`
+  is `True`.
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="True">
   Automatically save conversation history
+</ParamField>
+
+<ParamField path="drift_detection" type="bool" default="False">
+  If True, a judge agent scores the final output's semantic alignment with the original task after the pipeline completes, and reruns the pipeline while the score stays below `drift_threshold`
+</ParamField>
+
+<ParamField path="drift_threshold" type="float" default="0.75">
+  Minimum alignment score (0-1) required to accept the output when `drift_detection` is enabled
+</ParamField>
+
+<ParamField path="drift_model" type="str" default="claude-sonnet-4-5">
+  Model used by the drift-detection judge agent
+</ParamField>
+
+<ParamField path="drift_max_retries" type="int" default="3">
+  Maximum pipeline reruns while the drift score stays below `drift_threshold`. Once exhausted the last output is returned with a warning instead of rerunning forever. `0` disables reruns, so the output is still scored and reported but never regenerated. Must be `>= 0` or the constructor raises `ValueError`.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Enable verbose logging
+</ParamField>
+
+<ParamField path="shared_memory_system" type="callable" default="None">
+  Accepted and stored on the instance, but never read during execution — it is not wired into the underlying `AgentRearrange` or into any agent. Use `persistent_memory=True` on individual agents if you need memory that survives across runs.
 </ParamField>
 
 ## Methods
@@ -168,8 +197,13 @@ result = asyncio.run(main())
 Run multiple tasks concurrently.
 
 ```python
+import asyncio
+
 tasks = ["Task 1", "Task 2", "Task 3"]
-results = workflow.run_concurrent(tasks)
+
+# run_concurrent is a coroutine: calling it without await returns a coroutine
+# object and runs nothing.
+results = asyncio.run(workflow.run_concurrent(tasks))
 ```
 
 ### run_stream() / arun_stream()

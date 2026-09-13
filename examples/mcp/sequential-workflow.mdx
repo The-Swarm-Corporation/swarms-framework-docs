@@ -1,0 +1,159 @@
+---
+title: 'MCP in a multi-agent workflow'
+description: 'Give each agent in a SequentialWorkflow only the MCP server it needs, and hand findings down the chain.'
+icon: 'diagram-project'
+---
+
+Every other tutorial in this section is a single agent. This one wires MCP servers into a `SequentialWorkflow`, which is the more interesting case for a multi-agent framework: each agent gets *only* the server it needs, and the pipeline hands findings down the chain.
+
+| Stage | Server | Model |
+|---|---|---|
+| **Researcher** | DeepWiki — repo Q&A | `claude-opus-5` |
+| **Librarian** | Context7 — current library docs | `gpt-5.4` |
+| **Reporter** | none — synthesis only | `claude-haiku-4-5` |
+
+Three different models, chosen by what each stage actually does: the researcher reasons over an unfamiliar codebase, the librarian does lookup-and-compare, and the reporter only has to write well from material it was handed.
+
+## Why split the tools per agent?
+
+You could give one agent both servers. Four reasons not to:
+
+| | |
+|---|---|
+| **Focus** | A model choosing among many tools for a narrow job picks wrong more often than one choosing among two. |
+| **Context** | Tool schemas occupy the window on every call. Loading Context7's schemas into the agent that only reads a repo is pure overhead. |
+| **Attribution** | When the output is wrong you can tell which stage produced it. |
+| **Cost** | The reporter needs no tools at all, so it never pays for them. |
+
+## Build it
+
+<Steps>
+  <Step title="Install and set your keys">
+    ```bash
+    pip install -U swarms
+    export ANTHROPIC_API_KEY="sk-ant-..."
+    export OPENAI_API_KEY="sk-..."
+    ```
+
+    Both servers used here are free and need no key of their own.
+  </Step>
+
+  <Step title="Stage 1 — the researcher, with DeepWiki only">
+    ```python
+    from swarms import Agent
+
+    researcher = Agent(
+        agent_name="Repo-Researcher",
+        agent_description="Explains a repository's architecture using DeepWiki.",
+        system_prompt=(
+            "You map codebases. Use DeepWiki to establish what a repository "
+            "actually does before describing it. Report the module layout, the "
+            "entry points, and — most important for the next stage — the "
+            "third-party libraries it depends on, named exactly. Be concrete "
+            "about module and package names; a downstream agent cannot look up "
+            "something you described only in prose."
+        ),
+        model_name="claude-opus-5",
+        mcp_url="https://mcp.deepwiki.com/mcp",
+        max_loops=2,
+    )
+    ```
+
+    The last sentence of that prompt is the whole trick of chaining agents: stage one has to emit something stage two can act on. "It uses several HTTP libraries" is useless downstream; `httpx`, `anyio` is not.
+  </Step>
+
+  <Step title="Stage 2 — the librarian, with Context7 only">
+    ```python
+    librarian = Agent(
+        agent_name="Docs-Librarian",
+        agent_description="Checks current library documentation via Context7.",
+        system_prompt=(
+            "You verify how libraries are *currently* meant to be used. Take the "
+            "dependencies identified for you and look each one up — resolve the "
+            "library id, then fetch its docs. Report the current recommended API "
+            "for each, and flag anything deprecated or superseded, since that is "
+            "the whole point of checking live docs rather than trusting memory. "
+            "If a library cannot be found, say so and move on rather than "
+            "inventing its API."
+        ),
+        model_name="gpt-5.4",
+        mcp_url="https://mcp.context7.com/mcp",
+        max_loops=3,
+    )
+    ```
+
+    Three loops, because each dependency needs a resolve-then-fetch pair and there is usually more than one.
+  </Step>
+
+  <Step title="Stage 3 — the reporter, with no tools at all">
+    ```python
+    reporter = Agent(
+        agent_name="Report-Writer",
+        agent_description="Turns research and docs findings into a brief.",
+        system_prompt=(
+            "You write engineering briefs for a technical lead who has five "
+            "minutes. Open with the single most important conclusion, then the "
+            "supporting detail. Preserve every concrete finding you were handed — "
+            "package names, versions, deprecations — and invent none. Where the "
+            "earlier stages disagreed or hedged, surface that rather than "
+            "smoothing it into false confidence. End with specific next actions."
+        ),
+        model_name="claude-haiku-4-5",
+        max_loops=1,
+    )
+    ```
+
+    No `mcp_url`. There is nothing left to look up, and a tool here would only invite the model to re-do work the earlier stages already did.
+  </Step>
+
+  <Step title="Chain them">
+    ```python
+    from swarms import SequentialWorkflow
+
+    workflow = SequentialWorkflow(
+        agents=[researcher, librarian, reporter],
+        max_loops=1,
+    )
+
+    result = workflow.run(
+        "Review the modelcontextprotocol/python-sdk repository: map its "
+        "architecture, identify its main third-party dependencies, check "
+        "whether the APIs it relies on are current or deprecated, and write "
+        "a brief for the maintainers."
+    )
+    print(result)
+    ```
+  </Step>
+</Steps>
+
+## Sequential or concurrent?
+
+These stages are genuinely dependent — the librarian looks up whatever dependencies the researcher found — which is why this is a chain.
+
+When stages *don't* depend on each other, swap in `ConcurrentWorkflow` and they run in parallel. The constructor call is otherwise identical:
+
+```python
+from swarms import ConcurrentWorkflow
+
+workflow = ConcurrentWorkflow(agents=[repo_reader, web_searcher, security_scanner])
+results = workflow.run("Assess this project.")
+```
+
+A useful test: if you can shuffle the agent list without changing the meaning of the run, it should be concurrent.
+
+## Other shapes worth trying
+
+| Structure | MCP fit |
+|---|---|
+| [`ConcurrentWorkflow`](/examples/concurrent-workflow-example) | Independent sources queried in parallel, results merged. |
+| [`HierarchicalSwarm`](/examples/hierarchical-swarm-example) | A director decides which tool-bearing specialist handles each subtask. |
+| [`MixtureOfAgents`](/examples/mixture-of-agents-example) | Several servers answer the same question; an aggregator reconciles them. |
+
+<Note>
+  Source: [examples/mcp/agents/13_mcp_sequential_workflow.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/13_mcp_sequential_workflow.py)
+</Note>
+
+## Next
+
+- [Dynamic tool loading](/examples/mcp/dynamic-tool-loading) — when one agent really does need a large server.
+- [Sequential workflow](/examples/sequential-workflow-example) — the structure itself, without MCP.

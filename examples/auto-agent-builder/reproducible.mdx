@@ -1,0 +1,212 @@
+---
+title: 'Reproducible Rosters'
+description: 'Design a team once with the builder, then version it, edit it, and run the same team every time.'
+icon: 'lock'
+---
+
+`AutoAgentBuilder` is not deterministic. Every call designs a fresh team, which is exactly what you want while exploring and exactly what you do not want in production.
+
+This tutorial covers the workflow that gets you both: **let the model draft the roster, then take ownership of it.**
+
+## Overview
+
+| Stage | What happens |
+|---|---|
+| **Draft** | The builder designs a roster from the task — one LLM call |
+| **Freeze** | Configurations are written to JSON and committed |
+| **Edit** | Prompts and models are tuned by hand, in review |
+| **Run** | Agents are constructed from the file — no builder call, no cost, same team |
+
+```
+task ──▶ builder ──▶ roster.json ──▶ edit & commit
+                          │
+                          ▼
+                   Agent objects (every run, identical)
+```
+
+---
+
+## Step 1: Understand what varies
+
+Two calls to the same builder with the same task can differ in agent count, names, model assignments, and prompt wording.
+
+```python
+builder = AutoAgentBuilder(max_agents=3, return_dict=True)
+
+first = builder.run(task)
+second = builder.run(task)   # a different team
+```
+
+<Warning>
+This also means `build_configs()` followed by `build_agents()` designs two teams — so the roster you printed is not the roster you ran. Always generate once and reuse the result.
+</Warning>
+
+For a demo this is harmless. For a system where you need to reproduce yesterday's output, review prompts before they ship, or explain why a run behaved a certain way, it is not.
+
+---
+
+## Step 2: Draft and freeze
+
+```python
+import json
+from pathlib import Path
+
+from swarms import AutoAgentBuilder
+
+ROSTER_FILE = Path("roster.json")
+TASK = "Audit a Python codebase for security vulnerabilities and write up the findings."
+
+
+def design_roster() -> list[dict]:
+    """Call the builder once and cache the result to disk."""
+    configs = AutoAgentBuilder(num_agents=3, return_dict=True).run(TASK)
+    ROSTER_FILE.write_text(json.dumps(configs, indent=2))
+    return configs
+
+
+def load_roster() -> list[dict]:
+    """Read the cached roster. No model call, no cost, same team every time."""
+    return json.loads(ROSTER_FILE.read_text())
+
+
+configs = load_roster() if ROSTER_FILE.exists() else design_roster()
+```
+
+Commit `roster.json`. It is now a reviewable artifact — a diff shows exactly how the team changed.
+
+---
+
+## Step 3: Edit before building
+
+The configurations are plain dicts, so they are yours to change. This is where the builder's draft becomes your production roster.
+
+```python
+# Pin every agent to one model tier for predictable cost
+for config in configs:
+    config["model_name"] = "gpt-5.4-mini"
+
+# Tighten a specific agent's instructions
+for config in configs:
+    if config["name"] == "Vulnerability-Scanner":
+        config["system_prompt"] += (
+            "\n\nRestrict findings to OWASP Top 10 categories. "
+            "Cite the file and line for every issue."
+        )
+
+# Drop an agent you disagree with
+configs = [c for c in configs if c["name"] != "Documentation-Reviewer"]
+```
+
+---
+
+## Step 4: Construct and run
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+agents = [
+    Agent(
+        agent_name=config["name"],
+        agent_description=config["description"],
+        system_prompt=config["system_prompt"],
+        model_name=config["model_name"],
+        max_loops=1,
+    )
+    for config in configs
+]
+
+result = SequentialWorkflow(agents=agents, max_loops=1).run(TASK)
+```
+
+---
+
+## Complete Example
+
+```python
+import json
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+from swarms import Agent, AutoAgentBuilder
+
+load_dotenv()
+
+TASK = "Audit a Python codebase for security vulnerabilities and write up the findings."
+ROSTER_FILE = Path("roster.json")
+
+
+def design_roster() -> list[dict]:
+    configs = AutoAgentBuilder(num_agents=3, return_dict=True).run(TASK)
+    ROSTER_FILE.write_text(json.dumps(configs, indent=2))
+    print(f"Designed {len(configs)} agents -> {ROSTER_FILE}")
+    return configs
+
+
+def load_roster() -> list[dict]:
+    configs = json.loads(ROSTER_FILE.read_text())
+    print(f"Loaded {len(configs)} agents from {ROSTER_FILE}")
+    return configs
+
+
+configs = load_roster() if ROSTER_FILE.exists() else design_roster()
+
+# Edit before building — pin the model tier
+for config in configs:
+    config["model_name"] = "gpt-5.4-mini"
+
+agents = [
+    Agent(
+        agent_name=config["name"],
+        agent_description=config["description"],
+        system_prompt=config["system_prompt"],
+        model_name=config["model_name"],
+        max_loops=1,
+    )
+    for config in configs
+]
+
+print("\nReady to run:")
+for agent in agents:
+    print(f"  {agent.agent_name}  [{agent.model_name}]")
+```
+
+Run it twice: the first run calls the builder and writes the file, the second reads it and makes no builder call at all.
+
+---
+
+## Regenerating deliberately
+
+Delete the file, or version it by task:
+
+```python
+ROSTER_FILE = Path(f"rosters/{task_id}.json")
+```
+
+Keeping one file per task lets you regenerate a single roster without disturbing the others.
+
+---
+
+## Why not just cache in memory?
+
+An in-process cache dies with the process, so a restart silently redesigns the team. Writing to disk gives you three things a memory cache cannot:
+
+| Benefit | Why it matters |
+|---|---|
+| **Reviewable** | Prompts go through code review like any other code |
+| **Diffable** | You can see exactly what changed between versions |
+| **Portable** | Staging and production run the identical roster |
+
+## Use Cases
+
+- **Production pipelines** — the same team on every run, auditable after the fact
+- **Prompt engineering** — start from a generated draft, refine by hand
+- **Cost control** — one builder call ever, instead of one per run
+- **Compliance** — every agent instruction is committed and reviewed before shipping
+- **A/B testing** — keep two roster files and compare them on the same task
+
+## See also
+
+- [Auto Agent Builder Quickstart](/examples/auto-agent-builder/quickstart)
+- [Dynamic Support Triage](/examples/auto-agent-builder/triage)
+- [AutoAgentBuilder API reference](/api/auto-agent-builder)

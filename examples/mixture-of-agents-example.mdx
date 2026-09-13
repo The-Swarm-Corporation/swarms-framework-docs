@@ -291,8 +291,7 @@ print(review)
 You can also use MoA through the SwarmRouter for flexible orchestration:
 
 ```python
-from swarms import Agent
-from swarms.structs.swarm_router import SwarmRouter, SwarmType
+from swarms import Agent, SwarmRouter
 
 # Define agents
 writer = Agent(
@@ -320,11 +319,11 @@ aggregator = Agent(
     model_name="gpt-5.4"
 )
 
-# Use SwarmRouter for MoA
+# Use SwarmRouter for MoA — SwarmRouter always uses the LAST agent in the
+# `agents` list as the aggregator, so it must be listed last here.
 moa_router = SwarmRouter(
-    swarm_type=SwarmType.MixtureOfAgents,
-    agents=[writer, editor, reviewer],
-    aggregator_agent=aggregator,
+    swarm_type="MixtureOfAgents",
+    agents=[writer, editor, reviewer, aggregator],
 )
 
 aggregated_output = moa_router.run(
@@ -423,10 +422,10 @@ Mixture of Agents is ideal for:
 
 - **[ConcurrentWorkflow](/examples/concurrent-workflow-example)**: Similar parallel execution without aggregation
 - **[HierarchicalSwarm](/examples/hierarchical-swarm-example)**: Director coordinates workers with feedback loops
-- **[SwarmRouter](https://docs.swarms.world/en/latest/swarms/examples/swarm_router/)**: Switch between MoA and other patterns
+- **[SwarmRouter](/examples/swarm-router-example)**: Switch between MoA and other patterns
 
 ## Learn More
 
-- [MixtureOfAgents API Reference](https://docs.swarms.world/en/latest/swarms/structs/moa/)
+- [MixtureOfAgents API Reference](/api/mixture-of-agents)
 - [Research Paper: Mixture of Agents](https://arxiv.org/abs/2406.04692)
-- [Multi-Agent Architectures Overview](https://docs.swarms.world/en/latest/swarms/concept/swarm_architectures/)
+- [Multi-Agent Architectures Overview](/architectures/overview)

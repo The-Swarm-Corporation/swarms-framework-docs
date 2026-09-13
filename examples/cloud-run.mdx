@@ -41,7 +41,6 @@ agent = Agent(
     agent_name="Stock-Analysis-Agent",
     model_name="gpt-5.4",
     max_loops="auto",
-    interactive=True,
     streaming_on=True,
 )
 
@@ -151,10 +150,6 @@ gcloud run deploy my-agent-service \
   ```bash
   gcloud logs read --project [PROJECT_ID]
   ```
-
-<Note>
-  Source: [docs/swarms_cloud/cloud_run.md](https://github.com/kyegomez/swarms/blob/master/docs/swarms_cloud/cloud_run.md)
-</Note>
 
 ## See also
 

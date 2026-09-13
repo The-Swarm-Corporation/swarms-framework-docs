@@ -42,11 +42,11 @@ def __init__(
 |-----------|------|---------|-------------|
 | `name` | `str` | `"Spreadsheet-Swarm"` | The name of the swarm |
 | `description` | `str` | `"A swarm that processes tasks concurrently using multiple agents and saves the metadata to a CSV file."` | Description of the swarm's purpose |
-| `agents` | `List[AgentType]` | `None` | List of agents participating in the swarm. If `None`, agents will be loaded from `load_path` |
+| `agents` | `List[AgentType]` | `None` | The agents participating in the swarm. Required — the constructor runs a reliability check before any CSV loading happens, so a non-empty `agents` list must be supplied even if `load_path` is also set |
 | `autosave` | `bool` | `True` | Whether to enable autosave of swarm metadata |
 | `save_file_path` | `str` | `None` | File path to save swarm metadata as CSV. If `None`, auto-generated based on workspace_dir |
 | `max_loops` | `int` | `1` | Number of times to repeat the swarm tasks |
-| `load_path` | `str` | `None` | Path to CSV file containing agent configurations. Required if `agents` is `None` |
+| `load_path` | `str` | `None` | Path to a CSV file mapping `agent_name` to `task`. Call `load_from_csv()` explicitly after construction to populate per-agent tasks from it before calling `run_from_config()` |
 | `verbose` | `bool` | `False` | Whether to enable verbose logging |
 | `*args` | `Any` | - | Additional positional arguments |
 | `**kwargs` | `Any` | - | Additional keyword arguments |
@@ -69,7 +69,7 @@ def __init__(
 
 #### Note
 
-Either `agents` or `load_path` must be provided. If both are provided, `agents` will be used.
+`agents` must be provided at construction. The constructor runs a reliability check before any CSV loading occurs, so passing only `load_path` raises `ValueError("No agents are provided.")`. Call `load_from_csv()` explicitly after construction to map tasks from the CSV onto those agents by `agent_name`.
 
 **Workspace Directory**: The `workspace_dir` is automatically set from the `WORKSPACE_DIR` environment variable. Ensure this environment variable is set before initializing the swarm.
 
@@ -291,6 +291,10 @@ print(result)
 
 ### Example 2: CSV-Based Agent Configuration
 
+<Warning>
+  `agents` must be provided at construction. The constructor runs a reliability check before any CSV loading occurs, so calling `SpreadSheetSwarm(load_path="agents_config.csv", ...)` without `agents` raises `ValueError("No agents are provided.")`. Pass real `Agent` instances in `agents`, then call `load_from_csv()` explicitly to map tasks from the CSV onto those agents by `agent_name`.
+</Warning>
+
 ```python
 from swarms.structs.spreadsheet_swarm import SpreadSheetSwarm
 
@@ -307,12 +311,16 @@ with open("agents.csv", "w") as f:
 swarm = SpreadSheetSwarm(
     name="CSV-Configured-Swarm",
     description="A swarm loaded from CSV configuration",
+    agents=agents,       # non-empty list of Agent instances, e.g. from the example above
     load_path="agents.csv",
     max_loops=1,
     autosave=True,
 )
 
-# Run agents with their configured tasks
+# Populate self.agent_tasks from the CSV (matches rows to agents by agent_name)
+swarm.load_from_csv()
+
+# Run each configured agent with its mapped task
 result = swarm.run_from_config()
 print(result)
 ```

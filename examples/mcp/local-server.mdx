@@ -1,0 +1,230 @@
+---
+title: 'Build your own MCP server'
+description: 'Expose your own Python functions over MCP with FastMCP, point an agent at them, and inspect the server directly with MCPManager.'
+icon: 'server'
+---
+
+Everything else in this section connects to somebody else's server. This one is the other half: putting **your** functions behind MCP so any agent — or any MCP client, in any language, on any machine — can call them.
+
+The reason to do this rather than pass Python functions to `Agent(tools=[...])` is process boundaries. A tool that needs a database credential, a GPU, or a private network can live where those things are, and agents reach it over HTTP.
+
+| | |
+|---|---|
+| **Server framework** | `FastMCP` from the `mcp` package |
+| **Transport** | streamable HTTP, `http://localhost:8000/mcp` |
+| **Model used here** | `gpt-5.4-mini` |
+
+## Prerequisites
+
+```bash
+pip install -U swarms "mcp>=1.28.1,<2.0.0" requests
+export OPENAI_API_KEY="sk-..."
+```
+
+## Build it
+
+<Steps>
+  <Step title="Write the server">
+    A `FastMCP` server is a Python module with decorated functions. The decorator's `name` and `description` are what the model sees, so write them for a reader who has no other context.
+
+    ```python
+    # crypto_price_server.py
+    import requests
+    from mcp.server.fastmcp import FastMCP
+
+    mcp = FastMCP("CryptoPrice")
+
+
+    @mcp.tool(
+        name="get_crypto_price",
+        description="Get the current price and basic information for a given cryptocurrency.",
+    )
+    def get_crypto_price(coin_id: str) -> str:
+        """
+        Get the current price for a cryptocurrency using the CoinGecko API.
+
+        Args:
+            coin_id (str): The cryptocurrency ID (e.g. 'bitcoin', 'ethereum')
+
+        Returns:
+            str: A formatted string containing the cryptocurrency information
+        """
+        if not coin_id:
+            return "Please provide a valid cryptocurrency ID"
+
+        url = (
+            "https://api.coingecko.com/api/v3/simple/price"
+            f"?ids={coin_id}&vs_currencies=usd&include_24hr_change=true"
+        )
+
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except requests.exceptions.RequestException as e:
+            return f"Error fetching crypto data: {e}"
+
+        if coin_id not in data:
+            return f"Could not find data for {coin_id}. Please check the ID."
+
+        price = data[coin_id]["usd"]
+        change_24h = data[coin_id].get("usd_24h_change", "N/A")
+        return f"Current price of {coin_id.capitalize()}: ${price:,.2f}\n24h Change: {change_24h:.2f}%"
+
+
+    if __name__ == "__main__":
+        mcp.run(transport="streamable-http")
+    ```
+
+    Return a **string**, and make errors part of that string. An agent can reason about "Could not find data for bitcion"; it cannot reason about a traceback.
+  </Step>
+
+  <Step title="Run it">
+    ```bash
+    python crypto_price_server.py
+    ```
+
+    It serves on `http://localhost:8000/mcp`. Leave it running.
+  </Step>
+
+  <Step title="Point an agent at it">
+    In a second terminal:
+
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="Crypto-Agent",
+        agent_description="Answers cryptocurrency price questions.",
+        model_name="gpt-5.4-mini",
+        mcp_url="http://localhost:8000/mcp",
+        max_loops=1,
+    )
+
+    print(agent.run("What is the current price of Bitcoin?"))
+    ```
+
+    Identical to every hosted-server example in this section — only the URL differs.
+  </Step>
+
+  <Step title="Inspect the server without an agent">
+    When a tool call misbehaves, take the model out of the loop. `MCPManager` is the class the agent uses internally:
+
+    ```python
+    from swarms.tools.mcp_manager import MCPManager
+
+    manager = MCPManager(mcp_url="http://localhost:8000/mcp")
+
+    print(manager.list_tool_names())                   # what the server exposes
+    print(manager.get_tools())                         # the schemas an LLM would see
+    print(manager.call_tool("get_crypto_price", {"coin_id": "bitcoin"}))
+    ```
+
+    If `call_tool` returns what you expect and the agent still gets it wrong, the problem is the description or the prompt — not the server.
+  </Step>
+</Steps>
+
+## Tuning a connection to a local server
+
+`MCPConnection` gives you per-server timeouts and headers:
+
+```python
+from swarms import Agent
+from swarms.schemas.mcp_schemas import MCPConnection
+
+agent = Agent(
+    agent_name="Financial-Analysis-Agent",
+    agent_description="Personal finance advisor agent",
+    model_name="gpt-5.4-mini",
+    mcp_config=MCPConnection(
+        url="http://localhost:8000/mcp",
+        name="local-tools",
+        timeout=5,
+        # headers={"Authorization": "Bearer ..."},
+    ),
+    max_loops=1,
+)
+```
+
+## MCP tools plus your own Python tools
+
+The two coexist on one agent — MCP tools come from the server, and `tools_list_dictionary` (or `tools=[...]`) adds your own:
+
+```python
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "add_numbers",
+            "description": "Add two numbers together and return the result.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "a": {"type": "integer", "description": "The first number to add."},
+                    "b": {"type": "integer", "description": "The second number to add."},
+                },
+                "required": ["a", "b"],
+            },
+        },
+    }
+]
+
+agent = Agent(
+    agent_name="Mixed-Tools-Agent",
+    model_name="gpt-5.4-mini",
+    tools_list_dictionary=tools,
+    mcp_url="http://localhost:8000/mcp",
+    max_loops=2,
+)
+```
+
+## An agent as a tool
+
+The most interesting server in the examples folder wraps a whole swarms `Agent` as a single MCP tool, so another agent — or any MCP client — can spawn and run it remotely:
+
+```python
+from mcp.server.fastmcp import FastMCP
+from swarms import Agent
+
+mcp = FastMCP("MCPAgentTool")
+
+
+@mcp.tool(
+    name="create_agent",
+    description="Create an agent with the specified name, system prompt, and model, then run a task.",
+)
+def create_agent(
+    agent_name: str, system_prompt: str, model_name: str, task: str
+) -> str:
+    agent = Agent(
+        agent_name=agent_name,
+        system_prompt=system_prompt,
+        model_name=model_name,
+    )
+    return agent.run(task)
+
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
+```
+
+That is how you compose swarms across process or machine boundaries: the calling agent does not know or care that the tool it invoked is itself an agent.
+
+## Writing tools an agent can use well
+
+| Rule | Why |
+|---|---|
+| One job per tool | The model picks by description; overlapping tools produce wrong picks. |
+| Describe the arguments, with an example value | `coin_id` is ambiguous; "e.g. 'bitcoin', 'ethereum'" is not. |
+| Return strings, including for errors | The model can recover from a readable error; an exception ends the call. |
+| Keep outputs small | Every result is re-sent in the history on each later call of the run. |
+| Name for search | With [dynamic loading](/examples/mcp/dynamic-tool-loading) the name and description are what the search matches. |
+
+<Note>
+  Sources: [examples/mcp/servers/](https://github.com/kyegomez/swarms/tree/master/examples/mcp/servers) and [examples/mcp/client/](https://github.com/kyegomez/swarms/tree/master/examples/mcp/client)
+</Note>
+
+## Next
+
+- [MCPManager API](/api/mcp-manager) — the full client surface: async calls, multi-server routing, caching.
+- [Model Context Protocol (MCP)](/integrations/mcp) — transports, OAuth, and error handling in depth.

@@ -1,0 +1,169 @@
+---
+title: 'Building Agents with Cerebras'
+description: 'Build Swarms agents on Cerebras for the fastest open-model inference available — 1000+ tokens/sec.'
+icon: 'gauge-high'
+---
+
+Cerebras runs Llama models on its wafer-scale chips and delivers inference speeds well beyond anything available from GPU-based providers — frequently over 1000 tokens per second. It's the right pick when latency is the dominant constraint: real-time customer support, voice agents, autocomplete-style UIs, and high-throughput agent swarms.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export CEREBRAS_API_KEY="..."
+```
+
+Get an API key at [cloud.cerebras.ai](https://cloud.cerebras.ai/).
+
+## Quick Start
+
+Every Cerebras model uses the `cerebras/` prefix:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Cerebras-Agent",
+    model_name="cerebras/llama-3.3-70b",
+    max_loops=1,
+)
+
+print(agent.run("Summarize the architectural innovations behind wafer-scale compute in three paragraphs."))
+```
+
+## Model Names
+
+| Model | `model_name` | Best for |
+|---|---|---|
+| Llama 3.3 70B | `"cerebras/llama-3.3-70b"` | Default — frontier open model at peak speed |
+| Llama 3.1 70B | `"cerebras/llama3-70b-instruct"` | Llama 3.1 70B instruction-tuned |
+| Llama 3.1 8B | `"cerebras/llama3.1-8b"` | Smaller, even faster |
+
+## Speed-Critical Use Cases
+
+### Voice Agent Loop
+
+Cerebras's speed is what makes real-time voice agents feel natural — the model can respond in tens of milliseconds:
+
+```python
+from swarms import Agent
+
+voice_agent = Agent(
+    agent_name="Voice-Assistant",
+    model_name="cerebras/llama-3.3-70b",
+    system_prompt="You are a friendly voice assistant. Keep responses under 2 sentences.",
+    streaming_on=True,
+    max_loops=1,
+)
+
+# Plug into your TTS / STT pipeline
+voice_agent.run("What's a good weeknight dinner I can make in 20 minutes?")
+```
+
+### High-Volume Classification
+
+When you need to process thousands of items per minute:
+
+```python
+from swarms import Agent
+
+classifier = Agent(
+    agent_name="Cerebras-Classifier",
+    model_name="cerebras/llama3.1-8b",
+    system_prompt="Classify each input as one of: support, sales, billing, other. Reply with the label only.",
+    max_loops=1,
+)
+
+for ticket in tickets:
+    label = classifier.run(ticket)
+    route(ticket, label)
+```
+
+## Streaming
+
+Streaming on Cerebras feels essentially instant:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-Cerebras",
+    model_name="cerebras/llama-3.3-70b",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Write a 200-word explanation of how transformer attention works.")
+```
+
+## Massive Parallel Agent Swarms
+
+Cerebras's speed compounds in multi-agent setups — 20 agents in parallel can still finish in a couple seconds:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+agents = [
+    Agent(
+        agent_name=f"Reviewer-{i}",
+        model_name="cerebras/llama-3.3-70b",
+        system_prompt=f"You are reviewer #{i}. Give a one-paragraph critique.",
+        max_loops=1,
+    )
+    for i in range(20)
+]
+
+workflow = ConcurrentWorkflow(agents=agents)
+reviews = workflow.run("Draft proposal: build an in-house vector database instead of using Pinecone.")
+```
+
+## Tool Use
+
+Cerebras's Llama models support function calling:
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="Cerebras-Assistant",
+    model_name="cerebras/llama-3.3-70b",
+    tools=[get_weather],
+    dynamic_temperature_enabled=True,
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## Production Defaults
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-Cerebras",
+    model_name="cerebras/llama-3.3-70b",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with Groq](/examples/model-providers/groq) — also very fast, broader model selection
+- [Building Agents with Ollama](/examples/model-providers/ollama) — run open models locally
+- [Building Agents with vLLM](/examples/model-providers/vllm) — self-host open models at scale
+- [Model Providers Overview](/integrations/model-providers)

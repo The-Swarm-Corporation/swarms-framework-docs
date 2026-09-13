@@ -19,7 +19,7 @@ The `ConcurrentWorkflow` runs multiple agents simultaneously on the same task, e
 - Real-time dashboard monitoring (optional)
 - Agent status tracking
 - Streaming callbacks support
-- Automatic CPU core utilization
+- Thread pool sized by agent count, capped at 32
 - Conversation history aggregation
 
 ## Basic Example
@@ -100,7 +100,7 @@ results = workflow.run(
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
-  Maximum number of execution loops
+  Reserved for future use — currently stored but not applied. Each call to `run()` executes every agent exactly once regardless of this value; use `batch_run()` to process multiple tasks.
 </ParamField>
 
 <ParamField path="show_dashboard" type="bool" default="False">
@@ -116,7 +116,23 @@ results = workflow.run(
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="True">
-  Automatically save conversation history
+  Automatically save conversation history to the workflow workspace directory after each run
+</ParamField>
+
+<Warning>
+  `ConcurrentWorkflow.__init__` accepts **two** similarly named parameters: `autosave` and `auto_save` (both default `True`). Only `autosave` has any effect — it is the flag that enables the workspace writer. `auto_save` is stored on the instance and never read, so setting `auto_save=False` does **not** turn saving off. Always use `autosave`.
+</Warning>
+
+<ParamField path="verbose" type="bool" default="False">
+  Emit debug-level logging for workspace and autosave operations
+</ParamField>
+
+<ParamField path="on_error" type="str" default="store">
+  How to handle an agent that raises. `"store"` records the error as that agent's output and lets the rest finish; `"raise"` propagates the first error and aborts the run.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="None">
+  Thread pool size. Defaults to `len(agents)` capped at 32. Agent calls are network-bound, so this is sized by agent count rather than CPU cores.
 </ParamField>
 
 ## Methods
@@ -209,13 +225,13 @@ results = processing_team.batch_run(documents)
 
 ### CPU Core Utilization
 
-The workflow automatically uses 95% of available CPU cores:
+The thread pool is sized by agent count, capped at 32, since agent calls are network-bound rather than CPU-bound:
 
 ```python
 import os
 
 # Automatically calculated
-max_workers = int(os.cpu_count() * 0.95)
+max_workers = max(1, min(len(self.agents), MAX_CONCURRENT_AGENTS))  # MAX_CONCURRENT_AGENTS = 32
 ```
 
 ### Agent Configuration for Concurrency

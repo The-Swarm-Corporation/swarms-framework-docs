@@ -1,0 +1,123 @@
+---
+title: 'Microsoft Learn: grounded answers'
+description: 'Ground an agent in official Microsoft Learn documentation instead of its training data, using the free Learn MCP server.'
+icon: 'microsoft'
+---
+
+Microsoft's official Learn MCP server provides tools to search and fetch current content from Microsoft Learn — Azure, .NET, C#, and the rest. Free, **no authentication**.
+
+The reason to use it is not convenience. Cloud APIs move faster than model training runs, so an ungrounded answer about Azure authentication is a guess with a citation-shaped confidence. This server replaces the guess with the current page.
+
+| | |
+|---|---|
+| **Server** | `https://learn.microsoft.com/api/mcp` |
+| **Auth** | none |
+| **Tools** | `microsoft_docs_search`, `microsoft_docs_fetch` |
+| **Model used here** | `groq/llama-3.3-70b-versatile` |
+
+## Prerequisites
+
+- Python 3.10+
+- A Groq API key (free tier available at [console.groq.com](https://console.groq.com)). Any tool-calling model works.
+
+This tutorial deliberately uses an open-weight model on Groq to make a point: the value here comes from the retrieved documentation, not from the model's parametric knowledge. A smaller model with the right page in front of it beats a larger one working from memory.
+
+## Build it
+
+<Steps>
+  <Step title="Install and set your key">
+    ```bash
+    pip install -U swarms
+    export GROQ_API_KEY="gsk_..."
+    ```
+  </Step>
+
+  <Step title="Create the agent">
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="MS-Learn-Agent",
+        agent_description="Answers Microsoft/Azure/.NET questions from official Learn docs.",
+        model_name="groq/llama-3.3-70b-versatile",
+        mcp_url="https://learn.microsoft.com/api/mcp",
+        max_loops=1,
+    )
+    ```
+  </Step>
+
+  <Step title="Ask a question whose answer has changed recently">
+    ```python
+    result = agent.run(
+        "Search Microsoft Learn and summarize how to authenticate a "
+        "Python app to Azure using DefaultAzureCredential. Cite the docs."
+    )
+    print(result)
+    ```
+
+    Authentication guidance is a good test case precisely because it is the kind of thing models get confidently wrong from stale training data.
+  </Step>
+
+  <Step title="Verify it actually searched">
+    Set `verbose=True` on the agent while you are developing. You will see the tool calls in the log — if there are none, the model answered from memory and the grounding did not happen.
+
+    ```python
+    agent = Agent(
+        agent_name="MS-Learn-Agent",
+        model_name="groq/llama-3.3-70b-versatile",
+        mcp_url="https://learn.microsoft.com/api/mcp",
+        max_loops=1,
+        verbose=True,
+    )
+    ```
+  </Step>
+</Steps>
+
+## The complete script
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="MS-Learn-Agent",
+    agent_description="Answers Microsoft/Azure/.NET questions from official Learn docs.",
+    model_name="groq/llama-3.3-70b-versatile",
+    mcp_url="https://learn.microsoft.com/api/mcp",
+    max_loops=1,
+)
+
+if __name__ == "__main__":
+    result = agent.run(
+        "Search Microsoft Learn and summarize how to authenticate a "
+        "Python app to Azure using DefaultAzureCredential. Cite the docs."
+    )
+    print(result)
+```
+
+## Making grounding stick
+
+Three prompt-level habits, in the order they pay off:
+
+1. **Say what to do when the search fails.** "If the docs do not cover it, say so" prevents the most common failure — a plausible answer assembled from training data after an empty search.
+2. **Ask for the URL, not just the claim.** A cited answer is checkable; an uncited one is not.
+3. **Give it two loops.** Search results often need a follow-up fetch before the answer is complete.
+
+```python
+SYSTEM_PROMPT = (
+    "You answer Azure and .NET questions from official Microsoft Learn "
+    "documentation. Always search before answering, and fetch the page when "
+    "a search snippet is not enough. Quote the docs for any API surface you "
+    "describe and give the URL. If Learn does not document what was asked, "
+    "say so rather than answering from memory — this stack changes faster "
+    "than training data."
+)
+```
+
+<Note>
+  Source: [examples/mcp/agents/03_microsoft_learn_docs.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/03_microsoft_learn_docs.py)
+</Note>
+
+## Next
+
+- [Several servers at once](/examples/mcp/multi-server-agent) — cross-reference Learn with a repo server in one run.
+- [Exa web search](/examples/mcp/exa-web-search) — when the answer is not in any one vendor's docs.

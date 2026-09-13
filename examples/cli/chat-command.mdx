@@ -8,9 +8,9 @@ The `swarms chat` command provides an interactive chat agent with optimized defa
 
 ## Features
 
-- **Interactive Mode**: Automatically enabled for continuous conversation
+- **Interactive Loop**: The CLI keeps prompting for the next task after each response, giving a continuous conversation
 - **Auto Loops**: Runs with `max_loops="auto"` for autonomous operation
-- **Dynamic Context Window**: Automatically adjusts context window (100,000 tokens)
+- **Dynamic Context Window**: `dynamic_context_window=True` — adjusts context handling automatically
 - **Dynamic Temperature**: Adapts temperature based on conversation
 - **Optional Initial Task**: Start with a task or begin with a prompt
 
@@ -62,11 +62,11 @@ python3.12 -m swarms.cli.main chat --task "Hello"
 ## How It Works
 
 1. The chat agent initializes with optimized settings:
-   - `interactive=True` - Enables continuous interaction
    - `max_loops="auto"` - Autonomous loop execution
    - `dynamic_context_window=True` - Adaptive context management
    - `dynamic_temperature_enabled=True` - Adaptive response generation
-   - `context_length=100000` - Large context window
+
+   The CLI itself supplies the continuous-conversation behavior: after each task the agent runs, it prompts you for the next one and loops until you type an exit command — the agent is not created with `interactive=True` or an explicit `context_length`.
 
 2. If you provide a `--task`, the agent processes it first
 3. After processing, the agent continues to prompt for input
@@ -107,5 +107,5 @@ If you encounter the error `auto_chat_agent() got an unexpected keyword argument
 
 ```bash
 # Update to latest version
-swarms auto-upgrade
+swarms upgrade
 ```

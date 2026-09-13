@@ -59,7 +59,6 @@
           {
             "group": "Deployment & Operations",
             "pages": [
-              "deployment/agent-orchestration-protocol",
               "deployment/production-best-practices",
               "deployment/scaling",
               "deployment/monitoring"
@@ -127,7 +126,6 @@
           {
             "group": "Deployment",
             "pages": [
-              "api/aop",
               "api/cron-job"
             ]
           }
@@ -194,7 +192,6 @@
     "Production-ready Agent class with memory, tools, and structured outputs",
     "10+ built-in multi-agent architectures (Sequential, Concurrent, MixtureOfAgents, HierarchicalSwarm, etc.)",
     "Universal SwarmRouter for dynamic swarm selection",
-    "Agent Orchestration Protocol (AOP) for distributed agent deployment",
     "Model Context Protocol (MCP) integration",
     "CLI tools for agent and swarm management",
     "AutoSwarmBuilder for automatic agent generation",
@@ -213,7 +210,6 @@
     "GroupChat",
     "GraphWorkflow",
     "AutoSwarmBuilder",
-    "AOP",
     "BaseSwarm",
     "BaseStructure",
     "SocialAlgorithms",

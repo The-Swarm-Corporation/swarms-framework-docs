@@ -44,7 +44,7 @@ graph TD
   | `model_name` | str | "gpt-5.4" | The underlying language model to use |
   | `system_prompt` | str | "You are a helpful..." | System prompt for the agent |
   | `max_loops` | int | 1 | Maximum number of reasoning loops |
-  | `swarm_type` | agent_types | "reasoning_duo" | Type of reasoning swarm to use |
+  | `swarm_type` | agent_types | "reasoning-duo" | Type of reasoning swarm to use |
   | `num_samples` | int | 1 | Number of samples for self-consistency |
   | `output_type` | OutputType | "dict-all-except-first" | Format of the output |
   | `num_knowledge_items` | int | 6 | Number of knowledge items for GKP agent |
@@ -52,7 +52,7 @@ graph TD
   | `eval` | bool | False | Enable evaluation mode for self-consistency |
   | `random_models_on` | bool | False | Enable random model selection for diversity |
   | `majority_voting_prompt` | Optional[str] | None | Custom prompt for majority voting |
-  | `reasoning_model_name` | Optional[str] | "claude-3-5-sonnet-20240620" | Model to use for reasoning in ReasoningDuo |
+  | `reasoning_model_name` | Optional[str] | "gpt-4o" | Model to use for reasoning in ReasoningDuo |
 </Info>
 
 ### Available Agent Types
@@ -64,8 +64,8 @@ graph TD
 
   - `"reasoning-duo"` or `"reasoning-agent"`
   - `"self-consistency"` or `"consistency-agent"`
-  - `"ire"` or `"ire-agent"`
-  - `"ReflexionAgent"`
+  - `"ire"` or `"ire-agent"` — `_create_ire_agent` passes `max_loops=self.num_samples` when building the underlying agent, so the router's own `max_loops` is ignored for this type; `num_samples` controls the number of IRE iterations instead.
+  - `"ReflexionAgent"` — `run()` returns the raw `list` produced by `ReflexionAgent.run()` directly; it bypasses `history_output_formatter`, so `output_type` has no effect for this swarm type (every other type is formatted according to `output_type`).
   - `"GKPAgent"`
   - `"AgentJudge"`
 </Note>
@@ -94,7 +94,7 @@ graph TD
     **Optional Parameters**
 
     - output_type
-    - reasoning_model_name (default: "claude-3-5-sonnet-20240620")
+    - reasoning_model_name (default: "gpt-4o")
     - max_loops
     - img (for image input support)
   </Tab>
@@ -235,8 +235,8 @@ graph TD
   | Method | Description |
   |--------|-------------|
   | `select_swarm()` | Selects and initializes the appropriate reasoning swarm based on specified type |
-  | `run(task: str, img: Optional[str] = None, **kwargs)` | Executes the selected swarm's reasoning process on the given task |
-  | `batched_run(tasks: List[str], imgs: Optional[List[str]] = None, **kwargs)` | Executes the reasoning process on a batch of tasks |
+  | `run(task: str, *args, **kwargs)` | Executes the selected swarm's reasoning process on the given task |
+  | `batched_run(tasks: List[str], *args, **kwargs)` | Executes the reasoning process on a batch of tasks (each task processed via `run`) |
 </Tip>
 
 ### Image Support
@@ -278,7 +278,7 @@ graph TD
 <Tabs>
   <Tab title="Basic Usage">
     ```python
-    from swarms.agents.reasoning_agent_router import ReasoningAgentRouter
+    from swarms import ReasoningAgentRouter
 
     # Initialize the router
     router = ReasoningAgentRouter(
@@ -359,7 +359,7 @@ graph TD
     router = ReasoningAgentRouter(
         swarm_type="reasoning-duo",
         model_name="gpt-5.4",
-        reasoning_model_name="claude-3-5-sonnet-20240620"
+        reasoning_model_name="claude-sonnet-4-6"
     )
 
     # ReasoningDuo with image support

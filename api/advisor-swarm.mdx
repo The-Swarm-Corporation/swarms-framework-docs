@@ -53,6 +53,10 @@ pip install -U swarms
 
 ## Attributes
 
+<ParamField path="id" type="str" default="None">
+  Unique identifier for this swarm instance. Auto-generated via `generate_id("advisor-swarm")` if not provided, producing `advisor-swarm-<32 hex chars>`.
+</ParamField>
+
 <ParamField path="name" type="str" default="AdvisorSwarm">
   Human-readable name
 </ParamField>
@@ -237,13 +241,13 @@ from swarms import AdvisorSwarm
 
 # OpenAI models
 swarm = AdvisorSwarm(
-    executor_model_name="gpt-4.1-mini",
-    advisor_model_name="gpt-4.1",
+    executor_model_name="gpt-5.4-mini",
+    advisor_model_name="gpt-5.4",
 )
 
 # Mix providers
 swarm = AdvisorSwarm(
-    executor_model_name="gpt-4.1-mini",
+    executor_model_name="gpt-5.4-mini",
     advisor_model_name="claude-opus-4-6",
 )
 ```

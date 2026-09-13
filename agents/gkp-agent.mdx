@@ -78,10 +78,13 @@ The main agent class that orchestrates the knowledge generation and reasoning pr
 
 #### Methods
 
-| Method | Description | Parameters | Returns |
-|--------|-------------|------------|---------|
-| process(query: str) | Process a single query through the GKP pipeline | query: str | Dict[str, Any] containing full processing results |
-| run(queries: List[str], detailed_output: bool = False) | Process multiple queries | queries: List[str], detailed_output: bool | Union[List[str], List[Dict[str, Any]]] |
+| Method | Parameters | Returns |
+|--------|------------|---------|
+| `process(query)` | `query: str` | `Dict[str, Any]` — full processing results |
+| `run(task)` | `task: str` | `str` — the final answer to a single task |
+| `__call__(task)` | `task: str` | `str` — alias for `run(task)` |
+
+`run()` only accepts a single task string (it internally calls the private `_run([task])[0]`). There is no public batch-processing method that accepts a list of tasks; process each task with a separate `run()` call if you need to handle multiple queries.
 
 ### KnowledgeGenerator
 
@@ -91,9 +94,10 @@ Component responsible for generating relevant knowledge for queries.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| agent_name | str | "knowledge-generator" | Name identifier for the knowledge generator agent |
-| model_name | str | "openai/o1" | Model to use for knowledge generation |
-| num_knowledge_items | int | 2 | Number of knowledge items to generate per query |
+| `agent_name` | `str` | `"knowledge-generator"` | Name identifier |
+| `description` | `str` | `"Generates factual, relevant knowledge to assist with answering queries"` | Description of the agent's role |
+| `model_name` | `str` | `"openai/o1"` | Model for knowledge generation |
+| `num_knowledge_items` | `int` | `2` | Number of knowledge items to generate per query |
 
 #### Methods
 
@@ -121,7 +125,7 @@ Component that uses generated knowledge to reason about and answer queries.
 ## Example Usage
 
 ```python
-from swarms.agents.gkp_agent import GKPAgent
+from swarms import GKPAgent
 
 # Initialize the GKP Agent
 agent = GKPAgent(
@@ -130,18 +134,12 @@ agent = GKPAgent(
     num_knowledge_items=6,  # Generate 6 knowledge items per query
 )
 
-# Example queries
-queries = [
-    "What are the implications of quantum entanglement on information theory?",
-]
+query = "What are the implications of quantum entanglement on information theory?"
 
-# Run the agent
-results = agent.run(queries)
+result = agent.run(query)
 
-# Print results
-for i, result in enumerate(results):
-    print(f"\nQuery {i+1}: {queries[i]}")
-    print(f"Answer: {result}")
+print(f"Query: {query}")
+print(f"Answer: {result}")
 ```
 
 ## Best Practices

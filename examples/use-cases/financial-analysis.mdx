@@ -444,7 +444,7 @@ market_monitor = Agent(
     Alert on material changes requiring re-analysis.
     """,
     max_loops="auto",
-    stopping_condition="market_close",
+    stopping_condition=lambda response: "market_close" in response.lower(),
 )
 ```
 
@@ -507,6 +507,6 @@ send_alert(result)
 ## Next Steps
 
 - See [Data Analysis Swarm](/examples/use-cases/data-analysis) for data-focused workflows
-- Explore [MixtureOfAgents](/concepts/swarms#mixture-of-agents) for architecture details
+- Explore [MixtureOfAgents](/concepts/swarms#mixture-of-agents-moa) for architecture details
 - Review [Research Team](/examples/use-cases/research-team) for qualitative analysis
 - Check [Best Practices](/deployment/production-best-practices) for production deployment

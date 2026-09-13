@@ -4,7 +4,7 @@ description: 'Persist agent interaction history to disk via MEMORY.md and resume
 icon: 'database'
 ---
 
-Swarms agents persist their interaction history to disk through a per-agent `MEMORY.md` file. Set `persistent_memory=True` (the default) and reuse the same `agent_name` across process starts to resume the same memory.
+Swarms agents can persist their interaction history to disk through a per-agent `MEMORY.md` file. The flag is `False` by default: set `persistent_memory=True` and reuse the same `agent_name` across process starts to resume the same memory.
 
 ## When to use it
 
@@ -29,7 +29,7 @@ On construction, Swarms reads `MEMORY.md` and injects it into `conversation_hist
 
 ## Basic example
 
-Set `agent_name` and `persistent_memory=True` (the default). On the first run Swarms creates `MEMORY.md`. On subsequent runs the prior conversation is preloaded as a system preamble and the agent picks up where it left off:
+Set `agent_name` and `persistent_memory=True`. On the first run Swarms creates `MEMORY.md`. On subsequent runs the prior conversation is preloaded as a system preamble and the agent picks up where it left off:
 
 ```python
 from swarms import Agent
@@ -41,9 +41,9 @@ from swarms import Agent
 persistent_agent = Agent(
     agent_name="ResearchAssistant",
     agent_description="Remembers context across sessions",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
-    persistent_memory=True,  # default — state survives restarts
+    persistent_memory=True,  # off by default — opt in to survive restarts
 )
 
 persistent_agent.run("Research low-latency cloud data warehouses for analytics.")
@@ -64,7 +64,7 @@ from swarms import Agent
 # Second process, hours later
 agent = Agent(
     agent_name="ResearchAssistant",  # same name -> same memory
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
     persistent_memory=True,
 )
@@ -117,7 +117,7 @@ from swarms import Agent
 # Ephemeral agent — no MEMORY.md, no archive, fresh state every run.
 ephemeral_agent = Agent(
     agent_name="EphemeralAgent",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
     persistent_memory=False,
 )

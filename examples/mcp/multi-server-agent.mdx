@@ -1,0 +1,145 @@
+---
+title: 'Several servers at once'
+description: 'Give one agent the tools from multiple MCP servers with mcp_urls, and let it cross-reference sources in a single run.'
+icon: 'layer-group'
+---
+
+Pass a list to `mcp_urls` and the agent loads the tools from *every* server and can use them together in a single run. The model sees the union of both toolsets and decides which to call; each call is routed back to the server that owns it.
+
+| | |
+|---|---|
+| **Servers** | `https://mcp.deepwiki.com/mcp` and `https://learn.microsoft.com/api/mcp` |
+| **Auth** | none for either |
+| **Model used here** | `claude-sonnet-5` |
+
+## Build it
+
+<Steps>
+  <Step title="Install and set your key">
+    ```bash
+    pip install -U swarms
+    export ANTHROPIC_API_KEY="sk-ant-..."
+    ```
+  </Step>
+
+  <Step title="Pass a list instead of a string">
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="Multi-MCP-Agent",
+        agent_description="Research agent with tools from several free MCP servers.",
+        model_name="claude-sonnet-5",
+        mcp_urls=[
+            "https://mcp.deepwiki.com/mcp",         # GitHub repo Q&A
+            "https://learn.microsoft.com/api/mcp",  # Microsoft docs
+        ],
+        max_loops=2,
+    )
+    ```
+
+    `mcp_urls` is the only change from the single-server examples. Routing, transport selection, and name collisions are handled for you.
+  </Step>
+
+  <Step title="Give it more than one loop">
+    Two servers means at least two rounds of tool calls before the model can answer. `max_loops=1` will cut it off after the first — the run returns, but half the question is unanswered.
+  </Step>
+
+  <Step title="Ask something that needs both">
+    ```python
+    result = agent.run(
+        "First, use DeepWiki to describe what the modelcontextprotocol/"
+        "python-sdk repository does. Then use Microsoft Learn to find how "
+        "Azure Functions supports Python. Give one combined summary."
+    )
+    print(result)
+    ```
+
+    Naming the sources in the task keeps the model from trying to answer the Azure half out of the repo server.
+  </Step>
+</Steps>
+
+## The complete script
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Multi-MCP-Agent",
+    agent_description="Research agent with tools from several free MCP servers.",
+    model_name="claude-sonnet-5",
+    mcp_urls=[
+        "https://mcp.deepwiki.com/mcp",         # GitHub repo Q&A
+        "https://learn.microsoft.com/api/mcp",  # Microsoft docs
+    ],
+    max_loops=2,  # give the model room to call tools on both servers
+)
+
+if __name__ == "__main__":
+    result = agent.run(
+        "First, use DeepWiki to describe what the modelcontextprotocol/"
+        "python-sdk repository does. Then use Microsoft Learn to find how "
+        "Azure Functions supports Python. Give one combined summary."
+    )
+    print(result)
+```
+
+## Mixing authenticated and open servers
+
+`mcp_api_key` applies to every server that does not define its own credential. When servers need *different* keys, give each one a connection object:
+
+```python
+import os
+
+from swarms import Agent
+from swarms.schemas.mcp_schemas import MCPConnection
+
+agent = Agent(
+    agent_name="Research-Agent",
+    model_name="claude-sonnet-5",
+    mcp_urls=[
+        "https://mcp.deepwiki.com/mcp",                                   # open
+        f"https://mcp.exa.ai/mcp?exaApiKey={os.getenv('EXA_API_KEY')}",   # key in the URL
+        MCPConnection(                                                     # key in a header
+            url="https://mcp.semgrep.ai/mcp",
+            api_key="env:SEMGREP_APP_TOKEN",
+            name="semgrep",
+        ),
+    ],
+    max_loops=3,
+)
+```
+
+Strings and `MCPConnection` objects can be mixed in the same list. See [authentication patterns](/examples/mcp/authentication) for the full set of credential shapes.
+
+## Local servers
+
+The same list works for servers you run yourself — useful when a private tool server sits alongside a public one:
+
+```python
+agent = Agent(
+    agent_name="Quantitative-Trading-Agent",
+    model_name="claude-sonnet-5",
+    mcp_urls=[
+        "http://localhost:8000/mcp",
+        "http://localhost:8001/mcp",
+    ],
+    max_loops=1,
+)
+```
+
+Start the servers first — see [build your own server](/examples/mcp/local-server).
+
+## When to stop adding servers
+
+Tools are not free. Every schema occupies context on every call, and a model choosing among forty tools picks wrong more often than one choosing among four.
+
+| Situation | Do this |
+|---|---|
+| Two or three servers, one job | `mcp_urls` on a single agent — this page. |
+| Many tools, most irrelevant per task | [Dynamic tool loading](/examples/mcp/dynamic-tool-loading) — defer schemas until needed. |
+| Distinct stages with distinct sources | [One server per agent in a workflow](/examples/mcp/sequential-workflow). |
+
+<Note>
+  Source: [examples/mcp/agents/04_multi_server_agent.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/04_multi_server_agent.py) and [multi_mcp_urls.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/multi_mcp_urls.py)
+</Note>

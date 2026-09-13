@@ -14,9 +14,11 @@ This guide deploys a Swarms agent into a **Trusted Execution Environment (TEE)**
 
 ## Step 1: Build and publish the Docker image
 
+`docker compose build` has no `-t` flag — set the tag via the `image:` key in `docker-compose.yaml` (replace `<your-dockerhub-username>` there with your actual DockerHub username) instead:
+
 ```bash
-# Build the image (replace with your DockerHub username)
-docker compose build -t <your-dockerhub-username>/swarm-agent-node:latest
+# Build the image tagged by docker-compose.yaml's `image:` key
+docker compose build
 
 # Push to DockerHub
 docker push <your-dockerhub-username>/swarm-agent-node:latest
@@ -42,7 +44,8 @@ Once your service is live, visit the [TEE Attestation Explorer](https://proof.t1
 ```yaml
 services:
   swarms-agent-server:
-    image: swarms-agent-node:latest
+    image: <your-dockerhub-username>/swarm-agent-node:latest
+    build: .
     platform: linux/amd64
     volumes:
       - /var/run/tappd.sock:/var/run/tappd.sock
@@ -76,7 +79,7 @@ The `tappd.sock` mount exposes Phala's TEE attestation socket inside your contai
 - [TEE Attestation Explorer](https://proof.t16z.com/)
 
 <Note>
-  Source: [docs/swarms_cloud/phala_deploy.md](https://github.com/kyegomez/swarms/blob/master/docs/swarms_cloud/phala_deploy.md). Replace `<your-dockerhub-username>` with your actual DockerHub username when running the commands above.
+  Replace `<your-dockerhub-username>` with your actual DockerHub username when running the commands above.
 </Note>
 
 ## See also

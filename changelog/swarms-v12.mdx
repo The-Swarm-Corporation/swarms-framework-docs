@@ -17,7 +17,7 @@ description: Changelog for Swarms v12 — April 18 to May 2, 2026
 
 **2026-05-02** · `e48100a9` · Kye Gomez
 
-Added `persistent_memory: bool = True` to `Agent`. When `True` (default) the agent reads and writes a `MEMORY.md` file under `$WORKSPACE_DIR/agents/{agent_name}/MEMORY.md`, loading prior conversation history as a system preamble on every startup so state survives process restarts. Set to `False` for a fully stateless agent — no disk reads or writes, every run starts from a blank slate.
+Added `persistent_memory: bool = False` to `Agent` (opt-in). When set to `True` the agent reads and writes a `MEMORY.md` file under `$WORKSPACE_DIR/agents/{agent_name}/MEMORY.md`, loading prior conversation history as a system preamble on every startup so state survives process restarts. It defaults to `False` for a fully stateless agent — no disk reads or writes, every run starts from a blank slate.
 
 ```python
 # Stateless — no cross-session carry-over
@@ -216,7 +216,7 @@ Added `test_agent_streaming_and_loop.py` — 71 tests across 19 classes using re
 
 **2026-04-20** · `9205bd16` · Kye Gomez
 
-New guide at `docs/swarms/agents/agent_memory.md` covering the full MEMORY.md flow, `ContextCompressor` activation, and compact-with-archive behaviour.
+New guide at [`/agents/agent-memory`](/agents/agent-memory) covering the full MEMORY.md flow, `ContextCompressor` activation, and compact-with-archive behaviour.
 
 ---
 
@@ -224,7 +224,7 @@ New guide at `docs/swarms/agents/agent_memory.md` covering the full MEMORY.md fl
 
 **2026-05-02** · `e48100a9` · Kye Gomez
 
-Added a "Memory Persistence and Context Compression" section to `docs/swarms/structs/agent.md` with annotated code examples for `persistent_memory`, `context_compression`, and combined usage patterns.
+Added a "Memory Persistence and Context Compression" section to [`/api/agent`](/api/agent) with annotated code examples for `persistent_memory`, `context_compression`, and combined usage patterns.
 
 ---
 

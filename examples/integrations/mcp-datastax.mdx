@@ -1,6 +1,6 @@
 ---
-title: 'MCP with DataStax'
-description: 'Connect Swarms agents to DataStax Astra DB through the Model Context Protocol (MCP).'
+title: 'MCP Server and Client'
+description: 'Build an MCP server that exposes a Swarms agent as a tool, then call it from an MCP client over streamable HTTP.'
 icon: 'plug'
 ---
 
@@ -30,8 +30,8 @@ The Model Context Protocol (MCP) provides a standardized way to create and manag
 Install the necessary packages using pip:
 
 ```bash
-# Install MCP SDK and FastMCP
-pip install mcp fastmcp
+# Install the MCP SDK
+pip install mcp
 
 # Install Swarms framework
 pip install swarms
@@ -44,7 +44,7 @@ pip install loguru
 
 ```python
 # Test imports
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from swarms import Agent
 
 print("MCP and Swarms installed successfully!")
@@ -55,10 +55,10 @@ print("MCP and Swarms installed successfully!")
 Create the MCP server file that will handle agent creation requests:
 
 ```python
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from swarms import Agent
 
-mcp = FastMCP("MCPAgentTool")
+mcp = MCPServer("MCPAgentTool")
 
 @mcp.tool(
     name="create_agent",
@@ -103,7 +103,7 @@ import asyncio
 
 from mcp import ClientSession
 from mcp.client.streamable_http import (
-    streamablehttp_client as http_client,
+    streamable_http_client as http_client,
 )
 
 
@@ -190,7 +190,7 @@ import asyncio
 
 from mcp import ClientSession
 from mcp.client.streamable_http import (
-    streamablehttp_client as http_client,
+    streamable_http_client as http_client,
 )
 
 async def create_agent_via_mcp(session, agent_name, system_prompt, model_name, task):
@@ -317,7 +317,7 @@ Here's a complete overview of all the steps needed to set up your agent initiali
 
 | Step | Description |
 |------|-------------|
-| 1. Package Installation | Install MCP SDK, FastMCP, Swarms, and dependencies |
+| 1. Package Installation | Install MCP SDK, Swarms, and dependencies |
 | 2. Server Creation | Create the MCP server with agent creation tool |
 | 3. Server Startup | Run the MCP server to handle client requests |
 | 4. Basic Client | Create a simple client to run single agents |

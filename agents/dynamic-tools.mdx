@@ -1,0 +1,318 @@
+---
+title: 'Dynamic Tool Loading'
+description: 'Defer tool schemas behind a searchable catalog so the model only pays for the tools it actually needs'
+icon: 'magnifying-glass-arrow-right'
+---
+
+Tool definitions are part of the prompt. They are re-sent on every request and they sit inside the cached prefix, so a large tool set is paid for continuously. Dynamic tool loading keeps your tools registered and executable but **absent from the schema list sent to the model**, exposing a single `tool_search` tool that loads them on demand.
+
+<Info>
+The 16 built-in autonomous-loop tools alone are roughly 2,600 tokens per request, and a single MCP server can add 40 more tools on top. Selection accuracy also falls as the list grows — a model choosing among 80 tools chooses worse than one choosing among 8.
+</Info>
+
+## How It Works
+
+Tools are *deferred*: registered, searchable, and executable, but not advertised. Only `tool_search` is always present alongside your control tools. The model searches the catalog by keyword, the matching schemas are loaded, and they become callable on the **next** turn.
+
+```mermaid
+sequenceDiagram
+    participant M as Model
+    participant A as Agent
+    participant L as DynamicToolLoader
+
+    Note over A,L: Catalog holds every tool; only tool_search is exposed
+    M->>A: Turn 1 - tool_search("weather currency")
+    A->>L: run_search(query)
+    L-->>A: matches loaded, summaries returned
+    A->>A: tools_list_dictionary = loader.schemas()
+    A->>A: llm = llm_handling()  (rebuild so new schemas ship)
+    M->>A: Turn 2 - get_weather("Paris")
+    A-->>M: tool result
+    M->>A: Turn 3 - final answer
+```
+
+<Warning>
+A deferred tool costs one extra round trip. With `max_loops=1` the model can search but never call what it found. Use `max_loops=2` or higher for a single tool call, or `max_loops="auto"`.
+</Warning>
+
+## Enabling It
+
+`dynamic_tools` is a constructor parameter on `Agent` and is **`True` by default**.
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Get the current weather for a city."""
+    ...
+
+def convert_currency(amount: float, source: str, target: str) -> str:
+    """Convert an amount between two currencies."""
+    ...
+
+agent = Agent(
+    agent_name="TravelAgent",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    tools=[get_weather, convert_currency],
+    dynamic_tools=True,
+)
+
+result = agent.run("What should I pack for Paris next week, and what is 500 USD in euros?")
+```
+
+<ParamField path="dynamic_tools" type="bool" default="True">
+  Defer tool schemas behind `tool_search` instead of sending them all on every request. Set to `False` to restore classic eager registration, where every tool schema ships with every call.
+</ParamField>
+
+### When Deferral Actually Activates
+
+Setting `dynamic_tools=True` on its own does nothing. Deferral needs something to defer, so it activates only when at least one of these is true:
+
+| Condition | Meaning |
+| --- | --- |
+| `tools` is set | You passed local Python callables |
+| `mcp_enabled` | You passed `mcp_url`, `mcp_urls`, or `mcp_config` |
+| `max_loops == "auto"` | The autonomous loop's built-in tools are deferred |
+
+If none apply, `agent.tool_loader` stays `None` and no catalog is built.
+
+```python
+# Deferral is inactive here - nothing to defer.
+agent = Agent(agent_name="Chat", model_name="gpt-5.4", dynamic_tools=True)
+assert agent.tool_loader is None
+```
+
+<Note>
+When deferral activates, a system-prompt notice headed `## MOST TOOLS ARE NOT LOADED` is appended once at construction. It tells the model that its visible tool list describes what exists, not what it can call right now, and that it must search before concluding a task is impossible.
+</Note>
+
+## Inspecting the Catalog
+
+`agent.tool_loader` is a `DynamicToolLoader`. It reports what is deferred and what has been loaded so far.
+
+```python
+loader = agent.tool_loader
+
+len(loader)             # number of catalog entries (tool_search not counted)
+loader.deferred_names   # ['convert_currency', 'get_weather']
+loader.loaded_names     # [] until a search loads something
+loader.catalog_listing() # 'convert_currency: Convert an amount ...\nget_weather: ...'
+
+"get_weather" in loader  # True
+```
+
+After a search, the loaded tools move across:
+
+```python
+print(loader.run_search("weather"))
+# get_weather: Get the current weather for a city.
+#
+# Loaded 1: get_weather. They are callable from your next turn.
+
+loader.loaded_names     # ['get_weather']
+loader.deferred_names   # ['convert_currency']
+```
+
+## Searching the Catalog
+
+The model calls `tool_search` with a query. Matching is deliberately simple, dependency-free, and deterministic, so it can be tested.
+
+<AccordionGroup>
+  <Accordion title="Keyword search">
+    The query is lowercased and split into tokens, with underscores treated as spaces so `get_weather` matches both `get` and `weather`. Each catalog entry scores **3 points for a name match** and **1 point for a description or parameter-name match**, summed over the query's terms. Entries scoring zero are dropped, and results are sorted by score then name.
+
+    ```python
+    loader.search("weather")           # name match, ranks first
+    loader.search("recipient subject") # matches send_email by parameter names
+    ```
+  </Accordion>
+
+  <Accordion title="Exact selection with select:">
+    Prefix the query with `select:` to load tools by exact name, bypassing ranking, `limit`, and `min_score_ratio` entirely.
+
+    ```python
+    loader.run_search("select:get_weather,convert_currency")
+    ```
+
+    Unknown names are silently ignored. If *none* of the names match, the loader falls back to a keyword search over the guessed names rather than returning nothing.
+  </Accordion>
+
+  <Accordion title="Stopword filtering">
+    Common words (`a`, `the`, `and`, `of`, `to`, `can`, `please`, …) and single characters are dropped before matching. Without this, a query like `"weather in a city"` would match every tool whose description contains `"a"` and load the entire catalog, defeating the point.
+
+    ```python
+    loader.search("weather in a city")        # -> [get_weather]
+    loader.search("please can you help with") # -> []
+    ```
+  </Accordion>
+
+  <Accordion title="Misses are actionable">
+    A search that matches nothing returns the available tool names rather than an empty string, so the model can retry with `select:`. The listing is capped at 30 names with a `(+N more)` suffix so a large catalog cannot flood the conversation.
+
+    ```
+    No tools matched 'xyz'. Available tools: convert_currency, get_weather.
+    Retry with different keywords, or load by exact name with 'select:name1,name2'.
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Dynamic Tools in the Autonomous Loop
+
+With `max_loops="auto"`, the loop's own tools are deferred too — but the control tools that let the agent make progress are never deferred, since an agent that has to search for its own `complete_task` cannot finish.
+
+**Always loaded:** `create_plan`, `think`, `subtask_done`, `complete_task`, `respond_to_user`.
+
+**Deferred into the catalog:** `create_file`, `update_file`, `read_file`, `list_directory`, `delete_file`, `run_bash`, `grep`, `create_sub_agent`, `assign_task`, `check_sub_agent_status`, `cancel_sub_agent_tasks`, plus every tool you passed in `tools`.
+
+### Plan-Based Pre-Warming
+
+Searching one subtask at a time wastes turns. When the agent calls `create_plan`, the loop takes the task description plus every step description as a single query and pre-loads the tools that plan implies — at no extra turn cost, since it runs inside the `create_plan` handler that just succeeded.
+
+| Constant | Value | Purpose |
+| --- | --- | --- |
+| `PREWARM_TOOL_LIMIT` | `8` | Maximum tools one plan may pre-load |
+| `PREWARM_MIN_SCORE_RATIO` | `0.6` | Matches must score at least this fraction of the best match |
+
+The `create_plan` result then tells the model what it already has:
+
+```
+Pre-loaded the tools this plan implies: read_file, grep.
+They are callable from your next turn - do not search for them again.
+```
+
+The score ratio matters here: a long plan description contains enough common words to give weak matches a nonzero score, so speculative pre-warming filters harder than an explicit search does.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    dynamic_tools=True,
+)
+agent.run("Summarize every Python file in this directory into notes.md")
+```
+
+<Note>
+`selected_tools` filters the loop's tool list **before** deferral, so a tool you exclude is not merely hidden — it never enters the catalog and cannot be found by `tool_search` at all.
+</Note>
+
+## MCP Servers
+
+MCP tools are the strongest case for deferral: a single server can contribute dozens of schemas that would otherwise ship on every request. With `dynamic_tools=True` they join the catalog instead.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="RepoResearcher",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    mcp_url="https://mcp.deepwiki.com/mcp",
+    mcp_timeout=120,
+    dynamic_tools=True,
+)
+
+result = agent.run("What is the architecture of the kyegomez/swarms repository?")
+```
+
+MCP deferral is **lazy** — the server is contacted while the LLM is being built, not at construction. To inspect the catalog before running, build the LLM yourself:
+
+```python
+agent.llm = agent.llm_handling()
+print(agent.tool_loader.deferred_names)
+```
+
+The fetch happens once per agent and is cached, so rebuilding the LLM does not re-contact the server. If the server is unreachable, the agent still builds: the failure is logged, zero tools are deferred, and `tool_search` simply has nothing to find.
+
+<Warning>
+MCP entries are registered as schemas with no local callable, so they never appear in `loader.handlers()`. They are dispatched through the MCP manager instead. This is by design — do not treat an empty `handlers()` as a sign that MCP tools failed to load.
+</Warning>
+
+## Prompt Caching
+
+Every load changes the tool array, which invalidates the provider's cached prompt prefix. Two mitigations are built in:
+
+1. `schemas()` returns tools in a stable order — `always_loaded` first, then `tool_search`, then loaded tools sorted by name — so two runs that load the same tools produce an identical prefix.
+2. The `tool_search` description explicitly instructs the model to load everything it expects to need in a **single** call rather than one tool at a time.
+
+<Tip>
+If you use `prompt_caching=True`, prefer `select:` with a full list of names, or lean on plan-based pre-warming, so the tool array settles early and stays put for the rest of the run.
+</Tip>
+
+## Turning It Off
+
+Set `dynamic_tools=False` for classic eager registration — every schema ships with every request, and `agent.tool_loader` is `None`.
+
+```python
+agent = Agent(
+    agent_name="StockAnalyst",
+    model_name="gpt-5.4",
+    tools=[get_stock_price],
+    dynamic_tools=False,
+    max_loops=1,
+)
+```
+
+Prefer eager registration when:
+
+| Situation | Why |
+| --- | --- |
+| Two or three tools total | The catalog saves less than the extra turn costs |
+| `max_loops=1` | There is no second turn in which to call what was found |
+| Latency matters more than tokens | Deferral trades a round trip for prompt size |
+| The tool must be callable on turn one | Nothing deferred is available before a search |
+
+## Gotchas
+
+<AccordionGroup>
+  <Accordion title="Deferred is not disabled">
+    `tool_struct` is built from `self.tools` before deferral, so a model that guesses a correct tool name can still execute it. Only the *schema* is withheld. Dynamic tool loading is a token-and-accuracy optimization, not an access control mechanism.
+  </Accordion>
+
+  <Accordion title="The name tool_search is reserved">
+    A tool of your own named `tool_search` is dropped from the catalog with a warning, and becomes permanently uncallable — both it and the search tool would appear in the list and the model could not tell them apart. Rename yours.
+
+    ```
+    Ignoring a tool named 'tool_search': that name is reserved for the dynamic
+    tool search tool. Rename it to make it reachable.
+    ```
+  </Accordion>
+
+  <Accordion title="tools_list_dictionary is owned by the loader">
+    Once deferral is active, `tools_list_dictionary` becomes an *output* of the loader — it is overwritten every time a search loads something. Schemas you append to it after construction are clobbered. Register them with `agent.defer_tool_schemas([...])` instead.
+  </Accordion>
+
+  <Accordion title="setup_dynamic_tools rebuilds from scratch">
+    Calling `setup_dynamic_tools()` discards the existing loader, including which tools were already marked loaded. Autonomous agents call it twice by design. MCP schemas survive via an internal cache; anything you registered manually must be re-added with `defer_tool_schemas()`.
+  </Accordion>
+
+  <Accordion title="Handoffs are never deferred">
+    The `handoff_task` tool registered by the `handoffs` parameter is preserved across setup and stays always-loaded, so delegation works on turn one without a search.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dynamic Tool Examples" icon="code" href="/examples/tools/dynamic-tool-usage">
+    Runnable end-to-end examples for local tools, MCP, and the autonomous loop
+  </Card>
+  <Card title="DynamicToolLoader API" icon="book" href="/api/dynamic-tool-loader">
+    Full class reference for the loader, its search algorithm, and its methods
+  </Card>
+  <Card title="Agent Tools" icon="wrench" href="/agents/agent-tools">
+    How tools are defined, converted to schemas, and executed
+  </Card>
+  <Card title="MCP Integration" icon="plug" href="/integrations/mcp">
+    Connect MCP servers and defer their tool catalogs
+  </Card>
+</CardGroup>
+
+## Reference
+
+- Loader: `swarms/tools/dynamic_tool_loader.py`
+- Agent parameter and activation: `swarms/structs/agent.py` (`dynamic_tools`, `setup_dynamic_tools`, `defer_tool_schemas`, `defer_mcp_tools`)
+- Autonomous-loop control tools and pre-warming: `swarms/agents/autonomous_loop.py`

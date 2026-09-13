@@ -1,0 +1,214 @@
+---
+title: 'Building Agents with vLLM'
+description: 'Self-host open-source models for Swarms agents with vLLM — high-throughput production inference.'
+icon: 'server'
+---
+
+[vLLM](https://github.com/vllm-project/vllm) is a high-throughput inference engine for self-hosting open models. It uses PagedAttention and continuous batching to deliver production-grade throughput on your own GPUs. Use vLLM when you need to self-host for compliance, cost, or latency reasons.
+
+## Installation
+
+```bash
+pip install -U swarms vllm
+```
+
+vLLM requires a CUDA-capable GPU. For Apple Silicon or CPU-only systems, use [Ollama](/examples/model-providers/ollama) instead.
+
+## Two Ways to Use vLLM
+
+There are two patterns, depending on whether you want an in-process engine or a separate server.
+
+### Option 1: In-Process via Custom Wrapper
+
+Best for single-GPU, single-process deployments. The wrapper hosts the model directly inside your Python process.
+
+```python
+from vllm import LLM, SamplingParams
+from swarms import Agent
+
+
+class VLLMWrapper:
+    """Custom vLLM wrapper that satisfies the Swarms `llm` interface."""
+
+    def __init__(
+        self,
+        model_name: str,
+        tensor_parallel_size: int = 1,
+        gpu_memory_utilization: float = 0.9,
+        max_model_len: int | None = None,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        max_tokens: int = 2048,
+    ):
+        self.model_name = model_name
+        self.llm = LLM(
+            model=model_name,
+            tensor_parallel_size=tensor_parallel_size,
+            gpu_memory_utilization=gpu_memory_utilization,
+            max_model_len=max_model_len,
+        )
+        self.sampling_params = SamplingParams(
+            temperature=temperature,
+            top_p=top_p,
+            max_tokens=max_tokens,
+        )
+
+    def run(self, task: str) -> str:
+        outputs = self.llm.generate([task], self.sampling_params)
+        return outputs[0].outputs[0].text
+
+
+# Load the model once, reuse the wrapper across agents
+llm = VLLMWrapper(
+    model_name="meta-llama/Llama-3.3-70B-Instruct",
+    tensor_parallel_size=2,        # 2 GPUs
+    gpu_memory_utilization=0.9,
+    max_tokens=2048,
+)
+
+agent = Agent(
+    agent_name="VLLM-Agent",
+    llm=llm,                       # pass the wrapper, not model_name
+    max_loops=1,
+)
+
+print(agent.run("Compare paged attention to standard attention."))
+```
+
+### Option 2: OpenAI-Compatible Server
+
+Best when you want one shared vLLM server feeding many agents or services.
+
+Start a vLLM server:
+
+```bash
+vllm serve meta-llama/Llama-3.3-70B-Instruct \
+    --port 8000 \
+    --tensor-parallel-size 2 \
+    --gpu-memory-utilization 0.9
+```
+
+Point Swarms at it via the OpenAI-compatible protocol:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="VLLM-Server-Agent",
+    model_name="openai/meta-llama/Llama-3.3-70B-Instruct",   # OpenAI-format name
+    llm_base_url="http://localhost:8000/v1",
+    llm_api_key="EMPTY",                                      # vLLM ignores the key
+    max_loops=1,
+)
+
+print(agent.run("What problems does vLLM's continuous batching solve?"))
+```
+
+<Tip>
+The server pattern is the right default for multi-agent systems — one warm vLLM process serves any number of concurrent agents efficiently.
+</Tip>
+
+## Choosing a Model
+
+vLLM can serve any HuggingFace causal LM. Popular picks:
+
+| Model | HuggingFace ID | Notes |
+|---|---|---|
+| Llama 3.3 70B | `meta-llama/Llama-3.3-70B-Instruct` | Strong general-purpose default |
+| Llama 4 Maverick | `meta-llama/Llama-4-Maverick-17B-128E-Instruct` | 128-expert MoE model |
+| Llama 4 Scout | `meta-llama/Llama-4-Scout-17B-16E-Instruct` | Smaller 16-expert MoE |
+| Qwen 2.5 72B | `Qwen/Qwen2.5-72B-Instruct` | Strong Chinese + English |
+| DeepSeek R1 | `deepseek-ai/DeepSeek-R1` | Reasoning model |
+| Mistral Small | `mistralai/Mistral-Small-Instruct-2409` | Compact European model |
+
+## Batched Inference
+
+vLLM is built for high throughput. The wrapper makes batching one line:
+
+```python
+class VLLMWrapper:
+    # ... __init__ as above ...
+
+    def batched_run(self, tasks: list[str]) -> list[str]:
+        outputs = self.llm.generate(tasks, self.sampling_params)
+        return [o.outputs[0].text for o in outputs]
+
+
+llm = VLLMWrapper(model_name="meta-llama/Llama-3.3-70B-Instruct")
+
+responses = llm.batched_run([
+    "Summarize Bitcoin in one sentence.",
+    "Summarize Ethereum in one sentence.",
+    "Summarize Solana in one sentence.",
+])
+
+for r in responses:
+    print(r)
+```
+
+## Multi-Agent on One vLLM Server
+
+Once your server is up, every agent in a swarm can share it — no per-agent model loading cost:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+BASE_URL = "http://localhost:8000/v1"
+MODEL = "openai/meta-llama/Llama-3.3-70B-Instruct"
+
+agents = [
+    Agent(
+        agent_name=f"Expert-{topic}",
+        model_name=MODEL,
+        llm_base_url=BASE_URL,
+        llm_api_key="EMPTY",
+        system_prompt=f"You are an expert on {topic}.",
+        max_loops=1,
+    )
+    for topic in ["Hardware", "Software", "Economics", "Policy"]
+]
+
+workflow = ConcurrentWorkflow(agents=agents)
+results = workflow.run("How will US export controls reshape the AI chip market?")
+```
+
+## Production Defaults
+
+### Server flags
+
+```bash
+vllm serve meta-llama/Llama-3.3-70B-Instruct \
+    --port 8000 \
+    --tensor-parallel-size 4 \
+    --gpu-memory-utilization 0.92 \
+    --max-model-len 32768 \
+    --enable-prefix-caching \
+    --disable-log-requests
+```
+
+### Agent defaults
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-VLLM",
+    model_name="openai/meta-llama/Llama-3.3-70B-Instruct",
+    llm_base_url="http://vllm.internal:8000/v1",
+    llm_api_key="EMPTY",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    context_length=32_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with Ollama](/examples/model-providers/ollama) — simpler local setup
+- [Building Agents with Groq](/examples/model-providers/groq) — hosted alternative
+- [Building Agents with Cerebras](/examples/model-providers/cerebras) — fastest hosted open models
+- [Model Providers Overview](/integrations/model-providers)

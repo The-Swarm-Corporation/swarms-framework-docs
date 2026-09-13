@@ -72,7 +72,7 @@ Initializes the LLM Council with council members and a Chairman agent.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `id` | `str` | `swarm_id()` | Unique identifier for the council instance. |
+| `id` | `str` | `generate_id("llm-council")` | Unique identifier for the council instance. |
 | `name` | `str` | `"LLM Council"` | Name of the council instance. |
 | `description` | `str` | `"A collaborative council..."` | Description of the council's purpose. |
 | `council_members` | `Optional[List[Agent]]` | `None` | List of Agent instances representing council members. If `None`, creates default council with GPT-5.1, Gemini 3 Pro, Claude Sonnet 4.5, and Grok-4. |

@@ -1,0 +1,169 @@
+---
+title: 'Exa: live web search'
+description: 'Give an agent real-time web search with citations through the hosted Exa MCP server, authenticated with a query parameter.'
+icon: 'magnifying-glass'
+---
+
+Exa provides a hosted MCP server for high-quality web search and content retrieval. It is the first tutorial in this section that needs a key of its own — Exa's is free to obtain and has a free usage tier.
+
+It is also the first of the three authentication shapes you will meet across these examples: **Exa takes its key as a query parameter**, Semgrep takes a Bearer header, and Firecrawl takes a path segment. Same `Agent`, three different URL constructions.
+
+| | |
+|---|---|
+| **Server** | `https://mcp.exa.ai/mcp?exaApiKey=…` |
+| **Auth** | API key as a query parameter (free at [dashboard.exa.ai](https://dashboard.exa.ai/api-keys)) |
+| **Tools** | `web_search_exa`, `get_contents`, `find_similar`, … |
+| **Model used here** | `gpt-5.4` |
+
+## Prerequisites
+
+- Python 3.10+
+- `OPENAI_API_KEY`
+- `EXA_API_KEY` — free from [dashboard.exa.ai](https://dashboard.exa.ai/api-keys)
+
+## Build it
+
+<Steps>
+  <Step title="Install and set both keys">
+    ```bash
+    pip install -U swarms
+    export OPENAI_API_KEY="sk-..."
+    export EXA_API_KEY="..."
+    ```
+  </Step>
+
+  <Step title="Build the URL from the environment">
+    ```python
+    import os
+
+    EXA_API_KEY = os.getenv("EXA_API_KEY")
+    MCP_URL = f"https://mcp.exa.ai/mcp?exaApiKey={EXA_API_KEY}"
+    ```
+
+    The key ends up inside the URL string. Read it from the environment and never print the constructed value — a logged URL is a leaked key.
+  </Step>
+
+  <Step title="Write a prompt that makes it cite">
+    A search tool does not by itself produce sourced answers. This is the prompt that does:
+
+    ```python
+    WEB_SEARCH_SYSTEM_PROMPT = (
+        "You are a web research specialist who answers questions by searching "
+        "the live web with Exa. Translate each request into precise search "
+        "queries, inspect the most relevant and recent sources, and synthesize "
+        "their findings into a direct, well-organized response. Prioritize "
+        "authoritative primary sources, verify important claims across sources "
+        "when possible, distinguish facts from uncertainty, include publication "
+        "dates when recency matters, and cite every key claim with a working "
+        "source link. Never invent facts, quotations, or URLs; if reliable "
+        "evidence cannot be found, state that clearly."
+    )
+    ```
+
+    The last sentence matters most. Fabricated URLs are the characteristic failure of search agents, and they are far more convincing than a fabricated fact.
+  </Step>
+
+  <Step title="Create the agent">
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="Exa-Search-Agent",
+        agent_description="Answers questions using live web search via Exa MCP.",
+        system_prompt=WEB_SEARCH_SYSTEM_PROMPT,
+        model_name="gpt-5.4",
+        mcp_url=MCP_URL,
+        max_loops=2,
+        output_type="json",
+    )
+    ```
+
+    `max_loops=2` gives the model room to search, read what came back, and then answer.
+  </Step>
+
+  <Step title="Run a query that requires recency">
+    ```python
+    result = agent.run(
+        "Use Exa web search tool to find the three most recent notable "
+        "developments in open-source multi-agent AI frameworks, with links."
+    )
+    print(result)
+    ```
+  </Step>
+</Steps>
+
+## The complete script
+
+```python
+import os
+
+from swarms import Agent
+
+EXA_API_KEY = os.getenv("EXA_API_KEY")
+
+WEB_SEARCH_SYSTEM_PROMPT = (
+    "You are a web research specialist who answers questions by searching "
+    "the live web with Exa. Translate each request into precise search "
+    "queries, inspect the most relevant and recent sources, and synthesize "
+    "their findings into a direct, well-organized response. Prioritize "
+    "authoritative primary sources, verify important claims across sources "
+    "when possible, distinguish facts from uncertainty, include publication "
+    "dates when recency matters, and cite every key claim with a working "
+    "source link. Never invent facts, quotations, or URLs; if reliable "
+    "evidence cannot be found, state that clearly."
+)
+
+agent = Agent(
+    agent_name="Exa-Search-Agent",
+    agent_description="Answers questions using live web search via Exa MCP.",
+    system_prompt=WEB_SEARCH_SYSTEM_PROMPT,
+    model_name="gpt-5.4",
+    # Exa authenticates via the exaApiKey query parameter.
+    mcp_url=f"https://mcp.exa.ai/mcp?exaApiKey={EXA_API_KEY}",
+    max_loops=2,
+    dynamic_tools=True,
+    output_type="json",
+)
+
+if __name__ == "__main__":
+    result = agent.run(
+        "Use Exa web search tool to find the three most recent notable "
+        "developments in open-source multi-agent AI frameworks, with links."
+    )
+    print(result)
+```
+
+## Keeping the key out of the URL
+
+If embedding a secret in a URL makes you uncomfortable — and it should, given how often URLs end up in logs — the same key can be sent as a Bearer token on servers that accept one:
+
+```python
+agent = Agent(
+    agent_name="Search-Agent",
+    model_name="gpt-5.4",
+    mcp_url="https://mcp.example.com/mcp",
+    mcp_api_key="env:SEARCH_API_KEY",   # sent as: Authorization: Bearer <key>
+    max_loops=2,
+)
+```
+
+The `env:` prefix tells swarms to read the value from the environment at connection time, so the secret never appears in your source. See [authentication patterns](/examples/mcp/authentication) for every shape, including custom headers and OAuth.
+
+## Cost control
+
+Search calls are billed per request, and an agent left to its own devices will happily run six searches where two would do.
+
+| Lever | Effect |
+|---|---|
+| `max_loops=2` | Caps how many rounds of tool calls the run can make. |
+| Prompt: "search at most twice" | Soft limit the model usually respects; cheaper than a hard cap. |
+| Specific tasks | "Three recent developments" costs less than "everything about X" because the model knows when to stop. |
+
+<Note>
+  Source: [examples/mcp/agents/05_exa_web_search.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/05_exa_web_search.py)
+</Note>
+
+## Next
+
+- [Firecrawl](/examples/mcp/firecrawl-web-scraping) — once search finds the page, scrape it properly.
+- [Exa via swarms-tools](/examples/integrations/exa-search) — the same API as a plain Python tool, without MCP.

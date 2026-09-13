@@ -34,6 +34,7 @@ pip install -U swarms
 | [ConcurrentWorkflow](/api/concurrent-workflow) | Parallel task execution | Executes multiple tasks simultaneously |
 | [SequentialWorkflow](/api/sequential-workflow) | Step-by-step processing | Executes tasks in a specific sequence |
 | [GraphWorkflow](/api/graph-workflow) | Complex task dependencies | Manages tasks with complex dependencies |
+| [BatchedGridWorkflow](/api/batched-grid-workflow) | Grid-style parallel task distribution | Pairs each agent with a different task and runs them concurrently |
 
 ## Hierarchical Architectures
 
@@ -42,6 +43,16 @@ pip install -U swarms
 | [HierarchicalSwarm](/api/hierarchical-swarm) | Hierarchical task orchestration | Director agent coordinates specialized worker agents |
 | [Hybrid Hierarchical-Cluster Swarm](/api/hhcs) | Complex organization | Combines hierarchical and cluster-based organization |
 | [Auto Swarm Builder](/api/auto-swarm-builder) | Automated swarm creation | Automatically creates and configures swarms |
+| [PlannerWorkerSwarm](/api/planner-worker-swarm) | Plan-then-delegate execution | A planner agent generates a step-by-step plan that worker agents execute |
+
+## Reasoning and Decision Architectures
+
+| Architecture | Use Case | Key Functionality |
+|-------------|----------|-------------------|
+| [HeavySwarm](/api/heavy-swarm) | Deep, research-grade analysis | Runs agents through many reasoning loops for intensive analysis |
+| [CouncilAsAJudge](/api/council-as-judge) | High-stakes rulings with deliberation | A council of agents deliberates, then a judge agent delivers a verdict |
+| [DebateWithJudge](/api/debate-with-judge) | Structured adversarial debate | Agents argue opposing positions over multiple rounds; a judge rules |
+| [LLMCouncil](/api/llm-council) | Consensus-based decision making | An LLM-based council deliberates to reach a decision |
 
 ## Communication Structure
 

@@ -1,0 +1,188 @@
+---
+title: 'Dynamic Support Triage'
+description: 'Build a fresh team of specialists for every incoming ticket instead of maintaining one fixed roster.'
+icon: 'headset'
+---
+
+A fixed roster is the wrong shape for support triage. A billing dispute, a production outage, and a security report need entirely different specialists — but you cannot know which ticket arrives next.
+
+`AutoAgentBuilder` lets you build the team **per ticket**, at request time.
+
+## Overview
+
+| Feature | Description |
+|---------|-------------|
+| **Per-request rosters** | Each ticket gets specialists chosen for that ticket |
+| **Concurrent execution** | Independent specialists analyze the same ticket in parallel |
+| **Tier control** | `num_agents` scales the team to ticket severity |
+| **No routing table** | No hand-maintained mapping from ticket type to agent set |
+
+```
+ticket ──▶ AutoAgentBuilder ──▶ roster for THIS ticket
+                                    │
+                                    ▼
+                            ConcurrentWorkflow
+                                    │
+                                    ▼
+                            triage assessment
+```
+
+---
+
+## Step 1: The naive approach and why it breaks
+
+A fixed roster forces every ticket through the same specialists:
+
+```python
+# Every ticket sees a billing agent, even a security report
+agents = [billing_agent, technical_agent, account_agent]
+```
+
+You end up either maintaining a routing table that maps ticket types to agent sets, or paying for irrelevant specialists on every request. Both get worse as ticket variety grows.
+
+---
+
+## Step 2: Build the team from the ticket
+
+```python
+from swarms import AutoAgentBuilder, ConcurrentWorkflow
+
+
+def triage(ticket: str, num_specialists: int = 3) -> str:
+    """Design specialists for this specific ticket, then run them in parallel."""
+    agents = AutoAgentBuilder(
+        model_name="gpt-5.4",
+        num_agents=num_specialists,
+        agent_kwargs={"max_loops": 1},
+    ).run(
+        f"Triage this customer support ticket. Identify the root cause, "
+        f"severity, and recommended next action.\n\nTicket:\n{ticket}"
+    )
+
+    print(f"Assembled {len(agents)} specialists:")
+    for agent in agents:
+        print(f"  - {agent.agent_name}")
+
+    return ConcurrentWorkflow(agents=agents).run(ticket)
+```
+
+`ConcurrentWorkflow` is the right structure here: the specialists examine the same ticket from different angles and do not depend on each other's output.
+
+---
+
+## Step 3: Scale the team to severity
+
+`num_agents` is the dial. A password reset does not deserve five specialists; a production outage does.
+
+```python
+SEVERITY_TO_TEAM_SIZE = {
+    "low": 1,
+    "medium": 3,
+    "high": 5,
+}
+
+
+def triage_by_severity(ticket: str, severity: str) -> str:
+    return triage(ticket, num_specialists=SEVERITY_TO_TEAM_SIZE[severity])
+```
+
+<Note>
+With `num_agents=1` the builder returns a single well-scoped generalist rather than refusing. The default prompt explicitly states that a lone agent is a correct answer for a single-skill task.
+</Note>
+
+---
+
+## Complete Example
+
+```python
+from dotenv import load_dotenv
+
+from swarms import AutoAgentBuilder, ConcurrentWorkflow
+
+load_dotenv()
+
+TICKETS = [
+    (
+        "high",
+        "Our production API has been returning 503s for 40 minutes. "
+        "We are on the enterprise plan with a 99.9% SLA. Three of our "
+        "own customers have escalated. We need an RCA and credit terms.",
+    ),
+    (
+        "low",
+        "I can't find where to update the credit card on my account.",
+    ),
+]
+
+SEVERITY_TO_TEAM_SIZE = {"low": 1, "medium": 3, "high": 5}
+
+
+def triage(ticket: str, num_specialists: int) -> str:
+    agents = AutoAgentBuilder(
+        model_name="gpt-5.4",
+        num_agents=num_specialists,
+        agent_kwargs={"max_loops": 1},
+    ).run(
+        f"Triage this customer support ticket. Identify the root cause, "
+        f"severity, and recommended next action.\n\nTicket:\n{ticket}"
+    )
+
+    print(f"\nAssembled {len(agents)} specialists:")
+    for agent in agents:
+        print(f"  - {agent.agent_name}: {agent.agent_description}")
+
+    return ConcurrentWorkflow(agents=agents).run(ticket)
+
+
+for severity, ticket in TICKETS:
+    print(f"\n{'=' * 60}\n{severity.upper()} — {ticket[:60]}...\n{'=' * 60}")
+    print(triage(ticket, SEVERITY_TO_TEAM_SIZE[severity]))
+```
+
+The high-severity ticket typically produces an SLA/contract specialist, an incident-analysis specialist, and a customer-communications specialist. The low-severity one produces a single support generalist.
+
+---
+
+## Controlling cost
+
+Every triage call makes one builder request **plus** one request per specialist. Two ways to keep that in check:
+
+**Use a cheaper builder model.** Roster design is easier than the analysis itself:
+
+```python
+AutoAgentBuilder(model_name="gpt-5.4-mini", num_agents=3)
+```
+
+**Force the specialists onto a cheaper tier** with a custom prompt:
+
+```python
+from swarms import AUTO_AGENT_BUILDER_SYSTEM_PROMPT
+
+BUDGET_PROMPT = AUTO_AGENT_BUILDER_SYSTEM_PROMPT + """
+
+ADDITIONAL CONSTRAINT:
+Every agent must use model_name "gpt-5.4-mini" regardless of workload.
+"""
+
+AutoAgentBuilder(system_prompt=BUDGET_PROMPT, num_agents=3)
+```
+
+<Warning>
+Rosters are not cached between calls. Two identical tickets design two independent teams. If you need stability for a known ticket category, see [Reproducible Rosters](/examples/auto-agent-builder/reproducible).
+</Warning>
+
+---
+
+## Use Cases
+
+- **Support triage** — specialists matched to each ticket's actual domain
+- **Incident response** — team scaled to incident severity
+- **Content moderation** — reviewers chosen by the kind of violation reported
+- **Code review** — reviewers picked from what a diff actually touches
+- **Lead qualification** — analysts matched to industry and deal size
+
+## See also
+
+- [Auto Agent Builder Quickstart](/examples/auto-agent-builder/quickstart)
+- [AutoAgentBuilder API reference](/api/auto-agent-builder)
+- [ConcurrentWorkflow](/architectures/concurrent-workflow)

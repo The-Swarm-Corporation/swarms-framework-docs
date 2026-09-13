@@ -26,7 +26,7 @@ pip3 install -U swarms swarms-tools
 
 ```txt
 # Get your API key from exa
-EXA_SEARCH_API=""
+EXA_API_KEY=""
 
 OPENAI_API_KEY=""
 
@@ -41,8 +41,8 @@ from swarms_tools import exa_search
 
 
 agent = Agent(
-    name="Exa Search Agent",
-    llm="gpt-5.4",
+    agent_name="Exa Search Agent",
+    model_name="gpt-5.4",
     tools=[exa_search],
 )
 

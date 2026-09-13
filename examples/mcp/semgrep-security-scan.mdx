@@ -1,0 +1,170 @@
+---
+title: 'Semgrep: security review'
+description: 'Pair a real static analyzer with an LLM — the scanner finds vulnerabilities deterministically, the model triages them and writes the patch.'
+icon: 'shield-halved'
+---
+
+Semgrep runs static analysis over code you hand it and returns concrete findings: rule id, severity, line number, and why the pattern is dangerous. Pairing it with an LLM is a good division of labour — the scanner finds occurrences deterministically, the model explains impact and drafts the fix.
+
+This is also the **Bearer token** authentication shape.
+
+| | |
+|---|---|
+| **Server** | `https://mcp.semgrep.ai/mcp` |
+| **Auth** | Semgrep AppSec Platform token, sent as a Bearer header (free account) |
+| **Tools** | `semgrep_scan`, `security_check`, `get_abstract_syntax_tree`, … |
+| **Model used here** | `gpt-5.4` |
+
+<Note>
+  This endpoint accepted anonymous traffic historically and now returns 401 without a token. Get a free one at [semgrep.dev](https://semgrep.dev/login) → **Settings** → **Tokens**.
+</Note>
+
+## Why not just ask the model?
+
+Because LLMs are extremely good at producing security findings that sound right. Asked to review code for vulnerabilities, a model will reliably return a well-formatted list — some of it real, some of it invented, with no signal distinguishing the two.
+
+Splitting the job fixes that: findings come from the scanner; the model's job is triage, not imagination. The system prompt below is written to enforce exactly that boundary.
+
+## Build it
+
+<Steps>
+  <Step title="Install and set both keys">
+    ```bash
+    pip install -U swarms
+    export OPENAI_API_KEY="sk-..."
+    export SEMGREP_APP_TOKEN="..."
+    ```
+  </Step>
+
+  <Step title="Constrain the model to what the scanner found">
+    ```python
+    SECURITY_SYSTEM_PROMPT = (
+        "You are a security reviewer. Report only vulnerabilities the scanner "
+        "actually returned — never speculate about issues you did not find, and "
+        "never pad a report to look thorough. For each finding give the rule id, "
+        "severity, the exact line, why it is exploitable in this specific code, "
+        "and a concrete patch. Rank by real-world exploitability rather than by "
+        "the scanner's own severity label, and say plainly when a flagged line is "
+        "a false positive in context. If the scan comes back clean, report that "
+        "it is clean and note what the scan does not cover."
+    )
+    ```
+
+    Two instructions carry the weight: *only what the scanner returned*, and *say when a flagged line is a false positive*. The second is what makes the report worth reading — a raw Semgrep dump is noise until someone judges context.
+  </Step>
+
+  <Step title="Build the agent with a Bearer token">
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="Semgrep-Security-Agent",
+        agent_description="Reviews code for vulnerabilities using Semgrep MCP.",
+        system_prompt=SECURITY_SYSTEM_PROMPT,
+        model_name="gpt-5.4",
+        mcp_url="https://mcp.semgrep.ai/mcp",
+        mcp_api_key="env:SEMGREP_APP_TOKEN",
+        max_loops=2,
+    )
+    ```
+
+    `mcp_api_key="env:SEMGREP_APP_TOKEN"` sends `Authorization: Bearer <token>`. The `env:` prefix is resolved when the connection is made, so the token never appears in your source or in a serialized agent config.
+  </Step>
+
+  <Step title="Give it something to scan">
+    ```python
+    VULNERABLE_SAMPLE = '''
+    import sqlite3
+    import subprocess
+
+
+    def get_user(conn, user_id):
+        # String-interpolated SQL
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE id = '%s'" % user_id)
+        return cur.fetchone()
+
+
+    def run_report(report_name):
+        # Shell invocation built from user input
+        subprocess.call("generate_report " + report_name, shell=True)
+
+
+    def load_config(blob):
+        # Deserializing untrusted input
+        import pickle
+        return pickle.loads(blob)
+    '''
+
+    result = agent.run(
+        "Scan this Python file with Semgrep and write up every finding: rule "
+        "id, severity, line, why it is exploitable, and the fix.\n\n"
+        f"```python\n{VULNERABLE_SAMPLE}\n```"
+    )
+    print(result)
+    ```
+
+    Three genuine issues are planted here — SQL injection, shell injection, and unsafe deserialization — so you can check the scan caught what it should.
+  </Step>
+
+  <Step title="Fail fast when the token is missing">
+    ```python
+    import os
+    import sys
+
+    if not os.getenv("SEMGREP_APP_TOKEN"):
+        sys.exit(
+            "SEMGREP_APP_TOKEN is not set.\n"
+            "Create a free token at https://semgrep.dev "
+            "(Settings -> Tokens) and export it before running."
+        )
+    ```
+
+    Without this you get a 401 from inside the tool call, which surfaces as an unhelpful agent-level error.
+  </Step>
+</Steps>
+
+## Putting it in a review pipeline
+
+The single-agent version reviews a snippet. To review a diff, feed it the changed files and let a second agent decide what blocks the merge:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+scanner = Agent(
+    agent_name="Scanner",
+    system_prompt=SECURITY_SYSTEM_PROMPT,
+    model_name="gpt-5.4",
+    mcp_url="https://mcp.semgrep.ai/mcp",
+    mcp_api_key="env:SEMGREP_APP_TOKEN",
+    max_loops=2,
+)
+
+triager = Agent(
+    agent_name="Triager",
+    system_prompt=(
+        "You decide what blocks a merge. Given scanner findings, separate the "
+        "ones that are exploitable in this codebase from the ones that are "
+        "noise, and justify each call. Do not add findings of your own."
+    ),
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[scanner, triager], max_loops=1)
+```
+
+The triager has no tools — it has nothing left to look up, and giving it the scanner's tools would only tempt it to re-run the scan.
+
+<Warning>
+  A clean scan is not a clean bill of health. Semgrep finds patterns it has rules for; it does not find logic flaws, broken authorization, or design mistakes. Ask the agent to say what the scan does not cover, and treat that sentence as part of the report.
+</Warning>
+
+<Note>
+  Source: [examples/mcp/agents/12_semgrep_security_scan.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/12_semgrep_security_scan.py)
+</Note>
+
+## Next
+
+- [MCP in a multi-agent workflow](/examples/mcp/sequential-workflow) — the full one-server-per-agent pattern.
+- [Authentication patterns](/examples/mcp/authentication) — Bearer, custom header, query parameter, path, OAuth.

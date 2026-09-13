@@ -78,19 +78,19 @@ flowchart TD
   Brief description of the swarm's functionality
 </ParamField>
 
-<ParamField path="swarms" type="List[SwarmRouter]" default="[]">
-  List of available swarm routers that the HHCS can route tasks to
+<ParamField path="swarms" type="List[Union[SwarmRouter, Callable]]" default="[]">
+  List of available swarm routers (or callables) that the HHCS can route tasks to
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
   Maximum number of processing loops
 </ParamField>
 
-<ParamField path="output_type" type="str" default="list">
+<ParamField path="output_type" type="HistoryOutputType" default="list">
   Format for output (e.g., "list", "json")
 </ParamField>
 
-<ParamField path="router_agent_model_name" type="str" default="claude-sonnet-4-6">
+<ParamField path="router_agent_model_name" type="str" default="gpt-5.4">
   LLM model used by the router agent for task analysis and routing decisions
 </ParamField>
 
@@ -101,13 +101,13 @@ flowchart TD
 Processes a single task through the swarm system. The router agent analyzes the task and routes it to the most appropriate specialized swarm.
 
 ```python
-def run(self, task: str) -> str
+def run(self, task: str, *args, **kwargs)
 ```
 
 **Parameters:**
 - `task` (str): The task to process
 
-**Returns:** String containing the aggregated results from the selected swarm(s)
+**Returns:** The aggregated results from the selected swarm(s), formatted according to `output_type` (a list by default)
 
 ### batched_run()
 
@@ -147,15 +147,9 @@ def route_task(self, swarm_name: str, task_description: str) -> None
 - `swarm_name` (str): Name of the target swarm
 - `task_description` (str): The task to route
 
-### get_swarms_info()
-
-Returns formatted information about all available swarms.
-
-```python
-def get_swarms_info(self) -> str
-```
-
-**Returns:** Formatted string with details about all registered swarms
+<Note>
+`get_swarms_info()` is not a method on `HybridHierarchicalClusterSwarm`. It is a standalone helper (`from swarms.structs.multi_agent_exec import get_swarms_info`) that the constructor calls internally to build the router agent's system prompt from the `swarms` list.
+</Note>
 
 ## Usage Examples
 

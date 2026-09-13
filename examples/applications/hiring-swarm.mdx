@@ -235,7 +235,7 @@ class HiringSwarm:
                 return agent
 
     def initial_talent_acquisition(self):
-        elena_agent = self.find_agent_by_name("Talent-Acquisition")
+        elena_agent = self.find_agent_by_name("Elena-Talent-Acquisition")
         elena_output = elena_agent.run(
             f"History: {self.conversation.get_str()}\n"
             f"Identify staffing needs, define the {self.job_role} position, develop job descriptions, and outline sourcing strategies."
@@ -245,7 +245,7 @@ class HiringSwarm:
         )
 
     def candidate_screening(self):
-        marcus_agent = self.find_agent_by_name("Candidate-Screening")
+        marcus_agent = self.find_agent_by_name("Marcus-Candidate-Screening")
         marcus_output = marcus_agent.run(
             f"History: {self.conversation.get_str()}\n"
             f"Screen resumes and applications for the {self.job_role} position, conduct preliminary interviews, and provide a shortlist of candidates."
@@ -255,7 +255,7 @@ class HiringSwarm:
         )
 
     def interview_coordination(self):
-        olivia_agent = self.find_agent_by_name("Interview-Coordinator")
+        olivia_agent = self.find_agent_by_name("Olivia-Interview-Coordinator")
         olivia_output = olivia_agent.run(
             f"History: {self.conversation.get_str()}\n"
             f"Schedule and coordinate interviews for shortlisted {self.job_role} candidates, manage logistics, and collect feedback."
@@ -265,7 +265,7 @@ class HiringSwarm:
         )
 
     def onboarding_preparation(self):
-        nathan_agent = self.find_agent_by_name("Onboarding-Specialist")
+        nathan_agent = self.find_agent_by_name("Nathan-Onboarding-Specialist")
         nathan_output = nathan_agent.run(
             f"History: {self.conversation.get_str()}\n"
             f"Prepare onboarding materials and schedule, coordinate setup, and organize training for the new {self.job_role} hire."
@@ -275,7 +275,7 @@ class HiringSwarm:
         )
 
     def employee_engagement_strategy(self):
-        sophia_agent = self.find_agent_by_name("Employee-Engagement")
+        sophia_agent = self.find_agent_by_name("Sophia-Employee-Engagement")
         sophia_output = sophia_agent.run(
             f"History: {self.conversation.get_str()}\n"
             f"Develop and implement an employee engagement plan for the new {self.job_role} hire, including activities and feedback mechanisms."

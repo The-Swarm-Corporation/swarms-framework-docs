@@ -1,0 +1,161 @@
+---
+title: 'DeepWiki: repo Q&A'
+description: 'Build an agent that answers questions about any public GitHub repository, using the free DeepWiki MCP server. No API key required.'
+icon: 'book'
+---
+
+DeepWiki (by Cognition) exposes an MCP server that reads and answers questions about the documentation of any public GitHub repository. It is free, needs **no authentication**, and is the best first MCP integration to write — the only key you need is the one for your LLM.
+
+| | |
+|---|---|
+| **Server** | `https://mcp.deepwiki.com/mcp` |
+| **Auth** | none |
+| **Tools** | `read_wiki_structure`, `read_wiki_contents`, `ask_question` |
+| **Model used here** | `claude-sonnet-5` |
+
+## Prerequisites
+
+- Python 3.10+
+- One LLM provider key. This tutorial uses Anthropic; any LiteLLM model with tool-calling support works.
+
+## Build it
+
+<Steps>
+  <Step title="Install swarms">
+    ```bash
+    pip install -U swarms
+    ```
+  </Step>
+
+  <Step title="Set your LLM key">
+    ```bash
+    export ANTHROPIC_API_KEY="sk-ant-..."
+    ```
+
+    Only your model provider needs a key. DeepWiki itself is open.
+  </Step>
+
+  <Step title="Write a system prompt that forces grounding">
+    An agent with a research tool will still answer from memory unless you tell it not to. This prompt is the difference between a citation and a guess:
+
+    ```python
+    DEEPWIKI_SYSTEM_PROMPT = (
+        "You are a repository research specialist who uses the DeepWiki MCP "
+        "server to answer questions about public GitHub repositories. Inspect the "
+        "repository's wiki structure and relevant documentation before responding, "
+        "then provide a clear, technically accurate explanation grounded only in "
+        "the retrieved material. Cite relevant files, modules, or documentation "
+        "sections when available, distinguish verified details from reasonable "
+        "inferences, and state clearly when DeepWiki does not provide enough "
+        "information to answer a question."
+    )
+    ```
+  </Step>
+
+  <Step title="Point the agent at the server">
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="DeepWiki-Agent",
+        agent_description="Answers questions about GitHub repos via DeepWiki MCP.",
+        system_prompt=DEEPWIKI_SYSTEM_PROMPT,
+        model_name="claude-sonnet-5",
+        mcp_url="https://mcp.deepwiki.com/mcp",
+        max_loops=1,
+    )
+    ```
+
+    `mcp_url` is the entire integration. On startup the agent connects, fetches the server's tool list, and converts each tool into a function-calling schema the model can use.
+  </Step>
+
+  <Step title="Run a task">
+    ```python
+    result = agent.run(
+        "Use your DeepWiki tools to explain what the kyegomez/swarms "
+        "repository is for and list its main multi-agent structures."
+    )
+    print(result)
+    ```
+  </Step>
+</Steps>
+
+## The complete script
+
+```python
+from swarms import Agent
+
+DEEPWIKI_SYSTEM_PROMPT = (
+    "You are a repository research specialist who uses the DeepWiki MCP "
+    "server to answer questions about public GitHub repositories. Inspect the "
+    "repository's wiki structure and relevant documentation before responding, "
+    "then provide a clear, technically accurate explanation grounded only in "
+    "the retrieved material. Cite relevant files, modules, or documentation "
+    "sections when available, distinguish verified details from reasonable "
+    "inferences, and state clearly when DeepWiki does not provide enough "
+    "information to answer a question."
+)
+
+agent = Agent(
+    agent_name="DeepWiki-Agent",
+    agent_description="Answers questions about GitHub repos via DeepWiki MCP.",
+    system_prompt=DEEPWIKI_SYSTEM_PROMPT,
+    model_name="claude-sonnet-5",
+    mcp_url="https://mcp.deepwiki.com/mcp",
+    max_loops=1,
+)
+
+result = agent.run(
+    "Use your DeepWiki tools to explain what the kyegomez/swarms "
+    "repository is for and list its main multi-agent structures."
+)
+print(result)
+```
+
+## What happens when you call `run()`
+
+1. **Transport is detected from the URL scheme.** An `https://` URL uses streamable HTTP; you never configure this by hand.
+2. **Tools are discovered.** The agent asks the server what it exposes and converts each tool to an OpenAI-format function schema.
+3. **The model chooses.** It typically calls `read_wiki_structure` to see what exists, then `read_wiki_contents` or `ask_question` for the parts that matter.
+4. **Results come back into the conversation**, and the model writes its answer from them.
+
+## The smallest possible version
+
+Strip the system prompt and you still have a working integration — useful for a first smoke test:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="MCP-Agent",
+    model_name="claude-sonnet-5",
+    mcp_url="https://mcp.deepwiki.com/mcp",
+    max_loops=1,
+    max_tokens=16_000,
+)
+
+print(agent.run("Use your tools to explain what the kyegomez/swarms repository does."))
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="The agent answers without calling a tool">
+    Two fixes, in order: say "use your tools" in the task, and put the instruction to retrieve before answering in the system prompt. Weaker models need both.
+  </Accordion>
+  <Accordion title="Timeouts on large repositories">
+    `read_wiki_contents` can return a lot of text. Raise the ceiling with `mcp_timeout=120` on the `Agent`.
+  </Accordion>
+  <Accordion title="`cannot import name 'streamablehttp_client'`">
+    You are on `mcp` 2.x, which renamed it. Pin the 1.x line: `pip install 'mcp>=1.28.1,<2.0.0'`.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Source: [examples/mcp/agents/01_deepwiki_repo_qa.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/01_deepwiki_repo_qa.py) and [deepwiki_minimal.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/deepwiki_minimal.py)
+</Note>
+
+## Next
+
+- [GitMCP](/examples/mcp/gitmcp-repo-docs) — scope a server to one repository.
+- [Several servers at once](/examples/mcp/multi-server-agent) — combine DeepWiki with Microsoft Learn.

@@ -98,7 +98,7 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float
   A string that defines the agent's area of expertise and task-handling capability
 </ParamField>
 
-<ParamField path="model_name" type="str" default="gpt-4.1">
+<ParamField path="model_name" type="str" default="gpt-5.4">
   Name of the language model to use
 </ParamField>
 
@@ -225,20 +225,24 @@ def log_tree_execution(self, task: str, selected_agent: TreeAgent, result: Any) 
 
 ## ForestSwarm Attributes
 
-<ParamField path="name" type="str">
+<ParamField path="name" type="str" default="default-forest-swarm">
   Name of the forest swarm
 </ParamField>
 
-<ParamField path="description" type="str">
+<ParamField path="description" type="str" default="Standard forest swarm">
   Description of the forest swarm
 </ParamField>
 
-<ParamField path="trees" type="List[Tree]">
+<ParamField path="trees" type="List[Tree]" default="[]">
   List of trees containing agents organized by domain
 </ParamField>
 
-<ParamField path="shared_memory" type="Any">
+<ParamField path="shared_memory" type="Any" default="None">
   Shared memory object for inter-tree communication
+</ParamField>
+
+<ParamField path="rules" type="str" default="None">
+  Rules governing the forest swarm behavior
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">

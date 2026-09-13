@@ -19,7 +19,14 @@
     }
   },
   "contextual": {
-    "options": ["copy", "view", "chatgpt", "claude", "cursor", "vscode"]
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
@@ -66,8 +73,10 @@
               "agents/agent-memory",
               "agents/diy-memory",
               "agents/agent-tools",
+              "agents/dynamic-tools",
               "agents/agent-skills",
               "agents/structured-outputs",
+              "agents/prompt-caching",
               "agents/fallback-models",
               "agents/agent-loader",
               "agents/agents-yaml"
@@ -97,6 +106,7 @@
             "group": "Multi-Agent Architectures",
             "pages": [
               "architectures/overview",
+              "architectures/structures-catalog",
               "architectures/sequential-workflow",
               "architectures/concurrent-workflow",
               "architectures/agent-rearrange",
@@ -112,10 +122,10 @@
           {
             "group": "Deployment & Operations",
             "pages": [
-              "deployment/agent-orchestration-protocol",
               "deployment/production-best-practices",
               "deployment/scaling",
-              "deployment/monitoring"
+              "deployment/monitoring",
+              "deployment/telemetry"
             ]
           },
           {
@@ -131,13 +141,17 @@
             "group": "CLI Reference",
             "pages": [
               "cli/overview",
+              "cli/tutorial",
               "cli/commands",
-              "cli/configuration"
+              "cli/configuration",
+              "cli/examples"
             ]
           },
           {
             "group": "Changelog",
             "pages": [
+              "changelog/overview",
+              "changelog/swarms-v13",
               "changelog/swarms-v12"
             ]
           }
@@ -150,25 +164,23 @@
             "group": "Core Classes",
             "pages": [
               "api/agent",
-              "api/base-swarm",
-              "api/base-structure",
-              "api/conversation"
+              "api/llm-manager",
+              "api/mcp-manager",
+              "api/skills-manager",
+              "api/agent-marketplace-handler",
+              "api/conversation",
+              "api/agent-loader"
             ]
           },
           {
-            "group": "Workflows",
+            "group": "Multi-Agent Harnesses",
             "pages": [
+              "api/structs-overview",
               "api/sequential-workflow",
               "api/concurrent-workflow",
               "api/agent-rearrange",
               "api/graph-workflow",
-              "api/batched-grid-workflow"
-            ]
-          },
-          {
-            "group": "Multi-Agent Systems",
-            "pages": [
-              "api/structs-overview",
+              "api/batched-grid-workflow",
               "api/custom-swarm",
               "api/mixture-of-agents",
               "api/hierarchical-swarm",
@@ -180,39 +192,26 @@
               "api/self-moa-seq",
               "api/advisor-swarm",
               "api/planner-worker-swarm",
-              "api/skill-orchestra"
-            ]
-          },
-          {
-            "group": "Debate & Evaluation",
-            "pages": [
               "api/orchestration-methods",
               "api/debate-with-judge",
               "api/majority-voting",
               "api/planner-generator-evaluator",
               "api/llm-council",
-              "api/council-as-judge"
-            ]
-          },
-          {
-            "group": "Routing & Orchestration",
-            "pages": [
+              "api/council-as-judge",
               "api/swarm-router",
               "api/multi-agent-router",
+              "api/auto-agent-builder",
               "api/auto-swarm-builder",
               "api/swarm-rearrange",
               "api/model-router",
-              "api/swarm-matcher",
-              "api/agent-router"
-            ]
-          },
-          {
-            "group": "Advanced Architectures",
-            "pages": [
+              "api/agent-router",
               "api/multi-swarm-orchestration",
               "api/hierarchical-communication-framework",
               "api/hhcs",
               "api/multi-agent-execution-utilities",
+              "api/async-subagent",
+              "api/ma-blocks",
+              "api/swarming-architectures",
               "api/social-algorithms"
             ]
           },
@@ -220,6 +219,7 @@
             "group": "Tools & Utilities",
             "pages": [
               "api/tools",
+              "api/dynamic-tool-loader",
               "api/agent-mcp",
               "api/multi-agent-helpers",
               "api/agent-registry",
@@ -232,7 +232,6 @@
           {
             "group": "Deployment",
             "pages": [
-              "api/aop",
               "api/cron-job"
             ]
           }
@@ -244,6 +243,7 @@
           {
             "group": "Index",
             "pages": [
+              "examples/overview",
               "examples/overviews/examples-index",
               "examples/overviews/cookbook",
               "examples/overviews/community-resources"
@@ -255,9 +255,28 @@
               "examples/overviews/basic-overview",
               "examples/basic-agent",
               "examples/agent-with-tools",
+              "examples/tools/dynamic-tool-usage",
               "examples/vision-agent",
               "examples/streaming",
               "examples/agent-streaming-example"
+            ]
+          },
+          {
+            "group": "Model Providers",
+            "pages": [
+              "examples/model-providers/anthropic",
+              "examples/model-providers/openai",
+              "examples/model-providers/gemini",
+              "examples/model-providers/claude-fable-5",
+              "examples/model-providers/groq",
+              "examples/model-providers/cerebras",
+              "examples/model-providers/deepseek",
+              "examples/model-providers/xai",
+              "examples/model-providers/ollama",
+              "examples/model-providers/vllm",
+              "examples/model-providers/openrouter",
+              "examples/model-providers/openrouter-tutorial",
+              "examples/model-providers/azure-openai"
             ]
           },
           {
@@ -269,22 +288,40 @@
               "examples/agents/autonomous-looper-bash",
               "examples/agents/autonomous-looper-tools",
               "examples/agents/persistent-memory",
-              "examples/agents/context-compression"
+              "examples/agents/context-compression",
+              "examples/agents/prompt-caching"
             ]
           },
           {
             "group": "Multi-Agent Examples",
             "pages": [
               "examples/overviews/multi-agent-overview",
-              "examples/overviews/aop-overview",
               "examples/sequential-workflow-example",
               "examples/sequential-workflow-streaming-example",
               "examples/concurrent-workflow-example",
               "examples/mixture-of-agents-example",
               "examples/hierarchical-swarm-example",
               "examples/group-chat-example",
-              "examples/multi-agent/aop-medical",
-              "examples/multi-agent/debate-quickstart"
+              "examples/swarm-router-example",
+              "examples/multi-agent/advisor-swarm-example",
+              "examples/multi-agent/debate-quickstart",
+              "examples/social-swarm-patterns"
+            ]
+          },
+          {
+            "group": "Auto Agent Builder",
+            "pages": [
+              "examples/auto-agent-builder/quickstart",
+              "examples/auto-agent-builder/triage",
+              "examples/auto-agent-builder/reproducible"
+            ]
+          },
+          {
+            "group": "Scheduled Agents",
+            "pages": [
+              "examples/cron-job/quickstart",
+              "examples/cron-job/multiple-agents",
+              "examples/cron-job/resilience"
             ]
           },
           {
@@ -305,7 +342,14 @@
           {
             "group": "Research",
             "pages": [
-              "examples/research/can_agents_agree"
+              "examples/research/can_agents_agree",
+              "examples/research/open_agent_bazaar"
+            ]
+          },
+          {
+            "group": "Technical Analysis",
+            "pages": [
+              "examples/groupchat_insight"
             ]
           },
           {
@@ -351,6 +395,24 @@
             ]
           },
           {
+            "group": "MCP Tool Integrations",
+            "pages": [
+              "examples/mcp/overview",
+              "examples/mcp/deepwiki-repo-qa",
+              "examples/mcp/gitmcp-repo-docs",
+              "examples/mcp/microsoft-learn-docs",
+              "examples/mcp/exa-web-search",
+              "examples/mcp/firecrawl-web-scraping",
+              "examples/mcp/huggingface-model-search",
+              "examples/mcp/semgrep-security-scan",
+              "examples/mcp/multi-server-agent",
+              "examples/mcp/sequential-workflow",
+              "examples/mcp/dynamic-tool-loading",
+              "examples/mcp/authentication",
+              "examples/mcp/local-server"
+            ]
+          },
+          {
             "group": "Deployment",
             "pages": [
               "examples/deployment-overview",
@@ -364,6 +426,7 @@
             "group": "CLI",
             "pages": [
               "examples/overviews/cli-overview",
+              "examples/cli/quickstart-tutorial",
               "examples/cli/chat-command",
               "examples/cli/multi-agent-quickstart"
             ]
@@ -379,7 +442,8 @@
               "community/contributing",
               "community/contributing-to-docs",
               "community/code-of-conduct",
-              "community/development-setup"
+              "community/development-setup",
+              "community/bounty-program"
             ]
           },
           {

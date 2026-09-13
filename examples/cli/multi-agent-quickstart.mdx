@@ -80,8 +80,8 @@ swarms heavy-swarm --task "Analyze the current state of quantum computing"
 swarms heavy-swarm \
     --task "Research renewable energy market trends" \
     --loops-per-agent 2 \
-    --question-agent-model-name gpt-4o-mini \
-    --worker-model-name gpt-4o-mini \
+    --question-agent-model-name gpt-5.4-mini \
+    --worker-model-name gpt-5.4-mini \
     --verbose
 ```
 
@@ -125,8 +125,8 @@ swarms heavy-swarm --task "<your task>" [options]
 |--------|---------|-------------|
 | `--task` | - | **Required.** The research task |
 | `--loops-per-agent` | 1 | Number of loops per agent |
-| `--question-agent-model-name` | gpt-4o-mini | Model for question agent |
-| `--worker-model-name` | gpt-4o-mini | Model for worker agents |
+| `--question-agent-model-name` | gpt-5.4 | Model for question agent |
+| `--worker-model-name` | gpt-5.4 | Model for worker agents |
 | `--random-loops-per-agent` | False | Randomize loops per agent |
 | `--verbose` | False | Enable detailed output |
 
@@ -161,13 +161,15 @@ swarms setup-check --verbose
 
 ### Run Single Agent
 
-Execute a single agent task:
+Execute a single agent task. `--description` and `--system-prompt` are required by the `agent` command, and models are set with `--model-name` (`--model` only applies to `autoswarm`):
 
 ```bash
 swarms agent \
     --name "Research-Agent" \
+    --description "Summarizes recent developments in a field" \
+    --system-prompt "You are a research analyst who summarizes recent developments." \
     --task "Summarize recent AI developments" \
-    --model "gpt-5.4" \
+    --model-name "gpt-5.4" \
     --max-loops 1
 ```
 
@@ -181,10 +183,10 @@ swarms autoswarm --task "Build a content analysis pipeline" --model gpt-4
 
 ### Show All Commands
 
-Display all available CLI features:
+Display all available CLI commands and flags:
 
 ```bash
-swarms show-all
+swarms --help
 ```
 
 ---

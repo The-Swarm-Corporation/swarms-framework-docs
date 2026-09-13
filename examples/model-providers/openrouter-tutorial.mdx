@@ -1,0 +1,228 @@
+---
+title: 'OpenRouter Tutorial: Single Agents, Group Chat & Concurrent Workflows'
+description: 'A hands-on walkthrough of building single agents, a multi-agent group chat, and a concurrent workflow — all powered by OpenRouter models through one API key.'
+icon: 'route'
+---
+
+[OpenRouter](https://openrouter.ai) gives you one API key and one billing relationship for hundreds of models from every major provider (Anthropic, OpenAI, Google, Meta, DeepSeek, Z.AI, Tencent, and more). Because every model shares the same interface, it's the ideal backend for **mixing providers inside a single swarm** — a Claude agent debating a GLM agent debating a Llama agent, all in one room.
+
+This tutorial builds three things end-to-end:
+
+1. **A single agent** running on an OpenRouter model.
+2. **A group chat** where agents on different OpenRouter models discuss a topic.
+3. **A concurrent workflow** that fans the same task out to several OpenRouter models at once.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export OPENROUTER_API_KEY="sk-or-..."
+```
+
+Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
+
+## Model Naming
+
+OpenRouter model names follow the pattern `openrouter/<provider>/<model>`:
+
+| Model | `model_name` |
+|---|---|
+| Claude Opus 4.8 | `"openrouter/anthropic/claude-opus-4-8"` |
+| GPT-5.4 | `"openrouter/openai/gpt-5.4"` |
+| Gemini 2.5 Pro | `"openrouter/google/gemini-2.5-pro"` |
+| Llama 3.3 70B | `"openrouter/meta-llama/llama-3.3-70b-instruct"` |
+| GLM 5.2 | `"openrouter/z-ai/glm-5.2"` |
+| DeepSeek R1 | `"openrouter/deepseek/deepseek-r1"` |
+| Tencent Hunyuan 3 (free) | `"openrouter/tencent/hy3:free"` |
+
+Browse the [full catalog](https://openrouter.ai/models) for hundreds more. Any model tagged `:free` costs nothing to call — great for prototyping.
+
+---
+
+## 1. Single Agent
+
+The smallest useful program: one `Agent` on one OpenRouter model. Note the OpenRouter-friendly defaults — set `top_p=None` so `temperature` is sent alone (some providers reject both), and use `reasoning_effort`/`thinking_tokens` on models that support extended reasoning.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Quantitative-Trading-Agent",
+    agent_description="Advanced quantitative trading and algorithmic analysis agent",
+    system_prompt=(
+        "You are a helpful assistant that can answer questions and help with "
+        "tasks. Your name is Quantitative-Trading-Agent."
+    ),
+    model_name="openrouter/z-ai/glm-5.2",
+    max_loops=1,
+    top_p=None,             # send temperature alone
+    temperature=1.0,
+    reasoning_effort="high",
+    thinking_tokens=1024,
+    persistent_memory=False,
+)
+
+out = agent.run(
+    "Analyze the best semiconductor ETFs and provide a detailed comparison. "
+    "Include metrics such as performance, expense ratio, holdings, and any "
+    "notable strategies."
+)
+
+print(out)
+```
+
+Swapping the model is a one-line change — point `model_name` at any entry from the table above (e.g. `"openrouter/anthropic/claude-opus-4-8"` or `"openrouter/tencent/hy3:free"`).
+
+### Streaming
+
+Add `streaming_on=True` to print tokens as they arrive:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-OpenRouter",
+    model_name="openrouter/openai/gpt-5.4",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Walk me through how a B-tree index works in a relational database.")
+```
+
+---
+
+## 2. Group Chat Across Providers
+
+`GroupChat` runs a turn-based, self-selecting room: every agent silently bids on how much it wants to speak, and the single highest bidder above `threshold` takes the floor each turn. Because OpenRouter exposes every provider through one key, you can seat **agents backed by different model families** at the same table — here Claude, GLM, and Llama debate together.
+
+Each agent uses `max_loops=1` and `persistent_memory=False` so every speaking decision is a clean single-shot call. The `respond` tool each agent needs to bid is injected automatically (`auto_equip=True` by default).
+
+```python
+from swarms import Agent, GroupChat
+
+optimist = Agent(
+    agent_name="Optimist",
+    system_prompt="You argue for the benefits and upside of the topic.",
+    model_name="openrouter/anthropic/claude-opus-4-8",
+    max_loops=1,
+    persistent_memory=False,
+)
+
+skeptic = Agent(
+    agent_name="Skeptic",
+    system_prompt="You argue for the risks and downsides of the topic.",
+    model_name="openrouter/z-ai/glm-5.2",
+    max_loops=1,
+    persistent_memory=False,
+)
+
+realist = Agent(
+    agent_name="Realist",
+    system_prompt="You seek a balanced, evidence-based middle ground.",
+    model_name="openrouter/meta-llama/llama-3.3-70b-instruct",
+    max_loops=1,
+    persistent_memory=False,
+)
+
+chat = GroupChat(
+    agents=[optimist, skeptic, realist],
+    max_loops=9,       # stop after 9 total messages
+    threshold=0.5,     # only publish replies scoring above 0.5
+)
+
+result = chat.run(
+    "Should hospitals adopt AI for first-pass medical diagnosis?"
+)
+print(result)
+```
+
+To iterate over individual messages instead of a formatted string, set `output_type="list"`:
+
+```python
+chat = GroupChat(
+    agents=[optimist, skeptic, realist],
+    max_loops=9,
+    output_type="list",
+)
+
+messages = chat.run("Should hospitals adopt AI for first-pass medical diagnosis?")
+
+for message in messages:
+    print(f"[{message['role']}]: {message['content']}")
+```
+
+Each message dict carries `role` (the agent name, or `"User"` for the seed task) and `content`. Raise `threshold` for a more selective room; lower it for a livelier one. See the [Group Chat Example](/examples/group-chat-example) for more patterns.
+
+---
+
+## 3. Concurrent Workflow (A/B Testing Models)
+
+`ConcurrentWorkflow` runs every agent **in parallel on the same task** and returns all responses together. Since OpenRouter puts every model behind one key, this is the cleanest way to A/B test model quality, latency, and style side by side.
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+candidates = [
+    "openrouter/anthropic/claude-opus-4-8",
+    "openrouter/openai/gpt-5.4",
+    "openrouter/google/gemini-2.5-pro",
+    "openrouter/z-ai/glm-5.2",
+    "openrouter/meta-llama/llama-3.3-70b-instruct",
+]
+
+agents = [
+    Agent(
+        agent_name=name.split("/")[-1],   # e.g. "claude-opus-4-8"
+        model_name=name,
+        system_prompt="Answer concisely in under 150 words.",
+        max_loops=1,
+    )
+    for name in candidates
+]
+
+workflow = ConcurrentWorkflow(agents=agents)
+results = workflow.run(
+    "What are the most underrated trade-offs between monolithic and "
+    "microservice architectures?"
+)
+
+for name, response in results.items():
+    print(f"\n=== {name} ===\n{response}")
+```
+
+Each agent hits a different model concurrently; `results` maps agent name → response so you can compare answers directly. Add or remove models by editing the `candidates` list — no other code changes needed.
+
+---
+
+## Production Defaults
+
+For anything beyond a quick script, pin sensible defaults:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-OpenRouter",
+    model_name="openrouter/anthropic/claude-opus-4-8",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    context_length=128_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with OpenRouter](/examples/model-providers/openrouter) — the provider reference page
+- [Group Chat Example](/examples/group-chat-example) — deeper group chat patterns
+- [Concurrent Workflow](/architectures/concurrent-workflow) — the full concurrent architecture guide
+- [Model Providers Overview](/integrations/model-providers)

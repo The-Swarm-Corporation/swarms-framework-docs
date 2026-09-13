@@ -130,6 +130,7 @@ content_pipeline = SequentialWorkflow(
     description="End-to-end content creation from ideation to publication",
     agents=[ideation_agent, writer_agent, editor_agent, seo_optimizer, quality_reviewer],
     max_loops=1,
+    output_type="final",  # return the final draft as a string
 )
 
 # Execute content creation
@@ -247,7 +248,7 @@ writer_agent = Agent(
     agent_name="Content-Writer",
     # ... system prompt
     max_loops=2,  # Allow rewrites based on feedback
-    stopping_condition="content meets quality standards",
+    stopping_condition=lambda response: "content meets quality standards" in response.lower(),
 )
 ```
 

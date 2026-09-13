@@ -44,27 +44,64 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="max_tokens" type="int" default="4096">
+<ParamField path="max_tokens" type="int" default="16000">
   Maximum number of tokens to generate in a single response.
-  
+
+  <Note>
+    The constructor default is actually `None`. When left unset, `self.max_tokens` resolves during `__init__` to the model's real max-output-tokens (via `_default_max_tokens()`), falling back to `16000` only if that lookup fails. Pass `max_tokens` explicitly to override the resolved value.
+  </Note>
+
   ```python
   agent = Agent(model_name="claude-sonnet-4-6", max_tokens=8192)
   ```
 </ParamField>
 
-<ParamField path="context_length" type="int" default="Based on model">
-  Maximum context window size. Automatically set based on the model.
-  
+<ParamField path="context_length" type="int" default="None">
+  Maximum context window size, used as the denominator for the `ContextCompressor` threshold check (see [Agent Memory](/agents/agent-memory)).
+
+  <Note>
+    The value you pass is respected: `self.context_length` is only replaced by a model-derived default when you leave it as `None`. (An earlier release did overwrite it unconditionally; that is fixed.)
+  </Note>
+
   ```python
   agent = Agent(model_name="claude-sonnet-4-6", context_length=128000)
+  ```
+</ParamField>
+
+<ParamField path="prompt_caching" type="bool" default="False">
+  Enable provider-side prompt caching. When `True`, the stable prefix of each request (system prompt, tools, and last message) is cached and re-billed at a large discount. Applies to the Anthropic model family (Claude on Anthropic / Bedrock / Vertex); OpenAI and other auto-caching providers are left untouched. See the full [Prompt Caching guide](/agents/prompt-caching).
+
+  ```python
+  agent = Agent(model_name="claude-opus-4-8", prompt_caching=True, temperature=None)
+  ```
+</ParamField>
+
+<ParamField path="cache_config" type="dict" default="None">
+  Fine-grained prompt-caching options; only consulted when `prompt_caching=True`. Keys (all optional): `ttl` (`"5m"` | `"1h"`), `cache_system_prompt` (bool), `cache_messages` (bool), `cache_tools` (bool), `override` (bool | None — force injection on/off), and OpenAI-only `prompt_cache_key` / `prompt_cache_retention` (`"in_memory"` | `"24h"`).
+
+  ```python
+  agent = Agent(
+      model_name="claude-opus-4-8",
+      prompt_caching=True,
+      cache_config={"ttl": "1h", "cache_tools": True},
+      temperature=None,
+  )
   ```
 </ParamField>
 
 ### Agent Identity
 
 <ParamField path="agent_name" type="str" default="swarm-worker-01">
-  Unique name for the agent. Used in multi-agent systems and logging.
-  
+  Unique name for the agent. Used in multi-agent systems and logging. Omitted,
+  it defaults to the literal string `"swarm-worker-01"` — the same value for
+  every agent that doesn't set one.
+
+  <Warning>
+    Because `MEMORY.md` is keyed on `agent_name`, every agent left at the
+    default name reads and writes the *same* memory folder. Always give
+    long-running or persistent-memory agents a unique `agent_name`.
+  </Warning>
+
   ```python
   agent = Agent(
       agent_name="Financial-Analyst",
@@ -138,22 +175,6 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="retry_interval" type="int" default="1">
-  Delay in seconds between retry attempts.
-  
-  ```python
-  agent = Agent(retry_attempts=3, retry_interval=2)
-  ```
-</ParamField>
-
-<ParamField path="timeout" type="int" default="None">
-  Timeout in seconds for agent execution.
-  
-  ```python
-  agent = Agent(timeout=300)  # 5 minute timeout
-  ```
-</ParamField>
-
 ### Output Configuration
 
 <ParamField path="output_type" type="str" default="str-all-except-first">
@@ -212,7 +233,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Writer",
-    model_name="gpt-4.1-mini",
+    model_name="gpt-5.4-mini",
     max_loops=3,
 )
 
@@ -230,7 +251,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Writer",
-    model_name="gpt-4.1-mini",
+    model_name="gpt-5.4-mini",
     max_loops=1,
 )
 
@@ -263,14 +284,14 @@ asyncio.run(main())
 
 ### Memory and History
 
-<ParamField path="return_history" type="bool" default="False">
-  Return full conversation history instead of just final response.
-  
+<Note>
+  To get the full conversation history instead of just the final response, use the `output_type` parameter (e.g. `output_type="list"` or `output_type="dict"`) rather than a dedicated history flag — see [Structured Outputs](/agents/structured-outputs).
+
   ```python
-  agent = Agent(return_history=True)
-  response = agent.run("Hello")  # Returns full conversation
+  agent = Agent(output_type="list")
+  response = agent.run("Hello")  # Returns full conversation as a list of messages
   ```
-</ParamField>
+</Note>
 
 <ParamField path="user_name" type="str" default="Human">
   Name to use for user messages in conversation history.
@@ -333,7 +354,15 @@ asyncio.run(main())
 </ParamField>
 
 <ParamField path="saved_state_path" type="str" default="Auto-generated">
-  Path to save agent state.
+  Path to save agent state. `save()` writes here when called with no argument.
+
+  <Note>
+    Earlier releases accepted this argument and then overwrote `self.saved_state_path` during initialization with an auto-generated `{api_key}_state.json` filename, so a custom path had no effect. It is now honoured; omit it to keep the auto-generated name.
+  </Note>
+
+  <Warning>
+    Pass a file path, not a directory. The value is used as a filename, so a trailing slash such as `"./agent_states/"` resolves to `./agent_states/.json` — a hidden file. While the argument was ignored this was harmless; now that it is honoured it is not.
+  </Warning>
   
   ```python
   agent = Agent(
@@ -361,7 +390,7 @@ asyncio.run(main())
       fallback_models=[
           "claude-sonnet-4-6",
           "gpt-5.4",
-          "gpt-3.5-turbo"
+          "gpt-5.4-mini"
       ]
   )
   ```
@@ -381,8 +410,8 @@ asyncio.run(main())
   ```
 </ParamField>
 
-<ParamField path="top_p" type="float" default="0.90">
-  Nucleus sampling parameter for model generation.
+<ParamField path="top_p" type="float" default="None">
+  Nucleus sampling parameter for model generation. When left as `None`, no `top_p` value is sent in the request and the provider's own default applies.
   
   ```python
   agent = Agent(top_p=0.95)
@@ -403,8 +432,6 @@ production_agent = Agent(
     temperature=0.3,
     max_tokens=4096,
     retry_attempts=5,
-    retry_interval=2,
-    timeout=300,
     autosave=True,
     verbose=True,
     dynamic_context_window=True,
@@ -422,7 +449,6 @@ research_agent = Agent(
     temperature=0.5,
     reasoning_prompt_on=True,
     verbose=True,
-    return_history=True,
 )
 ```
 
@@ -453,4 +479,4 @@ batch_agent = Agent(
 
 ## Reference
 
-Location in source: `swarms/structs/agent.py:352-454`
+Location in source: `swarms/structs/agent.py:309-411` (the `Agent.__init__` signature)

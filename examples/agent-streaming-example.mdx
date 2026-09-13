@@ -28,7 +28,7 @@ def add(a: int, b: int) -> int:
 
 agent = Agent(
     agent_name="Calculator",
-    model_name="gpt-4.1-mini",
+    model_name="gpt-5.4-mini",
     max_loops=3,
     tools=[add],
     persistent_memory=False,
@@ -51,7 +51,7 @@ from swarms import Agent
 
 agent = Agent(
     agent_name="Writer",
-    model_name="gpt-4.1-mini",
+    model_name="gpt-5.4-mini",
     max_loops=1,
     persistent_memory=False,
     print_on=False,
@@ -84,7 +84,7 @@ def add(a: int, b: int) -> int:
 
 agent = Agent(
     agent_name="AutoBot",
-    model_name="gpt-4.1-mini",
+    model_name="gpt-5.4-mini",
     max_loops="auto",
     tools=[add],
     persistent_memory=False,

@@ -1,0 +1,193 @@
+---
+title: 'Firecrawl: scrape pages to markdown'
+description: 'Turn live web pages into clean markdown an agent can actually read — JavaScript rendered, navigation stripped — via the Firecrawl MCP server.'
+icon: 'fire'
+---
+
+Firecrawl turns arbitrary web pages into clean markdown an LLM can actually read: it renders JavaScript, strips navigation and ads, and follows links when you ask it to crawl rather than scrape a single page.
+
+It also shows the third authentication shape in this section — **the key is a segment of the URL path**, not a header or a query parameter.
+
+| | |
+|---|---|
+| **Server** | `https://mcp.firecrawl.dev/{API_KEY}/v2/mcp` |
+| **Auth** | API key embedded in the URL path ([free tier](https://www.firecrawl.dev/)) |
+| **Tools** | `firecrawl_scrape`, `firecrawl_crawl`, `firecrawl_map`, `firecrawl_search`, `firecrawl_extract` |
+| **Model used here** | `claude-opus-5` |
+
+<Warning>
+  **Crawling is the expensive operation.** It is billed per page and can walk a large site quickly. Scrape one page first; crawl only when you mean to.
+</Warning>
+
+## Prerequisites
+
+- Python 3.10+
+- `ANTHROPIC_API_KEY`
+- `FIRECRAWL_API_KEY` — free tier at [firecrawl.dev](https://www.firecrawl.dev/)
+
+## Build it
+
+<Steps>
+  <Step title="Install and set both keys">
+    ```bash
+    pip install -U swarms
+    export ANTHROPIC_API_KEY="sk-ant-..."
+    export FIRECRAWL_API_KEY="fc-..."
+    ```
+  </Step>
+
+  <Step title="Fail loudly when the key is missing">
+    Because the key is part of the URL, a missing environment variable produces the URL `https://mcp.firecrawl.dev/None/v2/mcp` and a confusing connection error. Check for it up front:
+
+    ```python
+    import os
+    import sys
+
+    FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY")
+
+    if not FIRECRAWL_API_KEY:
+        sys.exit(
+            "FIRECRAWL_API_KEY is not set.\n"
+            "Get a free-tier key at https://www.firecrawl.dev/ and export it."
+        )
+    ```
+  </Step>
+
+  <Step title="Write a prompt that prefers scraping over crawling">
+    Left alone, a model asked about a site will reach for the broadest tool available. This prompt pushes it toward the cheap one and forbids answering from memory:
+
+    ```python
+    SCRAPER_SYSTEM_PROMPT = (
+        "You are a web content analyst. Fetch pages before describing them — "
+        "never answer from memory about what a site says, because sites change. "
+        "Prefer scraping the specific page that answers the question over "
+        "crawling a whole site, since crawling is slow and expensive; crawl only "
+        "when the user explicitly wants breadth. Quote the page's own wording for "
+        "any factual claim, note the URL each fact came from, and say clearly "
+        "when a page failed to load or was empty rather than substituting "
+        "assumptions."
+    )
+    ```
+  </Step>
+
+  <Step title="Build the agent">
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="Firecrawl-Analyst",
+        agent_description="Reads and analyzes live web pages via Firecrawl MCP.",
+        system_prompt=SCRAPER_SYSTEM_PROMPT,
+        model_name="claude-opus-5",
+        # The key is a path segment for Firecrawl. Never log this URL.
+        mcp_url=f"https://mcp.firecrawl.dev/{FIRECRAWL_API_KEY}/v2/mcp",
+        max_loops=2,
+    )
+    ```
+  </Step>
+
+  <Step title="Scrape one page and ask for quotes">
+    ```python
+    result = agent.run(
+        "Scrape https://modelcontextprotocol.io/introduction and explain, in "
+        "the docs' own terms, what problem MCP solves and what the three "
+        "core primitives are. Quote the definitions."
+    )
+    print(result)
+    ```
+
+    Asking for quotes is a cheap correctness check: if the model paraphrases everything, it probably did not read the page.
+  </Step>
+</Steps>
+
+## The complete script
+
+```python
+import os
+import sys
+
+from swarms import Agent
+
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY")
+
+SCRAPER_SYSTEM_PROMPT = (
+    "You are a web content analyst. Fetch pages before describing them — "
+    "never answer from memory about what a site says, because sites change. "
+    "Prefer scraping the specific page that answers the question over "
+    "crawling a whole site, since crawling is slow and expensive; crawl only "
+    "when the user explicitly wants breadth. Quote the page's own wording for "
+    "any factual claim, note the URL each fact came from, and say clearly "
+    "when a page failed to load or was empty rather than substituting "
+    "assumptions."
+)
+
+if not FIRECRAWL_API_KEY:
+    sys.exit(
+        "FIRECRAWL_API_KEY is not set.\n"
+        "Get a free-tier key at https://www.firecrawl.dev/ and export it."
+    )
+
+agent = Agent(
+    agent_name="Firecrawl-Analyst",
+    agent_description="Reads and analyzes live web pages via Firecrawl MCP.",
+    system_prompt=SCRAPER_SYSTEM_PROMPT,
+    model_name="claude-opus-5",
+    mcp_url=f"https://mcp.firecrawl.dev/{FIRECRAWL_API_KEY}/v2/mcp",
+    max_loops=2,
+)
+
+if __name__ == "__main__":
+    result = agent.run(
+        "Scrape https://modelcontextprotocol.io/introduction and explain, in "
+        "the docs' own terms, what problem MCP solves and what the three "
+        "core primitives are. Quote the definitions."
+    )
+    print(result)
+```
+
+## Which Firecrawl tool for which job
+
+| Tool | Use it when | Cost |
+|---|---|---|
+| `firecrawl_scrape` | You know the URL that answers the question. | one page |
+| `firecrawl_map` | You need the site's URL structure before deciding what to read. | cheap |
+| `firecrawl_search` | You need to find pages on a topic first. | per search |
+| `firecrawl_extract` | You want structured fields out of a page, not prose. | one page |
+| `firecrawl_crawl` | You genuinely need breadth across a site. | **per page, unbounded** |
+
+The order matters when you write the task: `map` then `scrape` is usually both cheaper and more accurate than `crawl`, because you choose which pages get read.
+
+## Pairing it with search
+
+Firecrawl reads pages well but finding the right page is a different job. A common two-stage setup gives the finder and the reader their own servers:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+finder = Agent(
+    agent_name="Finder",
+    model_name="gpt-5.4",
+    mcp_url=f"https://mcp.exa.ai/mcp?exaApiKey={os.getenv('EXA_API_KEY')}",
+    max_loops=2,
+)
+
+reader = Agent(
+    agent_name="Reader",
+    model_name="claude-opus-5",
+    mcp_url=f"https://mcp.firecrawl.dev/{FIRECRAWL_API_KEY}/v2/mcp",
+    max_loops=2,
+)
+
+workflow = SequentialWorkflow(agents=[finder, reader], max_loops=1)
+```
+
+See [MCP in a multi-agent workflow](/examples/mcp/sequential-workflow) for why one server per agent beats giving both servers to one agent.
+
+<Note>
+  Source: [examples/mcp/agents/10_firecrawl_web_scraping.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/10_firecrawl_web_scraping.py)
+</Note>
+
+## Next
+
+- [Firecrawl via swarms-tools](/examples/integrations/firecrawl) — the crawl-a-site tool without MCP.
+- [Authentication patterns](/examples/mcp/authentication) — all five ways a server can take a credential.

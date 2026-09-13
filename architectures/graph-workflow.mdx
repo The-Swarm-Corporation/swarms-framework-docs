@@ -27,8 +27,7 @@ The `GraphWorkflow` orchestrates agents using a Directed Acyclic Graph (DAG) str
 ## Basic Example
 
 ```python
-from swarms import Agent
-from swarms.structs.graph_workflow import GraphWorkflow, Node, Edge
+from swarms import Agent, GraphWorkflow, Node, Edge, NodeType
 
 # Define agents
 data_collector = Agent(
@@ -75,7 +74,7 @@ print(result)
 Simplified workflow creation:
 
 ```python
-from swarms.structs.graph_workflow import GraphWorkflow
+from swarms import GraphWorkflow
 
 # Define agents
 agents = [collector, processor, analyzer, reporter]
@@ -218,6 +217,22 @@ workflow = GraphWorkflow.from_spec(
   Enable verbose logging
 </ParamField>
 
+<ParamField path="task" type="str">
+  Default task used by `run()` when no `task` argument is passed.
+</ParamField>
+
+<ParamField path="checkpoint_dir" type="str">
+  Directory used to persist run checkpoints for later inspection/resumption.
+</ParamField>
+
+<ParamField path="on_node_complete" type="Callable[[str, Any], None]">
+  Instance-level callback fired as `(node_id, output)` immediately after each node finishes. A callback passed directly to `run()` takes precedence over this one.
+</ParamField>
+
+<ParamField path="max_parallel_nodes" type="int">
+  Caps how many nodes execute concurrently within a layer. Defaults to `max(1, int(get_cpu_cores() * 0.95))` when not set.
+</ParamField>
+
 ## Methods
 
 ### add_node()
@@ -254,7 +269,7 @@ workflow.add_edge(source_agent, target_agent)
 workflow.add_edge("Agent1", "Agent2")
 
 # Using Edge object
-from swarms.structs.graph_workflow import Edge
+from swarms import Edge
 edge = Edge(source="Agent1", target="Agent2", metadata={"type": "data"})
 workflow.add_edge(edge)
 ```
@@ -287,6 +302,21 @@ result = workflow.run(
     img=None,  # Optional image input
 )
 ```
+
+`run()` also accepts `on_node_complete` (fired as `(node_id, output)` right after each node finishes, before its layer completes) and `streaming_callback` (fired as `(node_id, token)` for every token an agent generates). A callback passed to `run()` overrides the instance-level `on_node_complete` set in the constructor.
+
+```python
+def on_done(node_id: str, output) -> None:
+    print(f"[{node_id}] finished")
+
+result = workflow.run(
+    task="Process data pipeline",
+    on_node_complete=on_done,
+    streaming_callback=lambda node_id, token: print(token, end=""),
+)
+```
+
+Return shape: with `max_loops == 1` (the default), `run()` returns a `Dict[str, Any]` keyed by node ID. With `max_loops > 1`, it returns per-loop results keyed as `{node_id}_loop_{loop_number}` plus the final loop's results under the plain `node_id` keys.
 
 ## Use Cases
 
@@ -438,25 +468,37 @@ Parallel execution within layers using ThreadPoolExecutor.
 
 ### Cycle Detection
 
+`compile()` never raises on a cycle by itself — internally it calls `validate(auto_fix=False, raise_on_error=False)` and only logs a warning. To turn cycle detection into an exception, call `validate(raise_on_error=True)` explicitly: a detected cycle counts as a "serious warning" that marks the workflow invalid (unless `auto_fix=True`), so `raise_on_error=True` will raise `ValueError` for it.
+
 ```python
+workflow.add_edge("A", "B")
+workflow.add_edge("B", "C")
+workflow.add_edge("C", "A")  # Creates cycle
+workflow.compile()  # succeeds silently — cycles only warn here
+
+result = workflow.validate()
+if result["cycles"]:
+    print(f"Cycle(s) detected: {result['cycles']}")
+
 try:
-    workflow.add_edge("A", "B")
-    workflow.add_edge("B", "C")
-    workflow.add_edge("C", "A")  # Creates cycle
-    workflow.compile()
+    workflow.validate(raise_on_error=True)
 except ValueError as e:
-    print("Cycle detected!")
+    print(f"Invalid workflow: {e}")
 ```
 
 ### Dependency Validation
 
+`validate()` checks for (each reported as a warning or error in the returned dict):
+- Referenced nodes existing / valid agent instances on every node (error)
+- Isolated nodes (no incoming or outgoing edges)
+- Cyclic dependencies (detected via `simple_cycles()`, returned under `result["cycles"]`)
+- Unreachable nodes (not reachable from any entry point)
+- Dead-end nodes (cannot reach any end point)
+- Missing entry points / end points
+
 ```python
-# Validates:
-# - All referenced nodes exist
-# - No self-loops
-# - DAG structure (no cycles)
-# - Entry points exist
-# - End points exist
+result = workflow.validate(auto_fix=True)
+print(result["errors"], result["warnings"], result["fixed"])
 ```
 
 ## Performance Optimization
@@ -524,9 +566,15 @@ With Graphviz installed:
 ```python
 # Requires: pip install graphviz
 
-# Visualize workflow structure
-# (Implementation depends on GraphWorkflow visualization methods)
+path = workflow.visualize(
+    format="png",     # "png", "svg", "pdf", or "dot"
+    view=True,         # open the file after generating it
+    engine="dot",      # graphviz layout engine
+    show_summary=False,
+)
 ```
+
+`visualize()` renders nodes and edges with Graphviz (auto-detecting fan-out/fan-in patterns for clearer styling) and returns the path to the generated file. It raises `ImportError` if `graphviz` is not installed. For a dependency-free text view, use `workflow.visualize_simple()`, which returns an ASCII representation of the graph.
 
 ## Related Architectures
 

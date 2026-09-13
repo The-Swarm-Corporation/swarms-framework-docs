@@ -150,7 +150,7 @@ appropriate danger level (low, medium, or high) based on your observations.
 quality_control_agent = Agent(
     agent_name="Quality-Control-Agent",
     agent_description="Analyzes images and provides detailed quality control reports",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     system_prompt=custom_system_prompt,
     multi_modal=True,  # Enable vision
     max_loops=1,
@@ -336,29 +336,24 @@ response = product_agent.run(
 Swarms supports multiple vision-capable models:
 
 ```python
-# OpenAI GPT-4 Vision
+# OpenAI GPT-5.4
 agent_gpt4v = Agent(
-    model_name="claude-sonnet-4-6",
+    model_name="gpt-5.4",
     multi_modal=True,
 )
 
-# OpenAI GPT-4o mini (cost-effective)
+# OpenAI GPT-5.4 mini (cost-effective)
 agent_gpt4o_mini = Agent(
-    model_name="gpt-5.4",
+    model_name="gpt-5.4-mini",
     multi_modal=True,
 )
 
 # Anthropic Claude with vision
 agent_claude = Agent(
-    model_name="claude-sonnet-4-5",
+    model_name="claude-sonnet-4-6",
     multi_modal=True,
 )
 
-# Groq with LLaVA
-agent_groq = Agent(
-    model_name="groq/llava-v1.5-7b-4096-preview",
-    multi_modal=True,
-)
 ```
 
 ## Best Practices

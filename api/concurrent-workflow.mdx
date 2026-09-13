@@ -75,7 +75,9 @@ class ConcurrentWorkflow:
 </ParamField>
 
 <ParamField path="auto_generate_prompts" type="bool" default="False">
-  Whether to enable automatic prompt engineering for all agents
+  Accepted and stored, but never read — setting it has no effect. The
+  `activate_auto_prompt_engineering()` method that once consumed it no longer
+  exists.
 </ParamField>
 
 <ParamField path="show_dashboard" type="bool" default="False">
@@ -84,6 +86,14 @@ class ConcurrentWorkflow:
 
 <ParamField path="autosave" type="bool" default="True">
   Whether to automatically save conversation history to workspace
+</ParamField>
+
+<ParamField path="on_error" type="str" default="store">
+  How to handle an agent that raises. `"store"` records the error as that agent's output and lets the rest finish; `"raise"` propagates the first error and aborts the run.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="None">
+  Thread pool size. Defaults to `len(agents)` capped at 32. Agent calls are network-bound, so this is sized by agent count rather than CPU cores.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -160,9 +170,13 @@ Execute agents with real-time dashboard monitoring.
   Formatted conversation history based on output_type
 </ResponseField>
 
-### `cleanup()`
+### `fix_agents()`
 
-Clean up resources and connections. Called automatically after each run.
+Configure agents for dashboard mode. Disables printing (`agent.print_on = False`) for every agent when `show_dashboard=True`, to prevent console output from conflicting with the dashboard display. Called automatically during initialization when `show_dashboard=True`.
+
+<ResponseField name="agents" type="List[Union[Agent, Callable]]">
+  The configured list of agents
+</ResponseField>
 
 ### `reliability_check()`
 
@@ -170,10 +184,6 @@ Validate workflow configuration.
 
 **Raises:**
 - `ValueError`: If no agents are provided or agents list is empty
-
-### `activate_auto_prompt_engineering()`
-
-Enable automatic prompt engineering for all agents in the workflow.
 
 ### `display_agent_dashboard(title="ConcurrentWorkflow Dashboard", is_final=False)`
 
@@ -205,32 +215,28 @@ Display real-time dashboard showing agent status and outputs.
 
 ```python
 from swarms import Agent, ConcurrentWorkflow
-from swarms.models import OpenAIChat
-
-# Initialize the language model
-llm = OpenAIChat(
-    model_name="claude-sonnet-4-6",
-    temperature=0.5,
-)
 
 # Create specialized agents with different perspectives
 technical_analyst = Agent(
     agent_name="Technical-Analyst",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are a technical analyst. Analyze from a technical perspective."
 )
 
 business_analyst = Agent(
     agent_name="Business-Analyst",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are a business analyst. Analyze from a business perspective."
 )
 
 user_researcher = Agent(
     agent_name="User-Researcher",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
+    temperature=0.5,
     max_loops=1,
     system_prompt="You are a user researcher. Analyze from a user experience perspective."
 )
@@ -311,21 +317,18 @@ for i, (task, result) in enumerate(zip(tasks, results), 1):
 ### With Image Input
 
 ```python
-from swarms import Agent
-from swarms.models import GPT4VisionAPI
+from swarms import Agent, ConcurrentWorkflow
 
-# Create vision-capable agents
-vision_llm = GPT4VisionAPI()
-
+# claude-sonnet-4-6 is vision-capable — no separate vision wrapper needed
 image_analyst1 = Agent(
     agent_name="Image-Analyst-1",
-    llm=vision_llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="Analyze images for technical details"
 )
 
 image_analyst2 = Agent(
     agent_name="Image-Analyst-2",
-    llm=vision_llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="Analyze images for aesthetic quality"
 )
 
@@ -377,19 +380,6 @@ workflow = ConcurrentWorkflow(
 
 result = workflow.run("Analyze market trends")
 # Conversation saved to ./analysis_workspace/swarms/ConcurrentWorkflow/
-```
-
-### Auto Prompt Engineering
-
-```python
-# Enable automatic prompt engineering
-workflow = ConcurrentWorkflow(
-    agents=[technical_analyst, business_analyst],
-    auto_generate_prompts=True  # Agents will auto-optimize their prompts
-)
-
-workflow.activate_auto_prompt_engineering()
-result = workflow.run("Complex analysis task")
 ```
 
 ## Error Handling
@@ -453,7 +443,7 @@ When `show_dashboard=True`, you'll see real-time updates like:
 
 ## Performance Considerations
 
-- **CPU Utilization**: Uses ~95% of available CPU cores by default
+- **Concurrency**: Thread pool sized by agent count, capped at 32 (`MAX_CONCURRENT_AGENTS`). Agent calls are network-bound, so this does not derive from CPU core count. Override with `max_workers`.
 - **Concurrent Execution**: All agents run truly concurrently using ThreadPoolExecutor
 - **Memory Usage**: Each agent maintains its own context, consider memory for many agents
 - **API Rate Limits**: Be aware of rate limits when using cloud-based LLMs

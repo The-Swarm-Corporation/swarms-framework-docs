@@ -79,7 +79,7 @@ AgentJudge(
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `id` | `str` | `str(uuid.uuid4())` | Unique identifier for the judge instance |
+| `id` | `str` | `generate_id("agent-judge")` | Unique identifier for the judge instance (`<prefix>-<32 hex chars>`) |
 | `agent_name` | `str` | `"Agent Judge"` | Name of the agent judge |
 | `description` | `str` | `"You're an expert AI agent judge..."` | Description of the agent's role |
 | `system_prompt` | `str` | `None` | Custom system instructions (uses default if None) |
@@ -102,10 +102,9 @@ step(
 
 Processes a single task and returns the agent's evaluation.
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `task` | `str` | `None` | Single task/output to evaluate |
-| `img` | `Optional[str]` | `None` | Path to image for multimodal evaluation |
+```python
+result = judge.step(task: str = None, img: Optional[str] = None, messages: Optional[List[Dict[str, str]]] = None) -> str
+```
 
 **Returns:** `str` - Detailed evaluation response
 
@@ -152,7 +151,7 @@ Executes batch evaluation of multiple tasks.
 ### Basic Evaluation
 
 ```python
-from swarms.agents.agent_judge import AgentJudge
+from swarms import AgentJudge
 
 # Initialize the agent judge
 judge = AgentJudge(
@@ -171,7 +170,7 @@ evaluations = judge.run(task=agent_output)
 ### Technical Evaluation with Custom Criteria
 
 ```python
-from swarms.agents.agent_judge import AgentJudge
+from swarms import AgentJudge
 
 # Initialize the agent judge with custom evaluation criteria
 judge = AgentJudge(
@@ -196,7 +195,7 @@ evaluations = judge.run(task=technical_output)
 ### Creative Content Evaluation
 
 ```python
-from swarms.agents.agent_judge import AgentJudge
+from swarms import AgentJudge
 
 # Initialize the agent judge for creative content evaluation
 judge = AgentJudge(
@@ -247,7 +246,7 @@ evaluation = judge.step(
 ### Batch Processing
 
 ```python
-from swarms.agents.agent_judge import AgentJudge
+from swarms import AgentJudge
 
 judge = AgentJudge()
 

@@ -46,7 +46,7 @@ Tools extend the agent's capabilities beyond text generation:
 
 Memory enables agents to maintain context across interactions:
 - **Short-term memory**: Conversation history for the current session
-- **Long-term memory**: Vector database for retrieval-augmented generation (RAG)
+- **Persistent memory**: An opt-in `MEMORY.md` file that survives process restarts
 - **Dynamic context window**: Automatic context management for long conversations
 
 ### 4. System Prompt
@@ -137,7 +137,6 @@ agent = Agent(
     # Memory & Context
     context_length=16000,
     dynamic_context_window=True,
-    return_history=True,
     
     # Tools (if applicable)
     tools=[search_tool, calculator_tool],
@@ -198,20 +197,36 @@ agent = Agent(
 response = agent.run("Tell me a story")
 ```
 
-### Long-Term Memory
+### Knowledge Retrieval
 
-Integrate vector databases for RAG:
+Give an agent access to external documents or a database with a retrieval tool:
 
 ```python
-from swarms.memory import ChromaDB
+KNOWLEDGE = {
+    "storage": "Grid-scale batteries cover 4-hour peaks at $95/kWh.",
+    "solar": "Utility solar LCOE fell to $29/MWh in 2025.",
+}
 
-memory = ChromaDB()
+def search_knowledge_base(query: str) -> str:
+    """Search the internal knowledge base and return matching passages.
+
+    Args:
+        query: Words to look for in the knowledge base.
+
+    Returns:
+        Matching passages, or a message saying nothing matched.
+    """
+    hits = [t for k, t in KNOWLEDGE.items() if k in query.lower()]
+    return "\n".join(hits) if hits else "No matching documents."
 
 agent = Agent(
     model_name="gpt-5.4",
-    long_term_memory=memory,
+    tools=[search_knowledge_base],
+    max_loops=3,
 )
 ```
+
+Swap the dictionary for a vector store, SQL query, or HTTP call — the shape stays the same.
 
 ## Best Practices
 
@@ -236,7 +251,7 @@ agent = Agent(
     ```python
     agent = Agent(
         model_name="gpt-5.4",
-        fallback_models=["claude-sonnet-4-6", "gpt-3.5-turbo"],
+        fallback_models=["claude-sonnet-4-6", "gpt-5.4-mini"],
         retry_attempts=3,
     )
     ```
@@ -260,10 +275,11 @@ From the source code (`swarms/structs/agent.py`), agents support:
 - **Function Calling**: Native support for tool execution with OpenAI function calling
 - **MCP Integration**: Model Context Protocol for standardized tool interfaces
 - **Handoffs**: Delegate tasks to specialized agents
-- **Artifacts**: Save outputs to structured files (PDF, MD, TXT)
 - **State Persistence**: Save and load agent state for long-running tasks
 - **Marketplace Integration**: Load prompts from Swarms marketplace
 - **Skills Framework**: Modular, reusable capabilities via SKILL.md files
+
+Separately, `swarms.artifacts.Artifact` (`swarms/artifacts/main_artifact.py`) is a standalone utility for versioning and saving file content (PDF, MD, TXT, and more) — the `Agent` class itself does not use it.
 
 ## Common Use Cases
 

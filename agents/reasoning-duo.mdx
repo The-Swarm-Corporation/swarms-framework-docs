@@ -13,29 +13,34 @@ The ReasoningDuo class implements a dual-agent reasoning system that combines a 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| model_name | str | "reasoning-agent-01" | Name identifier for the reasoning agent |
-| description | str | "A highly intelligent..." | Description of the reasoning agent's capabilities |
-| model_names | list[str] | ["gpt-5.4", "gpt-4.1"] | Model names for reasoning and main agents |
-| system_prompt | str | "You are a helpful..." | System prompt for the main agent |
+| `id` | `str` | `generate_id("reasoning-duo")` | Unique identifier for the duo (`<prefix>-<32 hex chars>`) |
+| `agent_name` | `str` | `"reasoning-agent-01"` | Base name for the two internal agents, which are suffixed `-reasoning` and `-main` |
+| `agent_description` | `str` | `"A highly intelligent..."` | Description passed to both internal agents |
+| `model_name` | `str` | `"gpt-5.4"` | Stored on the instance; not currently used to configure either internal agent |
+| `description` | `str` | `"A highly intelligent..."` | Description of the reasoning duo's capabilities |
+| `model_names` | `list[str]` | `["gpt-5.4", "gpt-5.4"]` | Model names for `[reasoning_agent, main_agent]` (index 1 configures the main agent) |
+| `system_prompt` | `str` | `"You are a helpful..."` | System prompt for the main agent |
+| `output_type` | `OutputType` | `"dict-all-except-first"` | Format of the value returned by `run()` |
+| `reasoning_model_name` | `Optional[str]` | `"gpt-4o"` | Model used by the reasoning agent; if `None`, falls back to `model_names[0]` |
+| `max_loops` | `int` | `1` | Number of reasoning/main-agent loop iterations in `run()` |
 
 ### Methods
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
-| run | task: str | str | Processes a single task through both agents |
-| batched_run | tasks: List[str] | List[str] | Processes multiple tasks sequentially |
-
-
+| `step` | `task: str, img: Optional[str] = None` | `None` | Runs one reasoning-agent → main-agent cycle and appends to the conversation |
+| `run` | `task: str, img: Optional[str] = None` | Formatted per `output_type` | Processes a task through both agents for `max_loops` iterations |
+| `batched_run` | `tasks: List[str], imgs: Optional[List[str]] = None` | `list` | Processes multiple tasks sequentially |
 
 ## Quick Start
 
 ```python
-from swarms.agents.reasoning_duo import ReasoningDuo
+from swarms import ReasoningDuo
 
 # Initialize the ReasoningDuo
 duo = ReasoningDuo(
-    model_name="reasoning-agent-01",
-    model_names=["gpt-5.4", "gpt-4.1"]
+    agent_name="reasoning-agent-01",
+    model_names=["claude-sonnet-4-6", "gpt-5.4"]
 )
 
 # Run a single task
@@ -99,7 +104,7 @@ You can customize both agents by modifying their initialization parameters:
 
 ```python
 duo = ReasoningDuo(
-    model_name="custom-reasoning-agent",
+    agent_name="custom-reasoning-agent",
     description="Specialized financial analysis agent",
     model_names=["gpt-5.4", "gpt-4.1"],
     system_prompt="You are a financial expert AI assistant..."

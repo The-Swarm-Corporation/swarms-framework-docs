@@ -68,7 +68,7 @@ graph TB
 
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `id` | `Optional[str]` | Unique identifier for the workflow | Auto-generated UUID |
+| `id` | `Optional[str]` | Unique identifier for the workflow. Auto-generated via `generate_id("graph-workflow")` if not provided, producing `graph-workflow-<32 hex chars>`. | Auto-generated |
 | `name` | `Optional[str]` | Human-readable name for the workflow | "Graph-Workflow-01" |
 | `description` | `Optional[str]` | Detailed description of the workflow | Generic description |
 | `nodes` | `Optional[Dict[str, Node]]` | Initial collection of nodes | `{}` |
@@ -81,6 +81,8 @@ graph TB
 | `verbose` | `bool` | Whether to enable detailed logging | `False` |
 | `backend` | `str` | Graph backend to use ("networkx" or "rustworkx") | `"networkx"` |
 | `checkpoint_dir` | `Optional[str]` | Directory to write per-layer checkpoint files. When set, each layer's outputs are saved to disk after execution and loaded on resume, skipping re-execution of completed layers. `None` disables checkpointing. | `None` |
+| `on_node_complete` | `Optional[Callable[[str, Any], None]]` | Callback fired after each node finishes, receiving `(node_id, result)`. Can also be passed per-call to `run()`. | `None` |
+| `max_parallel_nodes` | `Optional[int]` | Maximum number of nodes to execute concurrently within a layer. Defaults to the framework's worker count when `None`. | `None` |
 
 ## Graph Backends
 
@@ -301,20 +303,22 @@ workflow.add_parallel_chain(
 
 ### Execution Methods
 
-#### `run(task: str = None, img: Optional[str] = None, *args, **kwargs) -> Dict[str, Any]`
+#### `run(task: str = None, img: Optional[str] = None, on_node_complete: Optional[Callable[[str, Any], None]] = None, streaming_callback: Optional[Callable[[str, str], None]] = None, *args, **kwargs) -> Dict[str, Any]`
 
-Executes the workflow with optimized parallel agent execution.
+Executes the workflow with optimized parallel agent execution. When `max_loops > 1`, end-point outputs from each loop are fed as additional context into the next loop so agents can iteratively refine their results.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `task` | `str` | Task to execute (uses self.task if not provided) |
 | `img` | `Optional[str]` | Image path for vision-enabled agents |
+| `on_node_complete` | `Optional[Callable[[str, Any], None]]` | Callback fired immediately when each agent finishes, before the layer completes. Receives `(node_id, output)`. Takes precedence over the instance-level callback set in `__init__`. |
+| `streaming_callback` | `Optional[Callable[[str, str], None]]` | Callback fired for every token as agents generate output in real time. Receives `(node_id, token)`. |
 | `*args` | `Any` | Additional positional arguments |
 | `**kwargs` | `Any` | Additional keyword arguments |
 
 **Returns:**
 
-- `Dict[str, Any]`: Execution results from all nodes
+- `Dict[str, Any]`: Execution results keyed by node ID. When `max_loops == 1`, returns the single loop's results. When `max_loops > 1`, returns a dict with per-loop results keyed as `{node_id}_loop_{loop_number}` plus the final loop's results under the plain `node_id` keys.
 
 **Example:**
 
@@ -593,6 +597,21 @@ Loads a workflow from a JSON file.
 ```python
 workflow = GraphWorkflow.load_from_file("my_workflow.json")
 ```
+
+### Validation Methods
+
+#### `validate(auto_fix: bool = False, raise_on_error: bool = False) -> Dict[str, Any]`
+
+Validates the workflow structure, checking for isolated nodes, cyclic dependencies, unreachable nodes, dead-end nodes, and missing entry/end points.
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `auto_fix` | `bool` | Whether to automatically fix simple issues (e.g. auto-setting missing entry/exit points, adding unreachable nodes to entry points) | `False` |
+| `raise_on_error` | `bool` | When `True`, raises a `ValueError` if validation determines the workflow is invalid. Defaults to `False` so existing callers that inspect the returned dict are unaffected. | `False` |
+
+**Returns:**
+
+- `Dict[str, Any]`: Dictionary containing `is_valid`, `errors`, `warnings`, `fixed`, and (when cycles are found) `cycles`
 
 ### Utility Methods
 

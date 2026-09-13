@@ -1,0 +1,551 @@
+---
+title: 'Dynamic Tool Usage'
+description: 'Runnable examples for deferring tool schemas behind tool_search across local tools, MCP servers, and the autonomous loop'
+icon: 'magnifying-glass-arrow-right'
+---
+
+Every example on this page is a complete script. They show `dynamic_tools` working across the three situations that trigger it: local Python tools, MCP servers, and `max_loops="auto"`.
+
+For the concepts behind these examples — the search algorithm, pre-warming, and prompt-cache interaction — see [Dynamic Tool Loading](/agents/dynamic-tools).
+
+## Install
+
+```bash
+pip3 install -U swarms
+```
+
+## ENV
+
+```txt
+OPENAI_API_KEY=""
+ANTHROPIC_API_KEY=""
+```
+
+## Deferring Local Tools
+
+The default. Both tools are registered and executable, but neither schema is sent until the model searches for it.
+
+```python
+from swarms import Agent
+
+
+def get_weather(city: str) -> str:
+    """Get the current weather for a city.
+
+    Args:
+        city: The city name, e.g. 'Paris'.
+
+    Returns:
+        A short weather description.
+    """
+    return f"{city}: 18C, light rain"
+
+
+def convert_currency(amount: float, source: str, target: str) -> str:
+    """Convert an amount of money between two currencies.
+
+    Args:
+        amount: The amount to convert.
+        source: Source currency code, e.g. 'USD'.
+        target: Target currency code, e.g. 'EUR'.
+
+    Returns:
+        The converted amount as a formatted string.
+    """
+    return f"{amount} {source} = {amount * 0.92:.2f} {target}"
+
+
+agent = Agent(
+    agent_name="TravelAgent",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    tools=[get_weather, convert_currency],
+    dynamic_tools=True,
+)
+
+out = agent.run(
+    "What should I pack for Paris this week, and what is 500 USD in euros?"
+)
+print(out)
+```
+
+## Inspecting What Is Deferred
+
+`agent.tool_loader` lets you see the catalog before, during, and after a run. This script needs no API key.
+
+```python
+from swarms import Agent
+
+
+def get_weather(city: str) -> str:
+    """Get the current weather for a city."""
+    return f"{city}: 18C"
+
+
+def convert_currency(amount: float, source: str, target: str) -> str:
+    """Convert an amount of money between two currencies."""
+    return f"{amount} {source} = {amount * 0.92:.2f} {target}"
+
+
+def send_email(recipient: str, subject: str, body: str) -> str:
+    """Send an email to a recipient."""
+    return f"sent to {recipient}"
+
+
+agent = Agent(
+    agent_name="Inspector",
+    model_name="gpt-5.4",
+    max_loops=3,
+    tools=[get_weather, convert_currency, send_email],
+    dynamic_tools=True,
+)
+
+loader = agent.tool_loader
+
+print("catalog size:", len(loader))
+print("exposed:", [t["function"]["name"] for t in agent.tools_list_dictionary])
+print("deferred:", loader.deferred_names)
+print("loaded:", loader.loaded_names)
+
+print()
+print(loader.catalog_listing())
+```
+
+Output:
+
+```txt
+catalog size: 3
+exposed: ['tool_search']
+deferred: ['convert_currency', 'get_weather', 'send_email']
+loaded: []
+
+convert_currency: Convert an amount of money between two currencies.
+get_weather: Get the current weather for a city.
+send_email: Send an email to a recipient.
+```
+
+Only `tool_search` ships with the request. The other three are one search away.
+
+## Driving the Search Directly
+
+`run_search` is the handler behind the `tool_search` tool. Calling it yourself is the fastest way to see how ranking behaves.
+
+```python
+from swarms import Agent
+
+
+def get_weather(city: str) -> str:
+    """Get the current weather for a city."""
+    return f"{city}: 18C"
+
+
+def send_email(recipient: str, subject: str, body: str) -> str:
+    """Send an email to a recipient."""
+    return f"sent to {recipient}"
+
+
+agent = Agent(
+    agent_name="Searcher",
+    model_name="gpt-5.4",
+    tools=[get_weather, send_email],
+    dynamic_tools=True,
+)
+loader = agent.tool_loader
+
+# Keyword match on the name, worth 3 points.
+print(loader.run_search("weather"))
+
+# Match on parameter names - 'recipient' and 'subject' belong to send_email.
+print(loader.run_search("recipient subject"))
+
+# Exact load, bypassing ranking entirely.
+print(loader.run_search("select:get_weather,send_email"))
+
+# A miss lists what exists so the model can retry.
+print(loader.run_search("quantum teleportation"))
+```
+
+Output:
+
+```txt
+get_weather: Get the current weather for a city.
+
+Loaded 1: get_weather. They are callable from your next turn.
+
+send_email: Send an email to a recipient.
+
+Loaded 1: send_email. They are callable from your next turn.
+
+get_weather: Get the current weather for a city.
+send_email: Send an email to a recipient.
+
+All already loaded - call them directly.
+
+No tools matched 'quantum teleportation'. Available tools: get_weather,
+send_email. Retry with different keywords, or load by exact name with
+'select:name1,name2'.
+```
+
+<Note>
+Stopwords are filtered before matching. `run_search("weather in a city")` returns only `get_weather`; `run_search("please can you help with the")` returns a miss rather than loading the whole catalog.
+</Note>
+
+## Narrowing Results with a Score Threshold
+
+`min_score_ratio` drops matches scoring below a fraction of the best match. Use it when the query is long enough that common words give weak matches a nonzero score.
+
+```python
+from swarms import Agent
+
+
+def read_file(path: str) -> str:
+    """Read a file from disk and return its contents."""
+    return open(path).read()
+
+
+def read_config(name: str) -> str:
+    """Read a named configuration value."""
+    return f"config {name}"
+
+
+def send_email(recipient: str, subject: str, body: str) -> str:
+    """Send an email to a recipient."""
+    return "sent"
+
+
+agent = Agent(
+    agent_name="Threshold",
+    model_name="gpt-5.4",
+    tools=[read_file, read_config, send_email],
+    dynamic_tools=True,
+)
+loader = agent.tool_loader
+
+wide = loader.search("read a file from disk", min_score_ratio=0.0)
+tight = loader.search("read a file from disk", min_score_ratio=0.6)
+
+print("wide: ", [t.name for t in wide])
+print("tight:", [t.name for t in tight])
+```
+
+`search` ranks without loading, so you can tune a threshold before wiring it into anything.
+
+## Counting the Savings
+
+Deferral is a token optimization, so measure it. This compares the eager tool array against the deferred one.
+
+```python
+import json
+
+from swarms import Agent
+
+
+def get_weather(city: str) -> str:
+    """Get the current weather for a city."""
+    return f"{city}: 18C"
+
+
+def convert_currency(amount: float, source: str, target: str) -> str:
+    """Convert an amount of money between two currencies."""
+    return f"{amount} {source}"
+
+
+tools = [get_weather, convert_currency]
+
+eager = Agent(
+    agent_name="Eager",
+    model_name="gpt-5.4",
+    tools=tools,
+    dynamic_tools=False,
+)
+deferred = Agent(
+    agent_name="Deferred",
+    model_name="gpt-5.4",
+    tools=tools,
+    dynamic_tools=True,
+)
+
+eager_bytes = len(json.dumps(eager.tools_list_dictionary))
+deferred_bytes = len(json.dumps(deferred.tools_list_dictionary))
+
+print(f"eager:    {eager_bytes} bytes, sent on every request")
+print(f"deferred: {deferred_bytes} bytes, sent on every request")
+print(f"saved:    {eager_bytes - deferred_bytes} bytes per request")
+```
+
+The gap widens with catalog size — with two tools it is modest, with an MCP server exposing forty it is most of the tool array.
+
+## MCP Servers
+
+A single MCP server can contribute dozens of schemas. With `dynamic_tools=True` they join the catalog instead of shipping on every request. DeepWiki needs no API key.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="RepoResearcher",
+    agent_description="Answers questions about public repositories.",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    mcp_url="https://mcp.deepwiki.com/mcp",
+    mcp_timeout=120,
+    dynamic_tools=True,
+    print_on=False,
+)
+
+out = agent.run(
+    "What is the overall architecture of the kyegomez/swarms repository?"
+)
+print(out)
+```
+
+### Inspecting an MCP Catalog Before Running
+
+MCP deferral is lazy — the server is contacted while the LLM is built, not at construction. Build the LLM yourself to see the catalog first.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="RepoResearcher",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    mcp_url="https://mcp.deepwiki.com/mcp",
+    mcp_timeout=120,
+    dynamic_tools=True,
+)
+
+# Building the LLM is what pulls the server's tools into the catalog.
+agent.llm = agent.llm_handling()
+
+print("deferred from MCP:", agent.tool_loader.deferred_names)
+print("exposed:", [t["function"]["name"] for t in agent.tools_list_dictionary])
+```
+
+The fetch happens once per agent and is cached, so rebuilding the LLM does not re-contact the server. If the server is unreachable the agent still builds — the failure is logged, nothing is deferred, and `tool_search` finds nothing.
+
+### Budgeting Turns for a Deferred MCP Call
+
+A deferred tool needs three turns: search, call, then answer. With a fixed `max_loops`, budget for it.
+
+```python
+import os
+
+from swarms import Agent
+
+EXA_API_KEY = os.getenv("EXA_API_KEY")
+
+agent = Agent(
+    agent_name="Exa-Search-Agent",
+    agent_description="Answers questions using live web search via Exa MCP.",
+    model_name="gpt-5.4",
+    mcp_url=f"https://mcp.exa.ai/mcp?exaApiKey={EXA_API_KEY}",
+    # Deferred tools need three turns: search, call, then answer.
+    max_loops=2,
+    dynamic_tools=True,
+    output_type="json",
+)
+
+out = agent.run("What were the biggest AI infrastructure announcements this month?")
+print(out)
+```
+
+<Warning>
+With `max_loops=1` the model can search but never call what it found. Either raise `max_loops`, or set `dynamic_tools=False` so the schema ships on turn one.
+</Warning>
+
+## The Autonomous Loop
+
+With `max_loops="auto"`, deferral activates even with no `tools` argument — the loop's own file, shell, and sub-agent tools go into the catalog while the control tools stay loaded.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Researcher",
+    agent_description="Researches a topic and writes up findings.",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    dynamic_tools=True,
+    print_on=False,
+)
+
+out = agent.run(
+    "Summarize every Python file in this directory into a notes.md file."
+)
+print(out)
+```
+
+The agent calls `create_plan` first. That plan text is used as a search query to pre-load the tools the plan implies — up to 8 of them, at no extra turn cost — and the `create_plan` result tells the model what it already has:
+
+```txt
+Pre-loaded the tools this plan implies: read_file, grep, create_file.
+They are callable from your next turn - do not search for them again.
+```
+
+### Combining Loop Tools with Your Own
+
+User tools join the same catalog. They are not eagerly re-integrated after planning when `dynamic_tools` is on.
+
+```python
+from swarms import Agent
+
+
+def search_pubmed(query: str, max_results: int = 5) -> str:
+    """Search PubMed for medical literature matching a query.
+
+    Args:
+        query: The search query.
+        max_results: How many results to return.
+
+    Returns:
+        Formatted search results.
+    """
+    return f"{max_results} results for {query}"
+
+
+agent = Agent(
+    agent_name="MedicalResearcher",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    tools=[search_pubmed],
+    dynamic_tools=True,
+)
+
+out = agent.run(
+    "Research recent advances in CAR-T cell therapy and write a summary to report.md"
+)
+print(out)
+```
+
+### Restricting What Can Be Found
+
+`selected_tools` filters the loop's built-in tools **before** deferral, so an excluded tool never enters the catalog and cannot be found by `tool_search` at all.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="ReadOnlyResearcher",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    dynamic_tools=True,
+    selected_tools=["read_file", "list_directory", "grep"],
+)
+
+out = agent.run("Explain what this codebase does, without changing anything.")
+print(out)
+```
+
+## Registering Extra Schemas
+
+Schemas appended to `tools_list_dictionary` after construction are clobbered the next time a search refreshes the tool array. Register them with `defer_tool_schemas` instead.
+
+```python
+from swarms import Agent
+
+
+def get_weather(city: str) -> str:
+    """Get the current weather for a city."""
+    return f"{city}: 18C"
+
+
+agent = Agent(
+    agent_name="Extender",
+    model_name="gpt-5.4",
+    max_loops=3,
+    tools=[get_weather],
+    dynamic_tools=True,
+)
+
+custom = {
+    "type": "function",
+    "function": {
+        "name": "lookup_timezone",
+        "description": "Look up the timezone for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string", "description": "The city name."}
+            },
+            "required": ["city"],
+        },
+    },
+}
+
+agent.defer_tool_schemas([custom])
+
+print(agent.tool_loader.deferred_names)
+# ['get_weather', 'lookup_timezone']
+```
+
+<Note>
+A schema registered this way is searchable and advertised once loaded, but it has no local callable attached — dispatch it yourself, the way MCP tools are dispatched through the MCP manager.
+</Note>
+
+## Turning Deferral Off
+
+For two or three tools, or when the tool must be callable on turn one, eager registration is the better trade.
+
+```python
+from swarms import Agent
+
+
+def get_stock_price(ticker: str) -> str:
+    """Fetch the current stock price for a ticker symbol."""
+    return f"{ticker}: $180.42"
+
+
+agent = Agent(
+    agent_name="StockAnalyst",
+    model_name="gpt-5.4",
+    tools=[get_stock_price],
+    dynamic_tools=False,
+    max_loops=1,
+)
+
+print(agent.tool_loader)          # None
+print(agent.run("What is Apple trading at?"))
+```
+
+## Choosing Between Them
+
+| Situation | Setting |
+| --- | --- |
+| One or two tools, single loop | `dynamic_tools=False` |
+| Ten or more tools | `dynamic_tools=True` |
+| Any MCP server | `dynamic_tools=True` |
+| `max_loops="auto"` | `dynamic_tools=True` (the default) |
+| Tool must fire on turn one | `dynamic_tools=False` |
+| Latency matters more than token cost | `dynamic_tools=False` |
+
+## Notes
+
+- `dynamic_tools=True` alone does nothing. Deferral needs `tools`, an MCP connection, or `max_loops="auto"`.
+- Deferred is not disabled. A model that guesses a correct tool name can still execute it — only the schema is withheld.
+- A tool of your own named `tool_search` is dropped from the catalog with a warning and becomes unreachable. Rename it.
+- Every load changes the tool array and invalidates the provider's cached prefix. Load everything for a subtask in one `tool_search` call.
+- MCP tools never appear in `loader.handlers()`; they route through the MCP manager by design.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dynamic Tool Loading" icon="book" href="/agents/dynamic-tools">
+    The concepts: search ranking, pre-warming, and caching behavior
+  </Card>
+  <Card title="DynamicToolLoader API" icon="code" href="/api/dynamic-tool-loader">
+    Full class reference for the loader and its methods
+  </Card>
+  <Card title="Agent with Tools" icon="wrench" href="/examples/agent-with-tools">
+    Defining tools, schemas, and execution basics
+  </Card>
+  <Card title="MCP Integration" icon="plug" href="/integrations/mcp">
+    Connecting MCP servers to an agent
+  </Card>
+</CardGroup>
+
+## Source
+
+- [`examples/tools/dynamic_tools/dynamic_tool_loading.py`](https://github.com/kyegomez/swarms/blob/master/examples/tools/dynamic_tools/dynamic_tool_loading.py)
+- [`examples/mcp/agents/autonomous_agent_dynamic_tools.py`](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/autonomous_agent_dynamic_tools.py)
+- [`examples/mcp/agents/05_exa_web_search.py`](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/05_exa_web_search.py)

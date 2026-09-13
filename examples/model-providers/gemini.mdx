@@ -1,0 +1,279 @@
+---
+title: 'Building Agents with Gemini'
+description: 'Build Swarms agents on Google Gemini models — 2.5 Pro, 2.5 Flash, and Flash-Lite.'
+icon: 'google'
+---
+
+Google's Gemini models work in Swarms through the same `Agent` interface as every other provider. Gemini's massive context windows (up to 2M tokens) and strong multimodal support make it a natural fit for long-document analysis, video understanding, and image-heavy workflows.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export GEMINI_API_KEY="..."
+```
+
+Or in a `.env` file:
+
+```env
+GEMINI_API_KEY="..."
+WORKSPACE_DIR="agent_workspace"
+```
+
+<Tip>
+Get your API key at [aistudio.google.com](https://aistudio.google.com/apikey). The free tier is generous and great for prototyping.
+</Tip>
+
+## Quick Start
+
+The minimum needed to run a Gemini agent:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Gemini-Agent",
+    model_name="gemini/gemini-2.5-pro",
+    max_loops=1,
+)
+
+print(agent.run("Summarize the difference between RAG and fine-tuning in three paragraphs."))
+```
+
+## Model Names
+
+Gemini models are prefixed with `gemini/` for LiteLLM routing:
+
+| Model | `model_name` | Best for |
+|---|---|---|
+| Gemini 2.5 Pro | `"gemini/gemini-2.5-pro"` | Frontier reasoning, long-document analysis, 2M context |
+| Gemini 2.5 Flash | `"gemini/gemini-2.5-flash"` | Balanced speed + quality, default for production |
+| Gemini 2.5 Flash-Lite | `"gemini/gemini-2.5-flash-lite"` | High-volume triage, lowest cost |
+| Gemini 2.0 Flash | `"gemini/gemini-2.0-flash"` | Legacy production workloads |
+
+## Gemini 2.5 Pro — Frontier Reasoning
+
+The right pick for hard reasoning tasks, long-document analysis, or anything where you need the full 2M-token context window.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Gemini-Pro-Researcher",
+    model_name="gemini/gemini-2.5-pro",
+    system_prompt="You are a senior research analyst. Cite evidence and reason carefully.",
+    context_length=1_000_000,
+    max_loops=1,
+)
+
+print(agent.run("Walk me through the architectural choices behind Gemini 2.5's mixture-of-experts design."))
+```
+
+## Gemini 2.5 Flash — The Workhorse
+
+Flash is the right default for most production agents. Strong quality, fast, and cheap.
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="Gemini-Flash-Assistant",
+    model_name="gemini/gemini-2.5-flash",
+    tools=[get_weather],
+    temperature=0.5,
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## Gemini 2.5 Flash-Lite — Triage & High-Volume
+
+For classification, routing, and high-volume workloads where cost matters most.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Gemini-Triage",
+    model_name="gemini/gemini-2.5-flash-lite",
+    system_prompt="Classify each input as one of: support, sales, billing, other. Reply with the label only.",
+    max_loops=1,
+)
+
+print(agent.run("My subscription renewed but I was charged twice."))
+```
+
+## Vision
+
+Gemini's vision capabilities are excellent. Pass an image path, URL, or base64 string:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Gemini-Vision",
+    model_name="gemini/gemini-2.5-pro",
+    max_loops=1,
+)
+
+result = agent.run(
+    task="Describe what's in this image and identify any text you see.",
+    img="path/to/screenshot.png",
+)
+print(result)
+```
+
+## Long-Context Document Analysis
+
+Gemini 2.5 Pro's massive context window lets you drop entire books, codebases, or document sets into a single prompt:
+
+```python
+from swarms import Agent
+
+# Load a large document
+with open("annual_report.pdf.txt") as f:
+    document = f.read()
+
+agent = Agent(
+    agent_name="Document-Analyst",
+    model_name="gemini/gemini-2.5-pro",
+    context_length=2_000_000,
+    max_loops=1,
+)
+
+print(agent.run(
+    f"Here is our annual report. Identify the top three financial risks and quote the relevant sections.\n\n{document}"
+))
+```
+
+## Streaming
+
+Stream tokens straight to stdout:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-Gemini",
+    model_name="gemini/gemini-2.5-flash",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Write a 200-word explanation of how attention works in transformers.")
+```
+
+Or pipe tokens through your own callback:
+
+```python
+def on_token(token: str) -> None:
+    print(token, end="", flush=True)
+
+agent = Agent(
+    agent_name="Callback-Gemini",
+    model_name="gemini/gemini-2.5-flash",
+    streaming_callback=on_token,
+    max_loops=1,
+)
+
+agent.run("Explain WebAssembly to a backend engineer.")
+```
+
+## Tool Use
+
+Gemini handles tool calls fluently. Define plain Python functions with docstrings:
+
+```python
+import yfinance as yf
+from swarms import Agent
+
+def get_stock_price(ticker: str) -> str:
+    """Fetch the current stock price for a given ticker symbol."""
+    data = yf.Ticker(ticker)
+    return f"{ticker}: ${data.fast_info['last_price']:.2f}"
+
+def get_market_cap(ticker: str) -> str:
+    """Fetch the market capitalization for a given ticker."""
+    data = yf.Ticker(ticker)
+    cap = data.fast_info.get("market_cap")
+    return f"{ticker} cap: ${cap:,.0f}" if cap else f"{ticker}: unavailable"
+
+agent = Agent(
+    agent_name="Equity-Researcher",
+    model_name="gemini/gemini-2.5-flash",
+    tools=[get_stock_price, get_market_cap],
+    max_loops=3,
+)
+
+print(agent.run("Compare NVDA, AMD, and INTC on price and market cap."))
+```
+
+## Mixing Models in a Workflow
+
+Different Gemini models for different jobs in the same workflow:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+triage = Agent(
+    agent_name="Triage",
+    model_name="gemini/gemini-2.5-flash-lite",     # cheap & fast
+    system_prompt="Classify and route the user request.",
+    max_loops=1,
+)
+
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="gemini/gemini-2.5-flash",          # balanced
+    system_prompt="Gather all relevant context and data.",
+    max_loops=2,
+)
+
+analyst = Agent(
+    agent_name="Analyst",
+    model_name="gemini/gemini-2.5-pro",            # frontier
+    system_prompt="Reason carefully and produce the final analysis.",
+    context_length=1_000_000,
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[triage, researcher, analyst], max_loops=1)
+print(pipeline.run("Evaluate whether we should self-host Llama 3.3 or stay on managed APIs."))
+```
+
+## Production Defaults
+
+For Gemini agents in production:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-Gemini",
+    model_name="gemini/gemini-2.5-flash",
+    max_loops=1,
+    persistent_memory=True,        # survive process restarts
+    context_compression=True,      # auto-summarize at 90% of context
+    context_length=1_000_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with Anthropic](/examples/model-providers/anthropic)
+- [Building Agents with OpenAI](/examples/model-providers/openai)
+- [Model Providers Overview](/integrations/model-providers)
+- [Vision Agent Tutorial](/examples/vision-agent)

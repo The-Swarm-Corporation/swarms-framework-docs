@@ -65,7 +65,7 @@ print(results)
    - Market Analyst examines market trends
    - Financial Analyst evaluates financial implications
    - Risk Analyst identifies potential risks
-3. **Result Collection**: All three analyses are collected and returned as a dictionary
+3. **Result Collection**: All three analyses are collected and returned as a list of role/content message dicts
 4. **Comprehensive Output**: You receive multiple perspectives on the same topic in the time it takes for the slowest agent to complete
 
 ## Common Use Cases
@@ -127,9 +127,9 @@ investment_workflow = ConcurrentWorkflow(
 analysis = investment_workflow.run("Should we invest in NVIDIA stock right now?")
 
 # Process results from each analyst
-for analyst_name, analysis_result in analysis.items():
-    print(f"\n=== {analyst_name} ===")
-    print(analysis_result)
+for entry in analysis:
+    print(f"\n=== {entry['role']} ===")
+    print(entry['content'])
 ```
 
 ### Content Variation Generator
@@ -343,10 +343,10 @@ print(final_recommendation)
 
 - **[SequentialWorkflow](/examples/sequential-workflow-example)**: Run agents in sequence when order matters
 - **[MixtureOfAgents](/examples/mixture-of-agents-example)**: Combine concurrent execution with result synthesis
-- **[SwarmRouter](https://docs.swarms.world/en/latest/swarms/examples/swarm_router/)**: Switch between concurrent and other patterns dynamically
+- **[SwarmRouter](/examples/swarm-router-example)**: Switch between concurrent and other patterns dynamically
 
 ## Learn More
 
-- [ConcurrentWorkflow API Reference](https://docs.swarms.world/en/latest/swarms/structs/concurrent_workflow/)
-- [Performance Optimization Guide](https://docs.swarms.world/en/latest/swarms/framework/performance/)
-- [Multi-Agent Architectures Overview](https://docs.swarms.world/en/latest/swarms/concept/swarm_architectures/)
+- [ConcurrentWorkflow API Reference](/api/concurrent-workflow)
+- [Performance Optimization Guide](/deployment/scaling)
+- [Multi-Agent Architectures Overview](/architectures/overview)

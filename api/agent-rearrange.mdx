@@ -13,8 +13,6 @@ The `AgentRearrange` class enables complex workflows where multiple agents can w
 - **Flexible Flow Syntax**: Define sequential (`->`) and concurrent (`,`) agent execution in one flow
 - **Custom Flow Patterns**: Mix sequential and concurrent execution patterns
 - **Team Awareness**: Agents can be aware of their position in the workflow
-- **Human-in-the-Loop**: Integrate human review at any point in the workflow (using `H`)
-- **Memory System Support**: Optional persistent memory across agent interactions
 - **Batch Processing**: Process multiple tasks with the same flow
 - **Concurrent Execution**: Run multiple tasks in parallel
 - **Async Support**: Asynchronous execution for non-blocking operations
@@ -31,29 +29,31 @@ pip install -U swarms
 class AgentRearrange:
     def __init__(
         self,
-        id: str = swarm_id(),
+        id: str = None,
         name: str = "AgentRearrange",
         description: str = "A swarm of agents for rearranging tasks.",
         agents: List[Union[Agent, Callable]] = None,
         flow: str = None,
         max_loops: int = 1,
-        verbose: bool = True,
+        verbose: bool = False,
         memory_system: Any = None,
-        human_in_the_loop: bool = False,
-        custom_human_in_the_loop: Optional[Callable[[str], str]] = None,
         output_type: OutputType = "all",
         autosave: bool = True,
-        rules: str = None,
         team_awareness: bool = False,
         time_enabled: bool = False,
         message_id_on: bool = False,
+        collab_prompt: Optional[str] = None,
     )
 ```
+
+<Note>
+  Earlier versions accepted `human_in_the_loop`, `custom_human_in_the_loop`, and `rules` parameters (and an `H` token in the flow string for human review steps). These have been **removed** — `AgentRearrange` no longer supports inline human-in-the-loop steps or a `rules` argument.
+</Note>
 
 ## Parameters
 
 <ParamField path="id" type="str" default="auto-generated">
-  Unique identifier for the agent rearrange system. Auto-generated if not provided.
+  Unique identifier for the agent rearrange system. Auto-generated via `generate_id("agent-rearrange")` if not provided, producing `agent-rearrange-<32 hex chars>`.
 </ParamField>
 
 <ParamField path="name" type="str" default="AgentRearrange">
@@ -82,15 +82,7 @@ class AgentRearrange:
 </ParamField>
 
 <ParamField path="memory_system" type="Any" default="None">
-  Optional memory system for persistence across interactions
-</ParamField>
-
-<ParamField path="human_in_the_loop" type="bool" default="False">
-  Whether to enable human interaction points in the workflow
-</ParamField>
-
-<ParamField path="custom_human_in_the_loop" type="Optional[Callable[[str], str]]" default="None">
-  Custom function for handling human interaction. Takes input string, returns response.
+  Accepted for backwards compatibility. The value is stored on the instance and is not read by the workflow. Configure memory on the individual agents with `persistent_memory` instead.
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default="all">
@@ -101,12 +93,15 @@ class AgentRearrange:
   Whether to automatically save execution data
 </ParamField>
 
-<ParamField path="rules" type="str" default="None">
-  System rules and constraints to add to conversation
-</ParamField>
-
 <ParamField path="team_awareness" type="bool" default="False">
   Whether agents should be aware of team structure and sequential flow
+</ParamField>
+
+<ParamField path="collab_prompt" type="str" optional>
+  Guidance prepended to every agent's messages as a system turn for the duration
+  of the run. It is not written to the shared conversation, so other agents never
+  see it, and the caller's `Agent` objects are not modified. `SequentialWorkflow`
+  passes its collaboration preamble through this parameter.
 </ParamField>
 
 <ParamField path="time_enabled" type="bool" default="False">
@@ -124,7 +119,6 @@ The flow pattern defines how agents execute:
 - **Sequential**: `agent1 -> agent2 -> agent3` (agents run one after another)
 - **Concurrent**: `agent1, agent2, agent3` (agents run simultaneously)
 - **Mixed**: `agent1 -> agent2, agent3 -> agent4` (agent1 first, then agent2 and agent3 concurrently, then agent4)
-- **Human-in-Loop**: `agent1 -> H -> agent2` (agent1, then human input, then agent2)
 
 ## Methods
 
@@ -216,6 +210,14 @@ Add an agent to the swarm.
   The agent to be added
 </ParamField>
 
+### `add_agents(agents)`
+
+Add multiple agents to the swarm at once.
+
+<ParamField path="agents" type="List[Agent]" required>
+  A list of Agent objects to be added
+</ParamField>
+
 ### `remove_agent(agent_name)`
 
 Remove an agent from the swarm.
@@ -223,6 +225,62 @@ Remove an agent from the swarm.
 <ParamField path="agent_name" type="str" required>
   The name of the agent to be removed
 </ParamField>
+
+### `explain(return_str=False)`
+
+Print (or return) the resolved execution plan for the current flow, listing every step in order and marking each as sequential or parallel. Does not invoke any agents or LLMs. Validates the flow first and raises if it is invalid.
+
+<ParamField path="return_str" type="bool" default="False">
+  When `True`, returns the plan as a string instead of printing it
+</ParamField>
+
+<ResponseField name="plan" type="Optional[str]">
+  The plan string if `return_str=True`; otherwise `None`
+</ResponseField>
+
+### `get_agent_sequential_awareness(agent_name)`
+
+Get the sequential awareness information (agents immediately ahead/behind) for a specific agent in the current flow.
+
+<ParamField path="agent_name" type="str" required>
+  The name of the agent to get awareness for
+</ParamField>
+
+<ResponseField name="awareness" type="str">
+  A string describing the agents ahead and behind in the sequence
+</ResponseField>
+
+### `get_sequential_flow_structure()`
+
+Get a string describing the complete sequential flow structure (step-by-step breakdown of the flow).
+
+<ResponseField name="structure" type="str">
+  A string describing the overall sequential flow structure
+</ResponseField>
+
+### `run_stream(task=None, img=None, with_events=False, **kwargs)`
+
+Sync generator that streams tokens from each agent in flow order as they are generated. Sequential segments stream one agent at a time; parallel (comma) segments interleave tokens fairly across concurrent agents.
+
+<ParamField path="task" type="str" default="None">
+  Initial task fed into the first agent in the flow
+</ParamField>
+
+<ParamField path="img" type="Optional[str]" default="None">
+  Optional image input forwarded to every agent
+</ParamField>
+
+<ParamField path="with_events" type="bool" default="False">
+  When `False`, yields `(agent_name, token)` tuples. When `True`, yields structured event dicts (`agent_start`, `token`, `agent_end`)
+</ParamField>
+
+<Note>
+  Not yet supported in streaming mode: `max_loops > 1`, `custom_tasks`. Use `run()` for those.
+</Note>
+
+### `arun_stream(task=None, img=None, with_events=False, **kwargs)`
+
+Async generator version of `run_stream`, with the same parameters and yield semantics.
 
 ### `validate_flow()`
 
@@ -250,7 +308,7 @@ Convert all attributes to a dictionary for serialization.
 | `id` | str | Unique identifier for the system |
 | `name` | str | Human-readable name |
 | `description` | str | Description of the system's purpose |
-| `agents` | Dict[str, Agent] | Dictionary mapping agent names to Agent objects |
+| `agents` | List[Union[Agent, Callable]] | List of agents or callables in the system |
 | `flow` | str | Flow pattern defining agent execution order |
 | `conversation` | Conversation | Conversation history management |
 
@@ -260,27 +318,23 @@ Convert all attributes to a dictionary for serialization.
 
 ```python
 from swarms import Agent, AgentRearrange
-from swarms.models import OpenAIChat
-
-# Initialize LLM
-llm = OpenAIChat(model_name="claude-sonnet-4-6")
 
 # Create agents
 researcher = Agent(
     agent_name="researcher",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="You are a research specialist."
 )
 
 writer = Agent(
     agent_name="writer",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="You are a content writer."
 )
 
 editor = Agent(
     agent_name="editor",
-    llm=llm,
+    model_name="claude-sonnet-4-6",
     system_prompt="You are an editor."
 )
 
@@ -353,41 +407,6 @@ system = AgentRearrange(
 result = system.run("Analyze the market opportunity for AI assistants")
 ```
 
-### Human-in-the-Loop
-
-```python
-# Include human review in the flow
-flow = "researcher -> writer -> H -> editor"
-
-system = AgentRearrange(
-    agents=[researcher, writer, editor],
-    flow=flow,
-    human_in_the_loop=True
-)
-
-result = system.run("Create a marketing campaign")
-# System will pause for human input after the writer and before the editor
-```
-
-### Custom Human-in-the-Loop Handler
-
-```python
-def custom_human_handler(agent_output: str) -> str:
-    """Custom function to handle human interaction"""
-    print(f"Agent output: {agent_output}")
-    feedback = input("Your feedback: ")
-    return feedback
-
-flow = "agent1 -> H -> agent2"
-
-system = AgentRearrange(
-    agents=[agent1, agent2],
-    flow=flow,
-    human_in_the_loop=True,
-    custom_human_in_the_loop=custom_human_handler
-)
-```
-
 ### Batch Processing
 
 ```python
@@ -456,26 +475,6 @@ system.set_custom_flow("researcher -> editor -> writer")
 result2 = system.run("Task 2")
 ```
 
-### With Memory System
-
-```python
-from swarms.memory import ChromaDB
-
-# Create memory system
-memory = ChromaDB(
-    output_dir="./agent_memory",
-    n_results=5
-)
-
-system = AgentRearrange(
-    agents=[researcher, writer],
-    flow="researcher -> writer",
-    memory_system=memory  # Persist conversation across runs
-)
-
-result = system.run("Analyze AI trends")
-```
-
 ### With Team Awareness
 
 ```python
@@ -489,24 +488,6 @@ system = AgentRearrange(
 
 result = system.run("Create comprehensive analysis")
 # Each agent will receive information about agents ahead and behind
-```
-
-### With Rules
-
-```python
-rules = """
-All agents must:
-1. Cite sources
-2. Be objective
-3. Flag uncertainties
-4. Respect data privacy
-"""
-
-system = AgentRearrange(
-    agents=[researcher, writer, editor],
-    flow="researcher -> writer -> editor",
-    rules=rules  # Add system-wide rules
-)
 ```
 
 ### Different Output Types
@@ -575,12 +556,11 @@ except Exception as e:
 
 1. **Flow Design**: Carefully design your flow to match your task requirements
 2. **Team Awareness**: Enable for complex flows where context matters
-3. **Human Review**: Add `H` at critical decision points
-4. **Error Handling**: Always wrap execution in try-except blocks
-5. **Logging**: Enable verbose mode during development
-6. **Memory Systems**: Use for tasks requiring persistent context
-7. **Flow Validation**: Always validate flows before production use
-8. **Agent Naming**: Use clear, descriptive agent names in flows
+3. **Error Handling**: Always wrap execution in try-except blocks
+4. **Logging**: Enable verbose mode during development
+5. **Memory Systems**: Use for tasks requiring persistent context
+6. **Flow Validation**: Always validate flows before production use
+7. **Agent Naming**: Use clear, descriptive agent names in flows
 
 ## Common Flow Patterns
 
@@ -599,7 +579,7 @@ flow = "stage1 -> stage2 -> stage3 -> stage4"
 ### Review Pattern
 ```python
 # Create, review, revise
-flow = "creator -> reviewer -> H -> reviser"
+flow = "creator -> reviewer -> reviser"
 ```
 
 ### Ensemble Pattern

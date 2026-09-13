@@ -1,0 +1,173 @@
+---
+title: 'Building Agents with Groq'
+description: 'Build Swarms agents on Groq for ultra-fast inference — Llama, GPT-OSS, DeepSeek R1, Kimi K2, and more.'
+icon: 'bolt'
+---
+
+Groq is the fastest inference platform in production today, delivering hundreds of tokens per second on open-source models. It's the right pick for latency-critical agents, real-time apps, and high-volume workloads.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Environment Setup
+
+```bash
+export GROQ_API_KEY="gsk_..."
+```
+
+Get an API key at [console.groq.com](https://console.groq.com/keys). The free tier is generous and great for prototyping.
+
+## Quick Start
+
+Every Groq model uses the `groq/` prefix:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Groq-Agent",
+    model_name="groq/llama-3.3-70b-versatile",
+    max_loops=1,
+)
+
+print(agent.run("Summarize the case for serverless inference in three paragraphs."))
+```
+
+## Model Names
+
+| Model | `model_name` | Best for |
+|---|---|---|
+| Llama 3.3 70B | `"groq/llama-3.3-70b-versatile"` | General-purpose default — strong quality + speed |
+| Llama 3.1 8B Instant | `"groq/llama-3.1-8b-instant"` | Triage, classification, lowest latency |
+| Llama 4 Scout 17B | `"groq/meta-llama/llama-4-scout-17b-16e-instruct"` | Frontier open model with expert routing |
+| Llama 4 Maverick | `"groq/meta-llama/llama-4-maverick-17b-128e-instruct"` | Maximum capability, 128 experts |
+| GPT-OSS 120B | `"groq/openai/gpt-oss-120b"` | OpenAI's open-source model, hosted on Groq |
+| GPT-OSS 20B | `"groq/openai/gpt-oss-20b"` | Smaller, faster GPT-OSS |
+| DeepSeek R1 Distill 70B | `"groq/deepseek-r1-distill-llama-70b"` | Reasoning model with R1-style chain-of-thought |
+| Kimi K2 | `"groq/moonshotai/kimi-k2-instruct"` | Long-context Chinese/English instruction model |
+
+## Real-Time Streaming
+
+Groq's speed makes streaming feel instant. Stream tokens straight to stdout:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Realtime-Groq",
+    model_name="groq/llama-3.1-8b-instant",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Walk me through how Kubernetes schedules pods across a cluster.")
+```
+
+Or pipe tokens through your own callback for dashboards or audio synthesis:
+
+```python
+def on_token(token: str) -> None:
+    print(token, end="", flush=True)
+
+agent = Agent(
+    agent_name="Callback-Groq",
+    model_name="groq/llama-3.3-70b-versatile",
+    streaming_callback=on_token,
+    max_loops=1,
+)
+
+agent.run("Explain WebAssembly to a backend engineer.")
+```
+
+## Reasoning with DeepSeek R1 on Groq
+
+Groq hosts a distilled DeepSeek R1 that retains R1's chain-of-thought reasoning at Groq speed:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="R1-Reasoner",
+    model_name="groq/deepseek-r1-distill-llama-70b",
+    system_prompt="Reason carefully step-by-step before answering.",
+    max_loops=1,
+)
+
+print(agent.run(
+    "A train leaves Station A at 9am traveling 60mph. A second train leaves Station B at 10am "
+    "traveling 80mph toward Station A. Stations are 280 miles apart. When do they meet?"
+))
+```
+
+## Tool Use
+
+Groq supports function calling on the Llama and GPT-OSS families:
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="Groq-Assistant",
+    model_name="groq/llama-3.3-70b-versatile",
+    tools=[get_weather],
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## Multi-Agent: Speed-First Pipelines
+
+Groq shines as the inference layer for parallel multi-agent work. Run 10 agents concurrently and still finish in under a second:
+
+```python
+from swarms import Agent, ConcurrentWorkflow
+
+agents = [
+    Agent(
+        agent_name=f"Expert-{topic}",
+        model_name="groq/llama-3.3-70b-versatile",
+        system_prompt=f"You are an expert on {topic}. Reply in under 100 words.",
+        max_loops=1,
+    )
+    for topic in ["Markets", "Tech", "Policy", "Sentiment", "Risks"]
+]
+
+workflow = ConcurrentWorkflow(agents=agents)
+results = workflow.run("Analyze the impact of NVIDIA's latest earnings on the AI chip sector.")
+
+for name, response in results.items():
+    print(f"\n=== {name} ===\n{response}")
+```
+
+## Production Defaults
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-Groq",
+    model_name="groq/llama-3.3-70b-versatile",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    context_length=128_000,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with Cerebras](/examples/model-providers/cerebras) — even faster inference
+- [Building Agents with Anthropic](/examples/model-providers/anthropic)
+- [Building Agents with OpenAI](/examples/model-providers/openai)
+- [Model Providers Overview](/integrations/model-providers)

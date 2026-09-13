@@ -1,0 +1,165 @@
+---
+title: 'Hugging Face: find models'
+description: 'Search the Hugging Face Hub for models and datasets from an agent — with an optional token that raises limits instead of being required.'
+icon: 'face-smile'
+---
+
+The Hugging Face Hub exposes an MCP server for searching models, datasets, Spaces, and papers. It works anonymously; adding a free token raises rate limits and exposes tools that touch your own account.
+
+That makes it the example for the **optional auth** pattern: the same agent works with or without a key, and only attaches the Bearer token when one is present. A missing environment variable should degrade to anonymous access, not crash on startup.
+
+| | |
+|---|---|
+| **Server** | `https://huggingface.co/mcp` |
+| **Auth** | none required; optional token unlocks more |
+| **Tools** | `model_search`, `dataset_search`, `space_search`, `paper_search`, … |
+| **Model used here** | `claude-haiku-4-5` |
+
+## Prerequisites
+
+- Python 3.10+
+- `ANTHROPIC_API_KEY`
+- `HF_TOKEN` — **optional**, free at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+
+A small, fast model is a deliberate choice here. The task is search-and-report, not reasoning; the intelligence lives in the Hub's index.
+
+## Build it
+
+<Steps>
+  <Step title="Install and set your LLM key">
+    ```bash
+    pip install -U swarms
+    export ANTHROPIC_API_KEY="sk-ant-..."
+    export HF_TOKEN="hf_..."          # optional
+    ```
+  </Step>
+
+  <Step title="Make the token optional, not required">
+    ```python
+    import os
+
+    HF_TOKEN = os.getenv("HF_TOKEN")
+    ```
+
+    The conditional comes later, at the `mcp_api_key` argument — pass `"env:HF_TOKEN"` when a token exists and `None` when it does not.
+  </Step>
+
+  <Step title="Write a prompt that forbids recalled repo ids">
+    Model names are exactly the kind of thing an LLM will produce from memory, confidently and wrongly. Half of this prompt exists to stop that:
+
+    ```python
+    HF_SYSTEM_PROMPT = (
+        "You are a machine learning model scout. Help users find the right model "
+        "or dataset on the Hugging Face Hub by searching it directly rather than "
+        "recalling names from memory. For each candidate you recommend, report "
+        "what the search returned: the exact repo id, task, size or parameter "
+        "count, and license. Rank recommendations by fitness for the user's "
+        "stated constraints — license, hardware budget, and language or domain "
+        "coverage — and say explicitly when a popular model is a poor fit for "
+        "those constraints. Never invent a repo id; only cite ones the search "
+        "actually returned."
+    )
+    ```
+  </Step>
+
+  <Step title="Attach the token only if it exists">
+    ```python
+    from swarms import Agent
+
+    agent = Agent(
+        agent_name="HuggingFace-Scout",
+        agent_description="Finds models and datasets on the Hugging Face Hub via MCP.",
+        system_prompt=HF_SYSTEM_PROMPT,
+        model_name="claude-haiku-4-5",
+        mcp_url="https://huggingface.co/mcp",
+        # Anonymous access works; a token just raises the ceiling.
+        mcp_api_key=("env:HF_TOKEN" if HF_TOKEN else None),
+        max_loops=2,
+    )
+    ```
+
+    `mcp_api_key="env:HF_TOKEN"` sends `Authorization: Bearer <token>`, reading the value from the environment at connection time so the secret stays out of your source.
+  </Step>
+
+  <Step title="Ask a question with real constraints">
+    ```python
+    result = agent.run(
+        "Find three open-weight embedding models under 500M parameters that "
+        "are permissively licensed for commercial use. For each, give the "
+        "repo id, parameter count, and license."
+    )
+    print(result)
+    ```
+
+    Constraints — size, license, commercial use — are what make this worth a search. "Recommend an embedding model" would get you an answer from memory.
+  </Step>
+</Steps>
+
+## The complete script
+
+```python
+import os
+
+from swarms import Agent
+
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+HF_SYSTEM_PROMPT = (
+    "You are a machine learning model scout. Help users find the right model "
+    "or dataset on the Hugging Face Hub by searching it directly rather than "
+    "recalling names from memory. For each candidate you recommend, report "
+    "what the search returned: the exact repo id, task, size or parameter "
+    "count, and license. Rank recommendations by fitness for the user's "
+    "stated constraints — license, hardware budget, and language or domain "
+    "coverage — and say explicitly when a popular model is a poor fit for "
+    "those constraints. Never invent a repo id; only cite ones the search "
+    "actually returned."
+)
+
+agent = Agent(
+    agent_name="HuggingFace-Scout",
+    agent_description="Finds models and datasets on the Hugging Face Hub via MCP.",
+    system_prompt=HF_SYSTEM_PROMPT,
+    model_name="claude-haiku-4-5",
+    mcp_url="https://huggingface.co/mcp",
+    mcp_api_key=("env:HF_TOKEN" if HF_TOKEN else None),
+    max_loops=2,
+)
+
+if __name__ == "__main__":
+    if not HF_TOKEN:
+        print("No HF_TOKEN set - running anonymously (lower rate limits).\n")
+
+    result = agent.run(
+        "Find three open-weight embedding models under 500M parameters that "
+        "are permissively licensed for commercial use. For each, give the "
+        "repo id, parameter count, and license."
+    )
+    print(result)
+```
+
+## Why the optional-auth shape is worth copying
+
+Most integrations treat a credential as required and exit if it is missing. For a server that serves anonymous traffic, that turns a working demo into a broken one for anyone who has not signed up yet.
+
+The pattern generalizes to any server with a free anonymous tier:
+
+```python
+TOKEN = os.getenv("SOME_TOKEN")
+
+agent = Agent(
+    ...,
+    mcp_api_key=("env:SOME_TOKEN" if TOKEN else None),
+)
+```
+
+Tell the user which mode they are in — the one-line `print` above — so a rate-limit error later is not a mystery.
+
+<Note>
+  Source: [examples/mcp/agents/07_huggingface_model_search.py](https://github.com/kyegomez/swarms/blob/master/examples/mcp/agents/07_huggingface_model_search.py)
+</Note>
+
+## Next
+
+- [Semgrep](/examples/mcp/semgrep-security-scan) — the required-Bearer-token case.
+- [Authentication patterns](/examples/mcp/authentication) — every credential shape side by side.

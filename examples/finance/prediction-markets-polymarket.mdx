@@ -169,7 +169,7 @@ analyst = Agent(
     agent_name="Polymarket-Analyst",
     agent_description="Analyzes Polymarket prediction markets and identifies edges",
     system_prompt=POLYMARKET_ANALYST_PROMPT,
-    model_name="gpt-4o",
+    model_name="gpt-5.4",
     max_loops=3,
     tools=[
         discover_polymarket_events,
@@ -273,7 +273,7 @@ research_agent = Agent(
 5. Output a structured research brief for each market
 
 Format your output as a clear research report that an analyst can use.""",
-    model_name="gpt-4o",
+    model_name="gpt-5.4",
     max_loops=2,
     tools=[
         discover_polymarket_events,
@@ -301,7 +301,7 @@ Output a structured analysis with:
 - Market implied probability
 - Edge percentage
 - Verdict: STRONG BUY YES, LEAN BUY YES, NO EDGE, LEAN BUY NO, STRONG BUY NO""",
-    model_name="gpt-4o",
+    model_name="gpt-5.4",
     max_loops=1,
     output_type="str",
 )
@@ -328,7 +328,7 @@ Given the analyst's recommendations, you must:
 5. For rejected trades, explain why
 
 Assume a bankroll of $1,000 unless specified otherwise.""",
-    model_name="gpt-4o",
+    model_name="gpt-5.4",
     max_loops=1,
     output_type="str",
 )
@@ -345,7 +345,7 @@ execution_agent = Agent(
 4. If an order fails, do NOT retry — report the failure
 
 Always log every action. Never modify the risk manager's parameters.""",
-    model_name="gpt-4o",
+    model_name="gpt-5.4",
     max_loops=1,
     tools=[place_polymarket_order],
     output_type="str",

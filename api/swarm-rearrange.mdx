@@ -16,8 +16,8 @@ pip install -U swarms
 
 ## Attributes
 
-<ParamField path="id" type="str" default="UUID">
-  Unique identifier for the swarm arrangement.
+<ParamField path="id" type="str" default="generate_id('swarm-rearrange')">
+  Unique identifier for the swarm arrangement, e.g. `swarm-rearrange-<32 hex>` — not a UUID.
 </ParamField>
 
 <ParamField path="name" type="str" default="SwarmRearrange">
@@ -29,11 +29,11 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="swarms" type="List[Any]" default="[]">
-  List of swarm objects to be managed.
+  List of swarm objects to be managed. Despite the default of `[]`, the constructor runs `reliability_checks()` and raises `ValueError` if `swarms` is empty — a non-empty list is effectively required.
 </ParamField>
 
 <ParamField path="flow" type="str" default="None">
-  Flow pattern for swarm execution. Uses arrow notation to define execution order.
+  Flow pattern for swarm execution. Uses arrow notation to define execution order. Despite the default of `None`, `reliability_checks()` raises `ValueError` if `flow` is falsy — a flow string is effectively required.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
@@ -54,6 +54,10 @@ pip install -U swarms
 
 <ParamField path="return_json" type="bool" default="False">
   Return results in JSON format.
+</ParamField>
+
+<ParamField path="output_type" type="HistoryOutputType" default="dict-all-except-first">
+  Currently has no effect: `self.output_type` is stored but never read. `run()` never calls `history_output_formatter` and always returns `current_task`, a plain string (see `run()` below).
 </ParamField>
 
 ## Methods
@@ -96,23 +100,51 @@ def add_swarms(self, swarms: List[Any])
 Validates the flow pattern syntax and swarm names.
 
 ```python
-def validate_flow(self)
+def validate_flow(self) -> bool
 ```
+
+**Returns:** `True` if the flow is valid.
+
+**Raises:** `ValueError` if `"->"` is missing from the flow, a referenced swarm name isn't registered (and isn't `"H"`), or the flow contains duplicate swarm names.
+
+### set_custom_flow()
+
+Overrides the current flow pattern.
+
+```python
+def set_custom_flow(self, flow: str)
+```
+
+**Parameters:**
+- `flow` (str): The new flow pattern string
+
+### track_history()
+
+Appends a result to a swarm's execution history. Called internally; can also be invoked directly for custom tracking.
+
+```python
+def track_history(self, swarm_name: str, result: str)
+```
+
+**Parameters:**
+- `swarm_name` (str): Name of the swarm whose history to update
+- `result` (str): Result to append to that swarm's history
 
 ### run()
 
 Executes the swarm arrangement according to the flow pattern.
 
 ```python
-def run(self, task: str = None, img: str = None, custom_tasks: Dict[str, str] = None)
+def run(self, task: str = None, img: str = None, custom_tasks: Dict[str, str] = None, *args, **kwargs)
 ```
 
 **Parameters:**
 - `task` (str, optional): The task to be executed
 - `img` (str, optional): Image input for the task
 - `custom_tasks` (Dict[str, str], optional): Custom tasks mapped to specific swarms
+- `*args`, `**kwargs`: Forwarded to each swarm's `run()` call
 
-**Returns:** The result of the swarm execution
+**Returns:** A plain `str` -- always `current_task` (the final swarm's textual output), regardless of `output_type`. `run()` catches all exceptions internally and, on failure, returns `str(e)` instead of raising -- so callers must check the returned string for error text rather than relying on a `try`/`except` around `run()`.
 
 ## Flow Pattern Syntax
 
@@ -145,7 +177,7 @@ managing_director = Agent(
 
     For the current potential acquisition of {company}, direct the tasks for the team to thoroughly analyze all aspects of the company, including its financials, industry position, technology, market potential, and regulatory compliance. Provide guidance and feedback as needed to ensure a rigorous and unbiased assessment.
     """,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -161,7 +193,7 @@ vp_finance = Agent(
     4. Identifying any financial risks or red flags that could impact the acquisition decision
     5. Providing a detailed report on your findings and recommendations to the Managing Director
     """,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -177,7 +209,7 @@ industry_analyst = Agent(
     4. Analyzing the key drivers and restraints for the industry
     5. Identifying potential risks and opportunities for {company} based on the industry analysis
     """,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -193,7 +225,7 @@ tech_expert = Agent(
     4. Evaluating {company}' research and development capabilities
     5. Identifying any potential technology risks or disruptive threats
     """,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -209,7 +241,7 @@ market_researcher = Agent(
     4. Evaluating the demand drivers and sales cycles
     5. Developing financial projections and estimates for revenue growth potential
     """,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -225,7 +257,7 @@ regulatory_specialist = Agent(
     4. Evaluating the potential legal liabilities and risks
     5. Providing recommendations on regulatory or legal due diligence steps
     """,
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     max_loops=1,
 )
 
@@ -310,7 +342,7 @@ result = arrangement.run("Initial task")
 | Best Practice | Description |
 |--------------|-------------|
 | **Flow Validation** | Always validate flows before execution |
-| **Error Handling** | Implement try-catch blocks around `run()` calls |
+| **Error Handling** | `run()` never raises -- it catches all exceptions internally and returns `str(e)`. Inspect the returned string for error text rather than wrapping `run()` in try/catch |
 | **History Tracking** | Use `track_history()` for monitoring swarm execution |
 | **Resource Management** | Set appropriate `max_loops` to prevent infinite execution |
 | **Logging** | Enable verbose mode during development for detailed logging |

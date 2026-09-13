@@ -108,6 +108,7 @@ research_team = HierarchicalSwarm(
     description="Autonomous research team for comprehensive analysis",
     agents=[researcher_agent, data_analyst, critical_analyst, report_writer],
     max_loops=1,
+    output_type="final",  # return the final report as a string
 )
 
 # Execute research project
@@ -171,7 +172,7 @@ researcher_agent = Agent(
     agent_name="Primary-Researcher",
     # ... other params
     max_loops=3,  # Allow multiple research iterations
-    stopping_condition="research is comprehensive",
+    stopping_condition=lambda response: "research is comprehensive" in response.lower(),
 )
 ```
 
@@ -197,17 +198,16 @@ report_writer = Agent(
 
 ### Add Memory for Long Projects
 
+Set `persistent_memory=True` so the researcher picks up where it left off across
+sessions. Memory is keyed by `agent_name` and stored in `MEMORY.md` under the
+workspace directory.
+
 ```python
-from swarms.memory import ChromaDB
-
-memory = ChromaDB(
-    output_dir="research_memory",
-    n_results=5,
-)
-
 researcher_agent = Agent(
     agent_name="Primary-Researcher",
-    long_term_memory=memory,
+    persistent_memory=True,   # off by default; opt in explicitly
+    context_compression=True, # summarize when nearing the context limit
+    context_length=32000,
     # ... other params
 )
 ```
@@ -250,7 +250,7 @@ results = [parallel_research.run(topic) for topic in topics]
 researcher_agent = Agent(
     agent_name="Primary-Researcher",
     # ... other params
-    cache_enabled=True,  # Reuse similar research queries
+    prompt_caching=True,  # Enable provider-side prompt caching
 )
 ```
 

@@ -22,7 +22,7 @@ from swarms import Agent
 agent = Agent(
     agent_name="Terminal-Agent",
     agent_description="Agent that can run bash commands on the terminal",
-    model_name="anthropic/claude-sonnet-4-5",
+    model_name="anthropic/claude-sonnet-4-6",
     max_loops="auto",
     dynamic_context_window=True,
     selected_tools=[
@@ -63,7 +63,7 @@ Commands run in the agent’s workspace directory when available. Stdout and std
 A full runnable example is in the repo:
 
 ```
-examples/single_agent/full_autonomy/example_autonomous_looper_run_bash.py
+examples/single_agent/capabilities/autonomy/autonomous_agents/example_autonomous_looper_run_bash.py
 ```
 
 ## See also

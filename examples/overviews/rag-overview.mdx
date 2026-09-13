@@ -4,14 +4,14 @@ description: 'Retrieval-augmented generation patterns and examples built with Sw
 icon: 'database'
 ---
 
-Enhance your agents with Retrieval-Augmented Generation (RAG). Connect to vector databases and knowledge bases to give agents access to your custom data.
+Enhance your agents with Retrieval-Augmented Generation (RAG). Swarms does not bundle a vector database — you wire your own retrieval code into an agent as a [tool](/agents/agent-tools), which keeps you free to use any store you already run.
 
 ## What You'll Learn
 
 | Topic | Description |
 |-------|-------------|
 | **RAG Fundamentals** | Understanding retrieval-augmented generation |
-| **Vector Databases** | Connecting to Qdrant, Pinecone, and more |
+| **Retrieval Tools** | Exposing your own store to an agent as a callable tool |
 | **Document Processing** | Ingesting and indexing documents |
 | **Semantic Search** | Finding relevant context for queries |
 
@@ -21,7 +21,9 @@ Enhance your agents with Retrieval-Augmented Generation (RAG). Connect to vector
 
 | Example | Description | Vector DB | Link |
 |---------|-------------|-----------|------|
-| **RAG with Qdrant** | Complete RAG implementation with Qdrant | Qdrant | [View Example](/agents/agent-memory) |
+| **Full Agent RAG** | End-to-end retrieval and generation over a document folder | LlamaIndex | [View Example](https://github.com/kyegomez/swarms/blob/master/examples/single_agent/capabilities/rag/full_agent_rag_example.py) |
+| **Qdrant Agent** | Agent backed by a Qdrant collection | Qdrant | [View Example](https://github.com/kyegomez/swarms/blob/master/examples/single_agent/capabilities/rag/qdrant_agent.py) |
+| **Pinecone** | Semantic search over a Pinecone index | Pinecone | [View Example](https://github.com/kyegomez/swarms/blob/master/examples/single_agent/capabilities/rag/pinecone_example.py) |
 
 ---
 
@@ -39,5 +41,6 @@ Enhance your agents with Retrieval-Augmented Generation (RAG). Connect to vector
 
 ## Related Resources
 
-- [Memory Documentation](/agents/agent-memory) - Building custom memory
-- [Agent Long-term Memory](/api/agent#long-term-memory) - Agent memory configuration
+- [Agent Memory](/agents/agent-memory) - Persistent memory, compression, and conversation history
+- [External Knowledge](/agents/agent-memory#external-knowledge) - Wiring a retrieval tool into an agent
+- [Agent Tools](/agents/agent-tools) - The tool interface retrieval code plugs into

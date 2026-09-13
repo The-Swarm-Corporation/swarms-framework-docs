@@ -1,0 +1,183 @@
+---
+title: 'Building Agents with Ollama'
+description: 'Run Swarms agents on local models with Ollama — no API key, no per-token cost, fully offline.'
+icon: 'house'
+---
+
+[Ollama](https://ollama.ai) runs large language models locally on your own machine. It's the right pick for privacy-sensitive workloads, offline development, and zero-cost experimentation.
+
+## Installation
+
+Install Ollama from [ollama.ai](https://ollama.ai), then install Swarms:
+
+```bash
+pip install -U swarms ollama
+```
+
+Pull a model:
+
+```bash
+ollama pull llama3.2
+ollama pull qwen2.5
+ollama pull mistral
+```
+
+## Environment Setup
+
+**No API key required.** Ollama runs entirely on your machine. By default it listens on `http://localhost:11434`.
+
+If you're running Ollama on a different host:
+
+```bash
+export OLLAMA_API_BASE="http://your-host:11434"
+```
+
+## Quick Start
+
+Every Ollama model uses the `ollama/` prefix:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Local-Agent",
+    model_name="ollama/llama3.2",
+    max_loops=1,
+)
+
+print(agent.run("Summarize how diffusion models work in three paragraphs."))
+```
+
+## Model Names
+
+Any model you have pulled in Ollama is usable. Common choices:
+
+| Model | `model_name` | Notes |
+|---|---|---|
+| Llama 3.2 | `"ollama/llama3.2"` | Meta's latest small Llama (3B / 1B) |
+| Llama 3.3 70B | `"ollama/llama3.3"` | Frontier Meta open model |
+| Qwen 2.5 | `"ollama/qwen2.5"` | Strong open model from Alibaba |
+| Mistral | `"ollama/mistral"` | Fast 7B European model |
+| Phi 3 | `"ollama/phi3"` | Microsoft's small but capable model |
+| DeepSeek R1 | `"ollama/deepseek-r1"` | Local R1 distillation |
+| Code Llama | `"ollama/codellama"` | Code-specialized Llama |
+
+Run `ollama list` to see what you have installed locally.
+
+## Tool Use
+
+Modern Ollama models (Llama 3+, Qwen 2.5+) support function calling:
+
+```python
+from swarms import Agent
+
+def get_weather(city: str) -> str:
+    """Return the current weather for a city."""
+    return f"{city}: 21°C, partly cloudy"
+
+agent = Agent(
+    agent_name="Local-Assistant",
+    model_name="ollama/llama3.2",
+    tools=[get_weather],
+    max_loops=3,
+)
+
+print(agent.run("What's the weather in Tokyo right now?"))
+```
+
+## Streaming
+
+Streaming works the same as any other provider:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Streaming-Ollama",
+    model_name="ollama/llama3.2",
+    streaming_on=True,
+    max_loops=1,
+)
+
+agent.run("Walk me through how garbage collection works in modern JVMs.")
+```
+
+## Privacy-First Workflows
+
+Because nothing leaves your machine, Ollama is ideal for processing sensitive data:
+
+```python
+from swarms import Agent
+
+medical_agent = Agent(
+    agent_name="Local-Medical-Summarizer",
+    model_name="ollama/llama3.3",
+    system_prompt=(
+        "You are a medical document summarizer. Extract diagnoses, medications, "
+        "and follow-up actions. Do not invent details not present in the source."
+    ),
+    max_loops=1,
+)
+
+with open("patient_chart.txt") as f:
+    chart = f.read()
+
+summary = medical_agent.run(f"Summarize this chart:\n\n{chart}")
+print(summary)
+```
+
+## Multi-Agent on Local Hardware
+
+You can run multi-agent setups entirely locally — useful for offline R&D:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="ollama/llama3.3",
+    system_prompt="Research thoroughly. Stick to what's in your training data.",
+    max_loops=1,
+)
+
+writer = Agent(
+    agent_name="Writer",
+    model_name="ollama/qwen2.5",
+    system_prompt="Write a clear executive summary.",
+    max_loops=1,
+)
+
+pipeline = SequentialWorkflow(agents=[researcher, writer], max_loops=1)
+print(pipeline.run("Compare actor-model concurrency in Erlang, Akka, and Elixir."))
+```
+
+## Performance Tips
+
+- **Use quantized models** — `ollama/llama3.3:8b-instruct-q4_K_M` runs much faster than the full-precision version on consumer hardware.
+- **Set `context_length` honestly** — local models have small effective context windows. `8192` or `16384` is realistic for most setups.
+- **One agent at a time on a single GPU** — concurrent agents on the same machine will queue at the inference engine.
+
+## Production Defaults
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Production-Ollama",
+    model_name="ollama/llama3.3",
+    max_loops=1,
+    persistent_memory=True,
+    context_compression=True,
+    context_length=16_384,
+    autosave=True,
+    retry_attempts=3,
+    print_on=False,
+)
+```
+
+## Next Steps
+
+- [Building Agents with vLLM](/examples/model-providers/vllm) — production self-hosting at scale
+- [Building Agents with Cerebras](/examples/model-providers/cerebras) — fastest hosted open models
+- [Building Agents with Groq](/examples/model-providers/groq) — fast hosted open models
+- [Model Providers Overview](/integrations/model-providers)

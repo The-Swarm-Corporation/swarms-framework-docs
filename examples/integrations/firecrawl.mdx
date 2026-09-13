@@ -43,7 +43,7 @@ from swarms_tools import crawl_entire_site_firecrawl
 
 agent = Agent(
     agent_name="Marketing Copy Improver",
-    model_name="gpt-4.1",
+    model_name="gpt-5.4",
     tools=[crawl_entire_site_firecrawl],
     dynamic_context_window=True,
     dynamic_temperature_enabled=True,
@@ -72,7 +72,7 @@ print(out)
 The agent will call the Firecrawl tool, receive structured page content, and return rewritten copy — all within a single `run()` call.
 
 <Note>
-  Source: [docs/developer_guides/firecrawl.md](https://github.com/kyegomez/swarms/blob/master/docs/developer_guides/firecrawl.md)
+  Source: [examples/tools/firecrawl/firecrawl_agents_example.py](https://github.com/kyegomez/swarms/blob/master/examples/tools/firecrawl/firecrawl_agents_example.py)
 </Note>
 
 ## See also
