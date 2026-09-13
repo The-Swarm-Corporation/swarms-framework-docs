@@ -631,6 +631,7 @@ class CustomToolManager(BaseTool):
         
     def load_tools_from_directory(self, directory: str):
         """Load all Python functions from a directory as tools."""
+        import os
         import importlib.util
         import inspect
         
