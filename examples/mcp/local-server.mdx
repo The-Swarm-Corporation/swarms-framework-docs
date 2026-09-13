@@ -68,8 +68,12 @@ export OPENAI_API_KEY="sk-..."
             return f"Could not find data for {coin_id}. Please check the ID."
 
         price = data[coin_id]["usd"]
-        change_24h = data[coin_id].get("usd_24h_change", "N/A")
-        return f"Current price of {coin_id.capitalize()}: ${price:,.2f}\n24h Change: {change_24h:.2f}%"
+        change_24h = data[coin_id].get("usd_24h_change")
+        change_text = f"{change_24h:.2f}%" if change_24h is not None else "N/A"
+        return (
+            f"Current price of {coin_id.capitalize()}: ${price:,.2f}\n"
+            f"24h Change: {change_text}"
+        )
 
 
     if __name__ == "__main__":
@@ -77,6 +81,8 @@ export OPENAI_API_KEY="sk-..."
     ```
 
     Return a **string**, and make errors part of that string. An agent can reason about "Could not find data for bitcion"; it cannot reason about a traceback.
+
+    The 24-hour change can be `null` or absent. Format it only when it has a value, and return `N/A` otherwise. Check for `None` explicitly so a reported zero still appears as `0.00%`.
   </Step>
 
   <Step title="Run it">
