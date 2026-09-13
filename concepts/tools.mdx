@@ -381,7 +381,8 @@ def call_api(
     endpoint: str,
     method: str = "GET",
     params: Dict[str, Any] = None,
-    data: Dict[str, Any] = None
+    data: Dict[str, Any] = None,
+    timeout: float = 10.0,
 ) -> Dict[str, Any]:
     """
     Make an API call to an external service.
@@ -391,16 +392,24 @@ def call_api(
         method (str): HTTP method (GET, POST, etc.)
         params (dict): Query parameters
         data (dict): Request body data
+        timeout (float): Request timeout in seconds. Defaults to 10.0.
         
     Returns:
         dict: API response as dictionary
+        
+    Raises:
+        requests.HTTPError: If the HTTP request returned an unsuccessful status code (4xx, 5xx)
+        requests.Timeout: If the request timed out
+        requests.RequestException: For other network or request errors
     """
     response = requests.request(
         method=method,
         url=endpoint,
         params=params,
-        json=data
+        json=data,
+        timeout=timeout,
     )
+    response.raise_for_status()
     return response.json()
 ```
 
