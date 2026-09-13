@@ -59,6 +59,7 @@ TASK = "Audit a Python codebase for security vulnerabilities and write up the fi
 
 def design_roster() -> list[dict]:
     """Call the builder once and cache the result to disk."""
+    ROSTER_FILE.parent.mkdir(parents=True, exist_ok=True)
     configs = AutoAgentBuilder(num_agents=3, return_dict=True).run(TASK)
     ROSTER_FILE.write_text(json.dumps(configs, indent=2))
     return configs
@@ -137,6 +138,7 @@ ROSTER_FILE = Path("roster.json")
 
 
 def design_roster() -> list[dict]:
+    ROSTER_FILE.parent.mkdir(parents=True, exist_ok=True)
     configs = AutoAgentBuilder(num_agents=3, return_dict=True).run(TASK)
     ROSTER_FILE.write_text(json.dumps(configs, indent=2))
     print(f"Designed {len(configs)} agents -> {ROSTER_FILE}")
@@ -184,6 +186,8 @@ ROSTER_FILE = Path(f"rosters/{task_id}.json")
 ```
 
 Keeping one file per task lets you regenerate a single roster without disturbing the others.
+
+Both `design_roster()` examples create the parent directory before calling the builder. This lets the first run save to a new `rosters/` folder instead of raising `FileNotFoundError` after generating the team.
 
 ---
 
