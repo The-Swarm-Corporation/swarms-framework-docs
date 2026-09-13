@@ -244,23 +244,33 @@ from swarms.prompts import DOCUMENTATION_WRITER_SOP
 
 ### Autonomous Agent Prompts
 
-#### AUTONOMOUS_AGENT_SYSTEM_PROMPT
+#### autonomous_agent_system_prompt
 
-Base system prompt for autonomous agents.
+Base system prompt for autonomous agents. Generates the system prompt dynamically with the current timestamp. Also available under the `AUTONOMOUS_AGENT_SYSTEM_PROMPT` alias.
 
 ```python
-from swarms.prompts import AUTONOMOUS_AGENT_SYSTEM_PROMPT
+from swarms.prompts import autonomous_agent_system_prompt
+
+prompt = autonomous_agent_system_prompt()
 ```
 
 #### get_autonomous_agent_prompt
 
-Generate an autonomous agent prompt.
+Generate an autonomous agent prompt with optional think-tool guidance.
 
 ```python
 from swarms.prompts import get_autonomous_agent_prompt
 
+# Standard prompt (think tool disabled by default)
 prompt = get_autonomous_agent_prompt()
+
+# Explicitly enable think-tool instructions
+prompt_with_think = get_autonomous_agent_prompt(include_think_tool=True)
 ```
+
+<ParamField path="include_think_tool" type="bool" default="False">
+  Whether the `think` tool is available to the agent. When `False`, an override is appended instructing the model to reason inline instead.
+</ParamField>
 
 #### get_autonomous_agent_prompt_with_context
 
@@ -383,7 +393,7 @@ from swarms.prompts import Prompt, FINANCE_AGENT_PROMPT
 agent1 = Agent(
     agent_name="Financial-Analyst",
     system_prompt=FINANCE_AGENT_PROMPT,
-    model_name="gpt-4"
+    model_name="gpt-5.4"
 )
 
 # Using custom Prompt class
@@ -396,6 +406,6 @@ custom_prompt = Prompt(
 agent2 = Agent(
     agent_name="Quant-Analyst",
     system_prompt=custom_prompt.get_prompt(),
-    model_name="gpt-4"
+    model_name="gpt-5.4"
 )
 ```
