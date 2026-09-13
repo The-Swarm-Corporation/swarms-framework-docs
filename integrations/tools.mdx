@@ -401,6 +401,10 @@ print(f"Has type hints: {has_hints}")
 
 ### Dynamic Tool Generation
 
+Give each generated function a unique name and a real docstring before registering
+it. `BaseTool` uses `__name__` for the callable lookup and `__doc__` for the tool
+description. An f-string inside a function is not a Python docstring.
+
 ```python
 from swarms.tools import BaseTool
 
@@ -411,7 +415,7 @@ class DynamicToolManager:
     def create_tool_from_api(self, api_name: str) -> callable:
         """Generate a tool from API specification."""
         def api_tool(endpoint: str, params: dict) -> dict:
-            f"""
+            """
             Call {api_name} API.
             
             Args:
@@ -424,6 +428,8 @@ class DynamicToolManager:
             # API call logic here
             return {"api": api_name, "endpoint": endpoint}
         
+        api_tool.__name__ = f"call_{api_name}_api"
+        api_tool.__doc__ = api_tool.__doc__.replace("{api_name}", api_name)
         return api_tool
     
     def register_api_tools(self, apis: list[str]):
@@ -434,7 +440,16 @@ class DynamicToolManager:
         
 manager = DynamicToolManager()
 manager.register_api_tools(["stripe", "sendgrid", "twilio"])
+
+# Each API remains separately addressable after schema conversion.
+print(sorted(manager.tool_manager.function_map))
+# ['call_sendgrid_api', 'call_stripe_api', 'call_twilio_api']
 ```
+
+Use distinct API identifiers made of letters, digits, or underscores for this
+naming pattern. Without unique names, all three closures are called `api_tool`,
+so later entries overwrite earlier ones in the callable lookup. The function
+bodies here are placeholders; registering them does not call an external API.
 
 ### Tool Composition
 
