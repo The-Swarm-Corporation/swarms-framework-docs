@@ -263,41 +263,63 @@ for rec in portfolio['recommendations']:
 
 ### Field Validation
 
+To ensure structured responses conform to strict schema requirements and cross-field business logic, define constraints and validators using Pydantic v2.
+
+<Note>
+  `list_base_models` and `tool_schema` instruct the LLM on the target JSON schema. Because models can occasionally return malformed syntax, omit keys, or fail business rules, pair `output_type="final"` with `model_validate_json()` on the application side to catch and handle `ValidationError` exceptions cleanly.
+</Note>
+
 ```python
-from pydantic import BaseModel, Field, validator
 from typing import List
+from pydantic import BaseModel, Field, ValidationError, model_validator
+from swarms import Agent
 
 class FinancialReport(BaseModel):
-    quarter: str = Field(pattern="^Q[1-4] 20[0-9]{2}$")
+    quarter: str = Field(pattern=r"^Q[1-4] 20[0-9]{2}$", description="Quarter and year, e.g., 'Q4 2024'")
     revenue: float = Field(gt=0, description="Revenue in millions")
     expenses: float = Field(gt=0, description="Total expenses in millions")
     profit_margin: float = Field(ge=0, le=100, description="Profit margin percentage")
     key_metrics: dict
-    recommendations: List[str] = Field(min_items=1, max_items=10)
-    
-    @validator('expenses')
-    def expenses_less_than_revenue(cls, v, values):
-        if 'revenue' in values and v >= values['revenue']:
-            raise ValueError('Expenses should be less than revenue for profitable quarter')
-        return v
+    recommendations: List[str] = Field(min_length=1, max_length=10, description="Strategic recommendations")
+
+    @model_validator(mode="after")
+    def expenses_less_than_revenue(self) -> "FinancialReport":
+        if self.expenses >= self.revenue:
+            raise ValueError("Expenses must be less than revenue for a profitable quarter")
+        return self
 
 agent = Agent(
     agent_name="Financial-Reporter",
     model_name="claude-sonnet-4-6",
     list_base_models=[FinancialReport],
+    output_type="final",  # Return raw final message text for schema parsing
 )
 
-report = agent.run(
+response = agent.run(
     "Create a financial report for Q4 2024 based on revenue of $100M"
 )
+
+# Parse and validate the response into the typed Pydantic model
+try:
+    report = FinancialReport.model_validate_json(response)
+    print(f"Quarter: {report.quarter}")
+    print(f"Revenue: ${report.revenue}M")
+    print(f"Expenses: ${report.expenses}M")
+    print(f"Profit Margin: {report.profit_margin}%")
+    print(f"Recommendations: {', '.join(report.recommendations)}")
+except ValidationError as e:
+    print(f"Validation failed: {e}")
 ```
 
 ### Enums and Choices
 
+Use standard Python `Enum` classes with Pydantic to constrain agent output fields to predetermined discrete values:
+
 ```python
-from pydantic import BaseModel, Field
 from enum import Enum
 from typing import List
+from pydantic import BaseModel, ValidationError
+from swarms import Agent
 
 class Priority(str, Enum):
     LOW = "low"
@@ -335,11 +357,15 @@ result = agent.run(
     """
 )
 
-import json
-bug = json.loads(result)
-
-print(f"Priority: {bug['priority']}")
-print(f"Status: {bug['status']}")
+# Parse and validate against the schema to enforce enum constraints
+try:
+    bug = Bug.model_validate_json(result)
+    print(f"Title: {bug.title}")
+    print(f"Priority: {bug.priority.value}")
+    print(f"Status: {bug.status.value}")
+    print(f"Affected Components: {', '.join(bug.affected_components)}")
+except ValidationError as e:
+    print(f"Invalid bug report: {e}")
 ```
 
 ## Output Processing
@@ -415,14 +441,17 @@ agent = Agent(
 
 response = agent.run("Write an article about renewable energy")
 
-# `response` is a plain string (the model's final text). If the model
-# complied with the Article schema, parse it and validate with Pydantic:
-import json
-data = json.loads(response)
-article = Article(**data)
-print(f"Title: {article.title}")
-print(f"Summary: {article.summary}")
-print(f"Key points: {', '.join(article.key_points)}")
+# `response` is a plain string containing the final JSON payload.
+# Validate directly with Pydantic v2 model_validate_json:
+from pydantic import ValidationError
+
+try:
+    article = Article.model_validate_json(response)
+    print(f"Title: {article.title}")
+    print(f"Summary: {article.summary}")
+    print(f"Key points: {', '.join(article.key_points)}")
+except ValidationError as e:
+    print(f"Failed to parse article: {e}")
 ```
 
 ### Function Calling Response
