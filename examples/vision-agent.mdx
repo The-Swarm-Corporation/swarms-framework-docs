@@ -390,8 +390,9 @@ def validate_image(image_path: str) -> bool:
         return False
     
     try:
-        img = Image.open(image_path)
-        width, height = img.size
+        with Image.open(image_path) as img:
+            width, height = img.size
+            img.verify()
         
         # Check minimum resolution
         if width < 512 or height < 512:
