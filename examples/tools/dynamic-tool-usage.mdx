@@ -341,7 +341,7 @@ agent = Agent(
     model_name="gpt-5.4",
     mcp_url=f"https://mcp.exa.ai/mcp?exaApiKey={EXA_API_KEY}",
     # Deferred tools need three turns: search, call, then answer.
-    max_loops=2,
+    max_loops=3,
     dynamic_tools=True,
     output_type="json",
 )
@@ -351,7 +351,7 @@ print(out)
 ```
 
 <Warning>
-With `max_loops=1` the model can search but never call what it found. Either raise `max_loops`, or set `dynamic_tools=False` so the schema ships on turn one.
+With `max_loops=1` the model can search but never call what it found; with `max_loops=2` it can execute the call but exhausts loops before delivering the final response. Set `max_loops=3` (or higher), or set `dynamic_tools=False` so the tool schema is loaded eagerly on turn one.
 </Warning>
 
 ## The Autonomous Loop
