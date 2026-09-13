@@ -442,23 +442,28 @@ print(f"Full response logged to: {logger.log_file}")
 
 ### 1. Buffer Management
 
+The buffer counts callback chunks, which can contain more than one character. Flush it after the run to print the final partial batch. The `finally` block also preserves received chunks if the run raises an exception.
+
 ```python
+from swarms import Agent
+
+
 def buffered_callback(min_chunk_size: int = 10):
-    """
-    Buffer tokens before processing
-    """
+    """Return a streaming callback and a function to flush pending chunks."""
     buffer = []
-    
+
+    def flush():
+        if buffer:
+            print("".join(buffer), end="", flush=True)
+            buffer.clear()
+
     def callback(token: str):
         buffer.append(token)
-        
-        # Process when buffer reaches minimum size
         if len(buffer) >= min_chunk_size:
-            chunk = "".join(buffer)
-            print(chunk, end="", flush=True)
-            buffer.clear()
-    
-    return callback
+            flush()
+
+    return callback, flush
+
 
 agent = Agent(
     model_name="gpt-5.4",
@@ -466,10 +471,14 @@ agent = Agent(
     print_on=False,
 )
 
-response = agent.run(
-    task="Generate report",
-    streaming_callback=buffered_callback(min_chunk_size=20),
-)
+callback, flush = buffered_callback(min_chunk_size=20)
+try:
+    response = agent.run(
+        task="Generate report",
+        streaming_callback=callback,
+    )
+finally:
+    flush()
 ```
 
 ### 2. Error Handling
