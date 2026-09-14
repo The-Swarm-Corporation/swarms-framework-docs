@@ -308,23 +308,29 @@ response = agent.run(
 
 ### 1. WebSocket Integration
 
+Use the `websockets.asyncio` API (`websockets>=13`). Run
+the synchronous agent in a worker thread so the server can send tokens while
+generation is still in progress. Each callback waits for its send to finish,
+so the completion message follows all token messages.
+
 ```python
 import asyncio
-import websockets
+import json
+from websockets.asyncio.server import serve
 from swarms import Agent
 
-class WebSocketStreamer:
-    def __init__(self, websocket):
-        self.websocket = websocket
-    
-    async def send_token(self, token: str):
-        """Send token to WebSocket client"""
-        await self.websocket.send(json.dumps({
+
+async def handle_client(websocket):
+    loop = asyncio.get_running_loop()
+
+    def send_token(token: str):
+        """Called from the agent's worker thread, not the event loop."""
+        pending = asyncio.run_coroutine_threadsafe(websocket.send(json.dumps({
             "type": "token",
             "content": token,
-        }))
+        })), loop)
+        pending.result()  # Backpressure: wait before producing the next token.
 
-async def handle_client(websocket, path):
     # Create agent
     agent = Agent(
         model_name="gpt-5.4",
@@ -332,15 +338,11 @@ async def handle_client(websocket, path):
         print_on=False,
     )
     
-    # Create streamer
-    streamer = WebSocketStreamer(websocket)
-    
-    # Stream to WebSocket
-    response = agent.run(
+    # Keep the event loop available for WebSocket I/O.
+    response = await asyncio.to_thread(
+        agent.run,
         task="Generate analysis",
-        streaming_callback=lambda token: asyncio.create_task(
-            streamer.send_token(token)
-        ),
+        streaming_callback=send_token,
     )
     
     # Send completion
@@ -349,9 +351,13 @@ async def handle_client(websocket, path):
         "content": response,
     }))
 
-# Start WebSocket server
-start_server = websockets.serve(handle_client, "localhost", 8765)
-asyncio.get_event_loop().run_until_complete(start_server)
+async def main():
+    async with serve(handle_client, "localhost", 8765) as server:
+        await server.serve_forever()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ### 2. Progress Bar Integration
