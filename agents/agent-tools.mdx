@@ -85,7 +85,7 @@ def search_web(query: str) -> str:  # ❌ No docstring
 ```python
 def calculate(expression: str) -> float:
     """
-    Calculate a mathematical expression.
+    Calculate finite numbers with +, -, *, /, parentheses, and unary signs.
     
     Args:
         expression: A mathematical expression like '2 + 2'
@@ -93,7 +93,37 @@ def calculate(expression: str) -> float:
     Returns:
         The result of the calculation
     """
-    return eval(expression)  # Use a safe evaluator in production
+    import ast
+    import math
+    import operator
+
+    if len(expression) > 200:
+        raise ValueError("Expression must be at most 200 characters")
+    tree = ast.parse(expression.strip(), mode="eval")
+    if sum(1 for _ in ast.walk(tree)) > 64:
+        raise ValueError("Expression is too complex")
+    operations = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+    }
+
+    def evaluate(node):
+        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+            result = float(node.value)
+        elif isinstance(node, ast.BinOp) and type(node.op) in operations:
+            result = operations[type(node.op)](evaluate(node.left), evaluate(node.right))
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            value = evaluate(node.operand)
+            result = -value if isinstance(node.op, ast.USub) else value
+        else:
+            raise ValueError("Only numeric arithmetic is supported")
+        if not math.isfinite(result):
+            raise ValueError("Result must be finite")
+        return result
+
+    return evaluate(tree.body)
 
 def get_time(timezone: str = "UTC") -> str:
     """
