@@ -298,9 +298,9 @@ Researcher ───┤              ├──→ Reviewer → Final Output
 from swarms import Agent, MixtureOfAgents
 
 # Expert agents
-expert1 = Agent(agent_name="Financial-Expert", ...)
-expert2 = Agent(agent_name="Market-Expert", ...)
-expert3 = Agent(agent_name="Risk-Expert", ...)
+expert1 = Agent(agent_name="Financial-Expert", system_prompt="Analyze financial performance.")
+expert2 = Agent(agent_name="Market-Expert", system_prompt="Analyze market conditions.")
+expert3 = Agent(agent_name="Risk-Expert", system_prompt="Identify investment risks.")
 
 # Aggregator synthesizes expert opinions
 aggregator = Agent(
@@ -329,9 +329,9 @@ recommendation = moa.run("Should we invest in NVIDIA stock?")
 ```python
 from swarms import Agent, HierarchicalSwarm
 
-worker1 = Agent(agent_name="Content-Strategist", ...)
-worker2 = Agent(agent_name="Creative-Director", ...)
-worker3 = Agent(agent_name="SEO-Specialist", ...)
+worker1 = Agent(agent_name="Content-Strategist", system_prompt="Plan the content strategy.")
+worker2 = Agent(agent_name="Creative-Director", system_prompt="Direct the creative approach.")
+worker3 = Agent(agent_name="SEO-Specialist", system_prompt="Optimize content for search.")
 
 # Director coordinates workers
 swarm = HierarchicalSwarm(
@@ -519,10 +519,10 @@ article = pipeline.run("The future of renewable energy")
 # Concurrent workflow for multi-perspective analysis
 analysis_team = ConcurrentWorkflow(
     agents=[
-        Agent(agent_name="Fundamental-Analyst", ...),
-        Agent(agent_name="Technical-Analyst", ...),
-        Agent(agent_name="Sentiment-Analyst", ...),
-        Agent(agent_name="Macro-Analyst", ...),
+        Agent(agent_name="Fundamental-Analyst", system_prompt="Analyze company fundamentals."),
+        Agent(agent_name="Technical-Analyst", system_prompt="Analyze price and volume trends."),
+        Agent(agent_name="Sentiment-Analyst", system_prompt="Analyze market sentiment."),
+        Agent(agent_name="Macro-Analyst", system_prompt="Analyze macroeconomic conditions."),
     ],
     show_dashboard=True,
 )
