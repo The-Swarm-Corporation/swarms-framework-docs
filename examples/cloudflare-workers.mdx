@@ -93,15 +93,15 @@ Cron triggers are configured in `wrangler.jsonc`:
 }
 ```
 
-Common patterns:
+Common patterns (UTC):
 
 | Cron | Schedule |
 |---|---|
-| `0 9 * * 1-5` | 9 AM weekdays |
+| `0 9 * * MON-FRI` | 9 AM UTC, Monday through Friday |
 | `0 */6 * * *` | Every 6 hours |
-| `0 0 * * *` | Daily at midnight |
+| `0 0 * * *` | Daily at midnight UTC |
 
-Use [crontab.guru](https://crontab.guru/) to validate expressions.
+Cloudflare numbers weekdays from 1 (Sunday) to 7 (Saturday), so `1-5` runs Sunday through Thursday. Use day names to avoid differences from Unix cron. Triggers run in UTC, not your local time zone. Check the [Cloudflare cron expression reference](https://developers.cloudflare.com/workers/configuration/cron-triggers/#supported-cron-expressions) when choosing a schedule.
 
 ## Step 4: Run locally
 
