@@ -79,26 +79,36 @@ def get_properties(postal_code: str, min_price: int, max_price: int, limit: int 
 
     payload = json.dumps(payload_dict)
 
-    conn = http.client.HTTPSConnection("realty-in-us.p.rapidapi.com")
+    api_key = os.getenv("RAPIDAPI_KEY")
+    if not api_key:
+        return json.dumps({"error": "RAPIDAPI_KEY is not configured."})
+
+    conn = http.client.HTTPSConnection("realty-in-us.p.rapidapi.com", timeout=30)
     headers = {
-        "x-rapidapi-key": os.getenv("RAPIDAPI_KEY"),
+        "x-rapidapi-key": api_key,
         "x-rapidapi-host": "realty-in-us.p.rapidapi.com",
         "Content-Type": "application/json"
     }
 
-    conn.request("POST", "/properties/v3/list", payload, headers)
-    res = conn.getresponse()
-    data = res.read()
-    decoded = data.decode("utf-8")
     try:
-        result_dict = json.loads(decoded)
-    except Exception:
-        return decoded
-    props_data = (
-        result_dict.get("data", {})
-        .get("home_search", {})
-        .get("results", [])
-    )
+        conn.request("POST", "/properties/v3/list", payload, headers)
+        res = conn.getresponse()
+        if not 200 <= res.status < 300:
+            return json.dumps({"error": f"Property API returned HTTP {res.status}."})
+        result_dict = json.loads(res.read().decode("utf-8"))
+    except (OSError, http.client.HTTPException):
+        return json.dumps({"error": "Property API request failed; retry later."})
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return json.dumps({"error": "Property API returned invalid JSON."})
+    finally:
+        conn.close()
+
+    try:
+        props_data = result_dict["data"]["home_search"]["results"]
+    except (KeyError, TypeError):
+        return json.dumps({"error": "Property API returned an unexpected response."})
+    if not isinstance(props_data, list):
+        return json.dumps({"error": "Property API returned an unexpected response."})
     if not props_data:
         return json.dumps({"error": "No properties found for that query."})
     return json.dumps(props_data[:limit])
