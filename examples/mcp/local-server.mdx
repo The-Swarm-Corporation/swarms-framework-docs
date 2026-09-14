@@ -58,7 +58,7 @@ export OPENAI_API_KEY="sk-..."
         )
 
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=(3.05, 10))
             response.raise_for_status()
             data = response.json()
         except requests.exceptions.RequestException as e:
@@ -77,6 +77,8 @@ export OPENAI_API_KEY="sk-..."
     ```
 
     Return a **string**, and make errors part of that string. An agent can reason about "Could not find data for bitcion"; it cannot reason about a traceback.
+
+    Set connection and read timeouts so an unresponsive upstream does not leave the tool waiting indefinitely. The tuple above allows 3.05 seconds to connect and 10 seconds of read inactivity. These are not a total wall-clock deadline. A timeout is handled by the existing `RequestException` branch and returned as a tool error string.
   </Step>
 
   <Step title="Run it">
