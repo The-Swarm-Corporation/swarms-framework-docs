@@ -308,51 +308,67 @@ response = agent.run(
 
 ### 1. WebSocket Integration
 
+Use the current asyncio API (`pip install "websockets>=14,<18"`). Run the synchronous agent in a worker thread so token delivery can continue on the event loop.
+
 ```python
 import asyncio
-import websockets
+import json
+from websockets.asyncio.server import serve
+from websockets.exceptions import ConnectionClosed
 from swarms import Agent
 
-class WebSocketStreamer:
-    def __init__(self, websocket):
-        self.websocket = websocket
-    
-    async def send_token(self, token: str):
-        """Send token to WebSocket client"""
-        await self.websocket.send(json.dumps({
-            "type": "token",
-            "content": token,
+
+async def handle_client(websocket):
+    loop = asyncio.get_running_loop()
+
+    def send_token(token: str):
+        # Called by the synchronous agent in the worker thread.
+        pending = asyncio.run_coroutine_threadsafe(
+            websocket.send(json.dumps({"type": "token", "content": token})),
+            loop,
+        )
+        try:
+            pending.result(timeout=30)
+        except TimeoutError:
+            pending.cancel()
+            raise
+
+    def generate():
+        agent = Agent(
+            model_name="gpt-5.4",
+            streaming_on=True,
+            print_on=False,
+        )
+        return agent.run(
+            task="Generate analysis",
+            streaming_callback=send_token,
+        )
+
+    try:
+        response = await asyncio.to_thread(generate)
+        await websocket.send(json.dumps({
+            "type": "complete",
+            "content": response,
         }))
+    except ConnectionClosed:
+        return
+    except Exception:
+        # Close with a server-error code instead of reporting false completion.
+        await websocket.close(code=1011, reason="Generation failed")
 
-async def handle_client(websocket, path):
-    # Create agent
-    agent = Agent(
-        model_name="gpt-5.4",
-        streaming_on=True,
-        print_on=False,
-    )
-    
-    # Create streamer
-    streamer = WebSocketStreamer(websocket)
-    
-    # Stream to WebSocket
-    response = agent.run(
-        task="Generate analysis",
-        streaming_callback=lambda token: asyncio.create_task(
-            streamer.send_token(token)
-        ),
-    )
-    
-    # Send completion
-    await websocket.send(json.dumps({
-        "type": "complete",
-        "content": response,
-    }))
 
-# Start WebSocket server
-start_server = websockets.serve(handle_client, "localhost", 8765)
-asyncio.get_event_loop().run_until_complete(start_server)
+async def main():
+    async with serve(handle_client, "localhost", 8765) as server:
+        await server.serve_forever()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
+
+Each callback waits for its send before returning, so token frames precede the completion frame and a slow client applies backpressure. Never call this blocking callback directly on the event-loop thread. The handler takes one connection argument and the server starts inside a running event loop.
+
+This local example does not forcibly cancel an in-flight provider request when the client disconnects: Python cannot stop a running worker thread. Configure provider timeouts for your deployment. A failed send or generation closes the connection rather than sending a successful completion. Add authentication and deployment limits before exposing the service publicly.
 
 ### 2. Progress Bar Integration
 
