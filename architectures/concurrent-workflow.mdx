@@ -277,10 +277,14 @@ history = workflow.conversation.conversation_history
 
 Supported output formats:
 
-- `"dict-all-except-first"`: Dictionary excluding initial user message
-- `"dict"`: Complete conversation dictionary
-- `"str"`: Concatenated string output
-- `"list"`: List of all messages
+- `"dict-all-except-first"`: List of message dictionaries excluding the initial user task; keeps all agent replies on a fresh run
+- `"dict"`: List of all stored message dictionaries, including the user task
+- `"str"`: Rendered conversation text
+- `"list"`: List of all messages projected to `role` and `content`
+
+See [Custom output types](/api/concurrent-workflow#custom-output-types) for an
+iteration example and the difference between repeated `run()` calls and
+`batch_run()`.
 
 ```python
 workflow = ConcurrentWorkflow(

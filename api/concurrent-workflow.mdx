@@ -67,7 +67,7 @@ class ConcurrentWorkflow:
 </ParamField>
 
 <ParamField path="output_type" type="str" default="dict-all-except-first">
-  Format for output formatting. Options include "dict-all-except-first", "dict", "list", "str"
+  Output format. The default returns a list of agent message dictionaries, excluding the initial user task. See [Custom output types](#custom-output-types) for return shapes and history behavior.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
@@ -343,25 +343,47 @@ result = workflow.run(
 )
 ```
 
-### Custom Output Types
+### Custom output types
+
+Choose an output format based on how you consume the result. The `dict` in an
+option's name does not mean the return value is a Python dictionary keyed by
+agent name. Both `"dict"` and `"dict-all-except-first"` currently return lists of
+message dictionaries.
+
+For a fresh workflow's first `run()`, use this mapping:
+
+| `output_type` | Python result | Messages included |
+| --- | --- | --- |
+| `"dict-all-except-first"` (default) | `list[dict]` | All agent replies; excludes the initial user task |
+| `"dict"` | `list[dict]` | User task and all replies, retaining stored message fields |
+| `"list"` | `list[dict]` | User task and all replies, with only `role` and `content` |
+| `"str"` | `str` | Rendered conversation text |
+
+The default does **not** skip the first agent. With two agents, a fresh run
+returns two message dictionaries. Iterate over those dictionaries instead of
+calling `result.items()` or indexing the result with an agent name:
 
 ```python
-# Different output formats
-workflow_dict = ConcurrentWorkflow(
+workflow = ConcurrentWorkflow(
     agents=[technical_analyst, business_analyst],
-    output_type="dict"  # Returns dict with all agent outputs
+    output_type="dict-all-except-first",
 )
+result = workflow.run("Compare two product designs")
 
-workflow_list = ConcurrentWorkflow(
-    agents=[technical_analyst, business_analyst],
-    output_type="list"  # Returns list of outputs
-)
-
-workflow_dict_except_first = ConcurrentWorkflow(
-    agents=[technical_analyst, business_analyst],
-    output_type="dict-all-except-first"  # Skip first agent in output dict
-)
+for message in result:
+    print(message["role"])
+    print(message["content"])
 ```
+
+Use the `role` field to identify each reply. Without the dashboard, replies are
+collected in completion order, which can differ from the input agent order.
+
+Calling `run()` again on the same workflow appends to its conversation. The
+default then omits only the original input, so later results can contain earlier
+replies and later user tasks. For separate tasks with separate workflow result
+histories, use `batch_run(tasks)`. It creates a fresh conversation for each task
+and restores the workflow's previous conversation afterward. This does not reset
+the individual agents' own memory.
 
 ### With Autosave
 
