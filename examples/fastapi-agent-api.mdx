@@ -30,7 +30,7 @@ import time
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from swarms import Agent
 
@@ -43,8 +43,8 @@ app = FastAPI(
 
 class AgentRequest(BaseModel):
     task: str
-    agent_name: Optional[str] = "default"
-    max_loops: Optional[int] = 1
+    agent_name: str = "default"
+    max_loops: int = Field(default=1, ge=1)
     temperature: Optional[float] = None
 
 
@@ -102,6 +102,10 @@ async def run_agent(request: AgentRequest):
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
+
+You can omit `agent_name` and `max_loops` to use their defaults. Explicit `null`
+values are rejected, and `max_loops` must be a positive integer. Invalid requests
+return HTTP 422 before an agent is created. `temperature` remains nullable.
 
 ## Step 3: Run it
 
