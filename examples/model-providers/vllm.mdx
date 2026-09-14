@@ -123,18 +123,17 @@ vLLM can serve any HuggingFace causal LM. Popular picks:
 
 ## Batched Inference
 
-vLLM is built for high throughput. The wrapper makes batching one line:
+Extend the `VLLMWrapper` from Option 1 to reuse its model initialization and
+sampling parameters. Run this after defining that wrapper:
 
 ```python
-class VLLMWrapper:
-    # ... __init__ as above ...
-
+class BatchedVLLMWrapper(VLLMWrapper):
     def batched_run(self, tasks: list[str]) -> list[str]:
         outputs = self.llm.generate(tasks, self.sampling_params)
         return [o.outputs[0].text for o in outputs]
 
 
-llm = VLLMWrapper(model_name="meta-llama/Llama-3.3-70B-Instruct")
+llm = BatchedVLLMWrapper(model_name="meta-llama/Llama-3.3-70B-Instruct")
 
 responses = llm.batched_run([
     "Summarize Bitcoin in one sentence.",
