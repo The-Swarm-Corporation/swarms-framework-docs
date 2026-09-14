@@ -223,6 +223,8 @@ agent = Agent(
 
 ### File Operations Tool
 
+These text tools read and write UTF-8 files. Convert files in other encodings before reading them.
+
 ```python
 import os
 from pathlib import Path
@@ -238,7 +240,7 @@ def read_file(filepath: str) -> str:
         File contents as a string
     """
     try:
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         return f"Error reading file: {e}"
@@ -256,7 +258,7 @@ def write_file(filepath: str, content: str) -> str:
     """
     try:
         Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
         return f"Successfully wrote to {filepath}"
     except Exception as e:
