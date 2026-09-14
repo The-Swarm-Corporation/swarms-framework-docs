@@ -53,12 +53,18 @@ graph TD
 
 ## Methods
 
+These calls assume you have created an `AgentJudge` instance named `judge`.
+
 ### step()
 
 Processes a single task and returns the agent's evaluation.
 
 ```python
-result = judge.step(task: str = None, img: Optional[str] = None, messages: Optional[List[Dict[str, str]]] = None) -> str
+result = judge.step(
+    task="The capital of France is Paris.",
+    img=None,
+    messages=None,
+)
 ```
 
 ### run()
@@ -66,7 +72,7 @@ result = judge.step(task: str = None, img: Optional[str] = None, messages: Optio
 Executes evaluation in multiple iterations with context building.
 
 ```python
-result = judge.run(task: str, img: Optional[str] = None) -> Union[str, int]
+result = judge.run(task="The capital of France is Paris.", img=None)
 ```
 
 Returns `str` (full conversation) if `return_score=False`, or `int` (numerical score) if `return_score=True`.
@@ -76,7 +82,7 @@ Returns `str` (full conversation) if `return_score=False`, or `int` (numerical s
 Executes batch evaluation of multiple tasks.
 
 ```python
-results = judge.run_batched(tasks: List[str]) -> List[Union[str, int]]
+results = judge.run_batched(tasks=["The capital of France is Paris.", "2 + 2 = 4"])
 ```
 
 ## Examples
