@@ -145,7 +145,10 @@ print(response.json())
 
 ## Step 5: Add a specialised endpoint
 
-When you want a dedicated endpoint for a specific agent persona, just create the agent inline:
+In `agent_api.py`, insert this endpoint before the `if __name__ == "__main__":`
+block. When you launch with `python agent_api.py`, `uvicorn.run()` blocks until
+shutdown, so a route defined after that call is not registered while the server
+is running.
 
 ```python
 @app.post("/agent/quantitative-trading")
