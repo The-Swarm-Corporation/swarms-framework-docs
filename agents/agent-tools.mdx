@@ -395,6 +395,8 @@ agent = Agent(
 
 ### Async Tools
 
+The fetch tool raises on HTTP errors instead of returning an error page as content. Its 30-second total request timeout also bounds slow responses.
+
 ```python
 import asyncio
 import aiohttp
@@ -409,8 +411,10 @@ async def fetch_url_async(url: str) -> str:
     Returns:
         Response content
     """
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=30)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(url) as response:
+            response.raise_for_status()
             return await response.text()
 
 # Wrap async function for synchronous agent
