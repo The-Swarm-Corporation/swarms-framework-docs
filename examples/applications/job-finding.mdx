@@ -1,6 +1,6 @@
 ---
 title: 'Job Finding Swarm'
-description: 'Use a swarm to discover, filter, and apply to jobs that match a candidate profile.'
+description: 'Use a swarm to discover and filter jobs that match a candidate profile.'
 icon: 'briefcase'
 ---
 
@@ -14,8 +14,8 @@ The Job Finding Swarm consists of three specialized agents, each responsible for
 
 | Agent Name                  | Role                        | Responsibilities                                                                                  |
 | :-------------------------- | :-------------------------- | :----------------------------------------------------------------------------------------------- |
-| **Sarah-Requirements-Analyzer** | Clarifies requirements      | Gathers and analyzes user job preferences; generates 3-5 search queries.                         |
-| **David-Search-Executor**   | Runs job searches           | Uses `get_jobs` (RapidAPI's JSearch API) for each query; analyzes and categorizes job results by match strength. |
+| **Sarah-Requirements-Analyzer** | Clarifies requirements      | Gathers and analyzes user job preferences; generates one plain-text search query.                         |
+| **David-Search-Executor**   | Runs job searches           | Uses `get_jobs` (RapidAPI's JSearch API) for the selected query; analyzes and categorizes job results by match strength. |
 | **Lisa-Results-Curator**    | Organizes results           | Filters, prioritizes, and presents jobs; provides top picks and refines search with user input.  |
 
 ## Step 1: Setup and Installation
@@ -46,54 +46,86 @@ The Job Finding Swarm consists of three specialized agents, each responsible for
     RAPIDAPI_KEY="YOUR_RAPIDAPI_KEY"
     OPENAI_API_KEY="OPENAI_API_KEY"
     ```
-    Replace `"YOUR_RAPIDAPI_KEY"` & `"OPENAI_API_KEY"` with your actual API keys. Load `RAPIDAPI_KEY` (e.g. with `python-dotenv` and `os.getenv("RAPIDAPI_KEY")`) and pass it as the `x-rapidapi-key` header value in `get_jobs` instead of the hardcoded empty string in the snippet below.
+    Replace `"YOUR_RAPIDAPI_KEY"` & `"OPENAI_API_KEY"` with your actual API keys. The example loads `.env` with `python-dotenv` and reads `RAPIDAPI_KEY` at call time. Keep `.env` out of version control.
+
+### Request behavior
+
+`get_jobs` returns a JSON list. An empty list means a successful search returned
+no jobs; authentication failures, rate limits, network errors and malformed
+responses raise an error instead. The connection has a 30-second timeout and is
+closed on success and failure. Responses larger than 2 MB are rejected before parsing.
+
+`limit` accepts integers from 1 to 100 and caps the returned jobs locally, from a single API page. It does not fetch
+additional pages or guarantee that many matches. A missing or null experience
+field stays `null`; it does not mean zero experience is required. The tool does
+not retry automatically, so repeated calls may consume additional API quota.
 
 ## Step 2: Running the Job Finding Swarm
 
 ```python
 from swarms import Agent, SequentialWorkflow
+from dotenv import load_dotenv
 import http.client
 import json
+import os
 import urllib.parse
 
+load_dotenv()
+
+
 def get_jobs(query: str, limit: int = 10) -> str:
-    """
-    Fetches real-time jobs using JSearch API based on role, location, and experience.
-    Uses http.client to match verified working example.
-    """
-    # Prepare query string for URL
-    encoded_query = urllib.parse.quote(query)
-    path = f"/search?query={encoded_query}&page=1&num_pages=1&country=us&limit={limit}&date_posted=all"
-    
-    conn = http.client.HTTPSConnection("jsearch.p.rapidapi.com")
+    """Return up to limit jobs from one JSearch page, or raise on request failure."""
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("query must be a non-empty string")
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+        raise ValueError("limit must be an integer from 1 to 100")
+    api_key = os.getenv("RAPIDAPI_KEY", "").strip()
+    if not api_key:
+        raise ValueError("Set RAPIDAPI_KEY before calling get_jobs")
 
-    headers = {
-        "x-rapidapi-key": "", #<------- Add your RapidAPI key here otherwise it will not work
-        "x-rapidapi-host": "jsearch.p.rapidapi.com"
-    }
-
-    conn.request("GET", path, headers=headers)
-
-    res = conn.getresponse()
-    data = res.read()
-    decoded = data.decode("utf-8")
+    params = urllib.parse.urlencode({
+        "query": query.strip(), "page": 1, "num_pages": 1,
+        "country": "us", "date_posted": "all",
+    })
+    conn = http.client.HTTPSConnection("jsearch.p.rapidapi.com", timeout=30)
     try:
-        result_dict = json.loads(decoded)
-    except Exception:
-        # fallback for unexpected output
-        return decoded
+        conn.request("GET", "/search?" + params, headers={
+            "x-rapidapi-key": api_key,
+            "x-rapidapi-host": "jsearch.p.rapidapi.com",
+        })
+        res = conn.getresponse()
+        if not 200 <= res.status < 300:
+            raise RuntimeError(f"JSearch request failed (HTTP {res.status})")
+        # Bound response memory before parsing; never return a raw error body.
+        data = res.read(2_000_001)
+        if len(data) > 2_000_000:
+            raise RuntimeError("JSearch response exceeded 2 MB")
+    except (OSError, http.client.HTTPException):
+        raise RuntimeError("JSearch request failed; check connectivity and retry") from None
+    finally:
+        conn.close()
 
-    results = result_dict.get("data", [])
-    jobs_list = [
-        {
+    try:
+        payload = json.loads(data)
+    except (ValueError, UnicodeError):
+        raise RuntimeError("JSearch returned invalid JSON") from None
+    if not isinstance(payload, dict) or payload.get("status") != "OK":
+        raise RuntimeError("JSearch returned an unsuccessful response")
+    results = payload.get("data")
+    if not isinstance(results, list) or any(not isinstance(job, dict) for job in results):
+        raise RuntimeError("JSearch returned an invalid job list")
+
+    jobs_list = []
+    for job in results[:limit]:
+        experience = job.get("job_required_experience")
+        jobs_list.append({
             "title": job.get("job_title"),
             "company": job.get("employer_name"),
             "location": job.get("job_city") or job.get("job_country"),
-            "experience": job.get("job_required_experience", {}).get("required_experience_in_months"),
-            "url": job.get("job_apply_link")
-        }
-        for job in results
-    ]
+            "experience": experience.get("required_experience_in_months")
+                if isinstance(experience, dict) else None,
+            "url": job.get("job_apply_link"),
+        })
     return json.dumps(jobs_list)
 
 
@@ -122,7 +154,7 @@ RESPONSIBILITIES:
   * Priority factors in job selection
 
 - Generate optimized search queries:
-  * Create 3-5 targeted search queries based on user requirements
+  * Create one targeted plain-text search query based on user requirements
   
 OUTPUT FORMAT:
 Provide a comprehensive requirements analysis:
@@ -134,7 +166,7 @@ Provide a comprehensive requirements analysis:
    - Priority factors
 
 2. Search Strategy:
-   - List of 3-5 optimized search queries, formatted EXACTLY for linkedin.com/jobs/search/?keywords=...
+   - One plain-text query, such as "software engineer jobs in Seattle"; do not include URLs
    - Rationale for each query
    - Expected result types
 
@@ -144,7 +176,7 @@ Provide a comprehensive requirements analysis:
 
 IMPORTANT:
 - Always include ALL user responses verbatim in your analysis
-- Format search queries clearly for the next agent and fit directly to LinkedIn search URLs
+- Format the query as plain text for the next agent to pass to get_jobs
 - Be specific and actionable in your recommendations
 - Ask follow-up questions if requirements are unclear
 """
@@ -165,7 +197,7 @@ For example:
     data engineer jobs in new york hybrid
 
 TOOLS:
-You have access to three tools:
+You have access to one tool:
 - get_jobs: helps find open job opportunities for your specific job and requirements.
 
 RESPONSIBILITIES:
@@ -216,8 +248,9 @@ OUTPUT FORMAT:
 
 INSTRUCTIONS:
 - Run only the single query in the format described above, with no extra path, no technical addresses, and no full URLs.
-- Use all three tools, as applicable, with that exact query argument.
+- Use get_jobs with that exact query argument. If it fails, report the search failure; do not report zero matches or invent listings.
 - Clearly cite which results come from which source.
+- Mark fields absent from the tool response as unknown. Do not infer salary, skills, work arrangement, or company reputation from a title alone.
 - Be objective in match assessment.
 - Provide actionable, structured insights.
 """
@@ -290,7 +323,7 @@ Provide a curated job search report:
 
 IMPORTANT:
 - Make it easy for users to make decisions
-- Be honest about job fit
+- Be honest about job fit; preserve unknown fields and search failures from the previous agent
 - Provide clear paths forward
 - Always ask for user feedback before concluding
 """
