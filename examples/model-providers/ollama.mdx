@@ -153,7 +153,7 @@ print(pipeline.run("Compare actor-model concurrency in Erlang, Akka, and Elixir.
 
 ## Performance Tips
 
-- **Use quantized models** — `ollama/llama3.3:8b-instruct-q4_K_M` runs much faster than the full-precision version on consumer hardware.
+- **Use a smaller quantized model** — pull `llama3.2:3b-instruct-q4_K_M` with `ollama pull llama3.2:3b-instruct-q4_K_M`, then set `model_name="ollama/llama3.2:3b-instruct-q4_K_M"`. This [published 3B Q4_K_M model](https://ollama.com/library/llama3.2:3b-instruct-q4_K_M) is a smaller local option; Llama 3.3 is available in 70B, not 8B.
 - **Set `context_length` honestly** — local models have small effective context windows. `8192` or `16384` is realistic for most setups.
 - **One agent at a time on a single GPU** — concurrent agents on the same machine will queue at the inference engine.
 
