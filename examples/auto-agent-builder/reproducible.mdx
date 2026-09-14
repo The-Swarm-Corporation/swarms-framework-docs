@@ -60,19 +60,21 @@ TASK = "Audit a Python codebase for security vulnerabilities and write up the fi
 def design_roster() -> list[dict]:
     """Call the builder once and cache the result to disk."""
     configs = AutoAgentBuilder(num_agents=3, return_dict=True).run(TASK)
-    ROSTER_FILE.write_text(json.dumps(configs, indent=2))
+    ROSTER_FILE.write_text(json.dumps(configs, indent=2), encoding="utf-8")
     return configs
 
 
 def load_roster() -> list[dict]:
     """Read the cached roster. No model call, no cost, same team every time."""
-    return json.loads(ROSTER_FILE.read_text())
+    return json.loads(ROSTER_FILE.read_text(encoding="utf-8"))
 
 
 configs = load_roster() if ROSTER_FILE.exists() else design_roster()
 ```
 
 Commit `roster.json`. It is now a reviewable artifact — a diff shows exactly how the team changed.
+
+Keep the file in UTF-8 when you edit it. Both examples use UTF-8 explicitly, so non-ASCII names and prompts load correctly even when Python uses a different locale encoding.
 
 ---
 
@@ -138,13 +140,13 @@ ROSTER_FILE = Path("roster.json")
 
 def design_roster() -> list[dict]:
     configs = AutoAgentBuilder(num_agents=3, return_dict=True).run(TASK)
-    ROSTER_FILE.write_text(json.dumps(configs, indent=2))
+    ROSTER_FILE.write_text(json.dumps(configs, indent=2), encoding="utf-8")
     print(f"Designed {len(configs)} agents -> {ROSTER_FILE}")
     return configs
 
 
 def load_roster() -> list[dict]:
-    configs = json.loads(ROSTER_FILE.read_text())
+    configs = json.loads(ROSTER_FILE.read_text(encoding="utf-8"))
     print(f"Loaded {len(configs)} agents from {ROSTER_FILE}")
     return configs
 
