@@ -520,8 +520,11 @@ def call_api(
             headers=headers or {},
             params=params or {},
         )
+        response.raise_for_status()
         return response.json()
 ```
+
+Check the status before decoding JSON so you receive `httpx.HTTPStatusError` for non-2xx responses, including redirects that the client does not follow. The exception retains the request and response for handling at the call site.
 
 ### Database Tool
 
