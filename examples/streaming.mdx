@@ -149,6 +149,7 @@ from swarms import Agent
 from rich.live import Live
 from rich.panel import Panel
 from rich.console import Console
+from rich.text import Text
 
 console = Console()
 collected_text = []
@@ -163,7 +164,7 @@ def custom_panel_callback(token: str):
     # Update display
     console.clear()
     console.print(Panel(
-        full_text,
+        Text(full_text),  # Treat model output as literal text, not Rich markup.
         title="🤖 Agent Thinking...",
         border_style="blue",
     ))
