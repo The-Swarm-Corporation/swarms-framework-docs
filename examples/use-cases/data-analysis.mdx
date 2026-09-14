@@ -24,11 +24,34 @@ We use **ConcurrentWorkflow** for parallel analysis combined with sequential rep
 - Parallel execution dramatically reduces time-to-insight
 - Final reporting stage synthesizes all parallel results
 
+## Supply the dataset
+
+The agents below have no file-reading or data-source tools. Describing column
+names does not give them the underlying sales records. Save your authorized
+input as `sales.csv` next to a saved Python script; the example reads it and includes its
+contents in the first workflow task. Missing files and decoding errors stop the
+script before any workflow runs.
+
+For a smoke test, use these synthetic records:
+
+```csv
+Date,Region,Product,Revenue,Units,Customer_Segment
+2025-01-01,West,Widget,120,3,Small Business
+2025-04-01,West,Widget,160,4,Small Business
+```
+
+These two rows test data handoff only. They cannot support a three-year trend,
+seasonality analysis, or reliable quarterly forecast. Replace them with your real
+data before asking those questions. Use a small CSV that fits the model context;
+for larger datasets, compute validated aggregates first. CSV content is sent to
+the configured model provider, so remove sensitive fields before running it.
+
 ## Complete Implementation
 
 ```python
 from swarms import Agent, ConcurrentWorkflow, SequentialWorkflow
 import os
+from pathlib import Path
 
 # Configure your LLM
 api_key = os.getenv("OPENAI_API_KEY")
@@ -187,10 +210,14 @@ reporting_workflow = SequentialWorkflow(
 
 # Execute complete data analysis
 if __name__ == "__main__":
+    csv_data = Path(__file__).with_name("sales.csv").read_text(encoding="utf-8")
+    if not csv_data.strip():
+        raise ValueError("sales.csv is empty; supply data before running the workflow")
+
     analysis_request = """
     Analyze the following dataset:
     
-    Dataset: Quarterly sales data for the past 3 years
+    Dataset: Sales records supplied below (derive the date range from the records)
     Columns: Date, Region, Product, Revenue, Units, Customer_Segment
     
     Analysis objectives:
@@ -200,8 +227,10 @@ if __name__ == "__main__":
     4. Forecast next quarter's performance
     5. Recommend strategic actions based on findings
     
-    Provide comprehensive analysis with visualizations and executive summary.
-    """
+    Base numerical claims only on the supplied CSV. State when the data is
+    insufficient for an objective; do not invent records or calculated results.
+    Provide an analysis with visualization specifications and executive summary.
+    """ + "\n\nSupplied CSV data:\n" + csv_data
     
     # Stage 1: Prepare the data
     print("Stage 1: Data preparation...")
@@ -395,7 +424,8 @@ statistical_analyst = Agent(
 
 ## Output Examples
 
-The final report includes:
+An illustrative report structure is shown below. The numbers are placeholders,
+not results from the two-row smoke-test dataset:
 
 ```markdown
 # Sales Analysis Report - Q4 2025
