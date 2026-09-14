@@ -1,0 +1,165 @@
+---
+title: "Build a read-only inventory tool"
+description: "Give an agent a bounded SQLite lookup without exposing database paths or arbitrary SQL"
+icon: "database"
+---
+
+Build a tool that answers “which cables are in stock?” using a small local catalog. You will create synthetic data, bind one lookup function to that database, and return a predictable JSON response. The next two parts [attach it to Swarms](/examples/sqlite-tool/agent) and [test its boundaries](/examples/sqlite-tool/tests).
+
+This recipe complements [agent tools](/agents/agent-tools). Use it when the operation you need is known in advance. The agent chooses a category and result limit; your application chooses the database, query, and visible columns. It is not a general SQL assistant.
+
+## Create the working directory
+
+Use Python 3.10 or later. This first part and the database tests need only the standard library, including `sqlite3`; do not install a separate `sqlite3` package. No model, account, or API key is needed for these steps.
+
+```bash
+mkdir inventory-tutorial
+cd inventory-tutorial
+```
+
+Keep all files from this series in this directory. The examples use a synthetic catalog with no customer or employee data.
+
+## Seed a small catalog
+
+Save this as `seed_inventory.py`. It refuses to replace an existing file, so rerunning it cannot silently reset a database. To start another demonstration, use a fresh directory. `internal_note` deliberately exists in storage but will not appear in tool results.
+
+```python seed_inventory.py
+import sqlite3
+from contextlib import closing
+from pathlib import Path
+
+
+def create_demo_inventory(path: Path) -> None:
+    """Create a new synthetic database; refuse to replace an existing file."""
+    path.touch(exist_ok=False)
+    with closing(sqlite3.connect(path)) as connection:
+        with connection:
+            connection.execute("""
+                CREATE TABLE inventory (
+                    sku TEXT PRIMARY KEY CHECK(length(sku) <= 16),
+                    name TEXT NOT NULL CHECK(length(name) <= 80),
+                    category TEXT NOT NULL,
+                    stock INTEGER NOT NULL CHECK(stock >= 0),
+                    internal_note TEXT NOT NULL
+                )
+            """)
+            connection.executemany(
+                "INSERT INTO inventory VALUES (?, ?, ?, ?, ?)",
+                [
+                    ("A001", "USB-C adapter", "adapters", 4, "demo-only"),
+                    ("C001", "USB-C cable", "cables", 0, "demo-only"),
+                    ("C002", "HDMI cable", "cables", 12, "demo-only"),
+                ],
+            )
+
+
+if __name__ == "__main__":
+    create_demo_inventory(Path("tutorial-inventory.sqlite"))
+```
+
+```bash
+python seed_inventory.py
+```
+
+You now have `tutorial-inventory.sqlite`, with one adapter and two cables. One cable has zero stock. Keeping that row is intentional: zero stock is a valid answer, and differs from a failed lookup or a catalog with no matching rows.
+
+The schema constrains SKU and name lengths. That matters because limiting the number of rows alone does not bound the size of individual fields. In an existing database, inspect its schema and data before claiming a response-size limit.
+
+## Bind the database in your application
+
+Save the following as `inventory_tool.py`. The outer function runs in your application and receives a trusted `Path`. Only the inner function is exposed to the model.
+
+```python inventory_tool.py
+import json
+import sqlite3
+from contextlib import closing
+from pathlib import Path
+from typing import Callable
+
+
+def make_inventory_tool(database_path: Path) -> Callable[..., str]:
+    """Bind a lookup tool to an application-selected SQLite database."""
+    database_uri = database_path.resolve().as_uri() + "?mode=ro"
+
+    def lookup_inventory(category: str = "all", limit: int = 5) -> str:
+        """List a bounded page of inventory in SKU order.
+
+        Args:
+            category: One of all, cables, or adapters.
+            limit: Maximum items to return, from 1 through 10.
+
+        Returns:
+            JSON with ok, items and has_more, or ok and an error code.
+        """
+        if not isinstance(category, str) or category not in {
+            "all", "cables", "adapters"
+        }:
+            return json.dumps({"ok": False, "code": "invalid_category"})
+        if type(limit) is not int or not 1 <= limit <= 10:
+            return json.dumps({"ok": False, "code": "invalid_limit"})
+
+        sql = "SELECT sku, substr(name, 1, 80) AS name, stock FROM inventory"
+        parameters = []
+        if category != "all":
+            sql += " WHERE category = ?"
+            parameters.append(category)
+        sql += " ORDER BY sku LIMIT ?"
+        parameters.append(limit + 1)
+
+        try:
+            with closing(sqlite3.connect(
+                database_uri, uri=True, timeout=1.0
+            )) as connection:
+                connection.row_factory = sqlite3.Row
+                rows = connection.execute(sql, parameters).fetchall()
+        except sqlite3.Error:
+            return json.dumps({"ok": False, "code": "inventory_unavailable"})
+
+        return json.dumps({
+            "ok": True,
+            "items": [dict(row) for row in rows[:limit]],
+            "has_more": len(rows) > limit,
+        }, sort_keys=True)
+
+    return lookup_inventory
+```
+
+## Call the tool directly
+
+Before involving an agent, save and run this check:
+
+```python lookup_demo.py
+import json
+from pathlib import Path
+from inventory_tool import make_inventory_tool
+
+lookup = make_inventory_tool(Path("tutorial-inventory.sqlite"))
+result = json.loads(lookup(category="cables", limit=1))
+assert result == {
+    "ok": True,
+    "items": [{"sku": "C001", "name": "USB-C cable", "stock": 0}],
+    "has_more": True,
+}
+print(json.dumps(result, indent=2))
+```
+
+```bash
+python lookup_demo.py
+```
+
+`has_more` means additional matches exist, not that the returned page represents the whole catalog. The query fetches one extra row to determine that flag, then removes it from the response. The model cannot raise the limit beyond ten. This first-page tool does not provide pagination; add an explicit cursor contract if you need it later.
+
+## Understand the boundaries
+
+- **Input validation:** Type hints describe the function but do not enforce runtime values. The function checks the allowed categories and rejects noninteger limits, including Python booleans. These checks run before opening a database connection.
+- **Query selection:** The application owns the SQL. The category value goes into a placeholder, not a SQL expression. Do not add model-controlled table names, sort expressions, or raw SQL to this function.
+- **File selection:** The database path is captured in a closure and omitted from the model-facing signature. `Path.as_uri()` encodes characters such as spaces, question marks, and hashes before appending the SQLite URI option.
+- **Read-only access:** `mode=ro` opens an existing database for reading and fails when the file is missing. It does not create a replacement database. Python documents this in [SQLite URI connections](https://docs.python.org/3/library/sqlite3.html#how-to-work-with-sqlite-uris).
+- **Connection lifetime:** `contextlib.closing` closes the connection after fetching results, including on exceptions. A SQLite connection's transaction context manager alone does not close it.
+- **Error handling:** An unavailable or malformed database returns `inventory_unavailable`, without sending exception text, SQL, or filesystem paths to the agent. Add private operational logging in your own application if you need diagnostics.
+
+The one-second connection timeout limits waiting on database locks; it is not a deadline for every possible query. This lookup is intended for a small, application-controlled catalog. Larger datasets need an index and an execution budget suited to their query plans.
+
+Read-only access also does not provide tenant authorization or permission to disclose every row. For a shared service, derive the database or tenant restriction from the authenticated application session. Keep the containing directory under application control so another process cannot swap the file. Treat database text as data even if a product name looks like an instruction.
+
+Continue with [Swarms registration](/examples/sqlite-tool/agent), or run the [offline tests](/examples/sqlite-tool/tests) first.

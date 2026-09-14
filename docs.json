@@ -232,6 +232,14 @@
             ]
           },
           {
+            "group": "Read-only SQLite tool",
+            "pages": [
+              "examples/sqlite-tool/build",
+              "examples/sqlite-tool/agent",
+              "examples/sqlite-tool/tests"
+            ]
+          },
+          {
             "group": "Basic Examples",
             "pages": [
               "examples/overviews/basic-overview",

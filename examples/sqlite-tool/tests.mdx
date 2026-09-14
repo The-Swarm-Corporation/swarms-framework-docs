@@ -1,0 +1,153 @@
+---
+title: "Test the inventory tool offline"
+description: "Verify read-only access, bounded output, error handling, and argument validation with temporary SQLite fixtures"
+icon: "flask"
+---
+
+Test the lookup's observable behavior before a model calls it. Use `inventory_tool.py` and `seed_inventory.py` from [part one](/examples/sqlite-tool/build). This suite exercises real SQLite databases with Python's standard library; it does not import Swarms, contact a model provider, or require an API key.
+
+## Save the test suite
+
+Put `test_inventory.py` beside the two source files. Each test creates its own temporary database and registers cleanup immediately. The fixture path includes spaces, `?`, and `#` to exercise URI encoding rather than accidentally relying on a simple filename.
+
+```python test_inventory.py
+import json
+import sqlite3
+import tempfile
+import unittest
+from contextlib import closing
+from pathlib import Path
+from unittest.mock import patch
+
+from inventory_tool import make_inventory_tool
+from seed_inventory import create_demo_inventory
+
+
+class InventoryTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.path = Path(self.directory.name) / "inventory ?#.sqlite"
+        create_demo_inventory(self.path)
+        self.lookup = make_inventory_tool(self.path)
+
+    def test_filter_order_and_zero_stock(self):
+        result = json.loads(self.lookup("cables", 10))
+        self.assertTrue(result["ok"])
+        self.assertEqual([item["sku"] for item in result["items"]],
+                         ["C001", "C002"])
+        self.assertEqual(result["items"][0]["stock"], 0)
+        self.assertFalse(result["has_more"])
+        for item in result["items"]:
+            self.assertEqual(set(item), {"sku", "name", "stock"})
+
+    def test_result_limit_and_more_flag(self):
+        result = json.loads(self.lookup("all", 1))
+        self.assertEqual(len(result["items"]), 1)
+        self.assertTrue(result["has_more"])
+        self.assertFalse(json.loads(self.lookup("all", 3))["has_more"])
+
+    def test_invalid_limits_are_rejected_before_database_access(self):
+        with patch("inventory_tool.sqlite3.connect") as connect:
+            for value in (0, 11, True, 1.5, "2", None):
+                with self.subTest(value=value):
+                    self.assertEqual(json.loads(self.lookup(limit=value)),
+                                     {"ok": False, "code": "invalid_limit"})
+            connect.assert_not_called()
+
+    def test_invalid_categories_are_rejected_before_database_access(self):
+        with patch("inventory_tool.sqlite3.connect") as connect:
+            for value in ("", "unknown", "cables' OR 1=1 --", [], None):
+                with self.subTest(value=value):
+                    self.assertEqual(json.loads(self.lookup(category=value)),
+                                     {"ok": False, "code": "invalid_category"})
+            connect.assert_not_called()
+
+    def test_missing_database_is_not_created(self):
+        missing = self.path.parent / "missing.sqlite"
+        lookup = make_inventory_tool(missing)
+        self.assertEqual(json.loads(lookup()),
+                         {"ok": False, "code": "inventory_unavailable"})
+        self.assertFalse(missing.exists())
+
+    def test_empty_result_is_successful(self):
+        with closing(sqlite3.connect(self.path)) as connection:
+            with connection:
+                connection.execute("DELETE FROM inventory")
+        self.assertEqual(json.loads(self.lookup()),
+                         {"ok": True, "items": [], "has_more": False})
+
+    def test_database_errors_do_not_expose_paths_or_sql(self):
+        self.path.write_bytes(b"not a database")
+        self.assertEqual(json.loads(self.lookup()),
+                         {"ok": False, "code": "inventory_unavailable"})
+
+    def test_connection_uses_read_only_uri_and_closes(self):
+        opened = []
+        real_connect = sqlite3.connect
+
+        def inspect_connection(*args, **kwargs):
+            connection = real_connect(*args, **kwargs)
+            opened.append(connection)
+            with self.assertRaises(sqlite3.OperationalError):
+                connection.execute("DELETE FROM inventory")
+            return connection
+
+        with patch("inventory_tool.sqlite3.connect", side_effect=inspect_connection):
+            self.assertTrue(json.loads(self.lookup())["ok"])
+        self.assertEqual(len(opened), 1)
+        with self.assertRaises(sqlite3.ProgrammingError):
+            opened[0].execute("SELECT 1")
+
+    def test_repeated_calls_are_deterministic_and_do_not_write(self):
+        before = self.path.read_bytes()
+        self.assertEqual(self.lookup(), self.lookup())
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_seed_refuses_existing_database(self):
+        before = self.path.read_bytes()
+        with self.assertRaises(FileExistsError):
+            create_demo_inventory(self.path)
+        self.assertEqual(self.path.read_bytes(), before)
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+## Run and read the results
+
+From your tutorial directory:
+
+```bash
+python -m unittest -v test_inventory
+```
+
+A successful run reports **10 tests** and `OK`. Naming the module explicitly is intentional: a missing or misspelled file fails instead of quietly discovering no tests. `subTest` adds several invalid inputs under each validation test, so the reported number of tests remains ten.
+
+The suite covers four different kinds of evidence:
+
+| Checks | What they establish |
+| --- | --- |
+| Category filtering, SKU ordering, zero stock, and empty results | The response preserves the distinction between a valid value, no matching data, and a failed operation |
+| Limits and `has_more` | The caller receives at most the requested rows and an explicit signal when matches remain |
+| Invalid arguments before connection | Rejected values do not reach SQLite, including booleans masquerading as integers and SQL-shaped category strings |
+| Read-only connection, closure, missing files, and unchanged bytes | The actual connection rejects a write, closes after use, and does not create a missing database or modify the seeded fixture |
+
+The error test checks a stable public response, not platform-specific SQLite exception wording. That prevents a filesystem path or internal query from becoming part of the tool's error contract. If you introduce operational logs, test their destination and contents separately.
+
+## Keep the scope of each test clear
+
+The SQL-shaped category case demonstrates rejection by the explicit allowlist. It is not a general SQL-injection audit. The production query also binds allowed category values through a placeholder, while keeping table names and selected columns under application control.
+
+The read-only test wraps the real connection factory, attempts a write, and expects SQLite to reject it. After the lookup finishes, it queries that same captured connection and expects a closed-connection error. This establishes behavior that simply asserting a `mode=ro` string or mocking every database call would miss.
+
+These tests do not verify a model's tool choice, factual summary, prompt-injection resistance, or performance on a large database. The schema check in [part two](/examples/sqlite-tool/agent) checks the real Swarms conversion boundary. A separate provider-backed integration test is needed to observe actual model behavior.
+
+## Add the recipe to your own project
+
+Keep this fast suite in your normal test job. Give slow or paid integration tests a separate command so running unit tests never silently starts a model session. Pin the framework version in the integration environment and keep a synthetic fixture with expected identifiers and counts.
+
+When extending the tool, add a behavior test for each new capability. A new filter should have a positive match, a valid empty result, and a rejected value. Pagination should test stable ordering and nonoverlapping pages. If you add tenant isolation, test that authenticated application context selects the permitted data even when tool arguments ask for another tenant.
+
+Start from the [lookup implementation](/examples/sqlite-tool/build) when adapting this pattern. Keep the database binding, runtime validation, and response shape visible during code review rather than relying on a prompt to enforce them.
