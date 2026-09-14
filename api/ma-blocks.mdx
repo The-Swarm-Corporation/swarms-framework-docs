@@ -211,8 +211,11 @@ analysts = [
 result = aggregate(
     workers=analysts,
     task="Is now a good time to invest in industrial automation stocks?",
+    aggregator_model_name="claude-sonnet-4-6",
 )
 ```
+
+The aggregator has its own model setting. Set `aggregator_model_name` explicitly to avoid the [retired Claude Sonnet 3](https://platform.claude.com/docs/en/about-claude/model-deprecations) default.
 
 The returned value is the full conversation — three analyst responses plus the aggregator's synthesis.
 
