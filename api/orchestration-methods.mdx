@@ -85,6 +85,67 @@ debate = OneOnOneDebate(
 result = debate.run("Is artificial intelligence consciousness possible?")
 ```
 
+### Check the call budget and output without a model
+
+`max_loops` counts individual speaking turns, not pairs of replies. The class also calls each agent once to introduce its opponent before the first turn. Those two setup responses are discarded. For nonnegative `max_loops`, one `run()` therefore makes `max_loops + 2` calls to `agent.run()`:
+
+| `max_loops` | Setup calls | Debate calls | Total calls |
+|---|---|---|---|
+| `0` | 2 | 0 | 2 |
+| `1` | 2 | 1 | 3 |
+| `3` | 2 | 3 | 5 |
+
+These are **agent calls**, not a count of billable model requests. A real agent may make additional requests for its own loops, retries or tool use. Setting the debate's `max_loops=0` does not skip the setup calls.
+
+Use a scripted agent to check the handoff before connecting real models. Save this as `check_debate.py` after installing Swarms:
+
+```python
+import os
+
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+
+from swarms.structs.multi_agent_debates import (
+    OneOnOneDebate,
+)
+
+
+class ScriptedAgent:
+    def __init__(self, name):
+        self.agent_name = name
+        self.calls = []
+
+    def run(self, task=None, **kwargs):
+        self.calls.append(task)
+        if len(self.calls) == 1:
+            # Opponent introduction, not a debate turn.
+            return "Ready"
+        turn = len(self.calls) - 1
+        return f"{self.agent_name} answer {turn}"
+
+
+pro, con = ScriptedAgent("Pro"), ScriptedAgent("Con")
+topic = "Should the team adopt a four-day workweek?"
+messages = OneOnOneDebate(
+    agents=[pro, con], max_loops=3, output_type="dict"
+).run(topic)
+
+assert [len(pro.calls), len(con.calls)] == [3, 2]
+assert pro.calls[1:] == [topic, "Con answer 1"]
+assert con.calls[1:] == ["Pro answer 1"]
+assert [m["role"] for m in messages] == [
+    "Pro", "Con", "Pro"
+]
+assert [m["content"] for m in messages] == [
+    "Pro answer 1", "Con answer 1", "Pro answer 2"
+]
+print("agent.run calls: 5; recorded debate turns: 3")
+```
+
+Run `python check_debate.py`. The assertions verify both the number of calls and the exact reply passed to the next speaker. No language model is invoked. The doubles implement only the attributes this class uses; they do not test a real agent's memory, tools or response quality.
+
+The explicit `output_type="dict"` returns a list of message dictionaries for this conversation, so you can inspect each speaker and response. The current default, `"str-all-except-first"`, drops the first **recorded debate answer**, because the introduction responses are not added to the shared conversation. With one turn, that default produces an empty string. Choose `"dict"` for structured inspection or `"str"` to retain all recorded answers as text. Changing the output format does not reduce the number of agent calls.
+
 ## ExpertPanelDiscussion
 
 Simulates an expert panel discussion with a moderator guiding the conversation. Each round, the moderator introduces the topic, every expert responds in turn, and the moderator then synthesises the responses into a follow-up question that becomes the next round's topic.
