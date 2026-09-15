@@ -107,6 +107,10 @@ def exponential_backoff_retry(
     """
     Execute function with exponential backoff retry.
     """
+    if max_retries < 1:
+        raise ValueError("max_retries must be at least one attempt")
+    if base_delay < 0 or max_delay < 0:
+        raise ValueError("Retry delays must be nonnegative")
     for attempt in range(max_retries):
         try:
             return func()
@@ -117,6 +121,7 @@ def exponential_backoff_retry(
             delay = min(base_delay * (2 ** attempt), max_delay)
             if jitter:
                 delay *= (0.5 + random.random())  # Add jitter
+            delay = min(delay, max_delay)  # Jitter must not exceed the cap.
             
             logger.warning(
                 f"Attempt {attempt + 1} failed: {e}. "
