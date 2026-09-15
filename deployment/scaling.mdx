@@ -159,7 +159,7 @@ agents = [Agent(agent_name=f"Agent-{i}") for i in range(100)]
 results = run_agents_concurrently_multiprocess(
     agents=agents,
     task="Process this task",
-    batch_size=os.cpu_count(),  # Process in CPU-sized batches
+    batch_size=os.cpu_count() or 1,  # Fall back to one if CPU count is unknown
 )
 ```
 
@@ -227,7 +227,7 @@ results = run_agents_with_different_tasks(
 import os
 
 # Calculate optimal worker count
-num_cores = os.cpu_count()
+num_cores = os.cpu_count() or 1
 
 # For I/O-bound tasks (API calls, network)
 io_bound_workers = int(num_cores * 2)  # 2x cores
@@ -471,7 +471,7 @@ for task in tasks:
 import os
 
 # Get CPU count
-num_cores = os.cpu_count()
+num_cores = os.cpu_count() or 1
 
 # I/O-bound: 2x cores
 max_workers = num_cores * 2
@@ -480,7 +480,7 @@ max_workers = num_cores * 2
 max_workers = num_cores
 
 # Conservative: 90-95% of cores
-max_workers = int(num_cores * 0.9)
+max_workers = max(1, int(num_cores * 0.9))
 ```
 
 ### 3. Implement Graceful Degradation
