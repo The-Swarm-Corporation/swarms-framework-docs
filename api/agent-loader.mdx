@@ -150,6 +150,18 @@ def load_many_agents_from_yaml(
 ) -> List[Agent]
 ```
 
+Pass one `return_types` entry for each path in `yaml_files`, in the same order. The default `["auto"]` covers only one file; loading multiple files with that default raises `IndexError`. To select the same return type for every file, repeat it explicitly:
+
+```python
+from swarms import AgentLoader
+
+yaml_files = ["agents/research_team.yaml", "agents/support_team.yaml"]
+results = AgentLoader().load_many_agents_from_yaml(
+    yaml_files=yaml_files,
+    return_types=["agents"] * len(yaml_files),
+)
+```
+
 ### load_agents_from_csv()
 
 Load agents from a CSV file via `CSVAgentLoader`.
