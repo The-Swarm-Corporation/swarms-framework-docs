@@ -347,7 +347,12 @@ class PriorityLoadBalancer:
         load, agent = heapq.heappop(self.agent_load)
         
         # Process task
-        result = agent.run(task)
+        try:
+            result = agent.run(task)
+        except BaseException:
+            # Restore availability without counting an unsuccessful task.
+            heapq.heappush(self.agent_load, (load, agent))
+            raise
         
         # Update load and re-add to queue
         heapq.heappush(self.agent_load, (load + 1 - priority, agent))
