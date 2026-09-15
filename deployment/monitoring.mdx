@@ -149,7 +149,7 @@ class MonitoredAgent:
         }
     
     def run(self, task: str, *args, **kwargs) -> Any:
-        start_time = time.time()
+        start_time = time.monotonic()
         self.metrics["total_requests"] += 1
         
         logger.info(
@@ -161,8 +161,7 @@ class MonitoredAgent:
             result = self.agent.run(task, *args, **kwargs)
             self.metrics["successful_requests"] += 1
             
-            duration = time.time() - start_time
-            self.metrics["total_duration"] += duration
+            duration = time.monotonic() - start_time
             
             logger.info(
                 f"Task completed successfully",
@@ -188,10 +187,12 @@ class MonitoredAgent:
                 extra={
                     "agent": self.agent.agent_name,
                     "error": str(e),
-                    "duration": f"{time.time() - start_time:.2f}s",
+                    "duration": f"{time.monotonic() - start_time:.2f}s",
                 }
             )
             raise
+        finally:
+            self.metrics["total_duration"] += time.monotonic() - start_time
     
     def get_metrics(self) -> Dict:
         avg_duration = (
