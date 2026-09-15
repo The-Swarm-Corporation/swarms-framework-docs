@@ -95,8 +95,8 @@ logger.configure(
 
 def process_request(request_id, user_id, task):
     # Set context
-    request_id_var.set(request_id)
-    user_id_var.set(user_id)
+    request_token = request_id_var.set(request_id)
+    user_token = user_id_var.set(user_id)
     
     logger.info(f"Processing task: {task}")
     try:
@@ -106,6 +106,9 @@ def process_request(request_id, user_id, task):
     except Exception as e:
         logger.error(f"Task failed: {e}")
         raise
+    finally:
+        user_id_var.reset(user_token)
+        request_id_var.reset(request_token)
 ```
 
 ## Agent-Level Monitoring
