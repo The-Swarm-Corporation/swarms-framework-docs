@@ -118,15 +118,19 @@ def create_database(
 
         # Clean database name
         db_name = database_name.strip().replace(" ", "_")
+        if db_name in (".", "..") or any(char in db_name for char in ('/', '\\', ':', '\x00')):
+            raise ValueError("Database name must be a filename, not a path")
         if not db_name.endswith(".db"):
             db_name += ".db"
 
         # Create database directory if it doesn't exist
-        db_path = Path(database_path)
+        db_path = Path(database_path).resolve()
         db_path.mkdir(parents=True, exist_ok=True)
 
         # Full database file path
-        full_db_path = db_path / db_name
+        full_db_path = (db_path / db_name).resolve()
+        if full_db_path.parent != db_path:
+            raise ValueError("Database file must stay inside the database directory")
 
         # Create database connection (creates file if doesn't exist)
         conn = sqlite3.connect(str(full_db_path))
