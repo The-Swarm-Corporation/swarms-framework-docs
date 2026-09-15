@@ -356,6 +356,8 @@ asyncio.get_event_loop().run_until_complete(start_server)
 
 ### 2. Progress Bar Integration
 
+The output length is unknown while generation runs. Show an indeterminate bar and received chunk count, then mark completion only after `agent.run` returns.
+
 ```python
 from swarms import Agent
 from rich.progress import Progress, TextColumn, BarColumn
@@ -372,14 +374,14 @@ def progress_streaming(task_description: str) -> str:
     with Progress(
         TextColumn("[bold blue]{task.description}"),
         BarColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TextColumn("{task.completed:.0f} chunks received"),
     ) as progress:
         
-        task = progress.add_task(task_description, total=100)
+        task = progress.add_task(task_description, total=None)
         
         def callback(token: str):
             tokens.append(token)
-            # Update progress (estimate)
+            # Count callback chunks; they are not a known percentage or token total.
             progress.update(task, advance=1)
         
         agent = Agent(
@@ -392,6 +394,7 @@ def progress_streaming(task_description: str) -> str:
             task=task_description,
             streaming_callback=callback,
         )
+        progress.update(task, total=len(tokens), completed=len(tokens))
     
     return response
 
