@@ -378,9 +378,14 @@ class DatabaseTool:
         if not self.connection:
             return "Not connected to database"
         
-        cursor = self.connection.cursor()
-        cursor.execute(sql)
-        results = cursor.fetchall()
+        # Commit successful writes and roll back failed statements.
+        with self.connection:
+            cursor = self.connection.cursor()
+            try:
+                cursor.execute(sql)
+                results = cursor.fetchall()
+            finally:
+                cursor.close()
         return str(results)
 
 # Create instance and use methods as tools
