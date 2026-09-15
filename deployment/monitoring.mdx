@@ -323,6 +323,7 @@ class ErrorTracker:
         self.error_types = Counter()
     
     def record_error(self, error: Exception, context: dict = None):
+        self.total_requests += 1
         error_record = {
             "timestamp": time.time(),
             "error_type": type(error).__name__,
