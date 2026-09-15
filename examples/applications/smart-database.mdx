@@ -88,6 +88,13 @@ from swarms import Agent, HierarchicalSwarm
 # =============================================================================
 
 
+def quote_identifier(name: str) -> str:
+    """Quote a SQLite table or column name, not a SQL expression."""
+    if not isinstance(name, str) or not name or "\x00" in name:
+        raise ValueError("Identifier must be a nonempty string without NUL")
+    return '"' + name.replace('"', '""') + '"'
+
+
 def create_database(
     database_name: str, database_path: str = "./databases"
 ) -> str:
@@ -240,11 +247,11 @@ def create_table(
             )
 
         # Create table with provided schema
-        create_sql = f"CREATE TABLE {clean_table_name} ({schema})"
+        create_sql = f"CREATE TABLE {quote_identifier(clean_table_name)} ({schema})"
         cursor.execute(create_sql)
 
         # Get table info
-        cursor.execute(f"PRAGMA table_info({clean_table_name})")
+        cursor.execute(f"PRAGMA table_info({quote_identifier(clean_table_name)})")
         columns = cursor.fetchall()
 
         # Update metadata
@@ -358,9 +365,9 @@ def insert_data(
                 columns = list(row.keys())
                 values = list(row.values())
                 placeholders = ", ".join(["?" for _ in values])
-                columns_str = ", ".join(columns)
+                columns_str = ", ".join(quote_identifier(column) for column in columns)
 
-                insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+                insert_sql = f"INSERT INTO {quote_identifier(table_name)} ({columns_str}) VALUES ({placeholders})"
                 cursor.execute(insert_sql, values)
                 rows_inserted += 1
 
@@ -374,9 +381,9 @@ def insert_data(
             values_list = parsed_data["values"]
 
             placeholders = ", ".join(["?" for _ in columns])
-            columns_str = ", ".join(columns)
+            columns_str = ", ".join(quote_identifier(column) for column in columns)
 
-            insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+            insert_sql = f"INSERT INTO {quote_identifier(table_name)} ({columns_str}) VALUES ({placeholders})"
 
             for values in values_list:
                 cursor.execute(insert_sql, values)
@@ -573,15 +580,15 @@ def update_table_data(
         values = []
 
         for column, value in parsed_updates.items():
-            set_clauses.append(f"{column} = ?")
+            set_clauses.append(f"{quote_identifier(column)} = ?")
             values.append(value)
 
         set_clause = ", ".join(set_clauses)
 
         if where_clause:
-            update_sql = f"UPDATE {table_name} SET {set_clause} WHERE {where_clause}"
+            update_sql = f"UPDATE {quote_identifier(table_name)} SET {set_clause} WHERE {where_clause}"
         else:
-            update_sql = f"UPDATE {table_name} SET {set_clause}"
+            update_sql = f"UPDATE {quote_identifier(table_name)} SET {set_clause}"
 
         # Execute update
         cursor.execute(update_sql, values)
@@ -658,11 +665,11 @@ def get_database_schema(database_path: str) -> str:
             table_name = table[0]
 
             # Get table schema
-            cursor.execute(f"PRAGMA table_info({table_name})")
+            cursor.execute(f"PRAGMA table_info({quote_identifier(table_name)})")
             columns = cursor.fetchall()
 
             # Get row count
-            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            cursor.execute(f"SELECT COUNT(*) FROM {quote_identifier(table_name)}")
             row_count = cursor.fetchone()[0]
 
             schema_info["tables"][table_name] = {
