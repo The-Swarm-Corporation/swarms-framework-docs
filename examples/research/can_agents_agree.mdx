@@ -269,13 +269,9 @@ class ByzantineConsensusGame:
                 public_messages[agent_id] = parsed.get("public_reasoning", "")
 
                 next_value = parsed.get("value")
-                if next_value != "abstain" and next_value is not None:
-                    try:
-                        next_value = int(next_value)
-                        if self.value_min <= next_value <= self.value_max:
-                            current_values[agent_id] = next_value
-                    except (TypeError, ValueError):
-                        pass
+                # JSON booleans, floats, strings and abstentions are not integer proposals.
+                if type(next_value) is int and self.value_min <= next_value <= self.value_max:
+                    current_values[agent_id] = next_value
 
             history.append(format_proposals(current_values, public_messages))
             stop_votes = sum(
