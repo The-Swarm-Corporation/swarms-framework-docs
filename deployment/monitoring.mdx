@@ -272,19 +272,24 @@ from collections import deque
 
 class ThroughputMonitor:
     def __init__(self, window_seconds=60):
+        if window_seconds <= 0:
+            raise ValueError("window_seconds must be positive")
         self.window_seconds = window_seconds
         self.requests = deque()
     
     def record_request(self):
-        now = time.time()
+        now = time.monotonic()
         self.requests.append(now)
         
         # Remove old requests
         cutoff = now - self.window_seconds
-        while self.requests and self.requests[0] < cutoff:
+        while self.requests and self.requests[0] <= cutoff:
             self.requests.popleft()
     
     def get_throughput(self):
+        cutoff = time.monotonic() - self.window_seconds
+        while self.requests and self.requests[0] <= cutoff:
+            self.requests.popleft()
         return len(self.requests) / self.window_seconds
     
     def get_stats(self):

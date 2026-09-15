@@ -421,13 +421,15 @@ import time
 
 class ThroughputMonitor:
     def __init__(self, window_size=60):
+        if window_size <= 0:
+            raise ValueError("window_size must be positive")
         self.window_size = window_size
         self.requests = []
         self.lock = threading.Lock()
     
     def record_request(self):
         with self.lock:
-            now = time.time()
+            now = time.monotonic()
             self.requests.append(now)
             # Remove old requests outside window
             cutoff = now - self.window_size
@@ -435,6 +437,8 @@ class ThroughputMonitor:
     
     def get_throughput(self):
         with self.lock:
+            cutoff = time.monotonic() - self.window_size
+            self.requests = [t for t in self.requests if t > cutoff]
             return len(self.requests) / self.window_size
     
     def start_reporting(self, interval=10):
