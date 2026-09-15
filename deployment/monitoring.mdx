@@ -429,18 +429,21 @@ def system_health_check() -> Dict[str, Any]:
     cpu_percent = psutil.cpu_percent(interval=1)
     memory = psutil.virtual_memory()
     disk = psutil.disk_usage('/')
+    warnings = []
+    if cpu_percent >= 90:
+        warnings.append(f"High CPU usage: {cpu_percent}%")
+    if memory.percent >= 85:
+        warnings.append(f"High memory usage: {memory.percent}%")
+    if disk.percent >= 90:
+        warnings.append(f"Low disk space: {disk.percent}%")
     
     return {
-        "status": "healthy" if cpu_percent < 90 and memory.percent < 85 else "warning",
+        "status": "warning" if warnings else "healthy",
         "cpu_percent": cpu_percent,
         "memory_percent": memory.percent,
         "disk_percent": disk.percent,
         "timestamp": time.time(),
-        "warnings": [
-            f"High CPU usage: {cpu_percent}%" if cpu_percent > 90 else None,
-            f"High memory usage: {memory.percent}%" if memory.percent > 85 else None,
-            f"Low disk space: {disk.percent}%" if disk.percent > 90 else None,
-        ],
+        "warnings": warnings,
     }
 ```
 
