@@ -402,7 +402,7 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 # Use environment variables or secure vaults
 agent = Agent(
     model_name="claude-sonnet-4-6",
-    llm_api_key=OPENAI_API_KEY,
+    llm_api_key=ANTHROPIC_API_KEY,
 )
 ```
 
