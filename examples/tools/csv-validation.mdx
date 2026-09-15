@@ -1,0 +1,160 @@
+---
+title: 'Validate CSV with a Tool'
+description: 'Give an agent a deterministic CSV check and test it without model calls.'
+icon: 'table'
+---
+
+Use a Python tool when an agent needs to check tabular input against fixed rules. The model can explain a validation result; Python decides whether the rows satisfy the contract.
+
+This example checks small inventory batches. It requires the exact header `sku,quantity`, unique case-sensitive SKUs, and quantities from 1 through 999,999,999 written as integers without leading zeros. Blank records are ignored. Quoted fields, embedded newlines, and Unicode SKUs are supported. Adapt these business rules to your application before using the tool.
+
+## Define the validator
+
+Save this code as `inventory_validation.py`. It uses only the Python standard library and performs no file writes or network requests.
+
+```python
+import csv
+import io
+import json
+import re
+
+
+def validate_inventory_csv(csv_text: str) -> str:
+    """Check an inventory CSV before processing any rows.
+
+    Args:
+        csv_text: CSV text with the exact header sku,quantity; at most
+            32,768 characters and 1,000 nonblank data records.
+
+    Returns:
+        JSON with valid and row_count, or valid=false and an error.
+        A failed check never returns partially validated records.
+    """
+    def failure(message: str) -> str:
+        return json.dumps({"valid": False, "error": message})
+
+    if len(csv_text) > 32_768:
+        return failure("Input exceeds 32,768 characters.")
+
+    reader = csv.reader(io.StringIO(csv_text, newline=""), strict=True)
+    seen = set()
+    count = 0
+    try:
+        if next(reader, None) != ["sku", "quantity"]:
+            return failure("Expected the exact header sku,quantity.")
+        for row in reader:
+            if not row:
+                continue
+            count += 1
+            if count > 1_000:
+                return failure("Input exceeds 1,000 data records.")
+            if len(row) != 2:
+                return failure(f"Record {count}: expected two fields.")
+            sku, quantity = row
+            sku = sku.strip()
+            if not sku:
+                return failure(f"Record {count}: SKU is empty.")
+            if sku in seen:
+                return failure(f"Record {count}: duplicate SKU.")
+            if re.fullmatch(r"[1-9][0-9]{0,8}", quantity) is None:
+                return failure(f"Record {count}: quantity must be an integer from 1 to 999999999.")
+            seen.add(sku)
+    except csv.Error:
+        return failure(f"Malformed CSV near physical line {reader.line_num}.")
+
+    if count == 0:
+        return failure("Include at least one data record.")
+    return json.dumps({"valid": True, "row_count": count})
+```
+
+The validator reports the first failure. Record numbers count nonblank data records, while CSV parse errors identify physical lines. These differ when a quoted field spans several lines. SKU uniqueness is checked after trimming surrounding whitespace; the input itself is unchanged.
+
+## Check the tool without an API key
+
+Save this beside the validator as `test_inventory_validation.py`, then run `python -m unittest -v test_inventory_validation`.
+
+```python
+import json
+import unittest
+
+from inventory_validation import validate_inventory_csv
+
+
+class InventoryValidationTests(unittest.TestCase):
+    def test_quoted_unicode_and_multiline_fields(self):
+        text = 'sku,quantity\r\n"café,blue",2\r\n"line\nbreak",1\r\n'
+        result = json.loads(validate_inventory_csv(text))
+        self.assertEqual(result, {"valid": True, "row_count": 2})
+
+    def test_rejects_invalid_batches(self):
+        for text in [
+            "sku,quantity\n",                    # No data
+            "sku,sku\nA,1\n",                   # Wrong header
+            "sku,quantity\nA,1,extra\n",         # Extra field
+            "sku,quantity\nA\n",                 # Missing field
+            "sku,quantity\n,1\n",                # Empty SKU
+            "sku,quantity\nA,1\n A ,2\n",       # Duplicate SKU
+            "sku,quantity\nA,1\nB,0\n",         # Invalid later row
+            'sku,quantity\n"unclosed,1',         # Broken quoting
+        ]:
+            with self.subTest(text=text):
+                result = json.loads(validate_inventory_csv(text))
+                self.assertFalse(result["valid"])
+                self.assertIn("error", result)
+                self.assertNotIn("row_count", result)
+
+    def test_quantity_format_and_bounds(self):
+        invalid = ["0", "-1", "1.5", "1e2", "NaN", "Infinity",
+                   "01", " 1", "1 ", "1000000000", "١"]
+        for quantity in ["1", "999999999"] + invalid:
+            with self.subTest(quantity=quantity):
+                text = f"sku,quantity\nA,{quantity}\n"
+                result = json.loads(validate_inventory_csv(text))
+                self.assertEqual(result["valid"], quantity not in invalid)
+
+    def test_input_limits(self):
+        for count, valid in [(1000, True), (1001, False)]:
+            text = "sku,quantity\n" + "".join(f"A{i},1\n" for i in range(count))
+            with self.subTest(records=count):
+                self.assertEqual(json.loads(validate_inventory_csv(text))["valid"], valid)
+        base = "sku,quantity\nA,1\n"
+        for length, valid in [(32768, True), (32769, False)]:
+            text = base + "\n" * (length - len(base))
+            with self.subTest(characters=length):
+                self.assertEqual(json.loads(validate_inventory_csv(text))["valid"], valid)
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+These tests exercise the actual tool function. They do not call an LLM or assert that a model will choose a tool correctly.
+
+## Register it with an agent
+
+Install `swarms` and configure your model provider as described in [Environment Setup](/environment-setup). Save the following beside the validator. Running it makes billable model calls; the preceding tests do not.
+
+```python
+from swarms import Agent
+
+from inventory_validation import validate_inventory_csv
+
+agent = Agent(
+    agent_name="Inventory-Reviewer",
+    model_name="gpt-5.4",
+    max_loops=2,
+    tools=[validate_inventory_csv],
+    system_prompt=(
+        "Use validate_inventory_csv to check the supplied inventory batch. "
+        "Explain its result. Do not invent missing values or claim rows were imported."
+    ),
+)
+print(agent.run("Check this CSV:\nsku,quantity\nCABLE-1,3\nADAPTER-2,0\n"))
+```
+
+Validation and importing are separate operations. If you later add an importer, call the validator in application code and require `valid is True` before writing anything. An agent's explanation is not an enforcement mechanism. This tool checks structure and quantities, not whether a SKU exists in your catalogue.
+
+## Next steps
+
+- [Agent with Tools](/examples/agent-with-tools)
+- [Dynamic Tool Usage](/examples/tools/dynamic-tool-usage)
