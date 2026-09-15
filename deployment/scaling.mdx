@@ -280,21 +280,23 @@ for task in large_task_list:
 ```python
 def find_optimal_batch_size(agents, test_task):
     """
-    Find optimal batch size through testing.
+    Compare batch sizes using the same complete workload each time.
     """
     import time
+    if not agents:
+        raise ValueError("Provide at least one agent")
     
     batch_sizes = [5, 10, 20, 50, 100]
     results = {}
     
     for batch_size in batch_sizes:
-        start = time.time()
+        start = time.perf_counter()
         run_agents_concurrently_multiprocess(
-            agents[:batch_size],
+            agents,
             test_task,
             batch_size=batch_size,
         )
-        duration = time.time() - start
+        duration = time.perf_counter() - start
         results[batch_size] = duration
         print(f"Batch size {batch_size}: {duration:.2f}s")
     
@@ -302,6 +304,8 @@ def find_optimal_batch_size(agents, test_task):
     print(f"Optimal batch size: {optimal[0]}")
     return optimal[0]
 ```
+
+Each trial runs every supplied agent, so this benchmark repeats model calls. Use fresh equivalent agent state for each trial when agents retain history; compare several runs before treating timing differences as reliable.
 
 ## Load Balancing
 
