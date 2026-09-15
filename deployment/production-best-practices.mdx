@@ -303,8 +303,10 @@ def health_check(agent):
     try:
         # Quick test run
         result = agent.run("Hello", max_loops=1)
+        response_valid = result is not None and (not isinstance(result, str) or bool(result.strip()))
         return {
-            "status": "healthy",
+            "status": "healthy" if response_valid else "unhealthy",
+            "response_valid": response_valid,
             "agent_name": agent.agent_name,
             "model": agent.model_name,
             "timestamp": time.time(),

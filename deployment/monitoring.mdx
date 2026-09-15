@@ -378,16 +378,17 @@ def health_check(agent) -> Dict[str, Any]:
         start = time.time()
         result = agent.run("Hello", max_loops=1)
         duration = time.time() - start
+        response_valid = result is not None and (not isinstance(result, str) or bool(result.strip()))
         
         return {
-            "status": "healthy",
+            "status": "healthy" if response_valid else "unhealthy",
             "agent_name": agent.agent_name,
             "model": agent.model_name,
             "response_time": duration,
             "timestamp": time.time(),
             "checks": {
                 "llm_responsive": True,
-                "response_valid": result is not None,
+                "response_valid": response_valid,
             }
         }
     except Exception as e:
