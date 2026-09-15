@@ -1,0 +1,201 @@
+---
+title: "Build a tool that tolerates retries"
+description: "Use an application-owned operation ID and a SQLite transaction to prevent duplicate inventory reservations."
+---
+
+A tool can finish its work even when its caller never receives the result. If you retry an inventory reservation after that happens, an ordinary subtraction reserves the stock twice. You need to remember which operation completed and return its original result when the same operation returns.
+
+This two-part tutorial builds that behavior into a Python function you can register with a Swarms agent. You will first run the function directly, then [test its failure and concurrency behavior](/examples/tools/test-retry-safe-tool). The example uses synthetic inventory in a local SQLite database. Its offline commands need Python 3.11 or later with the standard-library `sqlite3` module; they do not need a model or an API key.
+
+## Define the operation before calling the model
+
+Use one operation ID for one intended reservation. Your application creates and retains this ID before it starts the agent. A retry, a reconstructed agent, or recovery after a lost response must reuse that ID. A genuinely new reservation receives a new ID.
+
+The factory below captures the database path and operation ID. The function exposed to the model accepts only `sku` and `quantity`. This prevents the model from inventing a fresh operation ID on each tool call. Bind a separate callable for each independent operation; sharing one callable across unrelated user requests would incorrectly combine their identities.
+
+The operation ID is a deduplication key, not permission to modify inventory. A real application must authorize the caller and the inventory scope before constructing the tool. For this tutorial, the application owns the single demonstration database and its one product.
+
+| Input or state | Result |
+| --- | --- |
+| New operation, available stock | Reserve units and store the result in one transaction. |
+| Same operation and same arguments | Return the exact stored JSON without another debit. |
+| Same operation, different arguments | Raise an error without changing inventory. |
+| Invalid quantity or unavailable stock | Raise an error without recording success. |
+
+## Implement the tool
+
+Save the complete following file as `reservation_tool.py` in a new working directory.
+
+```python reservation_tool.py
+import json
+import sqlite3
+from contextlib import closing
+from typing import Callable
+
+
+def initialize_demo(database_path: str) -> None:
+    """Create a new demonstration database; fail if its tables already exist."""
+    with closing(sqlite3.connect(database_path)) as connection:
+        with connection:
+            connection.execute(
+                "CREATE TABLE stock ("
+                "sku TEXT PRIMARY KEY, available INTEGER NOT NULL CHECK (available >= 0))"
+            )
+            connection.execute(
+                "CREATE TABLE reservations ("
+                "request_id TEXT PRIMARY KEY, sku TEXT NOT NULL, "
+                "quantity INTEGER NOT NULL, result_json TEXT NOT NULL)"
+            )
+            connection.execute("INSERT INTO stock VALUES (?, ?)", ("widget", 10))
+
+
+def make_reservation_tool(
+    database_path: str, request_id: str
+) -> Callable[[str, int], str]:
+    """Bind one application-owned operation ID to a model-callable function."""
+    if not isinstance(request_id, str) or not request_id.strip():
+        raise ValueError("request_id must be a nonempty application operation ID")
+
+    def reserve_stock(sku: str, quantity: int) -> str:
+        """Reserve inventory once for the current application operation.
+
+        Args:
+            sku: Exact product identifier in the inventory.
+            quantity: Number of units to reserve, from 1 to 1000 inclusive.
+
+        Returns:
+            JSON containing the reservation ID, SKU, quantity, and stock at commit.
+
+        Raises:
+            ValueError: Invalid arguments, conflicting replay, or insufficient stock.
+            sqlite3.Error: The database operation could not complete.
+        """
+        if not isinstance(sku, str) or not sku or len(sku) > 64:
+            raise ValueError("sku must contain 1 to 64 characters")
+        if type(quantity) is not int or not 1 <= quantity <= 1000:
+            raise ValueError("quantity must be an integer from 1 to 1000")
+
+        with closing(
+            sqlite3.connect(database_path, timeout=5, isolation_level=None)
+        ) as connection:
+            # Take the writer lock before checking for a previous completion.
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                previous = connection.execute(
+                    "SELECT sku, quantity, result_json FROM reservations "
+                    "WHERE request_id = ?",
+                    (request_id,),
+                ).fetchone()
+                if previous is not None:
+                    if previous[:2] != (sku, quantity):
+                        raise ValueError("operation ID was used with different arguments")
+                    result_json = previous[2]
+                else:
+                    updated = connection.execute(
+                        "UPDATE stock SET available = available - ? "
+                        "WHERE sku = ? AND available >= ?",
+                        (quantity, sku, quantity),
+                    )
+                    if updated.rowcount != 1:
+                        raise ValueError("unknown SKU or insufficient stock")
+                    remaining = connection.execute(
+                        "SELECT available FROM stock WHERE sku = ?", (sku,)
+                    ).fetchone()[0]
+                    result_json = json.dumps(
+                        {
+                            "reservation_id": request_id,
+                            "sku": sku,
+                            "quantity": quantity,
+                            "remaining_stock_at_commit": remaining,
+                        },
+                        sort_keys=True,
+                    )
+                    connection.execute(
+                        "INSERT INTO reservations VALUES (?, ?, ?, ?)",
+                        (request_id, sku, quantity, result_json),
+                    )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+        return result_json
+
+    return reserve_stock
+```
+
+`initialize_demo()` is a one-time fixture initializer. It deliberately refuses to reuse existing tables so you cannot accidentally reset live inventory while following the tutorial. Application migrations and initial inventory loading belong outside the tool.
+
+The tool validates arguments before connecting. Python treats booleans as integers for `isinstance(value, int)`, so it uses an exact integer check for the quantity. All SQL values use bound parameters. The function accepts exact SKU identifiers; it does not silently normalize two different product names into one identifier.
+
+## Run it without a model
+
+Save this second file beside `reservation_tool.py` and run `python demo_reservation.py`.
+
+```python demo_reservation.py
+import tempfile
+from pathlib import Path
+
+from reservation_tool import initialize_demo, make_reservation_tool
+
+with tempfile.TemporaryDirectory() as directory:
+    database_path = str(Path(directory) / "inventory.sqlite")
+    initialize_demo(database_path)
+    reserve = make_reservation_tool(database_path, "demo-operation-001")
+    first = reserve("widget", 3)
+    second = reserve("widget", 3)
+    assert first == second
+    print(first)
+```
+
+You should receive this result. Calling the function twice has reserved three units in total:
+
+```json
+{"quantity": 3, "remaining_stock_at_commit": 7, "reservation_id": "demo-operation-001", "sku": "widget"}
+```
+
+`remaining_stock_at_commit` is a snapshot recorded with this reservation. Replaying the operation returns that same snapshot even if another operation has since consumed more inventory. Use a separate inventory lookup when you need the current balance.
+
+## Understand the transaction boundary
+
+`BEGIN IMMEDIATE` obtains the database's writer lock before checking the operation record. Two overlapping writers therefore cannot both observe an absent operation and commit two debits. The conditional `UPDATE` also refuses to make the quantity negative. The debit and completed-operation record either commit together or roll back together.
+
+Each invocation opens its own connection and closes it on every exit path. The five-second connection timeout bounds how long it waits for an ordinary lock conflict; it is not a deadline for every possible filesystem operation. If lock acquisition or a statement fails, the exception reaches the caller. Retrying later with the same operation ID is safe for the local transaction.
+
+This guarantee is scoped to retained operation records in this database. Deleting an operation record removes its replay protection. The example also assumes a filesystem that supports SQLite's locking correctly. An external HTTP request cannot join this local transaction: use the external service's idempotency support, or a durable outbox with a deduplicating consumer, when your tool performs work in another system.
+
+See [SQLite transactions](https://www.sqlite.org/lang_transaction.html) and [Python transaction control](https://docs.python.org/3/library/sqlite3.html#transaction-control) for the underlying behavior.
+
+## Register the callable with Swarms
+
+After running the offline tests, you can register the same callable using the [Agent tools](/agents/agent-tools) interface. The following optional example requires an installed Swarms package, a configured model provider, and `SWARMS_MODEL` set to your supported model identifier. Running it makes provider requests and can incur provider charges.
+
+```python run_agent.py
+import os
+import tempfile
+from pathlib import Path
+
+from swarms import Agent
+from reservation_tool import initialize_demo, make_reservation_tool
+
+with tempfile.TemporaryDirectory() as directory:
+    database_path = str(Path(directory) / "inventory.sqlite")
+    initialize_demo(database_path)
+    reserve = make_reservation_tool(database_path, "demo-operation-001")
+    agent = Agent(
+        agent_name="Inventory-Demo",
+        model_name=os.environ["SWARMS_MODEL"],
+        tools=[reserve],
+        dynamic_tools=False,
+        max_loops=3,
+        system_prompt="Use reserve_stock to make the requested reservation.",
+    )
+    print(agent.run("Reserve 3 units of widget."))
+```
+
+`dynamic_tools=False` makes this small example's tool schema immediately available. When you enable [dynamic tool loading](/agents/dynamic-tools), account for the extra discovery turn in your loop budget. A larger loop budget still does not guarantee that a model will select or successfully call a tool.
+
+The registration example is a separate provider smoke test. The offline checks in this tutorial exercise the actual Python function and database; they do not establish model selection quality, schema compatibility with your installed Swarms version, or the final answer's accuracy. Verify those properties in your configured environment before adapting the pattern to real inventory.
+
+## Continue with executable tests
+
+Proceed to [Test tool retries and concurrency](/examples/tools/test-retry-safe-tool) to verify successful replay, conflicting arguments, rollback after a real SQL failure, and overlapping calls. Keep the same operation identity and transaction boundary when adapting this example to your own tool.

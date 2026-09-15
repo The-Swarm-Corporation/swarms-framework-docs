@@ -1,0 +1,212 @@
+---
+title: "Test tool retries and concurrency"
+description: "Exercise a real tool and SQLite database with offline tests for duplicate calls, conflicting requests, rollback, and overselling."
+---
+
+You can verify a tool's state changes without asking a language model to call it. The tests here import the exact function from [Build a tool that tolerates retries](/examples/tools/retry-safe-tool), execute it against temporary SQLite files, and inspect committed database state.
+
+This is the second part of the tutorial. Save `reservation_tool.py` from part one before continuing. Use Python 3.11 or later with `sqlite3`; you need no third-party test dependency. Each test creates its own temporary directory and removes it afterwards. No real inventory, account, API key, or network service participates.
+
+## Test the behavior you promise
+
+Start with observable outcomes. Checking that a function returns valid JSON would miss a second inventory debit. Checking only the final stock would miss returning the wrong cached response. Check both the reply and the committed state where the scenario needs them.
+
+| Scenario | Required observation |
+| --- | --- |
+| First reservation | The returned fields match one debit and one completion record. |
+| Identical replay | Reply bytes are identical; stock and record count remain unchanged. |
+| Callable reconstruction after a lost reply | A new callable with the retained ID returns the stored result. |
+| Another legitimate operation | Stock changes again, while an old replay keeps its original snapshot. |
+| Conflicting arguments or invalid inputs | An error occurs without an additional state change. |
+| Insert failure after a debit | The entire transaction rolls back. |
+| Concurrent duplicates | Every successful reply agrees and only one debit commits. |
+| Competing operations with limited stock | One reservation succeeds and one fails; inventory stays nonnegative. |
+
+## Run the complete suite
+
+Save this file beside `reservation_tool.py` as `test_reservation_tool.py`.
+
+```python test_reservation_tool.py
+import json
+import sqlite3
+import tempfile
+import unittest
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
+from pathlib import Path
+from threading import Barrier
+
+from reservation_tool import initialize_demo, make_reservation_tool
+
+
+class ReservationTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.database_path = str(Path(directory.name) / "inventory.sqlite")
+        initialize_demo(self.database_path)
+        self.reserve = make_reservation_tool(self.database_path, "operation-1")
+
+    def state(self):
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            return (
+                connection.execute(
+                    "SELECT available FROM stock WHERE sku = 'widget'"
+                ).fetchone()[0],
+                connection.execute("SELECT COUNT(*) FROM reservations").fetchone()[0],
+            )
+
+    def test_reservation_commits_one_debit(self):
+        self.assertEqual(
+            json.loads(self.reserve("widget", 3)),
+            {
+                "reservation_id": "operation-1",
+                "sku": "widget",
+                "quantity": 3,
+                "remaining_stock_at_commit": 7,
+            },
+        )
+        self.assertEqual(self.state(), (7, 1))
+
+    def test_repeated_call_returns_identical_result(self):
+        first = self.reserve("widget", 3)
+        self.assertEqual(self.reserve("widget", 3), first)
+        self.assertEqual(self.state(), (7, 1))
+
+    def test_new_instance_replays_a_lost_response(self):
+        first = self.reserve("widget", 3)
+        # Simulate reconstructing the callable after losing the successful reply.
+        restarted = make_reservation_tool(self.database_path, "operation-1")
+        self.assertEqual(restarted("widget", 3), first)
+        self.assertEqual(self.state(), (7, 1))
+
+    def test_new_operation_changes_stock_but_old_result_stays_stable(self):
+        first = self.reserve("widget", 3)
+        next_reserve = make_reservation_tool(self.database_path, "operation-2")
+        self.assertEqual(json.loads(next_reserve("widget", 2))["remaining_stock_at_commit"], 5)
+        self.assertEqual(self.reserve("widget", 3), first)
+        self.assertEqual(self.state(), (5, 2))
+
+    def test_conflicting_replay_has_no_side_effect(self):
+        self.reserve("widget", 3)
+        for arguments in [("widget", 4), ("another-widget", 3)]:
+            with self.subTest(arguments=arguments):
+                with self.assertRaisesRegex(ValueError, "different arguments"):
+                    self.reserve(*arguments)
+                self.assertEqual(self.state(), (7, 1))
+
+    def test_invalid_quantities_have_no_side_effect(self):
+        for quantity in [True, False, 0, -1, 1001, 3.0, "3", None]:
+            with self.subTest(quantity=quantity):
+                with self.assertRaises(ValueError):
+                    self.reserve("widget", quantity)
+                self.assertEqual(self.state(), (10, 0))
+
+    def test_invalid_skus_and_operation_ids_are_rejected(self):
+        for sku in ["", "w" * 65, None, 1]:
+            with self.subTest(sku=sku):
+                with self.assertRaises(ValueError):
+                    self.reserve(sku, 1)
+                self.assertEqual(self.state(), (10, 0))
+        for request_id in ["", " ", None, 1]:
+            with self.subTest(request_id=request_id):
+                with self.assertRaises(ValueError):
+                    make_reservation_tool(self.database_path, request_id)
+
+    def test_unavailable_stock_does_not_record_success(self):
+        for arguments in [("widget", 11), ("missing", 1)]:
+            with self.subTest(arguments=arguments):
+                with self.assertRaisesRegex(ValueError, "unknown SKU or insufficient stock"):
+                    self.reserve(*arguments)
+                self.assertEqual(self.state(), (10, 0))
+        self.reserve("widget", 10)
+        self.assertEqual(self.state(), (0, 1))
+
+    def test_insert_failure_rolls_back_the_debit(self):
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            connection.execute(
+                "CREATE TRIGGER reject_reservation BEFORE INSERT ON reservations "
+                "BEGIN SELECT RAISE(ABORT, 'injected insert failure'); END"
+            )
+            connection.commit()
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "injected insert failure"):
+            self.reserve("widget", 3)
+        self.assertEqual(self.state(), (10, 0))
+
+    def test_concurrent_duplicates_commit_once(self):
+        barrier = Barrier(4)
+
+        def call_tool(_):
+            barrier.wait(timeout=10)
+            return self.reserve("widget", 3)
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(call_tool, range(4)))
+        self.assertEqual(len(set(results)), 1)
+        self.assertEqual(json.loads(results[0])["quantity"], 3)
+        self.assertEqual(self.state(), (7, 1))
+
+    def test_competing_operations_cannot_oversell(self):
+        barrier = Barrier(2)
+
+        def call_tool(request_id):
+            tool = make_reservation_tool(self.database_path, request_id)
+            barrier.wait(timeout=10)
+            try:
+                tool("widget", 7)
+                return "reserved"
+            except ValueError as error:
+                self.assertEqual(str(error), "unknown SKU or insufficient stock")
+                return "rejected"
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(call_tool, ["operation-1", "operation-2"]))
+        self.assertCountEqual(results, ["reserved", "rejected"])
+        self.assertEqual(self.state(), (3, 1))
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+From that directory, run:
+
+```bash
+python -m unittest discover -s . -p 'test_reservation_tool.py' -v
+```
+
+A successful run reports `Ran 11 tests` followed by `OK`. The subtests check several invalid values within individual tests, so their number is larger than the reported test-method count. Execution time depends on your machine and filesystem.
+
+The suite calls the shipped example function rather than reimplementing its transaction logic inside a fake. It uses real `UPDATE`, `INSERT`, lock acquisition, commit, and rollback operations. Temporary files also allow distinct connections in different threads to access the same database, which separate ordinary `:memory:` connections would not do.
+
+## Inject a failure after the side effect starts
+
+The rollback test creates a SQLite trigger that rejects a reservation insert. The stock debit has already occurred inside the transaction when the trigger runs. The test requires the exception, the original stock value, and zero completion records.
+
+This catches the dangerous gap where the debit commits but the operation record does not. A retry would otherwise see no completed operation and debit the stock again. Using an actual SQL failure tests the transaction boundary more directly than replacing `reserve_stock()` with a mock that raises before performing any work.
+
+## Exercise overlapping calls
+
+The concurrent tests use `Barrier` to release workers together. The first test submits the same operation four times and checks all results. The second test submits distinct operations that each request seven of ten available units. It requires exactly one successful reservation and one specific stock error.
+
+Every tool invocation opens a separate connection. Sharing one connection between workers would change the concurrency behavior and would also conflict with Python's default connection thread check. The test preserves the application's real connection strategy.
+
+These tests exercise overlapping calls in one process. They do not simulate process termination, power failure, every possible scheduler interleaving, or a database shared across hosts. The reconstructed-callable test likewise models losing the response and recreating the callable; it does not kill a process. Add deployment-specific fault tests when those scenarios matter to your application.
+
+If a concurrency test fails, inspect the exception and final state before increasing its timeout. A locked-database failure, two debits for one ID, and a missing completion record are different defects. Increasing the loop count or rerunning until green cannot establish that the defect is fixed.
+
+## Add the suite to continuous integration
+
+Copy the two Python files into your application's example or test directory and run the same `python -m unittest discover` command from that directory in CI. The test step needs a writable temporary directory and the Python `sqlite3` module. It needs no package-install step or provider credentials.
+
+Use your project's supported Python versions as the CI matrix. A local success on one version verifies that local environment only; treat each CI matrix result as separate evidence. Keep the process exit code visible so a failing test fails the job. Avoid commands that suppress errors or continue regardless of the unittest result.
+
+The dependency-free test step makes it practical to run these checks on pull requests, including external contributions, without giving the test job access to model-provider secrets. Your CI service may still use the network to check out source or provision Python; the example test code itself performs no network requests.
+
+## Separate tool checks from provider checks
+
+After the offline suite passes, run the optional `run_agent.py` example from part one in a separately configured environment. Verify that the installed Swarms version accepts the callable, exposes the intended parameter schema, selects the tool, and reports the committed reservation correctly.
+
+For provider checks, inspect the database outcome as well as the model's final text. A fluent claim that stock was reserved is not evidence of a committed reservation. Conversely, a provider timeout after the tool committed does not establish that nothing happened. Retain the operation ID, check the stored result, and recover consistently with the application contract.
+
+Keep provider smoke tests separate from the default offline test command because they have different dependencies, cost, and failure modes. For framework configuration, see [Agent tools](/agents/agent-tools) and [Dynamic tool loading](/agents/dynamic-tools). For the test mechanisms, see [unittest](https://docs.python.org/3/library/unittest.html), [temporary directories](https://docs.python.org/3/library/tempfile.html#tempfile.TemporaryDirectory), and [connection thread behavior](https://docs.python.org/3/library/sqlite3.html#sqlite3.connect).

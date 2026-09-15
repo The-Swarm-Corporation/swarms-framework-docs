@@ -244,6 +244,13 @@
             ]
           },
           {
+            "group": "Tool Reliability",
+            "pages": [
+              "examples/tools/retry-safe-tool",
+              "examples/tools/test-retry-safe-tool"
+            ]
+          },
+          {
             "group": "Model Providers",
             "pages": [
               "examples/model-providers/anthropic",
