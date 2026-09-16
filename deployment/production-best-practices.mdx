@@ -57,7 +57,11 @@ from loguru import logger
 def run_agent_with_recovery(agent, task, max_retries=3):
     """
     Run agent with automatic recovery from transient errors.
+
+    max_retries counts total attempts, including the initial call; use at least 1.
     """
+    if max_retries < 1:
+        raise ValueError("max_retries must be at least 1")
     for attempt in range(max_retries):
         try:
             result = agent.run(task)
@@ -106,7 +110,11 @@ def exponential_backoff_retry(
 ):
     """
     Execute function with exponential backoff retry.
+
+    max_retries counts total attempts, including the initial call; use at least 1.
     """
+    if max_retries < 1:
+        raise ValueError("max_retries must be at least 1")
     for attempt in range(max_retries):
         try:
             return func()
