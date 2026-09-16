@@ -275,6 +275,14 @@
             ]
           },
           {
+            "group": "Local Document Retrieval",
+            "pages": [
+              "examples/local-retrieval/indexing",
+              "examples/local-retrieval/agent",
+              "examples/local-retrieval/evaluation"
+            ]
+          },
+          {
             "group": "Multi-Agent Examples",
             "pages": [
               "examples/overviews/multi-agent-overview",

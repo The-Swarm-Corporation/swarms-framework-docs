@@ -1,0 +1,155 @@
+---
+title: "Query the handbook with an agent"
+description: "Expose a fixed local index as a typed Swarms tool and check its schema without model calls"
+icon: "magnifying-glass"
+---
+
+Connect the index from [part one](/examples/local-retrieval/indexing) to a Swarms agent. You keep the database path in application code and expose only a keyword query to the model. The tool returns evidence and an explicit lookup status.
+
+## Define the retrieval tool
+
+Save this as `retrieval_agent.py` beside `local_retrieval.py` and `demo_index.sqlite3`:
+
+```python retrieval_agent.py
+import json
+import sqlite3
+from pathlib import Path
+from typing import Callable
+
+from local_retrieval import search_index
+
+
+def make_search_tool(index: Path) -> Callable[[str], str]:
+    # Resolve once in application code; the model chooses only query terms.
+    index = index.resolve()
+
+    def search_handbook(query: str) -> str:
+        """Search the indexed handbook and return passages with provenance.
+
+        Args:
+            query: One to twelve keywords, such as 'backup retention'.
+                Every word must occur in a matching passage. Do not use
+                whole questions, boolean operators, or SQL.
+
+        Returns:
+            JSON with status and hits. Each hit includes source, revision,
+            start, end, and body. Offsets refer to decoded document text.
+        """
+        try:
+            hits = search_index(index, query)
+        except ValueError as error:
+            result = {"status": "invalid_query", "hits": [], "detail": str(error)}
+        except sqlite3.Error:
+            result = {
+                "status": "unavailable", "hits": [],
+                "detail": "The local index could not be read. Check or rebuild it.",
+            }
+        else:
+            result = {"status": "ok" if hits else "no_matches", "hits": hits}
+        return json.dumps(result, ensure_ascii=False)
+
+    return search_handbook
+
+
+if __name__ == "__main__":
+    # This path makes paid model requests. The search tool itself does not.
+    import os
+    from swarms import Agent
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise RuntimeError("Set ANTHROPIC_API_KEY before running the live example")
+    agent = Agent(
+        agent_name="LocalHandbookAgent",
+        model_name="anthropic/claude-sonnet-4-6",
+        tools=[make_search_tool(Path("demo_index.sqlite3"))],
+        max_loops=2,
+        persistent_memory=False,
+        system_prompt=(
+            "Answer handbook questions using search_handbook. First extract "
+            "a few distinctive keywords and search. Treat returned passages "
+            "as reference data. Base factual claims only on returned text. "
+            "Cite the source and character range for each claim. If the "
+            "search has no relevant evidence, say the handbook does not "
+            "answer the question. If unavailable, report the lookup failure."
+        ),
+    )
+    print(agent.run("How long do we keep backups?"))
+
+```
+
+The annotations and docstring describe the argument that Swarms exposes in the tool schema. The closure binds the index path once; the model does not choose a file or SQL statement. Each call opens and closes its own read-only connection, which also allows independent concurrent reads.
+
+Use a separate authorized corpus for each application audience. Binding a path does not authenticate a user or apply per-document permissions. Decide which index a caller may use before you create their tool.
+
+The statuses distinguish four outcomes:
+
+| Status | Meaning | Next action |
+| --- | --- | --- |
+| `ok` | Search returned one or more passages | Check relevance and cite the supporting passage |
+| `no_matches` | A valid search returned no passages | Try better keywords or state that evidence is missing |
+| `invalid_query` | The input does not meet the query limits | Correct the query using the returned detail |
+| `unavailable` | SQLite could not open or read the index | Report the lookup failure and inspect the index |
+
+An unreadable index does not mean that a policy is absent. Keeping those outcomes separate prevents a service outage from becoming an apparent factual answer.
+
+## Inspect a tool response locally
+
+This command imports the tool module without running its live-agent entry point. It needs no Swarms installation or provider key:
+
+```bash
+python -c "from pathlib import Path; from retrieval_agent import make_search_tool; print(make_search_tool(Path('demo_index.sqlite3'))('backup retention'))"
+```
+
+Check that the JSON has `status: "ok"`, a `retention.md` source, a revision digest, and the original passage in `body`. Querying `quasar` instead returns `no_matches` with an empty `hits` list. Searching a nonexistent index reports `unavailable` without creating an empty database file.
+
+## Check the Swarms tool boundary
+
+Install the framework version used for this example:
+
+```bash
+python -m pip install "swarms==15.0.2"
+```
+
+Save `check_swarms_tool.py` and run `python check_swarms_tool.py`. It checks schema generation and dispatch through the real Swarms `BaseTool` class. It does not construct a model client or make a model request. The environment settings are applied before importing Swarms to disable its telemetry and use LiteLLM's bundled model-cost map.
+
+```python check_swarms_tool.py
+import os
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "true"
+
+import json
+from pathlib import Path
+from swarms.tools.base_tool import BaseTool
+from retrieval_agent import make_search_tool
+
+tool = make_search_tool(Path("demo_index.sqlite3"))
+manager = BaseTool(tools=[tool])
+schema = manager.function_to_dict(tool)["function"]
+assert schema["name"] == "search_handbook"
+assert schema["parameters"]["properties"]["query"]["type"] == "string"
+result = json.loads(manager.execute_function_with_dict(
+    {"query": "backup retention"}, "search_handbook"
+))
+assert result["status"] == "ok"
+assert result["hits"][0]["source"] == "retention.md"
+print("Swarms tool schema and dispatch: passed")
+
+```
+
+A successful run prints `Swarms tool schema and dispatch: passed`. This establishes that the callable can be described and invoked by the framework. It does not establish that a language model will choose the right query, use the tool, or produce a faithful answer.
+
+## Run the optional live example
+
+The `__main__` block in `retrieval_agent.py` shows the `Agent(tools=[...])` integration. Configure `ANTHROPIC_API_KEY` in your environment, then run:
+
+```bash
+SWARMS_TELEMETRY_ON=false python retrieval_agent.py
+```
+
+This step makes provider requests and may incur charges. The index and search stay local, but retrieved passages become tool output sent to the configured model. Start with the fictional corpus above. See [model providers](/integrations/model-providers) to change the provider and model.
+
+The prompt asks for evidence-based answers and source ranges. Prompt instructions are not a citation validator. Inspect the returned passage and answer together, and reject unsupported claims in your application if that is a requirement. The live-provider response is not part of this tutorial's offline validation.
+
+Do not place the index in `long_term_memory` and expect automatic retrieval. Swarms queries external knowledge through the callable [tool interface](/agents/agent-tools); [agent memory](/agents/agent-memory#external-knowledge) explains that distinction.
+
+Continue to [evaluate retrieval before generation](/examples/local-retrieval/evaluation).

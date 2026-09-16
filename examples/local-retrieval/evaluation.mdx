@@ -1,0 +1,176 @@
+---
+title: "Evaluate retrieval before generation"
+description: "Run a small labeled retrieval set and test freshness, provenance, and failure handling without a model"
+icon: "check-double"
+---
+
+Test the retriever before judging an agent's prose. A fluent answer can hide a poor search query, stale content, or missing evidence. This page checks the index and tool from [part one](/examples/local-retrieval/indexing) and [part two](/examples/local-retrieval/agent) without provider calls.
+
+## Separate the questions you measure
+
+There are three different checks:
+
+1. **Retrieval:** Does a query return a passage from the expected document within the first three results?
+2. **Provenance and freshness:** Does the passage match the recorded source revision, and do edits or deletions appear after rebuilding?
+3. **Generation:** Does the agent choose appropriate queries and support each answer claim with the retrieved text?
+
+The tests below cover the first two and the tool's failure contract. Generation requires a separate evaluation with your chosen model. Passing these tests is not evidence of answer accuracy on an arbitrary handbook.
+
+## Run the regression suite
+
+Save this as `test_local_retrieval.py` beside the other tutorial files. The suite creates a fresh temporary corpus for each test and removes it afterward. It does not modify the demonstration index or require Swarms to be installed.
+
+```python test_local_retrieval.py
+import hashlib
+import json
+import tempfile
+import unittest
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+from local_retrieval import build_index, search_index
+from prepare_demo import DOCUMENTS
+from retrieval_agent import make_search_tool
+
+
+class RetrievalTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.corpus = self.root / "corpus"
+        self.corpus.mkdir()
+        self.index = self.root / "index.sqlite3"
+        for name, text in DOCUMENTS.items():
+            (self.corpus / name).write_text(text, encoding="utf-8")
+        build_index(self.corpus, self.index)
+
+    def test_retrieval_hit_rate_at_three(self):
+        cases = {
+            "rollback release": "deployment.md",
+            "backup retention": "retention.md",
+            "cafe hours": "support.md",
+        }
+        for query, expected in cases.items():
+            with self.subTest(query=query):
+                sources = {hit["source"] for hit in search_index(self.index, query)}
+                self.assertIn(expected, sources)
+
+    def test_unknown_answer_and_unavailable_are_distinct(self):
+        tool = make_search_tool(self.index)
+        self.assertEqual(json.loads(tool("quasar"))["status"], "no_matches")
+        missing = self.root / "missing.sqlite3"
+        self.assertEqual(json.loads(make_search_tool(missing)("backup"))["status"],
+                         "unavailable")
+        self.assertFalse(missing.exists())
+
+    def test_invalid_queries(self):
+        tool = make_search_tool(self.index)
+        for query in ("", "???", "x" * 501, " ".join(str(n) for n in range(13))):
+            with self.subTest(query=query[:20]):
+                self.assertEqual(json.loads(tool(query))["status"], "invalid_query")
+
+    def test_punctuation_and_literal_operator_word(self):
+        hits = search_index(self.index, '"backup", retention?')
+        self.assertEqual(hits[0]["source"], "retention.md")
+        self.assertEqual(search_index(self.index, "backup OR quasar"), [])
+
+    def test_provenance_and_chunk_bounds(self):
+        text = ("amber documentation " * 150) + "final-marker"
+        (self.corpus / "long.md").write_text(text, encoding="utf-8")
+        build_index(self.corpus, self.index)
+        hits = search_index(self.index, "amber", limit=5)
+        self.assertGreater(len(hits), 1)
+        for hit in hits:
+            self.assertEqual(hit["body"], text[hit["start"]:hit["end"]])
+            self.assertLessEqual(len(hit["body"]), 800)
+            self.assertEqual(hit["revision"], hashlib.sha256(text.encode()).hexdigest())
+        self.assertIn("final-marker", search_index(self.index, "final marker")[0]["body"])
+
+    def test_rebuild_replaces_stale_and_deleted_documents(self):
+        old = search_index(self.index, "backup")[0]["revision"]
+        (self.corpus / "retention.md").write_text(
+            "Backup retention is now ten days.", encoding="utf-8"
+        )
+        (self.corpus / "deployment.md").unlink()
+        build_index(self.corpus, self.index)
+        build_index(self.corpus, self.index)
+        hits = search_index(self.index, "backup")
+        self.assertEqual(len(hits), 1)
+        self.assertNotEqual(hits[0]["revision"], old)
+        self.assertEqual(search_index(self.index, "rollback"), [])
+
+    def test_bad_corpus_preserves_previous_index(self):
+        (self.corpus / "bad.md").write_bytes(b"\xff")
+        with self.assertRaises(UnicodeDecodeError):
+            build_index(self.corpus, self.index)
+        self.assertEqual(search_index(self.index, "backup")[0]["source"], "retention.md")
+        empty = self.root / "empty"
+        empty.mkdir()
+        with self.assertRaises(ValueError):
+            build_index(empty, self.index)
+
+    def test_limit_and_parallel_reads(self):
+        for limit in (0, 6, True):
+            with self.assertRaises(ValueError):
+                search_index(self.index, "backup", limit)
+        tool = make_search_tool(self.index)
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(tool, ["backup retention"] * 12))
+        self.assertEqual(len(set(results)), 1)
+
+    def test_corrupt_index_is_unavailable(self):
+        self.index.write_bytes(b"not a sqlite database")
+        result = json.loads(make_search_tool(self.index)("backup"))
+        self.assertEqual(result["status"], "unavailable")
+
+    def test_unicode_path_and_corpus_isolation(self):
+        other = self.root / "café handbook"
+        other.mkdir()
+        (other / "other.md").write_text("quasar schedule", encoding="utf-8")
+        other_index = self.root / "café #2.sqlite3"
+        build_index(other, other_index)
+        self.assertEqual(search_index(other_index, "quasar")[0]["source"], "other.md")
+        self.assertEqual(search_index(self.index, "quasar"), [])
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+```
+
+```bash
+python -m unittest -v test_local_retrieval.py
+```
+
+The suite runs ten tests. The retrieval test checks three labeled queries: `rollback release`, `backup retention`, and `cafe hours`. All three must retrieve their expected document within the first three results. This is document hit rate at three, not passage-level recall or precision. The separate `quasar` case checks an empty result for a word absent from the fixture.
+
+The fixture is deliberately small and easy. A score of three out of three establishes that the example works on those cases; it does not estimate production quality. The remaining checks verify exact passage slices and revisions, size limits, repeated rebuilds, deleted files, invalid UTF-8, punctuation, read failures, Unicode paths, and concurrent reads.
+
+## Build a useful evaluation set
+
+Before using your own corpus, write down questions that users actually ask. Record both the expected document and a short supporting passage. Keep some questions with no answer in the corpus, plus near misses where a similarly named procedure should not count as correct.
+
+For each question, record the keyword query, returned source revision and range, whether the expected evidence is present, and the reason for a miss. Keep the evaluation set separate from the examples you used to tune chunk size and query wording.
+
+Measure question-to-query behavior separately from query-to-passage behavior. The tests here provide the keywords directly. If you replace them with model-generated keywords, record those keywords too; otherwise you cannot tell whether a failure came from query formulation or the index.
+
+Avoid treating BM25 rank as confidence that an answer is correct. Ranking compares matching chunks. It does not verify that a passage answers the question. Review relevance even when `status` is `ok`.
+
+## Use failures to choose the next change
+
+| Observation | First change to investigate |
+| --- | --- |
+| The right words occur in different chunks | Try section-aware chunks or different overlap |
+| Users ask with synonyms that never match | Evaluate query expansion or a semantic retriever |
+| Edited policies still appear with the old revision | Check ingestion and rebuild completion |
+| Empty results increase alongside index errors | Keep `unavailable` separate in operational reporting |
+| Correct passages appear but answers add facts | Evaluate generation and claim support separately |
+
+Change one part at a time and rerun the same labeled set. Keep the baseline results so you can see whether a new retriever improves real misses or only the examples you tuned it against. For larger workloads, also measure index build time, query latency, and memory on representative corpus sizes; this tutorial makes no throughput claim.
+
+## Move beyond the tutorial
+
+Keep source revisions with answer records so you can investigate an answer after documents change. Apply your application's access rules before selecting an index. Decide how to rebuild and publish larger corpora without loading all files at once. If you need semantic search, retain the same provenance and status contract when replacing the local implementation.
+
+Return to the [RAG examples overview](/examples/overviews/rag-overview) for other storage integrations, or the [tool interface](/agents/agent-tools) to expose your own retriever.

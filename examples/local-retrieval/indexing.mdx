@@ -1,0 +1,163 @@
+---
+title: "Index a local handbook"
+description: "Build a small SQLite search index with bounded passages and reproducible source references"
+icon: "database"
+---
+
+Give your agent a searchable handbook without an embedding service or a separate database server. In this three-part tutorial, you build an index, expose a retrieval tool to Swarms, and evaluate the results before making model requests.
+
+This first part uses Python's standard library. The second part adds Swarms. The examples use fictional handbook policies so you can run every retrieval check without sending real documents to a provider.
+
+## Choose this example when
+
+Your documents contain distinctive terms, such as product names, procedure names, or configuration settings. This retriever uses **keyword matching**. It does not understand synonyms or answer questions by itself. For example, `backup retention` can match a passage that contains those words; `data lifespan` will not find the same passage unless it also contains those terms.
+
+You supply an approved folder of UTF-8 `.md` files. This example reads that small corpus into memory and rebuilds a dedicated index. It does not parse PDFs, preserve Markdown section structure, or implement incremental ingestion. Start with a small handbook and measure retrieval quality before adding more processing.
+
+## Set up the workspace
+
+The commands below use a POSIX shell. Use Python 3.12 or later with SQLite FTS5 enabled. The examples were checked on Python 3.12.13.
+
+```bash
+mkdir local-handbook-demo
+cd local-handbook-demo
+python3 -m venv .venv
+source .venv/bin/activate
+python -c "import sqlite3; c = sqlite3.connect(':memory:'); c.execute('CREATE VIRTUAL TABLE probe USING fts5(body)'); c.close(); print('FTS5 available')"
+```
+
+If the probe reports `no such module: fts5`, use a Python distribution whose SQLite library includes FTS5. Installing a package named `sqlite3` is not the fix: `sqlite3` is part of Python's standard library.
+
+Keep the following Python files in this same directory.
+
+## Build and query the index
+
+Save this as `local_retrieval.py`:
+
+```python local_retrieval.py
+import hashlib
+import re
+import sqlite3
+from contextlib import closing
+from pathlib import Path
+
+
+def build_index(corpus: Path, index: Path) -> int:
+    """Replace a tutorial index with chunks from UTF-8 Markdown files."""
+    if not corpus.is_dir():
+        raise ValueError("Corpus directory does not exist")
+    rows = []
+    for path in sorted(corpus.rglob("*.md")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            continue
+        source = path.relative_to(corpus).as_posix()
+        revision = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        for start in range(0, len(text), 600):
+            end = min(start + 800, len(text))
+            rows.append((source, start, end, revision, text[start:end]))
+            if end == len(text):
+                break
+    if not rows:
+        raise ValueError("Corpus has no nonempty UTF-8 Markdown documents")
+    index.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(index)) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        with conn:
+            conn.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(
+                    source UNINDEXED, start UNINDEXED, end UNINDEXED,
+                    revision UNINDEXED, body,
+                    tokenize='unicode61 remove_diacritics 2'
+                )
+            """)
+            conn.execute("DELETE FROM chunks")
+            conn.executemany("INSERT INTO chunks VALUES (?, ?, ?, ?, ?)", rows)
+    return len(rows)
+
+
+def search_index(index: Path, query: str, limit: int = 3) -> list[dict]:
+    """Return up to five chunks containing every literal query term."""
+    if not isinstance(query, str) or not 1 <= len(query) <= 500:
+        raise ValueError("Use a query of 1 to 500 characters")
+    if type(limit) is not int or not 1 <= limit <= 5:
+        raise ValueError("Use an integer limit from 1 to 5")
+    terms = list(dict.fromkeys(re.findall(r"[^\W_]+", query.lower())))
+    if not 1 <= len(terms) <= 12:
+        raise ValueError("Use 1 to 12 keyword terms")
+    expression = " AND ".join('"' + term + '"' for term in terms)
+    uri = index.resolve().as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("""
+            SELECT source, start, end, revision, body
+            FROM chunks WHERE chunks MATCH ?
+            ORDER BY rank, source, start LIMIT ?
+        """, (expression, limit)).fetchall()
+    return [dict(row) for row in rows]
+
+```
+
+Each result contains the relative document name, the SHA-256 revision of its decoded text, and a half-open character range: `text[start:end]`. You can reproduce the exact returned passage from that revision. Reading text normalizes line endings, so these offsets refer to Python's decoded text, not byte positions in the original file. Keep the source revision with any saved answer; the same filename can later contain different text.
+
+Chunks contain at most 800 characters and advance by 600 characters. The overlap gives short phrases near a boundary another opportunity to appear together. It does not guarantee that a complete sentence or every multi-word query fits in one chunk. These are character limits, not model token limits.
+
+The search requires every query term to occur in a chunk. It treats punctuation as separators and quotes each term, so a word such as `OR` remains a literal term. It orders matches by FTS5 rank, then source and offset to resolve ties. The query returns at most five passages. See the [SQLite FTS5 reference](https://www.sqlite.org/fts5.html) for tokenizer and ranking details.
+
+## Create a small corpus
+
+Save and run `prepare_demo.py` once. It refuses to overwrite an existing `demo_corpus` directory.
+
+```python prepare_demo.py
+from pathlib import Path
+from local_retrieval import build_index
+
+# Fictional policies for this tutorial, not Swarms product behavior.
+DOCUMENTS = {
+    "deployment.md": (
+        "# Releases\n\nTo rollback a release, select the previous image tag "
+        "and redeploy. Record the incident ID in the release log.\n"
+    ),
+    "retention.md": (
+        "# Backups\n\nThe backup retention period is seven days. "
+        "Restore drills run every Friday.\n"
+    ),
+    "support.md": (
+        "# Café support\n\nCafé support hours are 09:00 to 17:00 UTC "
+        "on weekdays. Requests go to the internal help desk.\n"
+    ),
+}
+
+if __name__ == "__main__":
+    corpus = Path("demo_corpus")
+    # Refuse to overwrite an existing folder when you rerun setup.
+    corpus.mkdir()
+    for name, text in DOCUMENTS.items():
+        (corpus / name).write_text(text, encoding="utf-8")
+    count = build_index(corpus, Path("demo_index.sqlite3"))
+    print(f"Indexed {count} chunks")
+
+```
+
+```bash
+python prepare_demo.py
+python -c "from pathlib import Path; from local_retrieval import search_index; print(search_index(Path('demo_index.sqlite3'), 'backup retention')[0]['body'])"
+```
+
+The first command prints `Indexed 3 chunks`. The second prints the backup policy from `retention.md`, including its seven-day retention period. That policy is tutorial data, not a claim about Swarms.
+
+## Refresh changed documents
+
+After editing or deleting a file in `demo_corpus`, rebuild the index:
+
+```bash
+python -c "from pathlib import Path; from local_retrieval import build_index; print(build_index(Path('demo_corpus'), Path('demo_index.sqlite3')))"
+```
+
+The rebuild replaces existing rows in one transaction, so deleted documents stop appearing in search. Repeating a rebuild does not append duplicate chunks. Files are decoded before the write begins; invalid UTF-8 or an empty corpus raises an error and leaves an existing index intact. Check the command's exit status before using a refreshed corpus.
+
+Use a dedicated database path for this tutorial. Rebuilding intentionally replaces its `chunks` table contents. For larger corpora, design ingestion, version retention, and publication separately instead of extending this in-memory example indefinitely.
+
+Continue to [query the handbook with an agent](/examples/local-retrieval/agent), then [evaluate retrieval](/examples/local-retrieval/evaluation).
