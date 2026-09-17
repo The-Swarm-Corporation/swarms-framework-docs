@@ -279,6 +279,7 @@
             "pages": [
               "examples/overviews/multi-agent-overview",
               "examples/sequential-workflow-example",
+            "examples/graph-checkpoint-tests",
               "examples/sequential-workflow-streaming-example",
               "examples/concurrent-workflow-example",
               "examples/mixture-of-agents-example",

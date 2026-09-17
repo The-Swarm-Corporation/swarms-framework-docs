@@ -1,0 +1,240 @@
+---
+title: 'Test GraphWorkflow checkpoint recovery offline'
+description: 'Use deterministic nodes and fresh Python processes to verify checkpoint reuse, restored context, task isolation, and explicit invalidation.'
+---
+
+A workflow can return the expected answer while rerunning expensive steps you thought were checkpointed. Test which nodes actually execute, as well as the final result. This guide builds an `Extract → Write` graph, interrupts its process after the first layer has been saved, and resumes it in a new Python process.
+
+You use the real `GraphWorkflow`, its checkpoint files, and its conversation handling. Two small Python objects replace model-backed agents with predictable outputs. They do not call a model or a tool. These tests measure orchestration and checkpoint behavior; they do not evaluate model quality or recovery of external side effects.
+
+## Set up a disposable example directory
+
+Use Python 3.12 and save the two files below in a new directory. Install dependencies while network access is available. You do not need provider credentials.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install swarms==15.0.3 pytest==9.1.1 pytest-socket==0.8.1
+```
+
+On Windows, activate with `.venv\Scripts\Activate.ps1` instead. The examples target Swarms 15.0.3; rerun the suite when you upgrade. Transitive dependencies can change even with these direct versions pinned, so preserve your resolved environment when comparing results across machines.
+
+The test runner creates a new working directory for every child process. An empty `.env` stops Swarms from searching parent directories for credentials. The child inherits only basic operating-system paths, disables telemetry before importing Swarms, and uses LiteLLM's bundled model-cost map. `pytest-socket` blocks internet sockets and DNS in both the parent and each child; local Unix sockets remain available for event-loop internals. Swarms may still create its default `~/.swarms/conversations` directory, so use a disposable environment if you also need filesystem isolation.
+
+## Create a deterministic worker
+
+Save this as `checkpoint_worker.py`. Each invocation constructs a new graph with the same node names and edge. The `calls.jsonl` file records only nodes that actually ran in that process. `result.json` contains the real workflow result and conversation.
+
+The `interrupt` option calls `os._exit(23)` when `Write` starts. This is a deliberate test fixture: it exits the child immediately, after `Extract` has returned and its layer checkpoint has been written. It does not inject a failure inside a checkpoint write. Keep this option out of application code.
+
+```python checkpoint_worker.py
+"""Run one isolated invocation of a real GraphWorkflow with fake nodes."""
+import json
+import os
+import sys
+from pathlib import Path
+
+from pytest_socket import disable_socket
+
+# Apply before importing Swarms. AF_UNIX supports local event-loop internals.
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+os.environ["WORKSPACE_DIR"] = str(Path.cwd() / "workspace")
+disable_socket(allow_unix_socket=True)
+
+from swarms import GraphWorkflow
+
+
+class FixtureNode:
+    def __init__(self, name, request):
+        self.agent_name = name
+        self.request = request
+
+    def run(self, task, messages=None, **kwargs):
+        with Path("calls.jsonl").open("a", encoding="utf-8") as log:
+            entry = {"node": self.agent_name, "messages": messages}
+            log.write(json.dumps(entry) + "\n")
+        if self.agent_name == "Extract":
+            if self.request.get("fail"):
+                raise ValueError("synthetic extraction failure")
+            return self.request["value"]
+        if self.request.get("interrupt"):
+            # Test-only abrupt exit: Extract's layer is already on disk.
+            os._exit(23)
+        prior = next(
+            m["content"] for m in messages
+            if m["content"].startswith("Extract: ")
+        )
+        return f"report({prior.removeprefix('Extract: ')})"
+
+
+def main():
+    request = json.loads(sys.argv[1])
+    workflow = GraphWorkflow(
+        name="Offline checkpoint fixture",
+        checkpoint_dir=request["checkpoint_dir"],
+        max_loops=1,
+    )
+    workflow.add_node(FixtureNode("Extract", request))
+    workflow.add_node(FixtureNode("Write", request))
+    workflow.add_edge("Extract", "Write")
+    if request.get("clear"):
+        result = {"deleted": workflow.clear_checkpoints(request["task"])}
+    else:
+        result = {
+            "outputs": workflow.run(request["task"]),
+            "conversation": workflow.conversation.return_messages_as_list(),
+        }
+    Path("result.json").write_text(json.dumps(result), encoding="utf-8")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+## Assert behavior across process boundaries
+
+Save this as `test_graph_checkpoints.py` beside the worker. Every `invoke` starts a fresh interpreter. Only the checkpoint directory is shared between related invocations; node instances and conversation objects are reconstructed each time.
+
+The parent checks the exit code before inspecting artifacts. A timeout or unexpected import failure therefore fails the test instead of looking like a successful restart. Each child also installs its own socket guard: a pytest plugin in the parent alone would not protect a subprocess.
+
+```python test_graph_checkpoints.py
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from uuid import uuid4
+
+WORKER = Path(__file__).with_name("checkpoint_worker.py")
+TASK = "Summarize the local fixture"
+
+
+def invoke(tmp_path, *, cache="v1", task=TASK, value="facts-v1", **options):
+    run_dir = tmp_path / uuid4().hex
+    run_dir.mkdir()
+    # Stop dotenv's upward search before importing Swarms in the child.
+    (run_dir / ".env").write_text("", encoding="utf-8")
+    request = {
+        "checkpoint_dir": str(tmp_path / cache),
+        "task": task,
+        "value": value,
+        **options,
+    }
+    # Do not inherit provider keys, proxy settings, or PYTHONPATH.
+    allowed = ("PATH", "HOME", "USERPROFILE", "SystemRoot", "COMSPEC", "TEMP", "TMP")
+    env = {k: os.environ[k] for k in allowed if k in os.environ}
+    process = subprocess.run(
+        [sys.executable, "-I", str(WORKER), json.dumps(request)],
+        cwd=run_dir, env=env, capture_output=True, text=True, timeout=30,
+    )
+    expected_code = 23 if options.get("interrupt") else 0
+    assert process.returncode == expected_code, process.stdout + process.stderr
+    log = run_dir / "calls.jsonl"
+    calls = (
+        [json.loads(line) for line in log.read_text().splitlines()]
+        if log.exists() else []
+    )
+    result_file = run_dir / "result.json"
+    result = json.loads(result_file.read_text()) if result_file.exists() else None
+    return calls, result
+
+
+def names(calls):
+    return [call["node"] for call in calls]
+
+
+def test_restart_restores_only_completed_layer_and_its_context(tmp_path):
+    calls, result = invoke(tmp_path, interrupt=True)
+    assert names(calls) == ["Extract", "Write"]
+    assert result is None
+    saved = list((tmp_path / "v1").glob("*.json"))
+    assert len(saved) == 1
+    assert json.loads(saved[0].read_text()) == {"Extract": "facts-v1"}
+
+    calls, result = invoke(tmp_path)
+    assert names(calls) == ["Write"]
+    assert result["outputs"] == {
+        "Extract": "facts-v1", "Write": "report(facts-v1)"
+    }
+    prior_turn = {"role": "user", "content": "Extract: facts-v1"}
+    assert prior_turn in calls[0]["messages"]
+    restored_turn = {"role": "Extract", "content": "facts-v1"}
+    assert restored_turn in result["conversation"]
+    assert len(list((tmp_path / "v1").glob("*.json"))) == 2
+
+
+def test_replay_ignores_changed_node_until_cache_namespace_changes(tmp_path):
+    calls, original = invoke(tmp_path)
+    assert names(calls) == ["Extract", "Write"]
+    calls, replay = invoke(tmp_path, value="facts-v2")
+    assert calls == []
+    assert replay == original
+
+    calls, changed = invoke(tmp_path, cache="v2", value="facts-v2")
+    assert names(calls) == ["Extract", "Write"]
+    assert changed["outputs"] == {
+        "Extract": "facts-v2", "Write": "report(facts-v2)"
+    }
+
+
+def test_task_isolation_and_targeted_cleanup(tmp_path):
+    invoke(tmp_path)
+    invoke(tmp_path, task="Another fixture", value="other-facts")
+    assert len(list((tmp_path / "v1").glob("*.json"))) == 4
+    calls, cleared = invoke(tmp_path, clear=True)
+    assert calls == []
+    assert cleared == {"deleted": 2}
+    assert len(list((tmp_path / "v1").glob("*.json"))) == 2
+
+    calls, other = invoke(tmp_path, task="Another fixture", value="unused")
+    assert calls == []
+    assert other["outputs"]["Extract"] == "other-facts"
+    calls, fresh = invoke(tmp_path, value="fresh-facts")
+    assert names(calls) == ["Extract", "Write"]
+    assert fresh["outputs"]["Write"] == "report(fresh-facts)"
+
+
+def test_node_error_is_also_cached_until_explicit_cleanup(tmp_path):
+    calls, failed = invoke(tmp_path, fail=True)
+    assert names(calls) == ["Extract", "Write"]
+    assert failed["outputs"]["Extract"].startswith("[ERROR]")
+    calls, replay = invoke(tmp_path)
+    assert calls == []
+    assert replay == failed
+    invoke(tmp_path, clear=True)
+    calls, recovered = invoke(tmp_path)
+    assert names(calls) == ["Extract", "Write"]
+    assert recovered["outputs"]["Write"] == "report(facts-v1)"
+```
+
+## Run and interpret the checks
+
+```bash
+python -m pytest -q --disable-socket --allow-unix-socket test_graph_checkpoints.py
+```
+
+Expected summary: `4 passed`. The examples were also exercised in a container with networking disabled. Dependency imports can emit a blocked-socket warning; inspect unexpected failures rather than enabling network access to make this suite pass.
+
+| Check | Evidence you should see | What it tells you |
+| --- | --- | --- |
+| Interrupted process | One checkpoint exists; the next process calls only `Write` and receives `Extract: facts-v1` | A fully written earlier layer is reused, including its downstream context |
+| Changed fake output | The same task and directory return the old result with zero node calls; a new directory returns `facts-v2` | Updating node behavior does not invalidate existing checkpoints |
+| Another task and cleanup | Two tasks produce four files; clearing one removes two and preserves the other's cached result | Task text separates these runs, and cleanup targets the exact task |
+| Node exception | The error is returned and cached; a later run still sees it until cleanup | A checkpoint's existence does not establish that a node succeeded |
+
+The interruption test checks both the downstream messages and the restored conversation. Checking only the final string would miss a regression in context reconstruction. The stale-output test intentionally expects the old value: it documents a cache boundary, rather than recommending stale results.
+
+## Choose checkpoint ownership explicitly
+
+In this version, checkpoint filenames combine a truncated SHA-256 hash of the task text with the layer index. They do not include your graph structure, prompts, model configuration, fixture version, or loop number. Use a directory such as `checkpoints/graph-v2/job-123` to separate application versions and independent jobs. Reuse that directory only when you intend to resume the same work. This guide fixes `max_loops=1`; it does not establish checkpoint behavior for iterative or parallel graphs.
+
+Use `clear_checkpoints(task)` when you deliberately want to recompute that task, and inspect its returned deletion count. If you change an upstream node, invalidate the whole task's checkpoints or use a new directory. Removing only one upstream layer can leave later layers holding results derived from the previous output. Keep each active job's checkpoint directory under one writer; these examples do not test concurrent processes writing the same files.
+
+GraphWorkflow converts ordinary node exceptions into `[ERROR]` output strings and can save those strings. Inspect outputs before treating a run as successful. The final test demonstrates explicit cleanup after a synthetic failure; it does not implement an automatic retry policy.
+
+Checkpoint files contain layer outputs. They do not establish a transaction with a tool, payment, message, or other external effect. A process could complete such an effect and exit before saving its layer. Restarting could repeat that effect. This fixture has no external effects, and its interruption occurs between writes; it does not establish exactly-once execution or atomic recovery from a torn file write.
+
+## Related reference and source
+
+See the [GraphWorkflow API](/api/graph-workflow) for constructor options and cleanup. The behavior described here was checked against Swarms 15.0.3 and the [GraphWorkflow implementation at a7cc265](https://github.com/kyegomez/swarms/blob/a7cc26599b2d9445fecb800d6ad2b1131e9ae488/swarms/structs/graph_workflow.py). The project's [checkpoint unit tests](https://github.com/kyegomez/swarms/blob/a7cc26599b2d9445fecb800d6ad2b1131e9ae488/tests/structs/test_graph_workflow.py) provide additional examples of layer reuse and cleanup.
