@@ -81,7 +81,7 @@ async def health_check():
 
 
 @app.post("/agent/run", response_model=AgentResponse)
-async def run_agent(request: AgentRequest):
+def run_agent(request: AgentRequest):
     try:
         start_time = time.time()
         # max_loops only takes effect at Agent construction time, not on
@@ -102,6 +102,12 @@ async def run_agent(request: AgentRequest):
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
+
+Use `def` for routes that construct and run a synchronous `Agent`. FastAPI runs
+these route functions in its worker thread pool, so slow agent work does not
+block the event loop that serves `/health`. Declaring a route `async def` does
+not make its synchronous calls asynchronous. The lightweight health routes can
+remain `async def` because they do no blocking work.
 
 ## Step 3: Run it
 
@@ -149,7 +155,7 @@ When you want a dedicated endpoint for a specific agent persona, just create the
 
 ```python
 @app.post("/agent/quantitative-trading")
-async def run_quant_agent(request: AgentRequest):
+def run_quant_agent(request: AgentRequest):
     try:
         agent = Agent(
             agent_name="Quantitative-Trading-Agent",
@@ -174,6 +180,71 @@ async def run_quant_agent(request: AgentRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Quant agent failed: {e}")
 ```
+
+### Check responsiveness without a model call
+
+Save this as `check_responsiveness.py` beside `agent_api.py`, then run
+`pip install httpx` and `python check_responsiveness.py`. Run it in a separate
+process from your server. It replaces the agent with a local stand-in and sends
+requests directly through the FastAPI application; it needs no running server
+or model credentials.
+
+```python
+import asyncio
+import threading
+
+import httpx
+import agent_api
+
+
+async def check_responsiveness():
+    started = threading.Event()
+    release = threading.Event()
+
+    class SlowAgent:
+        def __init__(self, **kwargs):
+            pass
+
+        def run(self, task):
+            started.set()
+            release.wait(timeout=2)
+            return "local result"
+
+    agent_api.Agent = SlowAgent
+    transport = httpx.ASGITransport(app=agent_api.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        pending = asyncio.create_task(
+            client.post("/agent/run", json={"task": "local check"})
+        )
+        try:
+            # Let the request enter the agent before probing the health route.
+            for _ in range(200):
+                if started.is_set():
+                    break
+                await asyncio.sleep(0.01)
+            assert started.is_set(), "Agent did not start"
+            health = await client.get("/health")
+            assert health.status_code == 200
+            assert not pending.done(), "Health waited for agent completion"
+        finally:
+            release.set()
+            result = await pending
+        assert result.status_code == 200
+        assert result.json()["result"] == "local result"
+    print("Health responded while the agent was still running.")
+
+
+if __name__ == "__main__":
+    asyncio.run(check_responsiveness())
+```
+
+The check passes when `/health` responds before the agent finishes. Changing
+`run_agent` back to `async def` makes it fail: the agent's wait blocks the event
+loop until the two-second fallback expires. This verifies request scheduling,
+not provider latency or maximum throughput. Thread-pool capacity is finite;
+keep each request's agent separate, and use a job queue for work that should
+outlive an HTTP request. For details, see FastAPI's
+[concurrency guide](https://fastapi.tiangolo.com/async/).
 
 ## Step 6: Production hardening
 
