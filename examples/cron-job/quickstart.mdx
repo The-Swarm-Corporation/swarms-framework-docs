@@ -90,9 +90,15 @@ job.run("Describe what changed in this chart.", img="dashboard.png")
 import threading
 
 job = CronJob(agent=agent, interval="1minute")
-threading.Timer(3600, job.stop).start()   # stop after an hour
-job.run("Poll the queue.")                # returns when stop() fires
+stop_timer = threading.Timer(3600, job.stop)  # stop after an hour
+try:
+    stop_timer.start()
+    job.run("Poll the queue.")  # returns when the job stops
+finally:
+    stop_timer.cancel()
 ```
+
+Cancel the pending timer when `run()` returns or raises, so an early stop or Ctrl-C does not leave a timer thread keeping the process alive.
 
 ## Checking on it
 

@@ -134,16 +134,21 @@ job = CronJob(
 )
 
 threading.Thread(target=monitor, args=(job,), daemon=True).start()
-threading.Timer(60, job.stop).start()
+stop_timer = threading.Timer(60, job.stop)
 
 try:
+    stop_timer.start()
     job.run("Fetch the latest reading.")
 except CronJobExecutionError as e:
     print(f"Job gave up: {e}")
 else:
     s = job.get_execution_stats()
     print(f"Stopped cleanly: {s['execution_count']} ok, {s['error_count']} failed.")
+finally:
+    stop_timer.cancel()
 ```
+
+The `finally` block cancels the stop timer if the error budget ends the job before sixty seconds.
 
 A representative run: **19 successful executions and 21 failures over sixty seconds**, never stopping, because the failures never stacked ten deep in a row. That total (40 runs) is higher than a naive "one tick every 2 seconds" model would predict — failures are retried on CronJob's ~1-second poll loop rather than waiting out the full `interval`, so a flaky job burns through attempts faster than its configured interval implies.
 
