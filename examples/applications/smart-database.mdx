@@ -426,7 +426,9 @@ def query_database(
                                Defaults to "[]".
 
     Returns:
-        str: JSON string containing query results and metadata
+        str: JSON string containing query results and metadata.
+             Duplicate column labels return an error; use unique SQL aliases.
+             Case-distinct labels (e.g. value and VALUE) retain separate values.
 
     Example:
         >>> query = "SELECT * FROM employees WHERE age > ?"
@@ -457,7 +459,6 @@ def query_database(
             raise ValueError("Invalid JSON format for parameters")
 
         conn = sqlite3.connect(database_path)
-        conn.row_factory = sqlite3.Row  # Enable column access by name
         cursor = conn.cursor()
 
         # Execute query
@@ -469,9 +470,6 @@ def query_database(
         # Fetch results
         rows = cursor.fetchall()
 
-        # Convert to list of dictionaries
-        results = [dict(row) for row in rows]
-
         # Get column names
         column_names = (
             [description[0] for description in cursor.description]
@@ -480,6 +478,16 @@ def query_database(
         )
 
         conn.close()
+
+        # JSON objects cannot preserve two columns with the same label.
+        if len(set(column_names)) != len(column_names):
+            raise ValueError(
+                "Query returns duplicate column names. Use unique SQL aliases "
+                "(AS) for each selected column."
+            )
+
+        # Pair by position: sqlite3.Row name lookup is case-insensitive.
+        results = [dict(zip(column_names, row)) for row in rows]
 
         result = {
             "status": "success",
