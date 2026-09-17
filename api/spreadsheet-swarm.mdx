@@ -184,7 +184,13 @@ result = swarm.run("Process this task multiple times")
 
 ### Custom Save Path
 
+Create the parent directory before running the swarm; the CSV writer does not create it for an explicit `save_file_path`.
+
 ```python
+from pathlib import Path
+
+Path("./results").mkdir(parents=True, exist_ok=True)
+
 swarm = SpreadSheetSwarm(
     name="Custom-Swarm",
     agents=agents,
