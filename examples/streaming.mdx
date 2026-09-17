@@ -475,6 +475,10 @@ response = agent.run(
 ### 2. Error Handling
 
 ```python
+import logging
+
+logger = logging.getLogger(__name__)
+
 def safe_streaming_callback(token: str):
     """
     Callback with error handling
