@@ -262,17 +262,39 @@ print(conversation.return_history_as_string())
 
 ### Export and Load
 
+Reload the file that `export()` actually writes. The following example uses
+the `conversation` created above and checks that its messages survive a JSON
+round trip:
+
 ```python
-# Export to JSON
+from pathlib import Path
+
 conversation.export_method = "json"
 conversation.export()
 
-# Load from file
-conversation = Conversation.load_conversation(
-    name="my-conversation",
-    load_filepath="conversation_my-conversation.json"
+export_path = Path(conversation.save_filepath).resolve()
+if not export_path.is_file():
+    raise FileNotFoundError(export_path)
+
+restored_conversation = Conversation.load_conversation(
+    name="restored-conversation",
+    load_filepath=str(export_path),
 )
+
+assert restored_conversation.to_dict() == conversation.to_dict()
 ```
+
+`save_filepath` is chosen when you construct the conversation. It can include
+the configured `conversations_dir` or an explicit save location; a bare
+`conversation_my-conversation.json` filename does not necessarily point there.
+Keep the actual absolute path when loading from a different working directory
+or passing the saved file to another process.
+
+Use a different name for the restored instance so the check does not depend
+on automatically loading an existing conversation with the original name.
+In the current implementation, loading a missing file logs a warning rather
+than raising `FileNotFoundError`. The explicit file check catches that mistake;
+comparing the histories also verifies the messages, not just file existence.
 
 ### Token Management
 
