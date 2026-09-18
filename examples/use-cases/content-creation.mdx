@@ -294,22 +294,19 @@ content_pipeline = SequentialWorkflow(
 
 ## Performance Optimization
 
-### Parallel Content Creation
+### Create content for multiple topics
 
-Create multiple pieces simultaneously:
+Process multiple topics one at a time. Each `content_pipeline.run()` call finishes before the next topic starts; this loop does not run pipelines concurrently.
 
 ```python
-from swarms import ConcurrentWorkflow
-
 topics = [
     "AI Agents for Customer Service",
     "AI Agents for Sales Automation",
     "AI Agents for Data Analysis",
 ]
 
-# Create multiple pipelines in parallel
+# Reuse the pipeline for each topic in order
 for topic in topics:
-    # Each runs in parallel
     content = content_pipeline.run(f"Create blog post about: {topic}")
 ```
 
