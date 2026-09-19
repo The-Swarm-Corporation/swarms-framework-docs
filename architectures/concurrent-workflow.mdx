@@ -179,9 +179,9 @@ When `show_dashboard=True`, you get:
 
 ```python
 # Get technical, fundamental, and sentiment analysis simultaneously
-technical_agent = Agent(agent_name="Technical-Analyst", ...)
-fundamental_agent = Agent(agent_name="Fundamental-Analyst", ...)
-sentiment_agent = Agent(agent_name="Sentiment-Analyst", ...)
+technical_agent = Agent(agent_name="Technical-Analyst", system_prompt="Analyze technical signals and trends.")
+fundamental_agent = Agent(agent_name="Fundamental-Analyst", system_prompt="Analyze company fundamentals and valuation.")
+sentiment_agent = Agent(agent_name="Sentiment-Analyst", system_prompt="Analyze market sentiment and positioning.")
 
 analysis_team = ConcurrentWorkflow(
     agents=[technical_agent, fundamental_agent, sentiment_agent]
@@ -194,9 +194,9 @@ insights = analysis_team.run("NVIDIA stock analysis")
 
 ```python
 # Research multiple aspects simultaneously
-literature_researcher = Agent(agent_name="Literature-Researcher", ...)
-market_researcher = Agent(agent_name="Market-Researcher", ...)
-competitor_researcher = Agent(agent_name="Competitor-Researcher", ...)
+literature_researcher = Agent(agent_name="Literature-Researcher", system_prompt="Review relevant literature and research.")
+market_researcher = Agent(agent_name="Market-Researcher", system_prompt="Research market size, trends, and demand.")
+competitor_researcher = Agent(agent_name="Competitor-Researcher", system_prompt="Research competitors and their positioning.")
 
 research_team = ConcurrentWorkflow(
     agents=[literature_researcher, market_researcher, competitor_researcher]
@@ -209,9 +209,9 @@ research = research_team.run("Electric vehicle market landscape")
 
 ```python
 # Process documents with multiple analyzers
-summary_agent = Agent(agent_name="Summarizer", ...)
-sentiment_agent = Agent(agent_name="Sentiment-Analyzer", ...)
-key_points_agent = Agent(agent_name="Key-Points-Extractor", ...)
+summary_agent = Agent(agent_name="Summarizer", system_prompt="Summarize each document clearly.")
+sentiment_agent = Agent(agent_name="Sentiment-Analyzer", system_prompt="Analyze the sentiment of each document.")
+key_points_agent = Agent(agent_name="Key-Points-Extractor", system_prompt="Extract the key points from each document.")
 
 processing_team = ConcurrentWorkflow(
     agents=[summary_agent, sentiment_agent, key_points_agent]
