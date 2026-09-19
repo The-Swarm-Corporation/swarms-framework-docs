@@ -323,12 +323,12 @@ Return shape: with `max_loops == 1` (the default), `run()` returns a `Dict[str, 
 ### Software Build Pipeline
 
 ```python
-compile_agent = Agent(agent_name="Compiler", ...)
-test_agent = Agent(agent_name="Tester", ...)
-lint_agent = Agent(agent_name="Linter", ...)
-security_agent = Agent(agent_name="SecurityScanner", ...)
-package_agent = Agent(agent_name="Packager", ...)
-deploy_agent = Agent(agent_name="Deployer", ...)
+compile_agent = Agent(agent_name="Compiler")
+test_agent = Agent(agent_name="Tester")
+lint_agent = Agent(agent_name="Linter")
+security_agent = Agent(agent_name="SecurityScanner")
+package_agent = Agent(agent_name="Packager")
+deploy_agent = Agent(agent_name="Deployer")
 
 build_pipeline = GraphWorkflow(name="CI-CD-Pipeline")
 
