@@ -437,7 +437,7 @@ icon: "circle-question"
        ```python
        print(agent.agent_name)
        print(agent.system_prompt)
-       print(agent.short_memory)  # Recent interactions
+       print(agent.short_memory.return_history_as_string())  # Recent interactions
        ```
 
     4. **Log outputs to file:**
