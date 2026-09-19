@@ -633,6 +633,7 @@ class CustomToolManager(BaseTool):
         """Load all Python functions from a directory as tools."""
         import importlib.util
         import inspect
+        import os
         
         tools = []
         for file in os.listdir(directory):
