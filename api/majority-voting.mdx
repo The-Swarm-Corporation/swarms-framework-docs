@@ -442,7 +442,19 @@ for i, result in enumerate(concurrent_results, 1):
     print(f"Result: {str(result)[:300]}...")
 ```
 
-### Majority Voting with Custom Streaming
+### Majority voting with custom streaming
+
+`MajorityVoting` streams the consensus agent's nonblank chunks to your callback.
+In the current wrapper, callbacks carry `False` for `is_final`; there is no terminal
+`True` event. A callback that flushes only at 512 characters or on `is_final` can
+hide a short answer or lose the tail of a longer one.
+
+Print each chunk as it arrives, and finish the line after synchronous `swarm.run()`
+returns. If you need buffering for another sink, explicitly flush it in the caller
+instead of waiting for an undocumented completion event. The callback below is
+stateless, so consecutive runs do not share a partial buffer. It covers display of
+streamed chunks only; it does not change the swarm's output format or validate the
+generated answers.
 
 ```python
 from swarms import Agent
@@ -452,22 +464,8 @@ from swarms.prompts.finance_agent_sys_prompt import (
 from swarms.structs.majority_voting import MajorityVoting
 
 def streaming_callback(agent_name: str, chunk: str, is_final: bool):
-    if not hasattr(streaming_callback, "_buffer"):
-        streaming_callback._buffer = ""
-        streaming_callback._buffer_size = 0
-
-    min_chunk_size = 512
-
     if chunk:
-        streaming_callback._buffer += chunk
-        streaming_callback._buffer_size += len(chunk)
-    if streaming_callback._buffer_size >= min_chunk_size or is_final:
-        if streaming_callback._buffer:
-            print(streaming_callback._buffer, end="", flush=True)
-            streaming_callback._buffer = ""
-            streaming_callback._buffer_size = 0
-    if is_final:
-        print()
+        print(chunk, end="", flush=True)
 
 # Initialize the agent
 agent = Agent(
@@ -489,6 +487,7 @@ swarm.run(
     "Please create a table in markdown.",
     streaming_callback=streaming_callback,
 )
+print()
 ```
 
 ## Usage Patterns
