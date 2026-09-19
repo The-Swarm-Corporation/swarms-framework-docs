@@ -443,7 +443,7 @@ icon: "circle-question"
     4. **Log outputs to file:**
        ```python
        result = agent.run("Task")
-       with open("agent_output.txt", "w") as f:
+       with open("agent_output.txt", "w", encoding="utf-8") as f:
            f.write(result)
        ```
 
