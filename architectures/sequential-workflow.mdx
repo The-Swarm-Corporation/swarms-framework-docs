@@ -259,10 +259,10 @@ Three event types are emitted:
 
 ```python
 # Research → Write → Edit → Publish
-researcher = Agent(agent_name="Researcher", ...)
-writer = Agent(agent_name="Writer", ...)
-editor = Agent(agent_name="Editor", ...)
-publisher = Agent(agent_name="Publisher", ...)
+researcher = Agent(agent_name="Researcher", system_prompt="Research the topic and gather reliable information.")
+writer = Agent(agent_name="Writer", system_prompt="Turn the research into a clear draft.")
+editor = Agent(agent_name="Editor", system_prompt="Edit the draft for clarity and accuracy.")
+publisher = Agent(agent_name="Publisher", system_prompt="Prepare the final article for publication.")
 
 pipeline = SequentialWorkflow(
     agents=[researcher, writer, editor, publisher]
@@ -275,10 +275,10 @@ article = pipeline.run("Latest developments in renewable energy")
 
 ```python
 # Collect → Clean → Analyze → Visualize
-collector = Agent(agent_name="DataCollector", ...)
-cleaner = Agent(agent_name="DataCleaner", ...)
-analyst = Agent(agent_name="Analyst", ...)
-visualizer = Agent(agent_name="Visualizer", ...)
+collector = Agent(agent_name="DataCollector", system_prompt="Collect the data needed for analysis.")
+cleaner = Agent(agent_name="DataCleaner", system_prompt="Clean and validate the collected data.")
+analyst = Agent(agent_name="Analyst", system_prompt="Analyze the cleaned data and identify key findings.")
+visualizer = Agent(agent_name="Visualizer", system_prompt="Turn the findings into clear visual summaries.")
 
 analysis_pipeline = SequentialWorkflow(
     agents=[collector, cleaner, analyst, visualizer]
@@ -291,10 +291,10 @@ result = analysis_pipeline.run("Q4 sales data")
 
 ```python
 # Generate → Test → Review → Document
-coder = Agent(agent_name="Coder", ...)
-tester = Agent(agent_name="Tester", ...)
-reviewer = Agent(agent_name="Reviewer", ...)
-documenter = Agent(agent_name="Documenter", ...)
+coder = Agent(agent_name="Coder", system_prompt="Implement the requested code.")
+tester = Agent(agent_name="Tester", system_prompt="Test the implementation and report failures.")
+reviewer = Agent(agent_name="Reviewer", system_prompt="Review the code for correctness and maintainability.")
+documenter = Agent(agent_name="Documenter", system_prompt="Document the final implementation and usage.")
 
 code_pipeline = SequentialWorkflow(
     agents=[coder, tester, reviewer, documenter]
