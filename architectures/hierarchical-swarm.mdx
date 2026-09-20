@@ -361,10 +361,10 @@ If `WORKSPACE_DIR` is unset it defaults to `./agent_workspace`.
 ### Software Development Team
 
 ```python
-architect    = Agent(agent_name="Architect", ...)
-frontend_dev = Agent(agent_name="Frontend-Dev", ...)
-backend_dev  = Agent(agent_name="Backend-Dev", ...)
-tester       = Agent(agent_name="QA-Tester", ...)
+architect    = Agent(agent_name="Architect", system_prompt="Design the system architecture and implementation plan.")
+frontend_dev = Agent(agent_name="Frontend-Dev", system_prompt="Implement the frontend requirements.")
+backend_dev  = Agent(agent_name="Backend-Dev", system_prompt="Implement the backend requirements.")
+tester       = Agent(agent_name="QA-Tester", system_prompt="Test the implementation and report defects.")
 
 dev_swarm = HierarchicalSwarm(
     name="Development-Team",
@@ -378,10 +378,10 @@ code = dev_swarm.run("Build user authentication with OAuth")
 ### Research Team
 
 ```python
-literature_researcher = Agent(agent_name="Literature-Researcher", ...)
-data_analyst          = Agent(agent_name="Data-Analyst", ...)
-statistician          = Agent(agent_name="Statistician", ...)
-writer                = Agent(agent_name="Research-Writer", ...)
+literature_researcher = Agent(agent_name="Literature-Researcher", system_prompt="Review relevant literature and prior research.")
+data_analyst          = Agent(agent_name="Data-Analyst", system_prompt="Analyze the available data and summarize findings.")
+statistician          = Agent(agent_name="Statistician", system_prompt="Evaluate the evidence with appropriate statistical methods.")
+writer                = Agent(agent_name="Research-Writer", system_prompt="Synthesize the findings into a clear research report.")
 
 research_swarm = HierarchicalSwarm(
     name="Research-Team",
@@ -396,10 +396,10 @@ paper = research_swarm.run("Research the impact of AI on job markets")
 ### Marketing Campaign
 
 ```python
-brand_strategist = Agent(agent_name="Brand-Strategist", ...)
-copywriter       = Agent(agent_name="Copywriter", ...)
-designer         = Agent(agent_name="Designer", ...)
-media_buyer      = Agent(agent_name="Media-Buyer", ...)
+brand_strategist = Agent(agent_name="Brand-Strategist", system_prompt="Define the campaign positioning and brand strategy.")
+copywriter       = Agent(agent_name="Copywriter", system_prompt="Write campaign copy that follows the brand strategy.")
+designer         = Agent(agent_name="Designer", system_prompt="Develop the campaign visual direction and assets.")
+media_buyer      = Agent(agent_name="Media-Buyer", system_prompt="Plan channel selection, targeting, and media spend.")
 
 marketing_swarm = HierarchicalSwarm(
     name="Campaign-Team",
