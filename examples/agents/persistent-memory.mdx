@@ -34,7 +34,7 @@ Set `agent_name` and `persistent_memory=True`. On the first run Swarms creates `
 ```python
 from swarms import Agent
 
-# Persistent agent (default behavior).
+# Persistent agent (explicit opt-in).
 # On first run it creates MEMORY.md. On subsequent runs it picks up
 # where it left off — the model sees the prior conversation as a
 # system preamble.
