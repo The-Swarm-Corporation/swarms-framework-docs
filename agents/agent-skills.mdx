@@ -114,7 +114,11 @@ Your analysis should produce:
 
 ### Dynamic Loading (Task-Based, Automatic)
 
-Setting `skills_dir` on an agent enables **dynamic, task-based** skill loading automatically. Every call to `agent.run(task)` loads only the skills whose `description` is similar enough to the current task (cosine similarity over term-frequency vectors, threshold `0.3` by default) and appends them to the system prompt for that run. There is no separate "load everything" mode triggered by `run()` — this dynamic path is what fires whenever `skills_dir` is set.
+Setting `skills_dir` on an agent enables **dynamic, task-based** skill loading automatically. Every call to `agent.run(task)` selects the skills whose `description` is similar enough to the current task (cosine similarity over term-frequency vectors, threshold `0.3` by default) and appends them to the agent's system prompt before execution. There is no separate "load everything" mode triggered by `run()` — this dynamic path is what fires whenever `skills_dir` is set.
+
+<Warning>
+  Skill loading is cumulative on the current `Agent` instance. `run()` does not restore the previous system prompt after the call, so skill instructions appended for an earlier task remain in `agent.system_prompt`, and later calls append their selected skills again. "Task-based" describes which skills are selected on each call; it does not isolate skill text to that call. Use a fresh `Agent` when separate tasks must start from a clean skill prompt.
+</Warning>
 
 ```python
 from swarms import Agent
@@ -135,7 +139,7 @@ response = agent.run(
 
 ### Static Loading (Load All Skills)
 
-To force-load every skill in `skills_dir` regardless of task similarity, call `handle_skills()` directly with no `task` argument (e.g. right after construction, before `run()`):
+To append every skill in `skills_dir` regardless of task similarity, call `handle_skills()` directly with no `task` argument. This is additive rather than a mode switch: a later `run()` still performs its automatic task-based append while `skills_dir` is set, so matching skill text can appear in the system prompt more than once.
 
 ```python
 from swarms import Agent
@@ -147,9 +151,10 @@ agent = Agent(
     max_loops=1,
 )
 
-agent.handle_skills()  # No task -> loads and appends every skill in skills_dir
+agent.handle_skills()  # No task -> appends every skill in skills_dir
 
 response = agent.run("Perform a DCF valuation of Tesla")
+# run() also appends the skills selected for this task
 ```
 
 ## Creating Custom Skills
@@ -382,8 +387,8 @@ def function_name(param1: type1, param2: type2) -> return_type:
 ### How Skills are Loaded
 
 ```python
-# skills_dir is only stored during __init__; skills are actually loaded
-# and injected into the system prompt inside agent.run(task), once per call
+# skills_dir is only stored during __init__; skills are actually selected
+# and appended to the system prompt inside agent.run(task), once per call
 agent = Agent(
     skills_dir="./skills",  # Path to skills directory
     model_name="claude-sonnet-4-6",
@@ -392,7 +397,7 @@ agent = Agent(
 response = agent.run("Perform a DCF valuation of Tesla")
 # On this call: skills metadata is loaded from SKILL.md frontmatter,
 # scored against the task by similarity, and relevant skill content
-# is appended to the system prompt
+# is appended to the system prompt. The append persists on this Agent.
 ```
 
 ### Dynamic Skills Loader
