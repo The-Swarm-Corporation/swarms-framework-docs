@@ -31,7 +31,7 @@ The agent consists of three specialized sub-agents:
 Generates a response to the given task using the actor agent.
 
 ```python
-response = agent.act(task: str, relevant_memories: List[Dict[str, Any]] = None) -> str
+response = agent.act(task, relevant_memories=None)
 ```
 
 ### evaluate
@@ -39,7 +39,7 @@ response = agent.act(task: str, relevant_memories: List[Dict[str, Any]] = None) 
 Evaluates the quality of a response to a task. Returns an evaluation string and a score between 0 and 1.
 
 ```python
-evaluation, score = agent.evaluate(task: str, response: str) -> Tuple[str, float]
+evaluation, score = agent.evaluate(task, response)
 ```
 
 ### reflect
@@ -47,7 +47,7 @@ evaluation, score = agent.evaluate(task: str, response: str) -> Tuple[str, float
 Generates a self-reflection based on the task, response, and evaluation.
 
 ```python
-reflection = agent.reflect(task: str, response: str, evaluation: str) -> str
+reflection = agent.reflect(task, response, evaluation)
 ```
 
 ### refine
@@ -55,7 +55,7 @@ reflection = agent.reflect(task: str, response: str, evaluation: str) -> str
 Refines the original response based on evaluation and reflection.
 
 ```python
-refined_response = agent.refine(task: str, original_response: str, evaluation: str, reflection: str) -> str
+refined_response = agent.refine(task, original_response, evaluation, reflection)
 ```
 
 ### step
@@ -63,7 +63,7 @@ refined_response = agent.refine(task: str, original_response: str, evaluation: s
 Processes a single task through one iteration of the Reflexion process. Returns a dictionary containing task, response, evaluation, reflection, score, and iteration number.
 
 ```python
-result = agent.step(task: str, iteration: int = 0, previous_response: str = None) -> Dict[str, Any]
+result = agent.step(task, iteration=0, previous_response=None)
 ```
 
 ### run
@@ -71,13 +71,13 @@ result = agent.step(task: str, iteration: int = 0, previous_response: str = None
 Executes the full Reflexion process for a list of tasks.
 
 ```python
-results = agent.run(tasks: List[str], include_intermediates: bool = False) -> List[Any]
+results = agent.run(tasks, include_intermediates=False)
 ```
 
 ## Example
 
 ```python
-from swarms import ReflexionAgent
+from swarms.agents import ReflexionAgent
 
 agent = ReflexionAgent(
     agent_name="reflexion-agent",
