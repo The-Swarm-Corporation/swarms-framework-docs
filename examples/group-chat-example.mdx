@@ -1,28 +1,29 @@
 ---
 title: Group Chat Example
-description: Learn how to run an asynchronous, self-selecting agent groupchat for debates and multi-perspective reasoning
+description: Learn how to run a turn-based, self-selecting GroupChat where one winning bidder speaks each turn
 ---
 
-`GroupChat` creates an **asynchronous, self-selecting** room where every agent sees every message and independently decides whether to speak. There is no fixed speaking order — agents chime in only when their self-rated desire to respond clears a threshold. This is ideal for debates, brainstorming, and complex decision-making where you want natural, emergent dialogue rather than a rigid turn order.
+`GroupChat` creates a **turn-based, self-selecting** room. There is no fixed speaker order: every agent privately bids for the floor on each turn, then exactly one winning agent speaks. This is useful for debates, negotiations, and multi-perspective decisions where you want the most relevant participant to respond without hard-coding a round-robin sequence.
 
 <Note>
-  This page reflects the current asynchronous `GroupChat`. The older turn-based design — `speaker_function`, `round-robin`/`random`/`priority` speakers, `@mention` routing, and interactive REPL sessions — has been **removed**. See the [GroupChat API reference](/api/group-chat) for the full parameter list.
+  The older speaker-function API — `speaker_function`, `round-robin`/`random`/`priority` speakers, `@mention` routing, and interactive REPL sessions — has been **removed**. The current implementation uses per-turn bidding with a recency adjustment. `idle_timeout` is still accepted for backward compatibility, but it no longer controls when the chat stops. See the [GroupChat API reference](/api/group-chat) for the full parameter list.
 </Note>
 
 ## How Group Chat Works
 
-1. **Seed** — the task is broadcast to every agent's inbox as the first message.
-2. **Self-selection** — for each message, every agent is asked (via a forced `respond(score, message)` tool call) how much it wants to speak, on a `0..1` scale.
-3. **Threshold** — a reply is published only when its `score` exceeds `threshold` and the message is non-empty.
-4. **Concurrent broadcast** — published replies wake every other agent's inbox at once; multiple agents can react to the same message in parallel.
-5. **Stop condition** — the chat ends when `max_loops` total messages have been posted, or no new message arrives for `idle_timeout` seconds.
+1. **Seed** — the user task is posted to one shared conversation as the first message.
+2. **Bid** — on each turn, every agent is asked concurrently (via a forced `respond(score, message)` tool call) how strongly it wants to speak and what it would say.
+3. **Adjust** — bids from recently selected speakers are reduced by `recency_penalty` for the configured `recency_window`.
+4. **Select one speaker** — only the highest adjusted bid that clears `threshold` and has a non-empty message takes the floor. Every other bid from that turn is discarded.
+5. **Stop** — the chat ends when `max_loops` total messages have been posted, or when a turn produces no winning bid above `threshold`.
 
 ### Key Characteristics
 
-- **Asynchronous**: agents listen in parallel; there is no global turn order.
-- **Self-selecting**: silence is the default — agents only speak when they add value.
-- **Shared context**: every agent sees the full transcript before deciding.
-- **Bounded**: `max_loops` caps total messages; `idle_timeout` ends quiet chats.
+- **Turn-based**: exactly one agent speaks per turn, although all agents compute their bids concurrently.
+- **Self-selecting**: the speaker emerges from the bids rather than a fixed order or speaker function.
+- **Shared context**: every agent sees the same conversation before bidding on the next turn.
+- **Recency-aware**: recent speakers can be penalized so one agent does not dominate the room.
+- **Bounded**: `max_loops` caps total posted messages; a bidding lull ends the chat early.
 - **Auto-equipped**: with `auto_equip=True` (default), the `respond` tool is injected into each agent for you.
 
 ## Key Parameters
@@ -31,10 +32,12 @@ description: Learn how to run an asynchronous, self-selecting agent groupchat fo
 |---|---|
 | `agents` | Participating agents (**at least 2 required**). |
 | `max_loops` | Hard cap on total messages posted (the user task counts as the first). Default `20`. |
-| `threshold` | Minimum decision score (`0..1`) to publish a reply. Default `0.5`. Raise for a more selective room. |
-| `idle_timeout` | Seconds of silence before the chat stops. Default `8.0`. |
+| `threshold` | Minimum recency-adjusted bid required to take the floor. Default `0.5`. Raise for a more selective room. |
+| `recency_penalty` | Amount subtracted from a recent speaker's bid. Default `0.3`; use `0.0` to disable. |
+| `recency_window` | Number of most recent speakers subject to the penalty. Default `1`. |
+| `idle_timeout` | Backward-compatibility parameter only. It is accepted but no longer used to stop the chat. |
 | `output_type` | History format. Default `"str-all-except-first"`. Use `"list"` or `"dict"` to iterate messages. |
-| `print_on` | Print each broadcast as a styled panel. Default `True`. |
+| `verbose` | Print posted messages and internal groupchat logging. Default `False`. |
 | `auto_equip` | Auto-inject the `respond` tool into agents that lack it. Default `True`. |
 
 ## Basic Example: Tech Debate
@@ -63,8 +66,9 @@ tech_critic = Agent(
 chat = GroupChat(
     agents=[tech_optimist, tech_critic],
     max_loops=8,       # stop after 8 total messages
-    threshold=0.5,     # publish replies scoring above 0.5
-    idle_timeout=8.0,  # stop after 8s of silence
+    threshold=0.5,     # highest adjusted bid above 0.5 wins the turn
+    recency_penalty=0.3,
+    recency_window=1,
 )
 
 result = chat.run(
@@ -131,8 +135,9 @@ cmo = Agent(
 exec_team = GroupChat(
     agents=[ceo, cfo, cto, cmo],
     max_loops=12,      # room for several rounds of contribution
-    threshold=0.6,     # only fairly motivated replies get published
-    idle_timeout=12.0,
+    threshold=0.6,     # only a strong winning bid takes the floor
+    recency_penalty=0.35,
+    recency_window=2,  # discourage immediate repeat speakers
 )
 
 discussion = exec_team.run(
@@ -233,29 +238,30 @@ print(case_discussion)
 
 ## Tuning the Conversation
 
-Because there is no fixed turn order, you shape the conversation with `threshold`, `max_loops`, and `idle_timeout` rather than a speaker function.
+Because there is no fixed speaker order, you shape the conversation with `threshold`, `recency_penalty`, `recency_window`, and `max_loops` rather than a speaker function.
 
 ### A livelier room
 
 ```python
-# Lower threshold → more agents chime in on each message.
+# Lower threshold → more turns are likely to produce a winning speaker.
 brainstorm = GroupChat(
     agents=[copywriter, art_director, strategist, creative_director],
     max_loops=20,
     threshold=0.4,
-    idle_timeout=10.0,
+    recency_penalty=0.2,
 )
 ```
 
 ### A more selective room
 
 ```python
-# Higher threshold → only strongly-motivated, high-value replies are published.
+# Higher threshold → only a strongly motivated bid wins the floor.
 focused = GroupChat(
     agents=[expert1, expert2, expert3],
     max_loops=10,
     threshold=0.75,
-    idle_timeout=15.0,  # give agents time to deliberate
+    recency_penalty=0.4,
+    recency_window=2,
 )
 ```
 
@@ -292,12 +298,12 @@ Each participating agent should make a clean, single-shot decision per message. 
 
 ### 3. Tune `threshold` to the room size
 
-- **Few agents (2–3)**: a lower threshold (`~0.4–0.5`) keeps the dialogue flowing.
-- **Many agents (4+)**: raise it (`~0.6–0.75`) so the room doesn't pile on every message.
+- **Few agents (2–3)**: a lower threshold (`~0.4–0.5`) makes a lull less likely.
+- **Many agents (4+)**: raise it (`~0.6–0.75`) so only stronger bids take the floor.
 
-### 4. Set `idle_timeout` to match thinking time
+### 4. Use recency controls to rotate the floor
 
-Raise it when models need longer to reason; lower it to end quiet chats faster.
+Increase `recency_penalty` to make an immediate repeat speaker less likely. Increase `recency_window` when you want the penalty to cover more than just the last speaker. Set `recency_penalty=0.0` when repeat turns are desirable.
 
 ### 5. Choose the right `output_type`
 
@@ -310,7 +316,7 @@ Ideal for:
 
 - **Debates and discussions** — exploring opposing viewpoints.
 - **Collaborative decision-making** — stakeholders converging on consensus.
-- **Brainstorming** — emergent ideas from parallel contributions.
+- **Brainstorming** — letting the most motivated perspective advance the discussion each turn.
 - **Negotiation** — parties working toward agreement.
 - **Peer review** — evaluating work from multiple angles.
 
@@ -325,7 +331,7 @@ Ideal for:
 
 | Pattern | Interaction Style | Best For |
 |---------|------------------|----------|
-| **GroupChat** | Asynchronous, self-selecting dialogue | Debates, brainstorms, negotiations |
+| **GroupChat** | Turn-based, self-selecting dialogue | Debates, brainstorms, negotiations |
 | **MixtureOfAgents** | Parallel → synthesis | Combining expert analyses |
 | **HierarchicalSwarm** | Director → workers | Project coordination |
 | **SequentialWorkflow** | Linear pipeline | Step-by-step processes |
