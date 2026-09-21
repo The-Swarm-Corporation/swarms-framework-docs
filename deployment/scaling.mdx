@@ -486,6 +486,10 @@ max_workers = int(num_cores * 0.9)
 ### 3. Implement Graceful Degradation
 
 ```python
+import logging
+
+logger = logging.getLogger(__name__)
+
 def resilient_concurrent_run(agents, task, max_workers=None):
     try:
         return run_agents_concurrently(
@@ -503,7 +507,11 @@ def resilient_concurrent_run(agents, task, max_workers=None):
 ### 4. Monitor Resource Usage
 
 ```python
+import logging
+
 import psutil
+
+logger = logging.getLogger(__name__)
 
 def check_resources():
     cpu_percent = psutil.cpu_percent(interval=1)
@@ -526,7 +534,11 @@ def check_resources():
 execution layer instead, by bounding a future's result when running concurrently:
 
 ```python
+import logging
+
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+
+logger = logging.getLogger(__name__)
 
 agent = Agent(
     agent_name="Timeout-Agent",
