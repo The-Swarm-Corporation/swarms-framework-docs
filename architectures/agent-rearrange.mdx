@@ -336,7 +336,12 @@ result = rearrange.run("New task")
 
 ```python
 # Add new agent
-new_agent = Agent(agent_name="new_agent", ...)
+new_agent = Agent(
+    agent_name="new_agent",
+    system_prompt="Review the task and provide a concise answer.",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
 rearrange.add_agent(new_agent)
 
 # Remove agent
