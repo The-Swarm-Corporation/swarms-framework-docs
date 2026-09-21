@@ -30,8 +30,12 @@ The `selected_tools` parameter gives you fine-grained control over which tools t
 | `list_directory` | List files and directories in a path |
 | `delete_file` | Delete a file (use with caution) |
 | `run_bash` | Execute bash/shell commands on the terminal (returns stdout/stderr) |
-| `create_sub_agent` | Create specialized sub-agents for delegation |
-| `assign_task` | Assign tasks to sub-agents for asynchronous execution |
+| `grep` | Search file contents with path, pattern, and context controls |
+| `glob` | Find files by glob pattern inside the agent workspace |
+| `create_sub_agent` | Create and cache specialized sub-agents for delegation |
+| `assign_task` | Dispatch work to sub-agents, either waiting for completion or returning task IDs |
+| `check_sub_agent_status` | Inspect status, depth, retries, and duration for delegated async tasks |
+| `cancel_sub_agent_tasks` | Attempt to cancel unfinished tasks for a named sub-agent |
 
 ## Usage
 
@@ -125,6 +129,120 @@ agent = Agent(
 )
 ```
 
+## Bound Autonomous Work Explicitly
+
+Autonomous mode has three separate execution budgets. They are useful when you want the agent to keep working independently without giving an open-ended task unlimited model calls.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Bounded-Builder",
+    model_name="anthropic/claude-sonnet-4-6",
+    max_loops="auto",
+    max_planning_attempts=3,
+    max_subtask_iterations=40,
+    max_subtask_loops=8,
+    selected_tools=[
+        "create_plan",
+        "subtask_done",
+        "complete_task",
+        "read_file",
+        "grep",
+        "glob",
+    ],
+)
+```
+
+The three limits control different failure modes:
+
+| Parameter | Default | What it limits |
+|-----------|---------|----------------|
+| `max_planning_attempts` | `5` | Attempts to obtain a usable plan before planning gives up |
+| `max_subtask_iterations` | `100` | Total execution iterations across the complete autonomous run |
+| `max_subtask_loops` | `20` | Iterations spent inside one subtask before that subtask is treated as exhausted |
+
+All three values must be at least `1`. `max_subtask_iterations` is the outer safety ceiling: even if individual subtasks remain under their own limit, the complete run stops when the total iteration budget is exhausted. `max_subtask_loops` prevents one difficult subtask from consuming that whole budget by itself.
+
+For predictable workloads, start with a deliberately small budget and raise the specific limit that is actually constraining the task. Increasing every limit at once makes it harder to tell whether the agent is progressing or repeatedly retrying an unproductive action.
+
+## Delegate Work to Sub-Agents
+
+Autonomous mode can split independent work across specialized sub-agents. The coordinator creates them with `create_sub_agent`, then dispatches assignments through `assign_task`.
+
+```python
+from swarms import Agent
+
+coordinator = Agent(
+    agent_name="Research-Coordinator",
+    model_name="anthropic/claude-sonnet-4-6",
+    max_loops="auto",
+    max_subtask_iterations=50,
+    max_subtask_loops=10,
+    selected_tools=[
+        "create_plan",
+        "subtask_done",
+        "complete_task",
+        "create_sub_agent",
+        "assign_task",
+        "check_sub_agent_status",
+        "cancel_sub_agent_tasks",
+    ],
+)
+
+result = coordinator.run(
+    "Compare three independent database options. Create one specialist "
+    "sub-agent per option, delegate the research, collect their findings, "
+    "then produce a single recommendation."
+)
+```
+
+Created sub-agents are cached on the coordinator for reuse during the run. Each child uses the coordinator's model and inherits the coordinator's user-supplied `tools`. Children are deliberately given a finite loop count, so a coordinator running in autonomous mode does not create another unbounded autonomous loop by accident.
+
+`assign_task` uses a managed `SubagentRegistry`. Multiple assignments are submitted to its thread pool before results are collected, so independent child tasks can execute concurrently. In the normal `wait_for_completion=True` path, the coordinator waits for all dispatched assignments and receives each result mapped back to the corresponding child and user-facing task ID. A failed child is reported as a failed assignment rather than terminating every sibling task.
+
+### Keep Long Tasks in the Background
+
+The `assign_task` tool also accepts `wait_for_completion=False`. In that mode it returns immediately with spawned task IDs instead of waiting for the workers. This lets the coordinator continue useful work and check the delegated jobs later.
+
+A prompt can make that execution strategy explicit:
+
+```python
+result = coordinator.run(
+    "Create two research sub-agents. Dispatch both assignments with "
+    "wait_for_completion=false. Continue organizing the report while they "
+    "run. Use check_sub_agent_status before consuming their results, and "
+    "cancel_sub_agent_tasks only if a worker is no longer needed."
+)
+```
+
+`check_sub_agent_status` reports the registry status for a named child, including the spawned task ID, task depth, retry count, and elapsed duration when available. `cancel_sub_agent_tasks` is best-effort: the underlying thread-pool future can be cancelled before it starts, while a task that is already running may finish normally and be reported as non-cancellable.
+
+This distinction matters for orchestration. "Dispatched" means the registry accepted the task; it does not mean the work has completed. Treat the returned task IDs as handles for later observation rather than as results.
+
+## Choose a Tool Set That Can Finish
+
+`selected_tools` filters the autonomous loop's built-in tool handlers. Restricting the list is useful, but the control-flow tools are filtered too. A configuration that can inspect files yet omits `create_plan` or `complete_task` can leave the model unable to start or formally finish its autonomous workflow.
+
+For a delegated code-reading task, a practical restricted set is:
+
+```python
+selected_tools = [
+    "create_plan",
+    "subtask_done",
+    "complete_task",
+    "read_file",
+    "list_directory",
+    "grep",
+    "glob",
+    "create_sub_agent",
+    "assign_task",
+    "check_sub_agent_status",
+]
+```
+
+Add mutation tools such as `create_file`, `update_file`, or `delete_file` only when the task requires them. Add `run_bash` when shell execution is part of the workflow. If you enable `think`, construct the agent with `think_tool=True`; otherwise the autonomous loop removes that tool and adjusts its prompt accordingly.
+
 ## Use Cases
 
 ### Research Agent (No File Operations)
@@ -209,16 +327,20 @@ See [Run Bash Tool Tutorial](/examples/agents/autonomous-looper-bash) for a step
 ## Best Practices
 
 1. **Start Restrictive**: Begin with a minimal set of tools and add more as needed
-2. **Security**: Avoid giving file deletion capabilities unless absolutely necessary
-3. **Task Alignment**: Choose tools that align with the agent's primary purpose
-4. **Testing**: Test your agent with the tool configuration before production use
+2. **Bound the run**: Set autonomous-loop budgets for workloads where call count and retry behavior need predictable ceilings
+3. **Preserve control tools**: Keep `create_plan`, `subtask_done`, and `complete_task` available in restricted autonomous configurations
+4. **Separate dispatch from completion**: When using background delegation, check task status before treating a dispatched task as finished
+5. **Use mutation deliberately**: Add write, delete, or shell tools only when the workflow actually needs them
+6. **Test the tool set**: Exercise restricted configurations before production use so missing control or inspection tools are caught early
 
 ## Notes
 
 - `selected_tools` defaults to `"all"`, which enables all tools
 - When set to a list, the agent will only have access to the tools you specify
 - Tool handlers are automatically filtered based on your configuration
-- Invalid tool names are ignored (only valid tool names from the list above are used)
+- Invalid or unavailable tool names do not create handlers; only matching built-in handlers are retained
+- `think` is available only when `think_tool=True`
+- Sub-agents created by the autonomous loop inherit the parent agent's user-supplied `tools` and are cached for reuse
 
 ## See Also
 
