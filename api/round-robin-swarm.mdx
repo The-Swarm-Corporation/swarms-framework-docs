@@ -42,7 +42,7 @@ from swarms.structs.round_robin import (
 
 ## Constructor
 
-```python
+```text
 RoundRobinSwarm(
     name: str = "RoundRobinSwarm",
     description: str = "A swarm implementation that executes tasks in a round-robin fashion.",
@@ -83,7 +83,7 @@ RoundRobinSwarm(
 
 Execute the task across the agents in deterministic round-robin order. Returns the conversation in the format specified by `output_type`.
 
-```python
+```text
 def run(self, task: str, *args, **kwargs) -> Union[str, dict, list]
 ```
 
@@ -103,7 +103,7 @@ def run(self, task: str, *args, **kwargs) -> Union[str, dict, list]
 
 Execute multiple tasks sequentially. Each task runs through its own full round-robin cycle.
 
-```python
+```text
 def run_batch(self, tasks: List[str]) -> List[Union[str, dict, list]]
 ```
 
