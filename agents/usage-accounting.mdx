@@ -1,0 +1,169 @@
+---
+title: 'Token Usage and Context Accounting'
+description: 'Measure provider-reported Agent usage, estimate the next request size, and interpret cache, reasoning, and streaming token fields correctly.'
+icon: 'gauge-high'
+---
+
+Swarms exposes two different token views on every `Agent`:
+
+- `agent.input_tokens` estimates the size of the **next request** from the agent's current conversation and tool schemas.
+- `agent.usage` reports provider-normalized token counts from **completed LLM calls** made by that agent.
+
+They answer different questions. Use `input_tokens` to watch context growth before a call. Use `usage` to measure what completed calls reported afterward.
+
+## Read the two counters together
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="CostMonitor",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+print("next request estimate:", agent.input_tokens)
+print("lifetime provider usage:", agent.usage)
+
+before = agent.usage
+agent.run("Summarize the three most important risks in this plan.")
+after = agent.usage
+
+delta = {key: after[key] - before[key] for key in after}
+print("this run:", delta)
+```
+
+`agent.usage` returns a copy, so keeping `before` gives you a stable snapshot for a later delta.
+
+<Note>
+  `agent.input_tokens` and `agent.usage["input_tokens"]` are intentionally different values. The property is a local estimate of the next request. The dictionary field is provider-reported input usage accumulated over past calls.
+</Note>
+
+## `agent.usage`
+
+`agent.usage` starts at zero and accumulates usage for the lifetime of the `Agent` object. The total lives on the agent, so rebuilding its underlying LiteLLM client during fallback-model switching or tool-search flows does not discard earlier usage.
+
+| Field | Meaning | Relationship |
+| --- | --- | --- |
+| `input_tokens` | Provider-reported input tokens across completed calls | Main input total |
+| `output_tokens` | Provider-reported output tokens across completed calls | Main output total |
+| `cached_tokens` | Input tokens reported as served from prompt cache | Subset of `input_tokens` |
+| `reasoning_tokens` | Output tokens reported as hidden reasoning/thinking | Subset of `output_tokens` |
+| `total_tokens` | Provider total when present; otherwise input + output | Overall total |
+
+Cache and reasoning counts are breakdowns. Do not add them to `input_tokens` or `output_tokens` when computing a grand total.
+
+```python
+usage = agent.usage
+
+visible_or_other_output = usage["output_tokens"] - usage["reasoning_tokens"]
+uncached_input = usage["input_tokens"] - usage["cached_tokens"]
+
+print("uncached input:", uncached_input)
+print("non-reasoning output:", visible_or_other_output)
+```
+
+<Warning>
+  A zero `cached_tokens` or `reasoning_tokens` value means the provider did not report that normalized breakdown for the call. It does not prove that caching or reasoning was absent.
+</Warning>
+
+## Every model call contributes
+
+The counter follows LLM calls, rather than top-level `Agent.run()` calls. A single agent run can make several provider calls.
+
+For example, a tool-enabled multi-loop run can make a tool-selection call and a tool-summary call in each loop. Both calls flow into the same `agent.usage` total. That makes the top-level delta useful when you want the usage of one complete agent operation.
+
+```python
+before = agent.usage
+
+agent.run("Use the available tools to investigate the incident and summarize it.")
+
+after = agent.usage
+run_usage = {name: after[name] - before[name] for name in after}
+```
+
+The same lifetime total also survives internal LiteLLM rebuilds. This matters when a fallback model is selected after a failed primary model or the agent rebuilds its client around dynamic tool behavior.
+
+## `agent.input_tokens`
+
+`agent.input_tokens` counts the current rendered conversation in `short_memory` plus the agent's tool schemas with the tokenizer selected for `agent.model_name`.
+
+```python
+before = agent.input_tokens
+
+agent.short_memory.add(
+    role="User",
+    content="Add a long piece of context here ...",
+)
+
+after = agent.input_tokens
+print("estimated context growth:", after - before)
+```
+
+The estimate includes rendered role labels and serialized tool definitions. Provider-side message framing and token accounting can differ, so the estimate can differ from the next provider bill.
+
+Use it for context-window planning:
+
+```python
+fraction_used = agent.input_tokens / agent.context_length
+
+if fraction_used > 0.80:
+    print("Context is above 80% of the configured window")
+```
+
+## Streaming usage arrives at the end
+
+When the underlying LiteLLM wrapper streams, Swarms requests provider usage with `stream_options={"include_usage": True}`. The provider can then send a trailing usage-only chunk after the content chunks.
+
+Swarms consumes that trailing chunk for accounting instead of forwarding it as an empty token. Usage is therefore finalized when the stream reaches that final chunk.
+
+```python
+# Consume the complete stream before reading the final usage snapshot.
+for token in agent.run_stream("Explain the deployment plan"):
+    print(token, end="", flush=True)
+
+print()
+print(agent.usage)
+```
+
+If a provider omits a usage block, the accounting layer leaves the counter unchanged for that response.
+
+## Prompt-cache accounting
+
+`agent.usage["cached_tokens"]` is the normalized cached-token breakdown exposed by the provider through LiteLLM. It is useful for lifetime totals and run deltas.
+
+Some providers also expose provider-specific cache fields such as cache writes and cache reads. Use the raw provider usage block when you need those fields. The [Prompt Caching guide](/agents/prompt-caching#verifying-cache-hits) shows that workflow.
+
+## Measure one operation with deltas
+
+Because `agent.usage` is a lifetime counter, snapshot it around the operation you want to measure.
+
+```python
+def usage_delta(before: dict, after: dict) -> dict:
+    return {key: after[key] - before[key] for key in after}
+
+before = agent.usage
+agent.run("Prepare the weekly status report")
+measured = usage_delta(before, agent.usage)
+
+print(measured)
+```
+
+This pattern also scales to a `SwarmRouter`, where the aggregate counter is built from each participating agent. See [Swarm usage accounting](/architectures/swarm-usage-accounting).
+
+## Validate the contract offline
+
+The documentation repository includes a standard-library-only harness that reads a Swarms source checkout and executes the accounting method bodies in isolation. It makes no provider calls and imports no Swarms dependencies.
+
+```bash
+python examples/usage-accounting/validate_usage_contract.py /path/to/swarms
+```
+
+It checks the usage shape, cached/reasoning breakdowns, stream-final accounting, the next-request estimate, and router aggregation/deduplication.
+
+## Related
+
+- [Agent API reference](/api/agent#usage-and-context-properties)
+- [Prompt Caching](/agents/prompt-caching)
+- [Swarm usage accounting](/architectures/swarm-usage-accounting)
+- [Swarm Router](/architectures/swarm-router)

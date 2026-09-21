@@ -465,6 +465,37 @@ Each collaborator is independently usable and independently documented — reach
   Path from which to load saved agent state on init.
 </ParamField>
 
+## Usage and context properties
+
+### `input_tokens`
+
+`agent.input_tokens` estimates the size of the agent's next request with the tokenizer for `model_name`. It counts the rendered `short_memory` conversation and serialized tool schemas.
+
+```python
+print(agent.input_tokens)
+```
+
+This is a pre-run context estimate. Provider message framing can differ, so it is not expected to match billed input tokens exactly.
+
+### `usage`
+
+`agent.usage` returns a copy of the provider-normalized token totals accumulated across the agent's LLM calls.
+
+```python
+print(agent.usage)
+# {
+#     "input_tokens": 0,
+#     "output_tokens": 0,
+#     "cached_tokens": 0,
+#     "reasoning_tokens": 0,
+#     "total_tokens": 0,
+# }
+```
+
+`cached_tokens` is a breakdown of `input_tokens`; `reasoning_tokens` is a breakdown of `output_tokens`. Streaming usage is recorded when the stream reaches the provider's trailing usage chunk. For per-run accounting, snapshot the dictionary before and after the run and subtract the fields.
+
+See [Token Usage and Context Accounting](/agents/usage-accounting) for field semantics, streaming behavior, cache/reasoning caveats, and an offline validation harness.
+
 ## Methods
 
 ### run

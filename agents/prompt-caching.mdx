@@ -358,6 +358,10 @@ Caching is **silently skipped** below the provider's minimum cacheable prefix â€
 
 ## Verifying cache hits
 
+<Note>
+  For normalized lifetime totals, `agent.usage["cached_tokens"]` reports the cached-token breakdown that LiteLLM exposes in the OpenAI-style usage shape. It is a subset of `input_tokens`, and `0` can mean the provider did not expose that normalized breakdown. The provider-specific cache creation/read fields below still require the raw response. See [Token Usage and Context Accounting](/agents/usage-accounting#prompt-cache-accounting).
+</Note>
+
 `Agent.run()` returns a formatted string, so it won't show token usage. To inspect cache behavior, read from the agent's underlying LLM wrapper directly with `return_all = True`, which returns the raw provider response including the usage block.
 
 ```python

@@ -73,7 +73,8 @@
               "agents/dynamic-tools",
               "agents/agent-skills",
               "agents/structured-outputs",
-              "agents/prompt-caching"
+              "agents/prompt-caching",
+              "agents/usage-accounting"
             ]
           },
           {
@@ -99,6 +100,7 @@
               "architectures/agent-rearrange",
               "architectures/mixture-of-agents",
               "architectures/swarm-router",
+              "architectures/swarm-usage-accounting",
               "architectures/hierarchical-swarm",
               "architectures/heavy-swarm",
               "architectures/group-chat",

@@ -1,0 +1,165 @@
+---
+title: 'Swarm Usage Accounting'
+description: 'Measure SwarmRouter token usage across workers, directors, aggregators, judges, shared agents, and streamed calls.'
+icon: 'chart-line'
+---
+
+`SwarmRouter.usage` gives you one normalized token-usage view across the agents held by a router and the swarm instances it has built.
+
+The router does not maintain a separate token counter. Each read computes a fresh aggregate from the lifetime `Agent.usage` totals it can reach.
+
+## Basic aggregate usage
+
+```python
+from swarms import Agent, SwarmRouter
+
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+reviewer = Agent(
+    agent_name="Reviewer",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+router = SwarmRouter(
+    name="research-router",
+    agents=[researcher, reviewer],
+    swarm_type="SequentialWorkflow",
+)
+
+before = router.usage
+router.run("Research the topic, then review the evidence.")
+after = router.usage
+
+delta = {key: after[key] - before[key] for key in after}
+print(delta)
+```
+
+The dictionary uses the same five fields as `Agent.usage`: `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens`, and `total_tokens`.
+
+## What the router includes
+
+The aggregate starts with the agents configured in `router.agents`. After a swarm type has been built, the router also inspects agents retained by that built swarm.
+
+That captures helper agents owned by architectures where the complete team is larger than `router.agents`, including patterns such as:
+
+- a `HierarchicalSwarm` director;
+- a `MixtureOfAgents` aggregator;
+- a judge or other `Agent` retained by a built swarm.
+
+The router deduplicates agents by object identity before summing. If the same `Agent` instance appears in both the configured roster and a built swarm's `agents` list, its lifetime usage is counted once.
+
+## Lifetime totals change how you measure a run
+
+`router.usage` sums lifetime agent counters. It is not a per-`router.run()` receipt.
+
+```python
+first_before = router.usage
+router.run("First task")
+first_after = router.usage
+
+first_run = {
+    key: first_after[key] - first_before[key]
+    for key in first_after
+}
+
+second_before = router.usage
+router.run("Second task")
+second_after = router.usage
+
+second_run = {
+    key: second_after[key] - second_before[key]
+    for key in second_after
+}
+```
+
+Snapshot deltas are the right pattern when you want the usage attributable to one measured operation.
+
+## Shared agents can contribute usage from elsewhere
+
+A router reads the lifetime counters on the actual `Agent` objects. If one agent instance is shared with another router or called directly, its usage from those other calls is visible to every router that aggregates it.
+
+```python
+shared = Agent(agent_name="Shared", model_name="gpt-5.4")
+
+router_a = SwarmRouter(
+    name="A",
+    agents=[shared],
+    swarm_type="SequentialWorkflow",
+)
+router_b = SwarmRouter(
+    name="B",
+    agents=[shared],
+    swarm_type="SequentialWorkflow",
+)
+
+shared.run("A direct call outside either router")
+
+print(router_a.usage)
+print(router_b.usage)
+```
+
+Both routers see the shared agent's lifetime usage. For clean per-router accounting, use separate agent instances or ensure no other work touches shared agents between your before/after snapshots.
+
+## Streaming and router totals
+
+Streaming accounting happens on each `Agent`. The LiteLLM wrapper requests an end-of-stream usage chunk and folds it into `agent.usage` when the stream is consumed.
+
+`router.usage` simply sums the agent totals that have already been recorded. Once a participating agent's stream reaches its trailing usage chunk, that usage is visible in the router aggregate too.
+
+This distinction matters when you inspect counters while a stream is still in progress: the final provider totals may not have arrived yet.
+
+## Cache and reasoning breakdowns stay inside totals
+
+The router adds each field independently across agents:
+
+```python
+usage = router.usage
+
+uncached_input = usage["input_tokens"] - usage["cached_tokens"]
+other_output = usage["output_tokens"] - usage["reasoning_tokens"]
+```
+
+`cached_tokens` remains a subset of input tokens and `reasoning_tokens` remains a subset of output tokens. A zero breakdown can mean the provider did not report that detail.
+
+## Build a small measurement helper
+
+```python
+from contextlib import contextmanager
+
+@contextmanager
+def measure_usage(component):
+    before = component.usage
+    report = {}
+    yield report
+    after = component.usage
+    report.update(
+        {key: after[key] - before[key] for key in after}
+    )
+
+with measure_usage(router) as usage:
+    router.run("Compare the two implementation plans")
+
+print(usage)
+```
+
+The same helper works with an `Agent` because both objects expose the same usage-dictionary shape.
+
+## Validate aggregation offline
+
+Use the repository's provider-free contract harness against a Swarms source checkout:
+
+```bash
+python examples/usage-accounting/validate_usage_contract.py /path/to/swarms
+```
+
+The harness executes the current `Agent` and `SwarmRouter` accounting method bodies in isolation, verifies the five-field normalization contract, exercises a trailing streaming usage chunk, and checks that an internal agent is included while a duplicate shared instance is counted once.
+
+## Related
+
+- [Token usage and context accounting](/agents/usage-accounting)
+- [Swarm Router](/architectures/swarm-router)
+- [Agent API reference](/api/agent#usage-and-context-properties)
