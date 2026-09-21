@@ -614,6 +614,10 @@ icon: "circle-question"
 
     2. **Use Try-Except Blocks:**
        ```python
+       import logging
+
+       logger = logging.getLogger(__name__)
+
        try:
            result = agent.run("Task")
        except Exception as e:
