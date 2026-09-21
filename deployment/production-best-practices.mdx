@@ -321,15 +321,45 @@ def health_check(agent):
 import threading
 
 def periodic_health_check(agent, interval=60):
+    if not 0 < interval <= threading.TIMEOUT_MAX:
+        raise ValueError("interval must be positive and within threading.TIMEOUT_MAX")
+    stop_event = threading.Event()
+
     def check():
-        while True:
+        while not stop_event.is_set():
             status = health_check(agent)
             logger.info(f"Health check: {status}")
-            time.sleep(interval)
-    
+            if stop_event.wait(interval):
+                break
+
     thread = threading.Thread(target=check, daemon=True)
     thread.start()
+    return stop_event, thread
 ```
+
+Keep the returned event and thread in your application's lifecycle state. Call
+`stop_event.set()` during shutdown, then join the worker. The event wakes the
+interval wait immediately, so shutdown does not have to wait for the next poll.
+A positive interval prevents a tight loop of model calls.
+
+Create `health_agent` with your usual `Agent` configuration, dedicated to probes
+and separate from agents serving application requests.
+
+```python
+stop_event, health_thread = periodic_health_check(health_agent, interval=60)
+
+# During application shutdown:
+stop_event.set()
+health_thread.join(timeout=5)
+if health_thread.is_alive():
+    logger.warning("Health check is still finishing an in-flight request")
+```
+
+Stopping is cooperative: it does not cancel an `agent.run()` already in progress.
+Set appropriate provider request timeouts; the join timeout only limits how long
+your shutdown code waits. These probes call the model and may incur charges.
+Stop the old worker before starting a replacement to avoid duplicate polling.
+
 
 ## Configuration Management
 
