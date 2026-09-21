@@ -439,6 +439,13 @@ print(result)
 ### 4. Error Handling
 
 ```python
+import logging
+import os
+
+from swarms import Agent
+
+logger = logging.getLogger(__name__)
+
 def process_image_safely(agent: Agent, task: str, img_path: str) -> str:
     """Process image with error handling"""
     try:
