@@ -350,11 +350,22 @@ quick_screen = MixtureOfAgents(
 
 # For deep due diligence
 deep_analysis = MixtureOfAgents(
-    agents=[all_analysts],
+    agents=[
+        fundamental_analyst,
+        technical_analyst,
+        risk_analyst,
+        macro_analyst,
+        quant_analyst,
+        sentiment_analyst,
+    ],
     aggregator_agent=aggregator_agent,
     layers=3,  # Three layers for thorough analysis
 )
 ```
+
+Pass the six analyst instances from the main example directly in one flat list.
+If you store them in an `all_analysts` list, use `agents=all_analysts` without
+wrapping that list in another pair of brackets.
 
 ### Add Competitive Analysis
 
