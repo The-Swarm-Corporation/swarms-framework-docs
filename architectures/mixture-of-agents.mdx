@@ -176,14 +176,18 @@ results = moa.run_concurrently(tasks)
 
 ## Use Cases
 
+These abbreviated examples show how to connect experts to an aggregator. Add a
+`model_name` and a role-specific `system_prompt` to each `Agent` before running
+them. Agent names alone do not configure domain expertise.
+
 ### Investment Analysis
 
 ```python
 # Multiple financial experts with synthesis
-value_investor = Agent(agent_name="Value-Investor", ...)
-growth_investor = Agent(agent_name="Growth-Investor", ...)
-momentum_trader = Agent(agent_name="Momentum-Trader", ...)
-aggregator = Agent(agent_name="Portfolio-Manager", ...)
+value_investor = Agent(agent_name="Value-Investor")
+growth_investor = Agent(agent_name="Growth-Investor")
+momentum_trader = Agent(agent_name="Momentum-Trader")
+aggregator = Agent(agent_name="Portfolio-Manager")
 
 investment_moa = MixtureOfAgents(
     agents=[value_investor, growth_investor, momentum_trader],
@@ -197,10 +201,10 @@ advice = investment_moa.run("Evaluate Tesla for our portfolio")
 
 ```python
 # Multiple specialists with diagnostic synthesis
-cardiologist = Agent(agent_name="Cardiologist", ...)
-neurologist = Agent(agent_name="Neurologist", ...)
-internist = Agent(agent_name="Internist", ...)
-diagnostician = Agent(agent_name="Chief-Diagnostician", ...)
+cardiologist = Agent(agent_name="Cardiologist")
+neurologist = Agent(agent_name="Neurologist")
+internist = Agent(agent_name="Internist")
+diagnostician = Agent(agent_name="Chief-Diagnostician")
 
 medical_moa = MixtureOfAgents(
     agents=[cardiologist, neurologist, internist],
@@ -214,10 +218,10 @@ diagnosis = medical_moa.run("Patient presents with chest pain and dizziness")
 
 ```python
 # Domain experts with research synthesis
-ml_researcher = Agent(agent_name="ML-Researcher", ...)
-data_scientist = Agent(agent_name="Data-Scientist", ...)
-domain_expert = Agent(agent_name="Domain-Expert", ...)
-research_lead = Agent(agent_name="Research-Lead", ...)
+ml_researcher = Agent(agent_name="ML-Researcher")
+data_scientist = Agent(agent_name="Data-Scientist")
+domain_expert = Agent(agent_name="Domain-Expert")
+research_lead = Agent(agent_name="Research-Lead")
 
 research_moa = MixtureOfAgents(
     agents=[ml_researcher, data_scientist, domain_expert],
