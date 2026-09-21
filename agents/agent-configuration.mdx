@@ -293,6 +293,135 @@ asyncio.run(main())
   ```
 </Note>
 
+<ParamField path="messages" type="List[Dict[str, Any]]" default="None">
+  Seed an agent with prior chat turns in OpenAI-style message format. Each item
+  must contain a `role`; `content` is optional, and additional fields such as
+  `name`, `tool_calls`, and `tool_call_id` are preserved as message metadata.
+  This is useful when you already have a transcript from another service,
+  want an agent to continue a conversation, or need to resume from a tool-call
+  exchange without flattening it into a plain string.
+
+  You can provide `messages` in two places, with deliberately different
+  lifetimes:
+
+  - `Agent(messages=[...])` seeds `short_memory` when the agent is constructed.
+    Those turns remain in the agent's in-memory conversation and are sent again
+    as context on later `run()` calls.
+  - `agent.run(task, messages=[...])` appends the supplied turns immediately
+    before the new task. They become part of `short_memory`, then the combined
+    transcript is sent to the model for that run.
+
+  ```python
+  from swarms import Agent
+
+  prior_turns = [
+      {
+          "role": "user",
+          "content": "My project is called Helios and forecasts solar output.",
+      },
+      {
+          "role": "assistant",
+          "content": "Noted. Helios is a solar forecasting project.",
+      },
+  ]
+
+  agent = Agent(
+      agent_name="HeliosAssistant",
+      model_name="gpt-4.1-mini",
+      max_loops=1,
+      messages=prior_turns,
+  )
+
+  response = agent.run("What is my project called, and what does it do?")
+  ```
+
+  Use the per-call form when the prior turns belong only to the conversation
+  you are continuing at that point in the workflow:
+
+  ```python
+  from swarms import Agent
+
+  agent = Agent(
+      agent_name="ComparisonAgent",
+      model_name="gpt-4.1-mini",
+      max_loops=1,
+  )
+
+  response = agent.run(
+      "Which of those two numbers was larger?",
+      messages=[
+          {
+              "role": "user",
+              "content": "Remember these numbers: 47 and 12.",
+          },
+          {
+              "role": "assistant",
+              "content": "Got it: 47 and 12.",
+          },
+      ],
+  )
+  ```
+
+  Message order is preserved. For the second example, the model receives the
+  two supplied turns followed by the new user task, and the supplied turns are
+  also recorded in `agent.short_memory.conversation_history`.
+
+  Swarms validates this input before adding it to the conversation. Every item
+  must be a dictionary and must include a `role`; invalid entries raise a
+  `ValueError` rather than being silently skipped. `content` may be omitted or
+  set to `None`, which matters for assistant tool-call messages whose useful
+  payload lives in `tool_calls`. The original list order is kept exactly, so
+  pass the transcript in the same chronological order the model should see it.
+  The new `task` is appended after those seeded turns. If you request a
+  history-shaped `output_type`, the seeded turns remain visible in the returned
+  conversation just like messages produced during the current run.
+
+  Structured tool exchanges can be seeded the same way. Swarms stores fields
+  beyond `role` and `content` as metadata instead of discarding them, so an
+  assistant message containing `tool_calls` can be paired with the later
+  `tool_call_id` result and survive the round trip through `Conversation`.
+
+  ```python
+  messages = [
+      {
+          "role": "assistant",
+          "content": None,
+          "tool_calls": [
+              {
+                  "id": "call_1",
+                  "type": "function",
+                  "function": {
+                      "name": "lookup_weather",
+                      "arguments": '{"city":"Hanoi"}',
+                  },
+              }
+          ],
+      },
+      {
+          "role": "tool",
+          "content": "31 C, light rain",
+          "tool_call_id": "call_1",
+      },
+  ]
+  ```
+
+  The same seeded transcript is supported by `max_loops="auto"`. The autonomous
+  loop starts from the supplied structured messages and keeps that transcript
+  available through planning, tool execution, and final summarization instead
+  of reducing the prior turns to an unstructured text blob.
+
+  <Warning>
+    Constructor-level `messages` are persistent for the lifetime of that Agent
+    object. Reusing the same agent for unrelated users or sessions will keep the
+    seeded turns in `short_memory`, so create a separate agent instance or clear
+    the conversation when isolation matters.
+  </Warning>
+
+  `messages` is in-memory conversation context. It is separate from
+  `persistent_memory=True`, which controls the disk-backed `MEMORY.md` lifecycle
+  described in [Agent Memory](/agents/agent-memory).
+</ParamField>
+
 <ParamField path="user_name" type="str" default="Human">
   Name to use for user messages in conversation history.
   
