@@ -352,7 +352,12 @@ data_cleaner = Agent(
 ```python
 # Split dataset into chunks for parallel processing
 chunk_analysts = [
-    Agent(agent_name=f"Chunk-Analyst-{i}", ...)
+    Agent(
+        agent_name=f"Chunk-Analyst-{i}",
+        system_prompt="Analyze one data chunk and return concise findings.",
+        model_name="claude-sonnet-4-6",
+        max_loops=1,
+    )
     for i in range(4)  # 4 parallel processors
 ]
 
