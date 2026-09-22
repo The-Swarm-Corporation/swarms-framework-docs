@@ -290,6 +290,11 @@ result = agent.run("Find the latest AI research papers from 2024")
 ### Tool with Error Handling
 
 ```python
+import json
+
+import httpx
+
+
 def safe_api_call(endpoint: str, params: dict) -> str:
     """
     Make API call with error handling
