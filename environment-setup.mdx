@@ -45,8 +45,9 @@ The fastest way to get started is to create a `.env` file in your project root:
     # Load environment variables
     load_dotenv()
 
-    # Verify API keys are loaded
-    print(f"OpenAI API Key: {os.getenv('OPENAI_API_KEY')[:10]}...")
+    # Verify configuration without printing secret values
+    api_key = os.getenv("OPENAI_API_KEY")
+    print("OpenAI API Key:", "set" if api_key else "missing")
     print(f"Workspace: {os.getenv('WORKSPACE_DIR')}")
     ```
   </Step>
