@@ -4,7 +4,7 @@ description: 'Measure SwarmRouter token usage across workers, directors, aggrega
 icon: 'chart-line'
 ---
 
-`SwarmRouter.usage` gives you one normalized token-usage view across the agents held by a router and the swarm instances it has built.
+`SwarmRouter.usage` gives you one normalized token-usage view across the `Agent` objects that the router can discover on itself and on swarm instances it has built.
 
 The router does not maintain a separate token counter. Each read computes a fresh aggregate from the lifetime `Agent.usage` totals it can reach.
 
@@ -42,15 +42,19 @@ The dictionary uses the same five fields as `Agent.usage`: `input_tokens`, `outp
 
 ## What the router includes
 
-The aggregate starts with the agents configured in `router.agents`. After a swarm type has been built, the router also inspects agents retained by that built swarm.
+The aggregate starts with the agents configured in `router.agents`. After a swarm type has been built, the router also inspects the built swarm's **direct attributes**. A direct `Agent` attribute is included, as are `Agent` objects one level inside a `list` or `tuple` attribute.
 
 That captures helper agents owned by architectures where the complete team is larger than `router.agents`, including patterns such as:
 
 - a `HierarchicalSwarm` director;
 - a `MixtureOfAgents` aggregator;
-- a judge or other `Agent` retained by a built swarm.
+- a judge or other helper retained as a direct `Agent` attribute.
 
 The router deduplicates agents by object identity before summing. If the same `Agent` instance appears in both the configured roster and a built swarm's `agents` list, its lifetime usage is counted once.
+
+<Warning>
+  Discovery is intentionally shallow in the current implementation. `Agent` objects stored inside dictionaries or other nested containers are not recursively traversed. For example, `CouncilAsAJudge` stores its per-dimension judges in a `judge_agents` dictionary, so those judges are not included in `router.usage`; its direct `aggregator_agent` is included. When an architecture owns nested agents, measure those agents directly if you need a complete bill for the architecture.
+</Warning>
 
 ## Lifetime totals change how you measure a run
 
