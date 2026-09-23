@@ -104,7 +104,7 @@ fresh = manager.get_tools(force_refresh=True)  # bypass cache
 Async form: `await manager.aget_tools(...)`.
 
 <Note>
-`aget_tools` only populates `self._tools_cache` / `self._tool_routes` when `format == "openai"`. On a multi-server manager, calling `get_tools(format="mcp")` alone leaves tool routing unpopulated, and a later `call_tool()` can fail with "No configured MCP server exposes a tool named …" until `get_tools()` (the default `"openai"` format) has been called at least once.
+`get_tools(format="mcp")` returns raw schemas without caching tool routes. If routes are empty, `call_tool()` and `execute_tool_calls()` automatically discover the default OpenAI schemas before execution, so no explicit `get_tools()` call is needed. Expect a second server discovery if you fetched raw schemas first.
 </Note>
 
 ### list_tool_names
