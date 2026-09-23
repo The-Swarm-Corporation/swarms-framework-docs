@@ -298,9 +298,9 @@ Researcher ───┤              ├──→ Reviewer → Final Output
 from swarms import Agent, MixtureOfAgents
 
 # Expert agents
-expert1 = Agent(agent_name="Financial-Expert", ...)
-expert2 = Agent(agent_name="Market-Expert", ...)
-expert3 = Agent(agent_name="Risk-Expert", ...)
+expert1 = Agent(agent_name="Financial-Expert")
+expert2 = Agent(agent_name="Market-Expert")
+expert3 = Agent(agent_name="Risk-Expert")
 
 # Aggregator synthesizes expert opinions
 aggregator = Agent(
@@ -329,9 +329,9 @@ recommendation = moa.run("Should we invest in NVIDIA stock?")
 ```python
 from swarms import Agent, HierarchicalSwarm
 
-worker1 = Agent(agent_name="Content-Strategist", ...)
-worker2 = Agent(agent_name="Creative-Director", ...)
-worker3 = Agent(agent_name="SEO-Specialist", ...)
+worker1 = Agent(agent_name="Content-Strategist")
+worker2 = Agent(agent_name="Creative-Director")
+worker3 = Agent(agent_name="SEO-Specialist")
 
 # Director coordinates workers
 swarm = HierarchicalSwarm(
@@ -519,10 +519,10 @@ article = pipeline.run("The future of renewable energy")
 # Concurrent workflow for multi-perspective analysis
 analysis_team = ConcurrentWorkflow(
     agents=[
-        Agent(agent_name="Fundamental-Analyst", ...),
-        Agent(agent_name="Technical-Analyst", ...),
-        Agent(agent_name="Sentiment-Analyst", ...),
-        Agent(agent_name="Macro-Analyst", ...),
+        Agent(agent_name="Fundamental-Analyst"),
+        Agent(agent_name="Technical-Analyst"),
+        Agent(agent_name="Sentiment-Analyst"),
+        Agent(agent_name="Macro-Analyst"),
     ],
     show_dashboard=True,
 )
