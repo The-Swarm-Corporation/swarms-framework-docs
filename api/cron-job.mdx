@@ -127,7 +127,7 @@ cron.run(
 
 ### batched_run
 
-Run multiple tasks sequentially with the same schedule.
+Schedule multiple tasks on the same interval, then block until stopped.
 
 ```python
 tasks = [
@@ -136,7 +136,7 @@ tasks = [
     "Analyze MSFT stock"
 ]
 
-results = cron.batched_run(tasks)
+scheduled_jobs = cron.batched_run(tasks)
 ```
 
 <ParamField path="tasks" type="List[str]" required>
@@ -147,8 +147,8 @@ results = cron.batched_run(tasks)
   Additional parameters to pass to the agent's run method
 </ParamField>
 
-<ResponseField name="return" type="List[Any]">
-  List of results from each task execution
+<ResponseField name="return" type="List[schedule.Job]">
+  One scheduled job per task, in input order, returned after the schedule stops
 </ResponseField>
 
 **Behavior:** every task in `tasks` is registered on the job's interval *before* blocking, so all of them run on each tick. This is one agent doing several things on one cadence.
@@ -418,14 +418,10 @@ cron = CronJob(
 stocks = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA"]
 tasks = [f"Analyze {symbol} stock performance" for symbol in stocks]
 
-try:
-    results = cron.batched_run(tasks)
-    for symbol, result in zip(stocks, results):
-        print(f"\n{symbol} Analysis:")
-        print(result)
-except KeyboardInterrupt:
-    print("Analysis stopped.")
-    cron.stop()
+# Blocks until the schedule stops (for example, when you press Ctrl-C).
+scheduled_jobs = cron.batched_run(tasks)
+for symbol, job in zip(stocks, scheduled_jobs):
+    print(f"{symbol} scheduled job: {job}")
 ```
 
 ### Custom Callback for Output Processing
