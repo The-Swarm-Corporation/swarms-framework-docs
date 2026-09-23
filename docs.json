@@ -391,7 +391,8 @@
               "examples/mcp/sequential-workflow",
               "examples/mcp/dynamic-tool-loading",
               "examples/mcp/authentication",
-              "examples/mcp/local-server"
+              "examples/mcp/local-server",
+              "examples/mcp/deploy-function"
             ]
           },
           {

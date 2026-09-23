@@ -1,0 +1,60 @@
+---
+title: 'Deploy a Python function over MCP'
+description: 'Serve a callable with MCPDeployer and verify an authenticated call without a model'
+icon: 'server'
+---
+
+`MCPDeployer` can turn a plain Python function into an MCP tool. This quick start runs the server and client in one process, so you can verify the connection without an agent or a model provider key.
+
+## Install Swarms
+
+Use a release that includes `MCPDeployer`:
+
+```bash
+pip install "swarms>=15.0.3"
+```
+
+## Serve and call the function
+
+Save this as `function_deployer.py`:
+
+```python
+import secrets
+
+from swarms import MCPDeployer
+from swarms.tools.mcp_manager import MCPManager
+
+
+def count_words(task: str) -> str:
+    """Count whitespace-separated words in text."""
+    return str(len(task.split()))
+
+
+key = secrets.token_urlsafe(32)
+
+with MCPDeployer(
+    count_words,
+    api_keys=[key],
+    host="127.0.0.1",
+    port=8765,
+    show_banner=False,
+) as server:
+    manager = MCPManager(mcp_url=server.url, api_key=key)
+    print(manager.list_tool_names())
+    result = manager.call_tool(
+        "count_words", {"task": "MCP tools accept tasks"}
+    )
+    print(result["result"])
+```
+
+Run it:
+
+```bash
+python function_deployer.py
+```
+
+You should see `['count_words']` followed by `4`. `MCPDeployer` uses the function name as the tool name and its docstring as the description. `MCPManager` discovers the tool and sends the generated key as a bearer token.
+
+The server listens only on `127.0.0.1` while the `with` block runs. Leaving the block stops it, even if the client call fails. The key exists only for this run and is never printed.
+
+As a served target, `count_words` receives the MCP `task` argument; the tool also advertises an optional `img` argument. To expose each function's own named parameters, see [Build your own MCP server](/examples/mcp/local-server).
