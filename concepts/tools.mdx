@@ -623,6 +623,8 @@ is_valid = tool_manager.check_str_for_functions_valid(function_call_str)
 Implement custom tool loading and execution:
 
 ```python
+import os
+
 from swarms.tools import BaseTool
 
 class CustomToolManager(BaseTool):
