@@ -204,12 +204,13 @@ Each result is an envelope:
 ```
 
 <Note>
-When a tool returns structured data, its payload arrives as a JSON string in `result`:
+With the default `output_type="dict"`, `result` is a Python dict for structured-only responses or a string for text responses. Use it directly:
 
 ```python
-import json
-payload = json.loads(results[0]["result"])
+payload = results[0]["result"]
 ```
+
+Call `json.loads(payload)` only if your server returns JSON text. Passing an already structured dict to `json.loads` raises `TypeError`.
 </Note>
 
 ### Calling one tool directly
