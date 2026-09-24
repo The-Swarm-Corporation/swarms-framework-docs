@@ -41,7 +41,8 @@ loader = AgentLoader(concurrent=True)
 Dispatch to the right loader based on file extension. The simplest entry point.
 
 ```python
-def auto(self, file_path: str, *args, **kwargs) -> List[Agent]
+def auto(self, file_path: str, *args, **kwargs) -> List[Agent]:
+    ...
 ```
 
 **Parameters:**
@@ -57,7 +58,8 @@ def auto(self, file_path: str, *args, **kwargs) -> List[Agent]
 Alias for `auto()` — loads a single file by dispatching on extension.
 
 ```python
-def load_single_agent(self, *args, **kwargs) -> List[Agent]
+def load_single_agent(self, *args, **kwargs) -> List[Agent]:
+    ...
 ```
 
 ### load_multiple_agents()
@@ -70,7 +72,8 @@ def load_multiple_agents(
     file_paths: List[str],
     *args,
     **kwargs,
-) -> List[List[Agent]]
+) -> List[List[Agent]]:
+    ...
 ```
 
 **Parameters:**
@@ -87,7 +90,8 @@ def load_agent_from_markdown(
     self,
     file_path: str,
     **kwargs,
-) -> Agent
+) -> Agent:
+    ...
 ```
 
 ### load_agents_from_markdown()
@@ -101,7 +105,8 @@ def load_agents_from_markdown(
     concurrent: bool = True,
     max_file_size_mb: float = 10.0,
     **kwargs,
-) -> List[Agent]
+) -> List[Agent]:
+    ...
 ```
 
 <ParamField path="file_paths" type="Union[str, List[str]]">
@@ -126,7 +131,8 @@ def load_agents_from_yaml(
     yaml_file: str,
     return_type: ReturnTypes = "auto",
     **kwargs,
-) -> List[Agent]
+) -> List[Agent]:
+    ...
 ```
 
 <ParamField path="yaml_file" type="str">
@@ -147,7 +153,8 @@ def load_many_agents_from_yaml(
     yaml_files: List[str],
     return_types: List[ReturnTypes] = ["auto"],
     **kwargs,
-) -> List[Agent]
+) -> List[Agent]:
+    ...
 ```
 
 ### load_agents_from_csv()
@@ -159,7 +166,8 @@ def load_agents_from_csv(
     self,
     csv_file: str,
     **kwargs,
-) -> List[Agent]
+) -> List[Agent]:
+    ...
 ```
 
 ### parse_markdown_file()
@@ -167,7 +175,8 @@ def load_agents_from_csv(
 Lower-level: parse a Markdown file via `MarkdownAgentLoader` directly, using the host's CPU count as worker count.
 
 ```python
-def parse_markdown_file(self, file_path: str) -> List[Agent]
+def parse_markdown_file(self, file_path: str) -> List[Agent]:
+    ...
 ```
 
 ## Usage Examples
