@@ -132,14 +132,15 @@ class CustomSwarm:
 
         # Initialize conversation management
         # See: https://docs.swarms.world/swarms/structs/conversation/
-        conversation_config = conversation_config or {}
-        self.conversation = Conversation(
-            id=f"swarm_{name}_{int(time.time())}",
-            name=f"{name}_conversation",
-            autosave=autosave_conversation,
-            time_enabled=True,
-            **conversation_config
-        )
+        # Merge defaults first so caller options override them without duplicate keywords.
+        conversation_config = {
+            "id": f"swarm_{name}_{int(time.time())}",
+            "name": f"{name}_conversation",
+            "autosave": autosave_conversation,
+            "time_enabled": True,
+            **(conversation_config or {}),
+        }
+        self.conversation = Conversation(**conversation_config)
 
         # Validate agents and log initialization
         self.validate_agents()
