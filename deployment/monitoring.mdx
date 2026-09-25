@@ -220,6 +220,8 @@ metrics = monitored_agent.get_metrics()
 
 ### Response Time Tracking
 
+Use `time.monotonic()` for elapsed durations so system clock adjustments do not distort response times. Keep `time.time()` for event timestamps.
+
 ```python
 import time
 from collections import deque
@@ -251,12 +253,12 @@ class PerformanceTracker:
 tracker = PerformanceTracker()
 
 def timed_agent_run(agent, task):
-    start = time.time()
+    start = time.monotonic()
     try:
         result = agent.run(task)
         return result
     finally:
-        duration = time.time() - start
+        duration = time.monotonic() - start
         tracker.record_request(duration)
 
 # Get stats
@@ -375,9 +377,9 @@ def health_check(agent) -> Dict[str, Any]:
     """
     try:
         # Quick test run
-        start = time.time()
+        start = time.monotonic()
         result = agent.run("Hello", max_loops=1)
-        duration = time.time() - start
+        duration = time.monotonic() - start
         
         return {
             "status": "healthy",
