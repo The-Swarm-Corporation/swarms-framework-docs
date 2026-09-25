@@ -87,7 +87,7 @@ user_id_var = contextvars.ContextVar('user_id', default='anonymous')
 
 # Configure logger to include context
 logger.configure(
-    patcher=lambda record: record.update(
+    patcher=lambda record: record["extra"].update(
         request_id=request_id_var.get(),
         user_id=user_id_var.get(),
     )

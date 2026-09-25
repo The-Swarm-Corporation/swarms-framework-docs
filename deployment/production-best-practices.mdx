@@ -215,7 +215,7 @@ request_id_var = contextvars.ContextVar('request_id', default='unknown')
 
 # Add request ID to all logs
 logger.configure(
-    patcher=lambda record: record.update(
+    patcher=lambda record: record["extra"].update(
         request_id=request_id_var.get()
     )
 )
