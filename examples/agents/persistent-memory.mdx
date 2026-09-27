@@ -96,16 +96,22 @@ matches = agent.short_memory.search_keyword_in_conversation("latency")
 
 ## Export and reload
 
-Snapshot memory to JSON or YAML and reload it later:
+Choose one snapshot format and reload the path produced by that export:
 
 ```python
-agent.short_memory.export(force=True)
-agent.short_memory.save_as_json(force=True)
-agent.short_memory.save_as_yaml(force=True)
+memory = agent.short_memory
+memory.export_method = "json"
+memory.save_filepath = "snapshots/research-assistant.json"
+memory.export(force=True)
+snapshot_path = memory.save_filepath
 
-# Restore from a prior snapshot
-agent.short_memory.load("conversation_agent-123.json")
+# Later, replace in-memory history with this snapshot.
+memory.load(snapshot_path)
 ```
+
+For YAML, use `"yaml"` and `"snapshots/research-assistant.yaml"` instead. `export()` creates the parent directory and keeps the extension aligned with the selected format; `load()` chooses its parser from that extension. Capturing `save_filepath` after export also avoids guessing a generated filename.
+
+The direct JSON and YAML writers share one destination. Calling both in sequence overwrites the first snapshot, so use one `export()` per chosen format and path. Explicit `force=True` saves even with autosave disabled. Loading replaces the current conversation history; it does not append to it or configure automatic recovery in the next process. The stable-name `MEMORY.md` flow above handles that separate restart behavior.
 
 ## Disable disk-backed memory
 
