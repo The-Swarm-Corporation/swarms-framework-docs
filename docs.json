@@ -54,6 +54,12 @@
             ]
           },
           {
+            "group": "På svenska",
+            "pages": [
+              "sv/quickstart"
+            ]
+          },
+          {
             "group": "Core Concepts",
             "pages": [
               "concepts/agents",
