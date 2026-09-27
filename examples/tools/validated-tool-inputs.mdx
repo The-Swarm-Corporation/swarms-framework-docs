@@ -1,0 +1,233 @@
+---
+title: "Validate tool inputs before execution"
+description: "Turn JSON arguments into validated Pydantic models and test a Swarms tool without calling a model."
+---
+
+A Python type annotation describes a tool's input, but it does not turn a JSON dictionary into a model instance. Schema generation and runtime validation are separate steps. If your function expects `request.item_count`, passing a plain dictionary still fails, even when its contents match the published schema.
+
+This guide uses Swarms' `load_basemodels_if_needed` decorator to validate a required model argument before the function body runs. You will build a deterministic batch planner, inspect its generated tool schema, and test invalid arguments locally. The planner returns a JSON result; it does not start jobs or call a language model.
+
+## Set up the example
+
+Use Python 3.12 and save the two named files below in the same directory. These versions were used to verify the examples:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install "swarms==15.0.3" "pydantic==2.13.5"
+```
+
+Installation needs network access. Once dependencies are installed, the examples need no provider credentials. For an offline test run, the command below selects LiteLLM's bundled model-price map instead of fetching one during import.
+
+## Define the input contract
+
+Keep related arguments inside one Pydantic model. Here, a job name must contain 1–60 characters after trimming whitespace, item counts must be positive and bounded, and batch sizes default to 100. These are this example's application rules, not framework-wide limits.
+
+`strict=True` rejects numeric strings and booleans where integers are expected. `extra="forbid"` catches misspelled or unexpected fields instead of silently dropping them. Without these settings, Pydantic's normal coercion and extra-field handling differ; choose them deliberately for your own tool.
+
+```python batch_plan.py
+import json
+
+from pydantic import BaseModel, ConfigDict, Field
+from swarms.tools import load_basemodels_if_needed
+
+
+class BatchRequest(BaseModel):
+    model_config = ConfigDict(
+        strict=True,
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    job_name: str = Field(min_length=1, max_length=60)
+    item_count: int = Field(ge=1, le=10_000)
+    batch_size: int = Field(default=100, ge=1, le=1_000)
+
+
+@load_basemodels_if_needed
+def build_batch_plan(request: BatchRequest) -> str:
+    """Plan batches for a job without executing the job.
+
+    Args:
+        request: Job name, item count, and optional batch size.
+
+    Returns:
+        A JSON string containing the job name and batch dimensions.
+    """
+    batch_count = (
+        request.item_count + request.batch_size - 1
+    ) // request.batch_size
+    last_batch_size = (
+        request.item_count - (batch_count - 1) * request.batch_size
+    )
+    return json.dumps({
+        "job_name": request.job_name,
+        "batch_count": batch_count,
+        "last_batch_size": last_batch_size,
+    })
+```
+
+The decorator receives the dictionary, constructs `BatchRequest`, and then calls the function with that instance. Keep this recipe's annotation as the class itself; the example intentionally does not use postponed string annotations.
+
+## Call the tool with JSON arguments
+
+The outer object contains the function's parameter name, `request`. Its value contains the model fields. Pass that object as keyword arguments, just as a dispatcher would after decoding a tool call:
+
+```python
+import json
+
+from batch_plan import build_batch_plan
+
+arguments = json.loads(
+    '{"request": {"job_name": " nightly ", "item_count": 205}}'
+)
+result = json.loads(build_batch_plan(**arguments))
+assert result == {
+    "job_name": "nightly",
+    "batch_count": 3,
+    "last_batch_size": 5,
+}
+print(result)
+```
+
+Invalid model fields raise `pydantic.ValidationError` on this direct invocation. Catch that exception at your application's tool boundary when you want to return a useful correction to the caller. For example, a zero item count should produce a field error, not an empty job or a guessed replacement value:
+
+```python
+from pydantic import ValidationError
+
+from batch_plan import build_batch_plan
+
+try:
+    build_batch_plan(request={"job_name": "nightly", "item_count": 0})
+except ValidationError as exc:
+    problems = [
+        {"field": ".".join(map(str, error["loc"])), "reason": error["msg"]}
+        for error in exc.errors(include_input=False)
+    ]
+    assert problems[0]["field"] == "item_count"
+    print(problems)
+```
+
+Different execution adapters can package exceptions into their own result format. The exception behavior shown here is for the decorated function called directly; it does not promise that every agent or dispatcher propagates the same exception.
+
+## Inspect the generated schema
+
+The decorator preserves the function's name, docstring, and signature. Generate the schema from the decorated callable you intend to register, so the check covers the same object your application will use:
+
+```python
+from swarms.tools import get_openai_function_schema_from_func
+
+from batch_plan import build_batch_plan
+
+schema = get_openai_function_schema_from_func(build_batch_plan)
+parameters = schema["function"]["parameters"]
+request_schema = parameters["properties"]["request"]
+assert schema["function"]["name"] == "build_batch_plan"
+assert parameters["required"] == ["request"]
+assert request_schema["required"] == ["job_name", "item_count"]
+assert request_schema["properties"]["batch_size"]["default"] == 100
+assert request_schema["additionalProperties"] is False
+```
+
+This verifies schema generation, not provider acceptance or model compliance. In particular, Python's strict coercion policy is enforced by Pydantic at execution time; do not infer that every provider applies identical validation from the schema alone.
+
+## Test the executable boundary
+
+Save the following beside `batch_plan.py`. The tests exercise defaults, exact and partial batches, boundary values, rejected payloads, and the generated schema. They also demonstrate the original distinction: the undecorated function cannot use a dictionary as a model instance.
+
+```python test_batch_plan.py
+import json
+import unittest
+from unittest.mock import patch
+
+from pydantic import ValidationError
+from swarms.tools import get_openai_function_schema_from_func
+
+from batch_plan import build_batch_plan
+
+
+class BatchPlanTests(unittest.TestCase):
+    def test_default_and_trimmed_name(self):
+        result = json.loads(build_batch_plan(request={
+            "job_name": " nightly ", "item_count": 205,
+        }))
+        self.assertEqual(result, {
+            "job_name": "nightly", "batch_count": 3, "last_batch_size": 5,
+        })
+
+    def test_exact_partial_and_small_jobs(self):
+        for count, size, batches, last in [
+            (8, 3, 3, 2), (9, 3, 3, 3), (1, 100, 1, 1),
+        ]:
+            with self.subTest(count=count, size=size):
+                result = json.loads(build_batch_plan(request={
+                    "job_name": "test", "item_count": count, "batch_size": size,
+                }))
+                self.assertEqual(result["batch_count"], batches)
+                self.assertEqual(result["last_batch_size"], last)
+
+    def test_upper_bounds(self):
+        result = json.loads(build_batch_plan(request={
+            "job_name": "x" * 60, "item_count": 10_000, "batch_size": 1_000,
+        }))
+        self.assertEqual(result["batch_count"], 10)
+        self.assertEqual(result["last_batch_size"], 1_000)
+
+    def test_invalid_model_fields(self):
+        good = {"job_name": "test", "item_count": 8}
+        invalid = [
+            {"item_count": 8}, {"job_name": "test"},
+            *[{**good, "item_count": value}
+              for value in (0, -1, 10_001, True, "8", 1.5, None)],
+            *[{**good, "batch_size": value}
+              for value in (0, 1_001, False, "3", None)],
+            *[{**good, "job_name": value}
+              for value in ("", "   ", "x" * 61, 123)],
+            {**good, "unexpected": "field"},
+        ]
+        for payload in invalid:
+            with self.subTest(payload=payload):
+                with self.assertRaises(ValidationError):
+                    build_batch_plan(request=payload)
+
+    def test_rejects_before_result_serialization(self):
+        with patch("batch_plan.json.dumps") as serialize:
+            with self.assertRaises(ValidationError):
+                build_batch_plan(request={"job_name": "test", "item_count": 0})
+            serialize.assert_not_called()
+
+    def test_schema(self):
+        schema = get_openai_function_schema_from_func(build_batch_plan)
+        self.assertEqual(schema["function"]["name"], "build_batch_plan")
+        parameters = schema["function"]["parameters"]
+        self.assertEqual(parameters["required"], ["request"])
+        model = parameters["properties"]["request"]
+        self.assertEqual(model["required"], ["job_name", "item_count"])
+        self.assertEqual(model["properties"]["item_count"]["minimum"], 1)
+        self.assertEqual(model["properties"]["batch_size"]["default"], 100)
+        self.assertIs(model["additionalProperties"], False)
+
+    def test_annotation_alone_does_not_convert_a_dict(self):
+        with self.assertRaises(AttributeError):
+            build_batch_plan.__wrapped__(request={
+                "job_name": "test", "item_count": 8,
+            })
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+```bash
+LITELLM_LOCAL_MODEL_COST_MAP=True python -m unittest -v test_batch_plan
+```
+
+Expect seven passing test methods, including a table of 19 invalid model payloads. These checks use the installed Swarms helper and real Pydantic validation. They do not substitute a fake validator or require an API key.
+
+## Register the same callable
+
+Pass `build_batch_plan` in an [Agent's tools list](/examples/agent-with-tools) when you are ready to use inference. Keep the function's JSON argument shape unchanged. The model-facing name is still `build_batch_plan`; the decorator supplies the conversion step when that callable executes.
+
+The helper is intended here for a required, directly annotated `BaseModel` parameter supplied as a dictionary keyword argument. Passing an existing model instance, omitting `request`, or using positional arguments is outside this recipe. Keep optional values inside the model, where Pydantic applies defaults. A container or union annotation such as `list[BatchRequest]` is not equivalent to this directly annotated parameter.
+
+Use the [tools reference](/api/tools) for the exported helpers. The validation and schema behavior above was checked against [the helper source at 24bec173](https://github.com/kyegomez/swarms/blob/24bec173731f02c072cb59e711f125fed6e01a28/swarms/tools/py_func_to_openai_func_str.py). Live inference, provider-specific schema restrictions, and agent retry behavior are separate integration checks.
