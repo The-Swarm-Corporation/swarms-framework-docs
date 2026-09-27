@@ -1,0 +1,169 @@
+---
+title: "Snabbstart på svenska"
+description: "Installera Swarms, kör en agent och låt två agenter bearbeta samma underlag i tur och ordning."
+---
+
+Den här guiden är en svensk introduktion till [Swarms snabbstart](/quickstart). Du börjar med en agent som sammanfattar ett kort underlag. Därefter kopplar du ihop två agenter: en sammanfattar och den andra skriver om sammanfattningen för en bestämd målgrupp.
+
+En **agent** kombinerar en språkmodell med instruktioner och samtalshistorik. En **svärm** samordnar flera agenter. Verktyg kan ge agenter fler möjligheter, men exemplen här använder inga verktyg och söker därför inte på webben. De arbetar med texten som du lämnar till dem.
+
+<Note>
+  Exemplen använder en extern modell. Du behöver ett eget leverantörskonto, en giltig API-nyckel och tillgång till den valda modellen. Modellanrop kan kosta pengar. Att kontrollera paketversionen gör däremot inget modellanrop.
+</Note>
+
+## Installera i en egen miljö
+
+Du behöver Python 3.10 eller senare. Skapa en projektmapp och en virtuell miljö så att installationen inte blandas med paketen i dina andra projekt.
+
+```bash
+mkdir swarms-start
+cd swarms-start
+```
+
+Skapa och aktivera miljön med kommandona för ditt operativsystem:
+
+<Tabs>
+  <Tab title="macOS och Linux">
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    ```
+  </Tab>
+  <Tab title="Windows PowerShell">
+    ```powershell
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    ```
+  </Tab>
+</Tabs>
+
+Installera sedan Swarms och läs den installerade versionen:
+
+```bash
+python -m pip install -U swarms
+python -c "from importlib.metadata import version; print(version('swarms'))"
+```
+
+Versionsutskriften bekräftar att paketets metadata finns i den aktiva Python-miljön. Den bekräftar inte att en API-nyckel fungerar eller att modellen är tillgänglig. Fler installationsalternativ finns i [installationsguiden](/installation).
+
+## Förbered modellåtkomsten
+
+Skapa en fil som heter `.env` i projektmappen. Exemplen nedan använder OpenAI-modellen `gpt-4.1-mini`. Byt modell och nyckelinställning tillsammans om du väljer en annan leverantör; se [modellleverantörer](/integrations/model-providers).
+
+```bash .env
+OPENAI_API_KEY="din-api-nyckel"
+WORKSPACE_DIR="agent_workspace"
+SWARMS_TELEMETRY_ON="false"
+```
+
+Ersätt platshållaren lokalt. Lägg `.env` i projektets `.gitignore` och dela inte filen i en felrapport. Ladda inställningarna innan du importerar Swarms, som i de fullständiga exemplen nedan. `SWARMS_TELEMETRY_ON="false"` stänger av Swarms [telemetri](/deployment/telemetry); modellens egna API-anrop påverkas inte. Läs [miljöinställningar](/environment-setup) om du behöver välja en annan arbetsmapp eller leverantör.
+
+## Kör en agent
+
+Spara följande kod som `en_agent.py`. Agentens instruktion anger vad den ska göra. Uppgiftstexten innehåller det underlag som den ska sammanfatta.
+
+```python en_agent.py
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Sammanfattare",
+    system_prompt=(
+        "Sammanfatta det givna underlaget på svenska i två meningar. "
+        "Använd bara uppgifterna i underlaget."
+    ),
+    model_name="gpt-4.1-mini",
+    max_loops=1,
+    interactive=False,
+    output_type="final",
+)
+
+underlag = (
+    "Det fiktiva biblioteket öppnar en läsesal på måndag. "
+    "Läsesalen har tolv platser och är öppen klockan 10–16. "
+    "Besökare behöver inte boka plats."
+)
+
+svar = agent.run(underlag)
+print(svar)
+```
+
+Starta programmet från projektmappen:
+
+```bash
+python en_agent.py
+```
+
+`agent_name` identifierar agenten. `system_prompt` beskriver dess uppgift. `model_name` väljer modellen. `max_loops=1` begränsar agenten till ett arbetsvarv, medan `interactive=False` gör att programmet inte väntar på en fortsatt chatt. `output_type="final"` väljer det sista meddelandets innehåll som returvärde.
+
+Ett arbetsvarv är ingen garanti för ett visst pris eller exakt ett nätverksanrop: exempelvis återförsök kan påverka antalet anrop. Kontrollera därför modellleverantörens användning och kostnader. Svaret kan också variera mellan körningar; jämför innehållet med underlaget i stället för att kräva en bestämd formulering.
+
+## Låt två agenter arbeta i ordning
+
+Använd `SequentialWorkflow` när nästa agent ska bygga vidare på föregående agents resultat. Här gör den första agenten en sammanfattning. Den andra omvandlar den till ett kort anslag. Båda använder samma modell, men deras instruktioner skiljer sig åt.
+
+Spara detta som `tva_agenter.py`:
+
+```python tva_agenter.py
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from swarms import Agent, SequentialWorkflow
+
+sammanfattare = Agent(
+    agent_name="Sammanfattare",
+    system_prompt=(
+        "Sammanfatta underlaget på svenska. Behåll datum, tider "
+        "och antal. Lägg inte till uppgifter."
+    ),
+    model_name="gpt-4.1-mini",
+    max_loops=1,
+    interactive=False,
+    output_type="final",
+)
+
+skribent = Agent(
+    agent_name="Skribent",
+    system_prompt=(
+        "Skriv ett kort svenskt anslag för bibliotekets besökare "
+        "utifrån den sammanfattning du får. Lägg inte till uppgifter."
+    ),
+    model_name="gpt-4.1-mini",
+    max_loops=1,
+    interactive=False,
+    output_type="final",
+)
+
+arbetsflode = SequentialWorkflow(
+    agents=[sammanfattare, skribent],
+    max_loops=1,
+    output_type="final",
+    autosave=False,
+)
+
+underlag = (
+    "Det fiktiva biblioteket öppnar en läsesal på måndag. "
+    "Läsesalen har tolv platser och är öppen klockan 10–16. "
+    "Besökare behöver inte boka plats."
+)
+
+anslag = arbetsflode.run(underlag)
+print(anslag)
+```
+
+Kör med `python tva_agenter.py`. Listans ordning styr vem som börjar. Varje agent har ett eget `max_loops`; arbetsflödets inställning styr hur många gånger hela kedjan körs. Med `output_type="final"` får du den sista agentens svar. Utan det valet använder `SequentialWorkflow` normalt formatet `"dict"`.
+
+`autosave=False` stänger av arbetsflödets egen automatiska lagring. Det gör inte körningen lokal och är ingen allmän garanti om loggar eller datalagring: texten skickas fortfarande till modellleverantören. Använd det fiktiva underlaget när du provar guiden.
+
+## Om något inte fungerar
+
+- **Paketet hittas inte:** kontrollera att den virtuella miljön är aktiverad och att du installerade med samma `python` som du kör programmet med.
+- **Nyckeln nekas:** kontrollera den lokala `.env`-filen och att nyckeln tillhör den leverantör som modellen använder. Skriv inte ut nyckeln för att felsöka.
+- **Modellen hittas inte:** kontrollera modellnamnet och kontots tillgång hos leverantören. Ett installerat Swarms-paket ger inte automatiskt modelltillgång.
+- **Svaret innehåller påhittade uppgifter:** jämför med underlaget och förtydliga instruktionen. Flera agenter innebär inte att resultatet automatiskt är faktakontrollerat.
+
+Gå vidare till [agentverktyg](/agents/agent-tools) när agenten behöver hämta eller bearbeta information utanför uppgiftstexten. Läs om [sekventiella arbetsflöden](/architectures/sequential-workflow) för fler inställningar, eller [ConcurrentWorkflow](/architectures/concurrent-workflow) om flera oberoende uppgifter kan köras samtidigt. Dessa fördjupningar är på engelska.
