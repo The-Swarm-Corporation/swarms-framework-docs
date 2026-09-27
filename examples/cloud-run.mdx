@@ -145,10 +145,12 @@ gcloud run deploy my-agent-service \
 
 - **Permission errors** — your account needs the **Cloud Run Admin** and **Artifact Registry Reader** roles.
 - **Port issues** — Cloud Run expects port `8080`. Make sure your Flask app binds to it.
-- **Logs**:
+- **Logs** — read logs for the service and region used in the deployment:
 
   ```bash
-  gcloud logs read --project [PROJECT_ID]
+  gcloud run services logs read my-agent-service \
+      --region us-central1 \
+      --project [PROJECT_ID]
   ```
 
 ## See also
