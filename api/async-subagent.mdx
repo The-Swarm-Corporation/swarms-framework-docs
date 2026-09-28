@@ -284,7 +284,15 @@ task = registry.get_task(task_id)
 print(task.status, task.retries, task.result or task.error)
 ```
 
-### Take the First Successful Result
+### Inspect the first completed results
+
+`wait_first` waits for completion, including failure; it does not select the first
+successful answer. The returned list can include several results, including tasks
+that finished before `gather()` started. Do not interpret its order as completion
+order.
+
+If no task finishes before the timeout, the list is empty. Check it before reading
+results, and handle exception objects from failed tasks.
 
 ```python
 from swarms import Agent, SubagentRegistry
@@ -296,12 +304,24 @@ candidates = [
     Agent(agent_name="Mistral", model_name="mistral-large", max_loops=1),
 ]
 
-for agent in candidates:
-    registry.spawn(agent, "Draft a one-sentence product tagline for a developer-tools startup")
+try:
+    for agent in candidates:
+        registry.spawn(agent, "Draft a one-sentence product tagline for a developer-tools startup")
 
-first_results = registry.gather(strategy="wait_first", timeout=30)
-print(first_results[0])
+    first_results = registry.gather(strategy="wait_first", timeout=30)
+    if not first_results:
+        print("No task completed before the timeout.")
+    for result in first_results:
+        if isinstance(result, Exception):
+            print("Task failed:", result)
+        else:
+            print(result)
+finally:
+    registry.shutdown()
 ```
+
+Neither the timeout nor `shutdown()` stops running tasks. Other agents can continue
+working after this example prints its results.
 
 ### Depth-Limited Recursion
 
