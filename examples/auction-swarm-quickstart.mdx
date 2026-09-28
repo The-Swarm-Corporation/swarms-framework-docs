@@ -1,0 +1,156 @@
+---
+title: 'AuctionSwarm quickstart'
+description: 'Run a deterministic auction, inspect its history, and change the winner with a custom scoring function.'
+icon: 'gavel'
+---
+
+Route a task by asking each agent to bid, then selecting the highest scores. This tutorial makes the bids predictable so you can inspect the routing before connecting a model provider.
+
+You will run the real `AuctionSwarm` implementation with small, scripted participants. The participants replace model-backed agents and make no model API calls. The auction, concurrent execution helper, and conversation formatter still come from Swarms. This demonstrates orchestration behavior; it does not test an LLM provider or the full `Agent` runtime.
+
+## Set up the example
+
+Use Python 3.11 or later in a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install "swarms==15.0.3"
+```
+
+On Windows, activate the environment with `.venv\Scripts\Activate.ps1` in PowerShell.
+
+Save these two example files in the same directory:
+
+- [offline_agent.py](https://github.com/The-Swarm-Corporation/swarms-framework-docs/blob/main/examples/auction-swarm/offline_agent.py): scripted participants and a three-agent pool.
+- [quickstart.py](https://github.com/The-Swarm-Corporation/swarms-framework-docs/blob/main/examples/auction-swarm/quickstart.py): both auctions below, with assertions for their results.
+
+If you have cloned this documentation repository, both files are already in `examples/auction-swarm/`. Run the command from that directory, or from the folder where you saved the downloaded files:
+
+```bash
+python quickstart.py
+```
+
+The examples need no provider API key. The supplied scripts set `SWARMS_TELEMETRY_ON=false` before importing Swarms to disable framework telemetry. Dependency installation needs an internet connection; the scripted participants do not contact a model service.
+
+<Note>
+Import the class from `swarms.structs.auction_swarm`. Do not rely on `from swarms import AuctionSwarm`; the package root does not export it in the version used here.
+</Note>
+
+## Understand the scripted bids
+
+`offline_agent.py` provides `ScriptedAgent`. Its `run()` method returns a structured bid while the `bid` tool is installed. After the auction removes that tool, it returns a task response. Its memory and client-rebuild methods implement the small interface the auction uses.
+
+The pool contains these fixed estimates:
+
+| Agent | Confidence | Relative cost | Default score |
+| --- | --- | --- | --- |
+| Quality | 0.95 | 2.0 | 0.475 |
+| Value | 0.80 | 0.5 | 1.6 |
+| Generalist | 0.60 | 1.0 | 0.6 |
+
+The default score is `confidence / max(estimated_cost, 1e-6)`. A higher score ranks first. Here, Value's lower estimated cost outweighs Quality's higher confidence.
+
+The cost is a relative estimate supplied by the agent. It is not a price in dollars, a measured token count, or a spending limit. Similarly, confidence is the agent's self-assessment; the auction does not independently grade it.
+
+## Run one winner
+
+This is the first auction in `quickstart.py`:
+
+```python
+import os
+
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+
+from swarms.structs.auction_swarm import AuctionSwarm
+
+from offline_agent import make_pool
+
+task = "Summarize the refund policy."
+swarm = AuctionSwarm(
+    name="cost-aware-auction",
+    agents=make_pool(),
+    top_k=1,
+    output_type="dict",
+    print_on=False,
+)
+
+history = swarm.run(task)
+print("Default winner:", history[-1]["role"])
+print("Answer:", history[-1]["content"])
+```
+
+All three agents bid. Only Value executes the task because `top_k=1`.
+
+```text
+Default winner: Value
+Answer: Value handled: Summarize the refund policy.
+```
+
+The answer is intentionally scripted. It confirms which participant executed the task rather than generating a real refund-policy summary.
+
+## Read the returned history
+
+`output_type="dict"` returns a list of message dictionaries. `run()` does not return only the winning answer. For this auction, the history has three entries:
+
+| Position | Role | Content |
+| --- | --- | --- |
+| 0 | `User` | The task |
+| 1 | `cost-aware-auction` | The agents' sorted scores |
+| 2 | `Value` | The successful execution response |
+
+For `top_k` greater than one, every selected agent executes concurrently. The history contains the other successful responses first, followed by the response from the highest-scoring successful selected agent. That final position reflects bid ranking, not response quality or completion time.
+
+In an application, check that an execution response exists before reading the last entry:
+
+```python
+responses = history[2:]  # Skip the task and the auction's bid summary.
+if not responses:
+    raise RuntimeError("No selected agent returned an execution response.")
+
+preferred_response = responses[-1]["content"]
+```
+
+This positional check applies to the dictionary history used in this tutorial. Other `output_type` values format the same conversation differently. See the [API reference](/api/auction-swarm) for the return contract.
+
+## Prefer confidence with a custom score
+
+Provide a callable accepting `(confidence, estimated_cost)` and returning a numeric score. You control the trade-off; the auction still sorts the scores in descending order.
+
+```python
+def quality_first(confidence: float, estimated_cost: float) -> float:
+    return confidence - 0.05 * estimated_cost
+
+
+custom = AuctionSwarm(
+    name="quality-first-auction",
+    agents=make_pool(),
+    top_k=2,
+    scoring=quality_first,
+    output_type="dict",
+    print_on=False,
+)
+
+custom_history = custom.run(task)
+print("Custom winner:", custom_history[-1]["role"])
+print("History roles:", [message["role"] for message in custom_history])
+```
+
+The scores are now Quality `0.85`, Value `0.775`, and Generalist `0.55`. Quality and Value execute. Quality's response is placed last:
+
+```text
+Custom winner: Quality
+History roles: ['User', 'quality-first-auction', 'Value', 'Quality']
+```
+
+Use a scoring function that returns finite numbers for every normalized bid, including `(0.0, 1.0)`, which is the fallback for missing bids, recognized malformed responses, and bidding exceptions returned by the execution helper. Exceptions in your scoring function propagate to the caller.
+
+## Move to model-backed agents
+
+After you understand the routing, replace the scripted pool with real [`Agent` instances](/agents/creating-agents). Choose a [model provider](/integrations/model-providers) that supports the structured tool-call responses used for bidding, and configure its credentials. Give each agent a unique `agent_name`: the execution helper keys results by that name.
+
+With the default `auto_equip=True`, the swarm adds the bid tool before bidding, removes it afterward, and rebuilds agent clients when their tool lists change. It then resets every participant's short-term memory before the selected agents execute. Reserve the name `bid` for the auction, and use dedicated agent instances when their original tools or memory must remain intact.
+
+Keep `max_loops=1` when starting with real agents so you can inspect one bidding response and one execution response. Provider calls can incur charges; the offline examples above do not verify provider compatibility.
+
+Continue with [batches and failure handling](/examples/auction-swarm-batch-and-failures) to see what happens when a selected agent fails or every bid scores zero.

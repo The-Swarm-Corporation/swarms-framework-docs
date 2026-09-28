@@ -1,0 +1,172 @@
+---
+title: 'AuctionSwarm batches and failures'
+description: 'Process tasks in sequence, handle failed winners, and understand zero-score ties and mutable agent state.'
+icon: 'list-check'
+---
+
+Run several auctions with one pool, then inspect how selection behaves when agents fail. You will use deterministic participants so the results do not depend on provider availability or model output.
+
+Complete the [quickstart](/examples/auction-swarm-quickstart) first. Keep [offline_agent.py](https://github.com/The-Swarm-Corporation/swarms-framework-docs/blob/main/examples/auction-swarm/offline_agent.py) beside [batch_and_failures.py](https://github.com/The-Swarm-Corporation/swarms-framework-docs/blob/main/examples/auction-swarm/batch_and_failures.py), then run:
+
+```bash
+python batch_and_failures.py
+```
+
+The scripts run the real `AuctionSwarm`, concurrent execution helper, and history formatter. `ScriptedAgent` replaces the model-backed participant, so these examples make no model API calls. The main scripts disable framework telemetry before importing Swarms. A raised exception below is a deliberately simulated agent failure, not a provider integration test.
+
+## Process tasks in order
+
+`batch_run()` runs one complete auction per task, in input order. Bidding within each auction is concurrent, as is execution of the selected agents. The batch itself is sequential.
+
+```python
+import os
+
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+
+from swarms.structs.auction_swarm import AuctionSwarm
+
+from offline_agent import ScriptedAgent
+
+worker = ScriptedAgent("Worker", confidence=0.9, estimated_cost=1.0)
+batch = AuctionSwarm(
+    name="batch-auction",
+    agents=[worker],
+    output_type="dict",
+    print_on=False,
+)
+
+tasks = ["Write release notes.", "Summarize a bug report."]
+histories = batch.batch_run(tasks)
+
+assert worker.executed_tasks == tasks
+assert [history[0]["content"] for history in histories] == tasks
+assert all(len(history) == 3 for history in histories)
+print("Batch answers:", [history[-1]["content"] for history in histories])
+```
+
+Expected application output:
+
+```text
+Batch answers: ['Worker handled: Write release notes.', 'Worker handled: Summarize a bug report.']
+```
+
+Each item in `histories` is a complete history for one task, not a single answer string. The three-entry histories confirm that the second task does not append its messages to the first task's conversation. `batch_run([])` returns an empty list.
+
+The swarm's own `conversation` retains only the latest run. Save the list returned by `batch_run()` if you need every result.
+
+## Keep a successful selected response when another fails
+
+Set `top_k=2` to execute the two highest-scoring bidders. If the first-ranked agent raises an exception during execution, the second-ranked successful response can become the preferred response.
+
+```python
+primary = ScriptedAgent("Primary", 0.95, 1.0, fail_on_execute=True)
+backup = ScriptedAgent("Backup", 0.8, 1.0)
+unselected = ScriptedAgent("Unselected", 0.7, 1.0)
+
+fallback = AuctionSwarm(
+    name="fallback-auction",
+    agents=[primary, backup, unselected],
+    top_k=2,
+    output_type="dict",
+    print_on=False,
+)
+
+history = fallback.run("Prepare a support response.")
+assert unselected.executed_tasks == []
+print("Fallback winner:", history[-1]["role"])
+```
+
+```text
+Fallback winner: Backup
+```
+
+Both Primary and Backup were selected before execution started, and both run concurrently. Backup is not a new attempt scheduled after Primary fails. Unselected never executes, even though it is available.
+
+This distinction matters when choosing `top_k`. With `top_k=1`, failure of the sole selected agent does not cause the next bidder to execute. With larger values, all selected agents do the work, so real model usage can increase even when the first-ranked agent succeeds.
+
+The auction treats exception results as failures. A string containing an error message is still a successful result as far as the auction is concerned; it does not inspect the meaning of the response.
+
+## Handle an auction with no successful execution
+
+When every selected execution raises an exception, the returned history still contains the task and bid summary. There is no winner message:
+
+```python
+failed_history = AuctionSwarm(
+    name="failed-auction",
+    agents=[ScriptedAgent("Unavailable", 0.9, 1.0, fail_on_execute=True)],
+    output_type="dict",
+    print_on=False,
+).run("Prepare a support response.")
+
+assert [message["role"] for message in failed_history] == [
+    "User", "failed-auction"
+]
+
+responses = failed_history[2:]
+if not responses:
+    print("All failed: no execution response")
+```
+
+Do not display `failed_history[-1]["content"]` as an answer without checking for execution responses. In this case it is the bid summary.
+
+Failures before the execution-results stage behave differently. For example, an exception raised by your custom scorer propagates out of `run()`. In a sequential batch, an uncaught exception stops the batch before later tasks run. If you need to collect a result or an error for every task, manage that loop explicitly:
+
+```python
+outcomes = []
+for task in tasks:
+    try:
+        outcomes.append({"task": task, "history": batch.run(task)})
+    except Exception as error:
+        outcomes.append({"task": task, "error": str(error)})
+```
+
+This catches propagated errors; it does not turn the two-message, all-executions-failed history into an exception. Check both conditions in your application.
+
+## Understand zero-score ties
+
+A confidence of zero is not an abstention. The auction always takes the first `top_k` entries after sorting; it has no minimum-score threshold.
+
+```python
+zero_history = AuctionSwarm(
+    name="zero-auction",
+    agents=[
+        ScriptedAgent("First", 0.0, 1.0),
+        ScriptedAgent("Second", 0.0, 1.0),
+        ScriptedAgent("Third", 0.0, 1.0),
+    ],
+    top_k=2,
+    output_type="dict",
+    print_on=False,
+).run("Handle an unfamiliar task.")
+
+print("Zero-score history roles:", [message["role"] for message in zero_history])
+```
+
+```text
+Zero-score history roles: ['User', 'zero-auction', 'Second', 'First']
+```
+
+All scores are zero. Python's stable sort preserves the original pool order for equal scores, so First and Second execute. First remains the preferred successful response and is placed last in the history. Completion order does not break the tie.
+
+Missing bids, recognized malformed responses, and bidding exceptions returned by the execution helper fall back to `(0.0, 1.0)` and are then scored. With the default scorer, a round containing only these fallback bids can still execute the first agents in the pool. A custom scorer does not add an abstention threshold either. If your workflow must reject tasks without a qualified bidder, add that policy before executing an auction or use an orchestration design with an explicit qualification stage.
+
+## Account for tool and memory changes
+
+The auction mutates its participant objects. Plan for these changes when you reuse a pool:
+
+| State | Behavior |
+| --- | --- |
+| Swarm conversation | Cleared at the start of each `run()` |
+| `bid` tool with `auto_equip=True` | Added if absent before bidding; removed from every participant after bidding, including a pre-existing tool named `bid` |
+| Other tool schemas | Kept in the tool list |
+| Agent LLM client | Rebuilt through `llm_handling()` when the tool list changes |
+| Agent short-term memory | Reset for every participant after bidding and before execution, including agents that were not selected |
+| Custom fields in these scripts | `executed_tasks` persists because the fixture's reset only replaces `short_memory` |
+
+The reset does not restore the original memory afterward. It also does not run before bidding: a model-backed agent's previous execution history can affect its next bid before that round resets memory. If every task must start from clean agent state, construct a fresh pool for each task.
+
+`auto_equip=False` disables the automatic tool insertion and removal, but it does not disable the memory reset. You must then arrange compatible bidding and execution behavior yourself. Simply leaving a forced bid tool configured for execution can make an agent bid again instead of answering.
+
+Do not run overlapping `run()` calls on the same swarm or share the same agent objects across simultaneous auctions. They share mutable conversation, memory, tool lists, and clients. Use separate swarm and agent instances when you need independent concurrent tasks.
+
+See the [AuctionSwarm API reference](/api/auction-swarm) for constructor options, bid normalization, and output formats.

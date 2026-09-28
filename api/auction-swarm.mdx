@@ -1,0 +1,133 @@
+---
+title: "AuctionSwarm"
+description: "Route tasks by confidence and relative cost, inspect winning responses, and understand auction state and failure behavior"
+icon: "gavel"
+---
+
+`AuctionSwarm` asks each agent to bid on a task, ranks the bids, and runs the highest-scoring agents. A bid contains a self-reported confidence and estimated relative cost. The default score is confidence divided by cost.
+
+Import the class from its module:
+
+```python
+from swarms.structs.auction_swarm import AuctionSwarm
+```
+
+Use the [offline quickstart](/examples/auction-swarm-quickstart) to try ranking without a model account. Continue with [batching and failure handling](/examples/auction-swarm-batch-and-failures) before connecting live agents.
+
+## How an auction runs
+
+1. Clear the swarm's previous conversation and record the new task.
+2. Collect bids concurrently from the agent pool.
+3. Sort bids by score and select up to `top_k` agents.
+4. Reset each agent's short-term memory, then run the selected agents concurrently on the original task.
+5. Record successful responses and put the highest-ranked successful response last.
+6. Format the conversation according to `output_type`.
+
+The ranking chooses which agents execute. It does not evaluate the quality of their completed answers or combine their answers into a consensus. Confidence and cost are agent estimates; cost is not a dollar price, token count, spending limit, or measurement of latency.
+
+## Constructor
+
+```python
+AuctionSwarm(
+    name="auction-swarm",
+    description="Agents bid for tasks; the best bid wins.",
+    agents=None,
+    top_k=1,
+    scoring="confidence_per_cost",
+    output_type="dict",
+    verbose=False,
+    print_on=True,
+    auto_equip=True,
+)
+```
+
+| Parameter | Type | Default | Behavior |
+| --- | --- | --- | --- |
+| `name` | `str` | `"auction-swarm"` | Name used for the bid-summary conversation entry. |
+| `description` | `str` | See signature | Description retained on the swarm. |
+| `agents` | `List[Agent]` | `None` | Nonempty pool of agents. Give every agent a unique, nonempty `agent_name`; results are keyed by name. |
+| `top_k` | `int` | `1` | Positive number of highest-ranked bidders to execute. Values larger than the pool select the whole pool. |
+| `scoring` | `str` or callable | `"confidence_per_cost"` | Built-in name or `(confidence, estimated_cost) -> float`. Higher scores rank first. |
+| `output_type` | `OutputType` | `"dict"` | Output format passed to the conversation formatter. |
+| `verbose` | `bool` | `False` | Enable internal log messages. |
+| `print_on` | `bool` | `True` | Print bid and award panels. Set to `False` for scripts. |
+| `auto_equip` | `bool` | `True` | Add the `bid` tool before bidding and remove it before execution. This can rebuild agent model clients. |
+
+The constructor raises `ValueError` for an empty pool, `top_k < 1`, or an unknown scoring name. An agent's name should also differ from `User` and the swarm's name so that you can distinguish responses from the task and bid-summary entries.
+
+## Scoring
+
+The only built-in scoring function is `"confidence_per_cost"`:
+
+```python
+score = confidence / max(estimated_cost, 1e-6)
+```
+
+| Agent | Confidence | Relative cost | Score |
+| --- | --- | --- | --- |
+| Specialist | 0.90 | 2.0 | 0.45 |
+| Generalist | 0.80 | 0.5 | 1.60 |
+
+With these bids, the Generalist ranks first. If you want confidence to matter more than low estimated cost, pass a callable:
+
+```python
+def prefer_confidence(confidence: float, estimated_cost: float) -> float:
+    return confidence - 0.05 * estimated_cost
+```
+
+Pass it as `scoring=prefer_confidence`. Equal scores retain the order of the input `agents` list. Supply finite bid values and return finite scores; the parser's range clamping is not a substitute for rejecting `NaN` or infinity. There is no built-in confidence threshold: if all scores are zero, the first `top_k` agents are still selected. Use application-level validation when a task must not execute without an acceptable bid.
+
+## Methods
+
+### `run(task: str) -> Any`
+
+Run one auction. `swarm(task)` is an alias for `swarm.run(task)`.
+
+The default `output_type="dict"` returns a **list of message dictionaries**, including the user task, bid summary, and successful responses. It does not return only the winning answer. With multiple successful winners, other responses come first and the best-ranked successful response comes last. See the [quickstart](/examples/auction-swarm-quickstart) for a checked example of reading the history.
+
+`top_k` controls how many agents execute before results are collected. It does not implement a retry loop. If a selected agent fails, the swarm does not automatically execute a lower-ranked agent outside the selected set. Use `top_k > 1` when you want multiple selected agents available for a result, and account for all of their execution costs.
+
+If every selected execution returns an exception, the dictionary history still contains the user task and bid summary, with no answer entry. Reading its last entry would return the bid summary. Check for execution responses, as shown in the [failure-handling guide](/examples/auction-swarm-batch-and-failures).
+
+### `batch_run(tasks: List[str]) -> List[Any]`
+
+Run one auction per input task **in sequence** and return one formatted result per task. Bidding and selected-agent execution within each auction use concurrent execution; batch tasks do not run concurrently.
+
+Each `run` clears the swarm conversation, so `swarm.conversation` contains the last task's history after a batch. Keep the returned list when you need earlier results.
+
+An exception that propagates from `run`, such as an error in your custom scorer, stops the sequential batch. Later tasks are not attempted. A per-task `try`/`except` loop lets you collect those errors and continue.
+
+## Bid format and normalization
+
+The exported `BID_TOOL` requests a function named `bid` with `confidence` in `0..1` and a positive `estimated_cost`. The parser accepts a plain tool-call dictionary, a list containing one, or a string representation of that structure:
+
+```python
+{
+    "function": {
+        "name": "bid",
+        "arguments": '{"confidence": 0.8, "estimated_cost": 0.5}',
+    }
+}
+```
+
+`arguments` can also be a dictionary. Only the first element of a tool-call list is read. Parsed confidence is clamped into `0..1`, and cost is floored at `1e-6`. Missing tool output or an argument string that is not valid JSON falls back to `(0.0, 1.0)`. That fallback is still a bid; it does not remove the agent from consideration. This normalization is not a general validation boundary for arbitrary provider objects.
+
+<Note>
+  Model-provider tool-call objects are not all interchangeable with plain dictionaries. The current parser does not convert arbitrary Pydantic or SDK objects into dictionaries. Verify the actual output of your agent's bidding run before relying on live ranking. The offline examples validate orchestration with explicit dictionary bids; they do not certify provider compatibility.
+</Note>
+
+## Agent state and tools
+
+With `auto_equip=True`, the swarm adds `BID_TOOL` to agents that lack it and rebuilds their model clients with `llm_handling()`. After collecting bids, it removes every tool named `bid` and rebuilds the affected clients again. Other tool definitions remain, but an existing `bid` tool is removed too; this is not a snapshot-and-restore operation.
+
+Use agents dedicated to this swarm when you need predictable tool and memory state. Every normal run replaces each pool agent's `short_memory` with the result of `short_memory_init()`, including agents that do not win. Setting `auto_equip=False` disables tool management, but does not disable that memory reset. If you disable it, your adapter must manage the bidding and execution phases itself.
+
+Avoid overlapping calls on the same swarm or sharing its agents with a concurrent workflow. Both the swarm conversation and agent state are mutable.
+
+## Related resources
+
+- [Offline auction quickstart](/examples/auction-swarm-quickstart)
+- [Batching and failure handling](/examples/auction-swarm-batch-and-failures)
+- [Agent API](/api/agent)
+- [Conversation API](/api/conversation)
+- [AuctionSwarm implementation](https://github.com/kyegomez/swarms/blob/24bec173731f02c072cb59e711f125fed6e01a28/swarms/structs/auction_swarm.py)
