@@ -41,7 +41,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="load_path" type="str" default="None">
-  Path to a CSV file mapping `agent_name` to `task`. Call `load_from_csv()` explicitly after construction to populate per-agent tasks from it before calling `run_from_config()`
+  Path to a CSV file of agent configurations and tasks. Calling `load_from_csv()` reads this file, creates a new `Agent` for each row, appends it to `self.agents`, and stores its task by `agent_name`. It does not just assign tasks to agents you already supplied
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -75,7 +75,7 @@ def run_from_config(self) -> dict
 
 ### load_from_csv()
 
-Load agent configurations from a CSV file.
+Load agent configurations from the CSV file at `load_path`. Each row adds a new `Agent` to `self.agents` and sets an entry in `self.agent_tasks`. If a supplied agent has the same `agent_name` as a CSV row, `run_from_config()` can run both agents with that row's task. Do not call this method to assign tasks only to existing agents.
 
 ```python
 def load_from_csv(self)
@@ -141,34 +141,47 @@ result = swarm.run("Analyze the latest AI trends")
 print(result)
 ```
 
-### Load from CSV Configuration
+### Assign tasks from CSV to existing agents
 
 <Warning>
-  `agents` must be provided at construction. The constructor runs a reliability check before any CSV loading occurs, so calling `SpreadSheetSwarm(load_path="agents_config.csv", ...)` without `agents` raises `ValueError("No agents are provided.")`. Pass real `Agent` instances in `agents`, then call `load_from_csv()` explicitly to map tasks from the CSV onto those agents by `agent_name`.
+  `agents` must be provided at construction. The constructor runs a reliability check before any CSV loading occurs, so calling `SpreadSheetSwarm(load_path="agents_config.csv", ...)` without `agents` raises `ValueError("No agents are provided.")`. Pass a non-empty list of real `Agent` instances. To assign tasks to those existing agents, use the task-only example below; `load_from_csv()` would append new agents instead.
 </Warning>
 
-Create a CSV file (`agents_config.csv`) mapping each agent name to a task:
+Create `agent_tasks.csv` with one task for each agent from the basic example:
 ```csv
-agent_name,description,system_prompt,task
-Research-Agent,Research specialist,You are a research agent,Research quantum computing
-Analysis-Agent,Data analyst,You are an analysis agent,Analyze the research findings
+agent_name,task
+Research-Agent,Research quantum computing
+Analysis-Agent,Analyze the research findings
 ```
 
-Then construct with agents, load the task mapping, and run:
+Read the task-only file yourself. Check the names before assigning `agent_tasks`; this avoids creating a second agent for either row:
 ```python
+import csv
+
 swarm = SpreadSheetSwarm(
     name="CSV-Swarm",
-    agents=agents,       # non-empty list of Agent instances, e.g. from the example above
-    load_path="agents_config.csv",
+    agents=agents,  # non-empty list of Agent instances from the basic example
     max_loops=1
 )
 
-# Populate self.agent_tasks from the CSV (matches rows to agents by agent_name)
-swarm.load_from_csv()
+tasks = {}
+with open("agent_tasks.csv", newline="", encoding="utf-8") as file:
+    for row in csv.DictReader(file):
+        name = (row.get("agent_name") or "").strip()
+        task = (row.get("task") or "").strip()
+        if not name or not task or name in tasks:
+            raise ValueError("Each CSV row needs a unique agent_name and task")
+        tasks[name] = task
 
-# Run each configured agent with its mapped task
+agent_names = [agent.agent_name for agent in swarm.agents]
+if len(agent_names) != len(set(agent_names)) or set(tasks) != set(agent_names):
+    raise ValueError("CSV agent_name values must match the supplied agents")
+
+swarm.agent_tasks = tasks
 result = swarm.run_from_config()
 ```
+
+This uses the current `agent_tasks` attribute. Check that attribute when upgrading Swarms; there is no task-only CSV loader in this API.
 
 ### Multiple Loops
 
