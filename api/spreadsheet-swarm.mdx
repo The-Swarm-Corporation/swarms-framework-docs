@@ -41,7 +41,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="load_path" type="str" default="None">
-  Path to a CSV file mapping `agent_name` to `task`. Call `load_from_csv()` explicitly after construction to populate per-agent tasks from it before calling `run_from_config()`
+  Path to a CSV file containing agent definitions and tasks (`agent_name`, `system_prompt`, `description`, `task`, `model_name`, etc.). Calling `load_from_csv()` instantiates a new `Agent` for each row, appends it to `self.agents`, and registers its task in `self.agent_tasks`.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -75,14 +75,19 @@ def run_from_config(self) -> dict
 
 ### load_from_csv()
 
-Load agent configurations from a CSV file.
+Load agent configurations and task mappings from the CSV file specified in `load_path`.
 
 ```python
 def load_from_csv(self)
 ```
 
+For each row in the CSV file, `load_from_csv()`:
+1. Records `self.agent_tasks[agent_name] = task`.
+2. Instantiates a new `Agent` configured with the row parameters (`system_prompt`, `description`, `model_name`, `max_loops`, `docs`, `user_name`, `stopping_token`).
+3. Appends the newly created `Agent` to `self.agents`.
+
 Expected CSV format:
-```
+```csv
 agent_name,description,system_prompt,task,model_name,max_loops
 ```
 
@@ -144,29 +149,65 @@ print(result)
 ### Load from CSV Configuration
 
 <Warning>
-  `agents` must be provided at construction. The constructor runs a reliability check before any CSV loading occurs, so calling `SpreadSheetSwarm(load_path="agents_config.csv", ...)` without `agents` raises `ValueError("No agents are provided.")`. Pass real `Agent` instances in `agents`, then call `load_from_csv()` explicitly to map tasks from the CSV onto those agents by `agent_name`.
+  `agents` must be non-empty at construction due to the swarm reliability preflight check. Note that `load_from_csv()` dynamically instantiates and appends a new `Agent` for every row in the CSV into `self.agents`. If you construct the swarm with agents whose names match rows in the CSV, `run_from_config()` will match both the existing and the newly instantiated agent, causing the task to execute multiple times.
 </Warning>
 
-Create a CSV file (`agents_config.csv`) mapping each agent name to a task:
+#### Option A: Dynamically Instantiating Agents from CSV
+
+Create `agents_config.csv` with the full agent specifications and tasks:
 ```csv
-agent_name,description,system_prompt,task
-Research-Agent,Research specialist,You are a research agent,Research quantum computing
-Analysis-Agent,Data analyst,You are an analysis agent,Analyze the research findings
+agent_name,description,system_prompt,task,model_name
+CSV-Researcher,Research specialist,You are a research agent.,Research quantum computing,openai/gpt-4o
+CSV-Analyst,Data analyst,You are an analysis agent.,Analyze the research findings,openai/gpt-4o
 ```
 
-Then construct with agents, load the task mapping, and run:
+Construct the swarm with an initial bootstrap agent, load the CSV to instantiate the workflow agents, and run:
 ```python
+from swarms import Agent, SpreadSheetSwarm
+
+# Initial bootstrap agent to satisfy swarm construction checks
+bootstrap_agent = Agent(
+    agent_name="Coordinator",
+    system_prompt="Swarm coordinator",
+    model_name="openai/gpt-4o"
+)
+
 swarm = SpreadSheetSwarm(
     name="CSV-Swarm",
-    agents=agents,       # non-empty list of Agent instances, e.g. from the example above
+    agents=[bootstrap_agent],
     load_path="agents_config.csv",
     max_loops=1
 )
 
-# Populate self.agent_tasks from the CSV (matches rows to agents by agent_name)
+# Instantiates CSV-Researcher and CSV-Analyst and sets their tasks
 swarm.load_from_csv()
 
-# Run each configured agent with its mapped task
+# Runs all agents with registered tasks (CSV-Researcher and CSV-Analyst)
+result = swarm.run_from_config()
+```
+
+#### Option B: Mapping Tasks to Existing Pre-configured Agents
+
+If you prefer to define and customize your `Agent` instances in Python code without appending duplicate instances from CSV:
+
+```python
+from swarms import Agent, SpreadSheetSwarm
+
+agents = [
+    Agent(agent_name="Research-Agent", system_prompt="You are a research agent.", model_name="openai/gpt-4o"),
+    Agent(agent_name="Analysis-Agent", system_prompt="You are an analysis agent.", model_name="openai/gpt-4o"),
+]
+
+swarm = SpreadSheetSwarm(
+    name="Custom-Swarm",
+    agents=agents,
+    max_loops=1
+)
+
+# Map tasks directly to existing agents by agent_name
+swarm.agent_tasks["Research-Agent"] = "Research quantum computing breakthroughs"
+swarm.agent_tasks["Analysis-Agent"] = "Analyze key findings and technical feasibility"
+
 result = swarm.run_from_config()
 ```
 
