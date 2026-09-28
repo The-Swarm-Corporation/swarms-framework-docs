@@ -58,12 +58,11 @@ pip install -U swarms
 Execute the full LLM Council workflow.
 
 ```python
-def run(self, task: str = None, query: str = None)
+def run(self, task: str)
 ```
 
 **Parameters:**
-- `task` (str): The user's task/query to process (preferred parameter)
-- `query` (str): Alias for task (kept for backwards compatibility)
+- `task` (str, required): The user's task to process. Pass it positionally or as `task=`.
 
 **Returns:** Formatted output containing conversation history with all responses, evaluations, and synthesis
 
