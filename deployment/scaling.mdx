@@ -45,9 +45,9 @@ results = run_agents_concurrently(
     max_workers=None,  # Uses 95% of CPU cores by default
 )
 
-# Results is a list of outputs in completion order
-for i, result in enumerate(results):
-    print(f"Agent {i+1} result: {result}")
+# Results follow the input agents' order, not completion order
+for agent, result in zip(agents, results):
+    print(f"{agent.agent_name} result: {result}")
 ```
 
 ### Concurrent with Dictionary Output
