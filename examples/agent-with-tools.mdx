@@ -19,40 +19,120 @@ Tools extend agent capabilities beyond language generation, allowing them to:
 
 ## Basic Tool Integration
 
-Here's a simple example of creating a tool and using it with an agent:
+Keep your tool in a separate module so you can test it before making a model call. Save this as `roi_tool.py`:
+
+```python
+from math import isfinite
+
+
+def calculate_roi(investment: float, return_amount: float) -> str:
+    """
+    Calculate return on investment (ROI).
+
+    Args:
+        investment: Positive initial investment amount.
+        return_amount: Total amount received.
+
+    Returns:
+        ROI percentage and the amounts used in the calculation.
+
+    Raises:
+        ValueError: If an amount is not finite or investment is not positive.
+    """
+    if not (isfinite(investment) and isfinite(return_amount)):
+        raise ValueError("Amounts must be finite")
+    if investment <= 0:
+        raise ValueError("Investment must be greater than zero")
+
+    roi = ((return_amount - investment) / investment) * 100
+    return f"ROI: {roi:.2f}%. Investment: ${investment:,.2f}, Return: ${return_amount:,.2f}"
+```
+
+### Test the tool without model calls
+
+Save the following as `test_roi_tool.py` in the same directory. These tests call the function directly. You do not need Swarms, a model API key, or a network connection to run them.
+
+The first three cases check a gain, a loss, and a break-even return. The remaining cases exercise the input boundary: a zero or negative investment would make this ROI calculation invalid, while infinity and NaN should not reach the formatted result. Type hints describe the expected numeric arguments; they do not convert text from a user into numbers.
+
+```python
+import unittest
+
+from roi_tool import calculate_roi
+
+
+class CalculateRoiTests(unittest.TestCase):
+    def test_gain(self):
+        self.assertEqual(
+            calculate_roi(10000, 15000),
+            "ROI: 50.00%. Investment: $10,000.00, Return: $15,000.00",
+        )
+
+    def test_loss(self):
+        self.assertEqual(
+            calculate_roi(10000, 7500),
+            "ROI: -25.00%. Investment: $10,000.00, Return: $7,500.00",
+        )
+
+    def test_break_even(self):
+        self.assertEqual(
+            calculate_roi(10000, 10000),
+            "ROI: 0.00%. Investment: $10,000.00, Return: $10,000.00",
+        )
+
+    def test_non_positive_investment(self):
+        for investment in (0, -100):
+            with self.subTest(investment=investment):
+                with self.assertRaisesRegex(ValueError, "greater than zero"):
+                    calculate_roi(investment, 15000)
+
+    def test_non_finite_amounts(self):
+        for amount in (float("inf"), float("-inf"), float("nan")):
+            for investment, return_amount in ((amount, 15000), (10000, amount)):
+                with self.subTest(investment=investment, return_amount=return_amount):
+                    with self.assertRaisesRegex(ValueError, "finite"):
+                        calculate_roi(investment, return_amount)
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+Run the tests from that directory:
+
+```bash
+python -m unittest test_roi_tool -v
+```
+
+You should see five passing tests and an `OK` result. If a test fails, fix the tool before debugging the agent. Keep tests deterministic by using fixed inputs and asserting the result your application consumes.
+
+This check validates the Python function and its error contract. It does not test schema generation, the model's choice of tool, or Swarms' handling of tool exceptions. Those require separate integration checks.
+
+### Connect the tested tool to an agent
+
+Save this as `run_agent.py`, alongside `roi_tool.py`, after installing Swarms and configuring your model provider:
 
 ```python
 from swarms import Agent
 
-def calculate_roi(investment: float, return_amount: float) -> str:
-    """
-    Calculate Return on Investment (ROI)
-    
-    Args:
-        investment (float): Initial investment amount
-        return_amount (float): Return amount received
-    
-    Returns:
-        str: ROI percentage and analysis
-    """
-    roi = ((return_amount - investment) / investment) * 100
-    return f"ROI: {roi:.2f}%. Investment: ${investment:,.2f}, Return: ${return_amount:,.2f}"
+from roi_tool import calculate_roi
 
-# Create agent with the tool
+
 agent = Agent(
     agent_name="Financial-Analyst",
     system_prompt="You are a financial analyst. Use the calculate_roi tool to analyze investments.",
     model_name="gpt-5.4",
-    max_loops=1,
-    tools=[calculate_roi],  # Add tools here
+    dynamic_tools=False,
+    max_loops=2,
+    tools=[calculate_roi],
 )
 
-# Agent will automatically use the tool when needed
 response = agent.run(
     "What's the ROI if I invest $10,000 and get back $15,000?"
 )
 print(response)
 ```
+
+Here, `dynamic_tools=False` sends the tool schema immediately. Two loops allow a tool call followed by a final answer. See [Dynamic Tool Loading](/agents/dynamic-tools) for the extra turn required when tool schemas are deferred. Running this agent uses your configured model provider and can incur API charges.
 
 ## Real-World Example: Web Search Agent
 
