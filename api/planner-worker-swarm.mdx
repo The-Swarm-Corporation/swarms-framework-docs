@@ -70,11 +70,11 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="worker_timeout" type="Optional[float]" default="None">
-  Max seconds for the entire worker pool per cycle
+  Elapsed-time budget checked before workers claim another task in each cycle. Does not interrupt running tasks.
 </ParamField>
 
 <ParamField path="task_timeout" type="Optional[float]" default="None">
-  Max seconds per individual task execution
+  Seconds to wait on each task's future before a timeout error. Executor shutdown still waits for the running task to finish.
 </ParamField>
 
 <ParamField path="max_workers" type="Optional[int]" default="None">
@@ -216,13 +216,19 @@ When the top-level planner produces a CRITICAL task (e.g., "Design the database 
 ```python
 swarm = PlannerWorkerSwarm(
     agents=workers,
-    worker_timeout=120,    # 2 min max for entire worker phase per cycle
-    task_timeout=30,       # 30s max per individual task (detects stuck workers)
+    worker_timeout=120,    # stop claiming new tasks once the budget is checked
+    task_timeout=30,       # future wait limit; does not stop a running agent
 )
 ```
 
-- `worker_timeout`: Total wall time for the worker pool per cycle. Workers stop claiming new tasks after this deadline.
-- `task_timeout`: Per-task execution limit. If exceeded, the task fails with a `TimeoutError` and may be retried.
+- `worker_timeout`: Workers check elapsed time before claiming another task. Once they observe that the budget has expired, they stop claiming tasks. A task already running can continue beyond the budget, and the pool waits for its worker threads to finish. This setting does not cover the planner or judge phases.
+- `task_timeout`: A positive value limits `future.result(timeout=...)` while waiting for `agent.run()`. If that wait expires, the worker raises a `TimeoutError` inside the nested executor's context manager. Exiting that context still waits for the running call to finish, so the queue records the failure only afterward. The task may then be retried according to `max_retries`; a late result does not turn that attempt into a success.
+
+<Warning>
+Neither setting provides a hard execution deadline or cancels a running agent. An indefinitely blocked call can still block the worker phase indefinitely, even with both timeouts configured.
+</Warning>
+
+Configure timeouts on the model clients and tools used by your workers to bound their I/O waits. If you need a hard execution deadline, use an execution boundary that can terminate the work, such as a supervised process, and account for any external operations that may already have occurred. A thread future timeout alone cannot enforce that boundary.
 
 ### Checking Swarm Status
 
@@ -365,7 +371,7 @@ Represents a single task in the shared queue.
 | **Single-Loop Workers** | Set `max_loops=1` on worker agents -- the swarm's outer loop handles iteration |
 | **Model Selection** | Use a capable model for the planner and judge (task decomposition and evaluation are harder than execution) |
 | **Reasonable max_loops** | 1-3 cycles is typical; diminishing returns after that |
-| **Timeouts** | Always set `worker_timeout` in production to prevent runaway execution |
+| **Timeouts** | Set a worker claim budget and configure underlying client/tool timeouts; these swarm settings do not terminate running work |
 | **Worker Count** | `max_workers` should roughly match agent count -- more threads than agents won't help |
 | **Dependencies** | Use task dependencies when output from one task is needed as input to another |
 | **Fresh Start** | Trust the judge's fresh start mechanism -- it's designed to combat the drift problem identified in Cursor's research |
@@ -379,7 +385,7 @@ Represents a single task in the shared queue.
 | No task provided | Pass a non-empty `task` string to `run()` |
 | Planner output parsing fails | Check that `planner_model_name` supports structured output (function calling) |
 | Judge output parsing fails | Defaults to `is_complete=False` with quality 0, so the cycle continues safely |
-| Worker stuck on a task | Set `task_timeout` to detect and fail stuck tasks |
+| Worker stuck on a task | Check underlying client/tool timeouts; `task_timeout` cannot interrupt the running call and failure recording waits for it to finish |
 | All workers idle but tasks remain | Tasks may be blocked on unmet dependencies -- check for circular dependency chains |
 
 ## Performance Considerations
@@ -390,7 +396,7 @@ Represents a single task in the shared queue.
 | **Planner/Judge Overhead** | Each cycle adds 2 LLM calls (planner + judge) on top of the worker calls. Use smaller/faster models for these roles |
 | **Sub-Planner Cost** | `max_planner_depth > 1` adds one planner call per CRITICAL task. Only enable when tasks genuinely need decomposition |
 | **Memory Reset** | Worker memory is reset between tasks, which adds a small overhead but prevents context pollution |
-| **Task Timeout** | Per-task timeout spawns a nested thread -- slight overhead, but essential for detecting stuck workers |
+| **Task Timeout** | A positive `task_timeout` creates a nested executor per task; shutdown waits for the running call even after the future wait expires |
 | **Queue Contention** | The `TaskQueue` lock is held only during claim/transition operations (microseconds). Tested with 200 tasks across 100 threads with zero contention issues |
 
 ## Source Code
