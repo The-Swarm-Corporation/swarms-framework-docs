@@ -1,0 +1,147 @@
+---
+title: "快速入门（简体中文）"
+description: "安装 Swarms、配置环境变量，并运行单个 Agent 和双 Agent 顺序工作流"
+---
+
+本指南参考[英文快速入门](/quickstart)。你将创建一个 Agent，再用 `SequentialWorkflow` 串联两个 Agent。
+
+## 安装 Swarms
+
+准备 Python 3.10 或更高版本。在新的示例目录中创建虚拟环境：
+
+<CodeGroup>
+```bash macOS / Linux
+mkdir swarms-quickstart
+cd swarms-quickstart
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+```powershell Windows PowerShell
+mkdir swarms-quickstart
+cd swarms-quickstart
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+</CodeGroup>
+
+安装依赖。以下示例的参数已对照 Swarms 15.0.3 源码核实：
+
+```bash
+python -m pip install "swarms==15.0.3" python-dotenv
+python -m pip show swarms
+```
+
+其他安装方式见[安装指南](/installation)。
+
+## 配置环境变量
+
+在示例目录创建 `.env`，将占位文本替换为你自己的 API 密钥：
+
+```bash .env
+OPENAI_API_KEY="your-openai-api-key"
+WORKSPACE_DIR="agent_workspace"
+```
+
+把 `.env` 加入该目录的 `.gitignore`。不要提交密钥，也不要在日志中打印密钥。更多配置见[环境设置](/environment-setup)。
+
+<Note>
+  示例沿用英文指南的 `gpt-5.4`，需要对应的模型访问权限。运行 Python 示例会请求模型服务，并可能产生费用。`max_loops=1` 限制循环次数，不保证只发起一次 API 请求。
+</Note>
+
+## 运行你的第一个 Agent
+
+Agent 根据你的任务和 `system_prompt` 调用模型。将以下完整代码保存为 `single_agent.py`，与 `.env` 放在同一目录：
+
+```python single_agent.py
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Explainer",
+    system_prompt="你是一位技术讲解员。请用简体中文给出简洁、准确的解释。",
+    model_name="gpt-5.4",
+    max_loops=1,
+    output_type="final",
+)
+
+response = agent.run("用三个要点说明多 Agent 系统的用途。")
+print(response)
+```
+
+在示例目录运行 `python single_agent.py`。成功时，终端会打印模型的回答，具体措辞会变化。
+
+`agent_name` 标识 Agent，`system_prompt` 定义职责，`model_name` 选择模型。`output_type="final"` 返回最后一条消息的内容。更多参数见 [Agent API](/api/agent)。
+
+## 串联两个 Agent
+
+让 `Researcher` 整理要点，再让 `Writer` 写成短文。将以下完整代码保存为 `sequential_workflow.py`：
+
+```python sequential_workflow.py
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from swarms import Agent, SequentialWorkflow
+
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt=(
+        "根据已有知识整理主题的三个要点，用简体中文回答。"
+        "标明不确定的信息，不要编造来源。"
+    ),
+    model_name="gpt-5.4",
+    max_loops=1,
+    output_type="final",
+)
+
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="根据收到的要点写一篇简短的中文科普文章，保留不确定性说明。",
+    model_name="gpt-5.4",
+    max_loops=1,
+    output_type="final",
+)
+
+workflow = SequentialWorkflow(
+    agents=[researcher, writer],
+    max_loops=1,
+    output_type="final",
+)
+
+final_post = workflow.run("多 Agent 协作适合哪些任务？")
+print(final_post)
+```
+
+运行 `python sequential_workflow.py`。工作流按列表顺序执行：`Researcher` 先处理任务，`Writer` 接收包含前一步结果的对话上下文。工作流的 `max_loops=1` 让整条流程执行一轮；`output_type="final"` 让返回值只包含最后一条消息的内容。
+
+<Note>
+  这里没有配置联网搜索工具。`Researcher` 使用模型已有知识，不会自动检索或核实最新资料。
+</Note>
+
+## 常见问题
+
+<AccordionGroup>
+  <Accordion title="找不到 swarms 模块怎么办？">
+    确认你已激活虚拟环境。用 `python -m pip show swarms` 检查安装位置，并使用同一个 `python` 运行脚本。不要把脚本命名为 `swarms.py`。
+  </Accordion>
+
+  <Accordion title="提示 API 密钥无效或缺失怎么办？">
+    确认 `.env` 与脚本在同一目录，文件名不是 `.env.txt`，并已替换占位文本。`load_dotenv()` 默认不会覆盖已有环境变量；如果终端中存在旧值，请更新后重试。
+  </Accordion>
+
+  <Accordion title="模型不存在、没有权限或触发限流怎么办？">
+    检查模型名称、账户权限及额度。按服务商的限流提示等待后重试。切换模型时，同时配置对应服务商的环境变量，详见[模型服务商](/integrations/model-providers)。
+  </Accordion>
+
+  <Accordion title="为什么工作流返回了多条消息？">
+    `SequentialWorkflow` 默认使用 `output_type="dict"` 返回对话记录。本例显式使用 `output_type="final"` 获取最后一条消息的内容，详见 [SequentialWorkflow API](/api/sequential-workflow)。
+  </Accordion>
+</AccordionGroup>
+
+## 下一步
+
+你可以[为 Agent 添加工具](/examples/agent-with-tools)，或阅读[顺序工作流指南](/architectures/sequential-workflow)，了解更多协作方式。

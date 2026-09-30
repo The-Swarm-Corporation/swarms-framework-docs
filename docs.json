@@ -49,6 +49,7 @@
             "pages": [
               "introduction",
               "quickstart",
+              "quickstart-zh-cn",
               "installation",
               "environment-setup"
             ]
