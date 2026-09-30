@@ -29,6 +29,8 @@ tts_callback2 = StreamingTTSCallback(voice="nova", model="openai/tts-1")
 
 The driver alternates speakers, runs each turn with the appropriate TTS callback, flushes the buffer, and feeds the prior response as the next agent's input.
 
+Return the full transcript with `output_type="all"`. This conversation contains only speaker responses, so `str-all-except-first` would discard the opening answer. Disable its dynamic context window to retain older turns when formatting longer debates.
+
 ```python
 from swarms import Agent
 from swarms.structs.conversation import Conversation
@@ -40,13 +42,13 @@ def debate_with_speech(
     agents: list,
     max_loops: int = 1,
     task: str = None,
-    output_type: str = "str-all-except-first",
+    output_type: str = "all",
     use_stt_for_input: bool = False,
 ):
     if len(agents) != 2:
         raise ValueError("There must be exactly two agents in the dialogue.")
 
-    conversation = Conversation()
+    conversation = Conversation(dynamic_context_window=False)
     agent1, agent2 = agents
 
     tts_callback1 = StreamingTTSCallback(voice="onyx", model="openai/tts-1")
@@ -85,6 +87,8 @@ def debate_with_speech(
 
 Use distinct system prompts so the agents argue in character. Keeping the responses short produces a more natural-sounding back-and-forth.
 
+Set each Agent's `output_type="final"` so each handoff contains only its latest answer, without replaying that Agent's earlier messages.
+
 ```python
 socratic_prompt = """
 You are Socrates, the Greek philosopher. Respond only with short and simple
@@ -104,7 +108,7 @@ agent1 = Agent(
     max_loops=1,
     model_name="gpt-5.4",
     dynamic_temperature_enabled=True,
-    output_type="str-all-except-first",
+    output_type="final",
     streaming_on=True,
 )
 
@@ -114,7 +118,7 @@ agent2 = Agent(
     max_loops=1,
     model_name="gpt-5.4",
     dynamic_temperature_enabled=True,
-    output_type="str-all-except-first",
+    output_type="final",
     streaming_on=True,
 )
 ```
@@ -126,7 +130,7 @@ result = debate_with_speech(
     agents=[agent1, agent2],
     max_loops=10,
     task="What is the meaning of life?",
-    output_type="str-all-except-first",
+    output_type="all",
     use_stt_for_input=False,  # set True to dictate the opening prompt
 )
 
