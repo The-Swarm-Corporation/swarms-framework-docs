@@ -42,7 +42,7 @@ GOOGLE_API_KEY=your_google_api_key
 </ParamField>
 
 <ParamField path="max_tokens" type="int" default="4000">
-  Maximum token limit for model outputs.
+  Stored on the router but not forwarded to either model. The routed model uses the `max_tokens` value returned by the routing model.
 </ParamField>
 
 <ParamField path="temperature" type="float" default="0.5">
@@ -248,7 +248,6 @@ class FinancialAnalysisSystem:
     def __init__(self):
         self.router = ModelRouter(
             temperature=0.3,  # Lower temperature for more deterministic outputs
-            max_tokens=8000,  # Higher token limit for detailed analysis
             max_loops=2  # Allow for refinement iteration
         )
 
@@ -432,7 +431,7 @@ analyses = pipeline.process_documents(documents)
 ## Performance Optimization Tips
 
 1. **Token Management**
-   - Set appropriate `max_tokens` based on task complexity
+   - Do not rely on the constructor's `max_tokens` value as an output limit; the routing response determines the routed model's token budget.
    - Monitor token usage for cost optimization
    - Use streaming for long outputs
 
