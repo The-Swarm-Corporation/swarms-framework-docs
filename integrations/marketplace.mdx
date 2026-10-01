@@ -159,7 +159,11 @@ print(f"Prompt published: {response}")
 
 ### Publishing from an Agent
 
-Automatically publish an agent's configuration:
+Publish an agent's metadata and serialized short-memory history:
+
+<Warning>
+Agent publishing sends the current conversation history to the Marketplace API. Review it for private content before calling `agent.handle_publish_to_marketplace()`. To share only a curated prompt, use `AgentMarketplaceHandler.add_prompt(prompt=...)` as shown above.
+</Warning>
 
 ```python
 from swarms import Agent
