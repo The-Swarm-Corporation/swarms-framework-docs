@@ -48,7 +48,7 @@ The model must support function calling. Every model output is a function call v
 
 A candidate that completes the task is final. A step at `max_depth` is always final, whether or not the model flagged it. A final candidate that survives pruning is a solution. BFS stops once its best solution scores at least as high as every open partial path. DFS returns the first solution it reaches. If the search finds no solution, the answer is completed from the highest-scoring partial path and `solved` is `False`.
 
-Each model call goes through a fresh, stateless `Agent` that carries only the schema for that call. Calls at the same level of the tree run concurrently. A call that fails or returns no valid function call is logged as a warning and costs that one candidate, not the search.
+Each model call goes through a fresh, stateless `Agent` that carries only the schema for that call. Calls at the same level of the tree run concurrently. A call that fails or returns no valid function call is logged as a warning. Failed generation calls produce no candidates; failed evaluations supply no valid rating or vote (see [Scoring](#choosing-a-strategy)).
 
 ### When to use it instead of a single Agent
 
@@ -117,7 +117,7 @@ TreeOfThoughts(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `n_evaluate_samples` | `int` | `1` | Evaluator calls per candidate (`"value"`) or per comparison (`"vote"`). More samples give steadier scores. |
-| `value_threshold` | `float` | `0.5` | Candidates scoring below this are pruned. Between 0 and 1. |
+| `value_threshold` | `float` | `0.5` | Candidates scoring strictly below this are pruned. Between 0 and 1; `0` disables score-based pruning, including for failed evaluations scored as `0`. |
 
 ### Adapting to a task
 
@@ -147,12 +147,15 @@ The constructor raises `ValueError` when a strategy name is unknown, when `num_t
 | `evaluation_strategy` | `"value"` | Steps can be checked on their own: arithmetic, logic, units. |
 | | `"vote"` | Quality is relative, so comparing candidates beats rating them: estimation, writing. |
 
-**How `"value"` scores.** Each candidate is rated `n_evaluate_samples` times and the ratings are averaged. The evaluator writes its critique before its score. A candidate whose every rating failed scores 0 and is pruned.
+**How `"value"` scores.** Each candidate is rated `n_evaluate_samples` times and the ratings are averaged. The evaluator writes its critique before its score. A candidate whose every rating failed scores 0. It is pruned when `value_threshold > 0`, including the default `0.5`; at `0`, it remains eligible.
 
-**How `"vote"` scores.** The evaluator sees all candidates at once and votes for the best, `n_evaluate_samples` times. A candidate's score is its votes divided by the leader's votes, so the leader always scores 1. BFS compares every candidate on the level in one vote; DFS compares the children of one node. Two consequences follow:
+**How `"vote"` scores.** The evaluator sees all candidates at once and votes for the best, `n_evaluate_samples` times. When at least one valid vote exists, a candidate's score is its votes divided by the leader's votes, so the leader scores 1. BFS compares every candidate on the level in one vote; DFS compares the children of one node. Three consequences follow:
 
 - Vote mode cannot reject a lone candidate. It scores 1 without a call.
 - With one vote per comparison, only the winner survives the default `value_threshold`. Raise `n_evaluate_samples` to keep more branches.
+- If every ballot fails, every candidate scores 0. A positive `value_threshold` prunes them; `0` retains them.
+
+Use a positive threshold to reject candidates whose evaluations all fail. At `value_threshold=0`, a final candidate with failed evaluations can survive and set `last_result.solved=True`.
 
 ## Adapting the search to a task
 
