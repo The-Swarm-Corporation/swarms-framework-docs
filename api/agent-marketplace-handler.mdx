@@ -122,7 +122,11 @@ Defaults to the agent's configured `marketplace_prompt_id`.
 def publish(category: str = "research") -> Dict[str, Any]
 ```
 
-Publish the owning agent's prompt and metadata. Raises `AgentInitializationError` when `use_cases` was not provided.
+Publish the owning agent's serialized short-memory history and metadata. Raises `AgentInitializationError` when `use_cases` was not provided.
+
+<Warning>
+`publish()` sends `agent.short_memory.get_str()` to the Swarms Marketplace API, not just `agent.system_prompt`. After a run, this can include user tasks and responses. Review the content before publishing. To send only a curated prompt, use `add_prompt(prompt=...)` with reviewed text.
+</Warning>
 
 ```python
 agent = Agent(
