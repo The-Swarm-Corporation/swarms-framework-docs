@@ -271,8 +271,8 @@ file_path = create_file_in_folder(
   Content to write to the file
 </ParamField>
 
-<ResponseField name="return" type="str">
-  Path to the created file
+<ResponseField name="return" type="str | None">
+  Path to the created file, or `None` if creating the directory or writing the file fails. The function logs the error instead of raising it.
 </ResponseField>
 
 ### sanitize_file_path
@@ -284,7 +284,8 @@ from swarms.utils import sanitize_file_path
 
 safe_path = sanitize_file_path("`C:/Users/file<name>.txt`")
 # Returns: C__Users_file_name_.txt
-# `:`, `/`, `\`, `<`, `>`, `"`, `|`, `?`, `*`, and backticks are all replaced with `_`
+# Backticks are removed and leading/trailing whitespace is stripped.
+# `:`, `/`, `\`, `<`, `>`, `"`, `|`, `?`, and `*` are replaced with `_`.
 ```
 
 <ParamField path="file_path" type="str" required>
@@ -311,9 +312,23 @@ print(data["name"])  # "Agent"
   JSON string to parse
 </ParamField>
 
-<ResponseField name="return" type="object">
-  Parsed Python object (dict, list, etc.)
+<ResponseField name="return" type="object | None">
+  Parsed Python object (dict, list, etc.). Invalid JSON is logged and returns `None`; valid JSON `null` also returns `None`.
 </ResponseField>
+
+Check the result before indexing it. For an object-shaped configuration, validate the type so that a list, scalar, or `null` cannot reach code that expects a dictionary:
+
+```python
+from swarms.utils import load_json
+
+data = load_json('{"name": "Agent", "status": "active"}')
+if not isinstance(data, dict):
+    raise ValueError("Expected a JSON object for the agent configuration")
+
+print(data["name"])
+```
+
+If you need to distinguish malformed JSON from valid `null`, use Python's `json.loads` and handle `json.JSONDecodeError` directly. `load_json` does not preserve that distinction in its return value.
 
 ### zip_workspace
 
@@ -336,8 +351,8 @@ zip_path = zip_workspace(
   Name for output zip file (without .zip extension)
 </ParamField>
 
-<ResponseField name="return" type="str">
-  Path to created zip file
+<ResponseField name="return" type="str | None">
+  Path to the created zip file, or `None` if archiving fails. The function logs the error instead of raising it.
 </ResponseField>
 
 ### zip_folders
@@ -676,6 +691,6 @@ formatter.print_markdown(
 2. **Sanitize paths**: Always sanitize file paths before file operations
 3. **Count tokens**: Monitor token usage to stay within model limits
 4. **Format output**: Use Formatter for consistent, beautiful CLI output
-5. **Handle errors**: Wrap file operations in try-catch blocks
+5. **Handle errors**: Check file utility return values for `None`; logged failures may not raise an exception
 6. **Chunk large texts**: Use `Conversation.dynamic_auto_chunking()` to keep long histories inside the context window
 7. **Stream responses**: Use print_streaming_panel for real-time output
