@@ -371,6 +371,8 @@ class CustomSwarm:
 
 ### Advanced Features
 
+`retries` counts additional attempts after the initial call, so `retries=0` still runs each agent once. The method rejects invalid budgets before recording the task or calling any agents.
+
 ```python
     def run_with_retries(self, task: str, img: str = None, retries: int = 3, *args, **kwargs) -> List[Any]:
         """
@@ -379,11 +381,20 @@ class CustomSwarm:
         Args:
             task (str): The task to execute.
             img (str): Optional image input.
-            retries (int): Number of retries for failed agents.
+            retries (int): Nonnegative number of additional attempts for failed agents.
 
         Returns:
             List[Any]: Results from all agents with retry attempts.
+
+        Raises:
+            TypeError: If retries is not an integer or is a boolean.
+            ValueError: If retries is negative.
         """
+        if isinstance(retries, bool) or not isinstance(retries, int):
+            raise TypeError("retries must be a nonnegative integer")
+        if retries < 0:
+            raise ValueError("retries must be a nonnegative integer")
+
         logger.info(f"Running task with {retries} retries per agent")
 
         # Add task to conversation
