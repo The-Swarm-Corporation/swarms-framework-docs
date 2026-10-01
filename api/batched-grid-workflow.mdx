@@ -11,7 +11,7 @@ The `BatchedGridWorkflow` is a multi-agent orchestration pattern that executes t
 The BatchedGridWorkflow provides a structured approach to:
 
 - Execute multiple tasks across multiple agents in parallel
-- Manage conversation state across execution loops
+- Repeat the same task-to-agent pairs across execution loops
 - Handle error scenarios gracefully
 - Control the number of execution iterations
 
@@ -150,21 +150,50 @@ result = workflow.run(tasks)
 print(result)
 ```
 
-### Multi-Loop Execution
+### Repeat tasks across loops
+
+`max_loops` repeats the original tasks with the same agent instances. The workflow collects each loop's results, but does not pass those results into the next loop's tasks or maintain a shared conversation. Individual agents can retain their own state; increasing `max_loops` does not itself create a feedback or refinement step.
+
+You can inspect this behavior without making model requests:
 
 ```python
-from swarms import Agent, BatchedGridWorkflow
+from swarms import BatchedGridWorkflow
 
-# Create workflow with multiple loops
+
+class RecordingAgent:
+    def __init__(self, name):
+        self.name = name
+        self.received_tasks = []
+
+    def run(self, task):
+        self.received_tasks.append(task)
+        return f"{self.name}: call {len(self.received_tasks)}"
+
+
+summary_agent = RecordingAgent("summary")
+keyword_agent = RecordingAgent("keywords")
+tasks = ["Summarize the paragraph", "List its keywords"]
 workflow = BatchedGridWorkflow(
-    agents=[agent1, agent2, agent3],
+    agents=[summary_agent, keyword_agent],
     max_loops=3,
 )
 
-# Execute tasks with multiple iterations
-tasks = ["Task 1", "Task 2", "Task 3"]
-result = workflow.run(tasks)
+results = workflow.run(tasks)
+
+# Every loop receives the original task, not the previous output.
+assert summary_agent.received_tasks == [tasks[0]] * 3
+assert keyword_agent.received_tasks == [tasks[1]] * 3
+
+# Results are grouped by loop, then ordered by the input agents.
+assert results == [
+    ["summary: call 1", "keywords: call 1"],
+    ["summary: call 2", "keywords: call 2"],
+    ["summary: call 3", "keywords: call 3"],
+]
+print(results)
 ```
+
+If you need one pass to refine the previous pass, explicitly construct the next task from the previous result instead of relying on `max_loops` to do that for you.
 
 ## Error Handling
 
@@ -180,7 +209,7 @@ The workflow includes comprehensive error handling:
 |--------------|-------------|
 | **Agent Selection** | Choose agents with complementary capabilities for diverse task processing |
 | **Task Distribution** | Ensure tasks are well-distributed and can be processed independently |
-| **Loop Configuration** | Use multiple loops when iterative refinement is needed |
+| **Loop Configuration** | Use multiple loops to repeat the original tasks; explicitly pass previous results when you need refinement |
 | **Error Monitoring** | Monitor logs for execution errors and adjust agent configurations accordingly |
 | **Resource Management** | Consider computational resources when setting up multiple agents |
 
