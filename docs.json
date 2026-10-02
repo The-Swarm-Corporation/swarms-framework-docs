@@ -50,7 +50,8 @@
               "introduction",
               "quickstart",
               "installation",
-              "environment-setup"
+              "environment-setup",
+              "es/quickstart"
             ]
           },
           {
