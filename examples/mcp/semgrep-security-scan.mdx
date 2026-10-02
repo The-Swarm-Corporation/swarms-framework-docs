@@ -53,6 +53,22 @@ Splitting the job fixes that: findings come from the scanner; the model's job is
     Two instructions carry the weight: *only what the scanner returned*, and *say when a flagged line is a false positive*. The second is what makes the report worth reading — a raw Semgrep dump is noise until someone judges context.
   </Step>
 
+  <Step title="Fail fast when the token is missing">
+    ```python
+    import os
+    import sys
+
+    if not os.getenv("SEMGREP_APP_TOKEN"):
+        sys.exit(
+            "SEMGREP_APP_TOKEN is not set.\n"
+            "Create a free token at https://semgrep.dev "
+            "(Settings -> Tokens) and export it before running."
+        )
+    ```
+
+    Run this check before you construct or run the agent. If the token is missing or empty, it stops the example before any model or MCP requests.
+  </Step>
+
   <Step title="Build the agent with a Bearer token">
     ```python
     from swarms import Agent
@@ -105,22 +121,6 @@ Splitting the job fixes that: findings come from the scanner; the model's job is
     ```
 
     Three genuine issues are planted here — SQL injection, shell injection, and unsafe deserialization — so you can check the scan caught what it should.
-  </Step>
-
-  <Step title="Fail fast when the token is missing">
-    ```python
-    import os
-    import sys
-
-    if not os.getenv("SEMGREP_APP_TOKEN"):
-        sys.exit(
-            "SEMGREP_APP_TOKEN is not set.\n"
-            "Create a free token at https://semgrep.dev "
-            "(Settings -> Tokens) and export it before running."
-        )
-    ```
-
-    Without this you get a 401 from inside the tool call, which surfaces as an unhelpful agent-level error.
   </Step>
 </Steps>
 
