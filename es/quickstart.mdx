@@ -1,0 +1,114 @@
+---
+title: "Inicio rápido en español"
+description: "Crea tu primer agente y conecta dos agentes en un flujo secuencial con Swarms."
+---
+
+Esta guía adapta los ejemplos introductorios del [inicio rápido en inglés](/quickstart).
+Primero ejecutarás una tarea con un agente. Después conectarás dos agentes para
+preparar un resumen y convertirlo en un artículo. Los nombres de clases,
+parámetros y métodos conservan sus identificadores de Python.
+
+## Prepara el entorno
+
+Sigue las instrucciones de [instalación](/installation) y
+[configuración del entorno](/environment-setup), disponibles en inglés.
+Configura la clave del proveedor en el entorno del proceso que ejecutará Python.
+Los ejemplos utilizan `gpt-5.4`, por lo que requieren `OPENAI_API_KEY` y acceso
+a ese modelo. No escribas la clave dentro del código ni la compartas en capturas.
+
+<Note>
+  Estos ejemplos llaman a un proveedor de modelos y pueden generar cargos.
+  `max_loops=1` limita las iteraciones del agente; no establece un presupuesto
+  monetario ni garantiza una única petición al proveedor.
+</Note>
+
+## Ejecuta tu primer agente
+
+Un **agente** combina un modelo de lenguaje con instrucciones y puede incorporar
+herramientas y memoria. Guarda este ejemplo completo como `primer_agente.py`:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Asistente",
+    model_name="gpt-5.4",
+    max_loops=1,
+    interactive=False,
+)
+
+response = agent.run(
+    "Explica en español tres ventajas de los sistemas multiagente."
+)
+print(response)
+```
+
+Ejecuta `python primer_agente.py` desde el entorno donde instalaste Swarms.
+`agent_name` identifica al agente, `model_name` selecciona el modelo y
+`interactive=False` evita solicitar respuestas interactivas durante la ejecución.
+La llamada `run()` recibe la tarea y devuelve el resultado.
+
+## Conecta dos agentes
+
+Un **swarm** reúne varios agentes. En este ejemplo, `SequentialWorkflow` los
+ejecuta en orden: el primero prepara un resumen y el segundo utiliza el historial
+acumulado para redactar el artículo. Guarda este bloque como `primer_swarm.py`:
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+researcher = Agent(
+    agent_name="Investigador",
+    system_prompt=(
+        "Resume en español el tema indicado. Distingue los hechos conocidos "
+        "de las incertidumbres y no inventes fuentes."
+    ),
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+writer = Agent(
+    agent_name="Redactor",
+    system_prompt=(
+        "Usa el resumen recibido para redactar un artículo breve en español. "
+        "Conserva las incertidumbres y organiza el texto con claridad."
+    ),
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+workflow = SequentialWorkflow(
+    agents=[researcher, writer],
+    max_loops=1,
+)
+
+result = workflow.run("La historia de la inteligencia artificial")
+print(result)
+```
+
+Ejecuta `python primer_swarm.py`. El orden de la lista `agents` determina el
+orden del trabajo. `system_prompt` define la responsabilidad de cada agente.
+El límite del flujo controla sus pasadas; cada agente tiene su propio límite
+de iteraciones.
+
+<Note>
+  El nombre «Investigador» no incorpora búsqueda web. Este ejemplo no configura
+  herramientas de consulta: revisa las afirmaciones del modelo. Para consultar
+  fuentes externas, sigue la guía de [agentes con herramientas](/examples/agent-with-tools).
+</Note>
+
+## Resuelve problemas habituales
+
+- **Error de autenticación:** verifica que la clave esté configurada en el
+  proceso correcto, sin imprimir su valor.
+- **Modelo no disponible:** comprueba el identificador y el acceso de tu cuenta;
+  consulta los [proveedores de modelos](/integrations/model-providers).
+- **Límite de peticiones:** revisa la cuota del proveedor antes de volver a
+  ejecutar el script. Repetirlo puede generar más consumo.
+
+## Continúa aprendiendo
+
+Consulta [SequentialWorkflow](/architectures/sequential-workflow) para tareas
+con dependencias. Para tareas independientes que pueden ejecutarse a la vez,
+consulta [ConcurrentWorkflow](/architectures/concurrent-workflow).
+Estas referencias están en inglés.
