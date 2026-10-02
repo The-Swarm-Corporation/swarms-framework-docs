@@ -51,6 +51,8 @@ export ANTHROPIC_API_KEY="your-api-key"
 
 Save this as `byzantine_consensus_swarms.py` and run it with Python.
 
+Each round uses one snapshot of the previous values and public messages, so later agents cannot see earlier agents' answers from the same round. This simplified example combines each proposal and vote in one call; the paper uses a separate voting phase after broadcasting proposals.
+
 ```python
 import json
 import random
@@ -245,8 +247,11 @@ class ByzantineConsensusGame:
         history: list[str] = []
         private_notes = {agent_id: "" for agent_id in all_ids}
         transcript: list[dict] = []
+        public_messages = {}
 
         for round_number in range(1, self.max_rounds + 1):
+            round_values = dict(current_values)
+            round_messages = dict(public_messages)
             public_messages = {}
             round_proposals = {}
 
@@ -257,9 +262,9 @@ class ByzantineConsensusGame:
                 prompt = ROUND_PROMPT.format(
                     round_number=round_number,
                     max_rounds=self.max_rounds,
-                    proposals=format_proposals(current_values, public_messages),
+                    proposals=format_proposals(round_values, round_messages),
                     history="\n".join(history[-3:]) or "No previous rounds.",
-                    current_value=current_values[agent_id],
+                    current_value=round_values[agent_id],
                     private_notes=private_notes[agent_id] or "None.",
                 )
 
