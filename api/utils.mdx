@@ -366,6 +366,76 @@ zip_folders(
   Output zip file path
 </ParamField>
 
+## Image and media encoding
+
+Use `swarms.utils.image_file_b64` to prepare image inputs without running an
+agent. `get_image_base64` returns a data URI; `get_media_base64` returns only
+the base64 payload. These helpers encode bytes, rather than checking that the
+file is a valid image.
+
+### Check a PNG round trip offline
+
+This example creates a one-pixel PNG in a temporary directory, encodes it,
+and verifies both the MIME prefix and the decoded bytes. It needs an installed
+Swarms environment, but makes no model or HTTP requests and needs no API key.
+The temporary files are removed when the context exits.
+
+```python
+import base64
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from swarms.utils.image_file_b64 import (
+    get_image_base64,
+    get_media_base64,
+    save_base64_as_image,
+)
+
+png_bytes = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4"
+    "z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg=="
+)
+
+with TemporaryDirectory() as directory:
+    image_path = Path(directory) / "pixel.png"
+    image_path.write_bytes(png_bytes)
+
+    uri = get_image_base64(str(image_path))
+    header, payload = uri.split(",", 1)
+    assert header == "data:image/png;base64"
+    assert base64.b64decode(payload) == png_bytes
+    assert get_media_base64(str(image_path)) == payload
+    assert get_image_base64(uri) == uri
+
+    restored = Path(save_base64_as_image(uri, output_dir=directory))
+    assert restored.suffix == ".png"
+    assert restored.read_bytes() == png_bytes
+
+print("PNG encoding round trip passed")
+```
+
+### Preserve the media type
+
+For local files, `get_image_base64` selects the MIME type from the file
+extension. It returns an existing `data:image...` URI unchanged. Recognized
+raw base64 instead receives an `image/jpeg` prefix, regardless of the encoded
+file format. Raw-base64 detection is heuristic; an unrecognized string is
+treated as a file path and can raise `FileNotFoundError`. Pass a PNG file path
+or an explicit PNG data URI when you need `image/png`; do not rely on raw
+base64 to identify the format.
+
+`save_base64_as_image` uses a data URI's MIME type to choose the saved
+extension and generates a UUID filename. Raw base64 defaults to `.jpg`.
+Neither helper transcodes the image.
+
+HTTP/HTTPS inputs make network requests and successful URL fetches are
+cached (up to 32 entries per process); local files are reread. Use local
+files for repeatable offline checks.
+
+See [Vision agent](/examples/vision-agent) for passing the resulting URI as
+an agent's `img` input. Running the agent itself can incur model-provider
+charges.
+
 ## Token Management
 
 ### count_tokens
