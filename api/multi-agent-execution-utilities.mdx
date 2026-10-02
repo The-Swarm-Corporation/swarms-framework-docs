@@ -158,7 +158,7 @@ def run_agents_concurrently(
 - `task` (str): Task string to execute
 - `img` (Optional[str]): Optional image data to pass to agent `run()` if supported
 - `max_workers` (Optional[int]): Maximum number of threads in the executor. Defaults to 95% of CPU cores
-- `return_agent_output_dict` (bool): If True, returns a dict mapping agent names to outputs
+- `return_agent_output_dict` (bool): If True, returns a dict mapping agent names to outputs. Use unique names: when names repeat, the later agent in the input list overwrites the earlier result.
 
 **Returns:**
 - If `return_agent_output_dict=False`: List of outputs from each agent in **input order**, so `results[i]` is `agents[i]`'s (exceptions included if agents fail)
@@ -197,13 +197,54 @@ results = run_agents_concurrently(agents, task, max_workers=4)
 for i, result in enumerate(results):
     print(f"Agent {i+1} ({agents[i].agent_name}): {result}")
 
-# Return results as dictionary with agent names as keys
-results_dict = run_agents_concurrently(
-    agents, task, return_agent_output_dict=True
-)
+# Build a second view of the completed run without calling the agents again
+results_dict = {
+    agent.agent_name: result
+    for agent, result in zip(agents, results)
+}
 for agent_name, result in results_dict.items():
     print(f"{agent_name}: {result}")
 ```
+
+#### Inspect results without repeating the run
+
+The example above builds both output views from one execution. Calling
+`run_agents_concurrently` again with `return_agent_output_dict=True` starts a new
+run of every agent; it does not retrieve the previous results. That can repeat
+model requests and tool side effects. If you only need a dictionary, set the
+flag on your original call instead.
+
+Dictionary output uses each agent's nonempty `agent_name`, then `name`, then
+`str(agent)` as its key. Keys must be unique to retain every result. Repeated
+keys are overwritten in **input order**, even if the earlier agent finishes
+last. Use the default list output when names can repeat, and pair each result
+with its input index.
+
+A returned list does not mean every agent succeeded. An agent that raises an
+`Exception` leaves that exception object in its result slot. Inspect each slot
+before passing outputs to another agent or serializing them. The following
+continues from the existing `agents` and `results` variables without making
+another model call:
+
+```python
+import json
+
+records = []
+for index, (agent, result) in enumerate(zip(agents, results)):
+    record = {"index": index, "agent_name": agent.agent_name}
+    if isinstance(result, Exception):
+        record.update(status="error", error=str(result))
+    else:
+        record.update(status="ok", output=result)
+    records.append(record)
+
+print(json.dumps(records, indent=2))
+```
+
+This JSON example assumes successful outputs are strings or other
+JSON-serializable values. Each input keeps a separate record, including agents
+with the same name. It converts errors to strings only for this report; retain
+the original `results` if your error handling needs the exception types.
 
 ### run_agents_concurrently_multiprocess()
 
@@ -550,10 +591,11 @@ for i, result in enumerate(results):
     print(f"\n{agents[i].agent_name} Analysis:")
     print(f"Result: {result}")
 
-# Dictionary output format
-results_dict = run_agents_concurrently(
-    agents, task, return_agent_output_dict=True, max_workers=4
-)
+# Dictionary view of the same run (these agents have unique names)
+results_dict = {
+    agent.agent_name: result
+    for agent, result in zip(agents, results)
+}
 for agent_name, result in results_dict.items():
     print(f"\n{agent_name} Analysis:")
     print(f"Result: {result}")
