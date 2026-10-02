@@ -1,0 +1,209 @@
+---
+title: Validate graph boundaries before execution
+description: Test GraphWorkflow topology, explicit entry and exit points, and a strict application preflight without running agents or calling a model.
+icon: diagram-project
+---
+
+Check that every stage belongs in your workflow before you execute it. A misspelled dependency, disconnected stage, or unintended terminal branch can change which results reach your report. This guide uses the real `GraphWorkflow` with local nodes whose `run()` method fails if called. You need no model credentials, model downloads, or Graphviz installation.
+
+## Install the checked implementation
+
+The examples were checked on Python 3.12 against [framework commit 88d528b](https://github.com/kyegomez/swarms/blob/88d528b3659af485458771c6c0304470da1b4200/swarms/structs/graph_workflow.py), whose package metadata identifies it as 15.0.3. Pin the commit to reproduce these source behaviors; the version label alone does not identify this checkout.
+
+```bash
+python -m venv .venv
+# Activate on Bash:
+source .venv/bin/activate
+python -m pip install "swarms @ git+https://github.com/kyegomez/swarms.git@88d528b3659af485458771c6c0304470da1b4200"
+```
+
+On Windows PowerShell, use `.venv\Scripts\Activate.ps1` for activation. Installation requires internet access and Git. Run the example from a fresh directory containing an empty `.env` file so framework environment loading stops there. Once dependencies are installed, the test blocks socket connections before importing Swarms and fails if a connection is attempted. Keep the environment settings before that import: framework initialization reads them and creates logging/workspace files.
+
+## Define your acceptance policy
+
+The [GraphWorkflow reference](/api/graph-workflow) describes `validate()` and `compile()`. They serve different purposes. Compilation caches an execution plan; it is not a strict acceptance gate. In the checked implementation, a cyclic remainder can become a parallel layer and compilation can still succeed.
+
+Call `validate(auto_fix=False)` before compiling to preserve your declared boundaries. Inspect `is_valid`, `errors`, and `warnings` together. Some warnings, including a branch that cannot reach an explicit exit, leave `is_valid=True`. Checking only `errors` also misses failures reported through warnings. The helper below deliberately rejects every warning for an application that requires all stages to contribute to its final report. This is an application policy, not a requirement for every Swarms graph: independent terminal branches can be intentional.
+
+Use `set_entry_points()` and `set_end_points()` to declare existing node IDs. For a fan-out/fan-in report, `Input` is the entry, `Facts` and `Actions` run in the middle layer, and `Report` is the exit. Compare layer membership as sets because ordering within a parallel layer is not the dependency contract.
+
+## Save the offline checks
+
+Save the entire block as `test_graph_preflight.py`. Each test gets fresh graph and node objects. The socket guard counts attempted connections; the node double counts attempted execution. Both counters must remain zero.
+
+```python
+import logging
+import os
+import socket
+import tempfile
+import unittest
+
+workspace = tempfile.TemporaryDirectory(prefix="graph-preflight-")
+os.environ["WORKSPACE_DIR"] = workspace.name
+os.environ["SWARMS_TELEMETRY_ON"] = "false"
+os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+
+network_attempts = []
+
+
+def block_network(*args, **kwargs):
+    network_attempts.append("connection attempted")
+    raise AssertionError("This preflight must stay offline")
+
+
+socket.socket.connect = block_network
+socket.socket.connect_ex = block_network
+socket.create_connection = block_network
+
+from swarms import GraphWorkflow
+from loguru import logger
+
+# Close import-created file sinks before cleaning a temporary Windows workspace.
+logger.remove()
+
+
+class NeverRun:
+    def __init__(self, name):
+        self.agent_name = name
+        self.calls = 0
+
+    def run(self, *args, **kwargs):
+        self.calls += 1
+        raise AssertionError("Preflight must not execute a node")
+
+
+def require_clean_graph(workflow):
+    report = workflow.validate(auto_fix=False)
+    if not report["is_valid"] or report["errors"] or report["warnings"]:
+        raise ValueError(f"Graph preflight rejected: {report}")
+    return report
+
+
+class GraphPreflightTests(unittest.TestCase):
+    def setUp(self):
+        self.nodes = []
+
+    def graph(self, names, edges, entries, exits):
+        workflow = GraphWorkflow(auto_compile=False, backend="networkx")
+        for name in names:
+            node = NeverRun(name)
+            self.nodes.append(node)
+            workflow.add_node(node)
+        for source, target in edges:
+            workflow.add_edge(source, target)
+        workflow.set_entry_points(entries)
+        workflow.set_end_points(exits)
+        return workflow
+
+    def tearDown(self):
+        self.assertTrue(all(node.calls == 0 for node in self.nodes))
+        self.assertEqual(network_attempts, [])
+
+    def test_fan_out_fan_in_compiles_after_clean_validation(self):
+        workflow = self.graph(
+            ["Input", "Facts", "Actions", "Report"],
+            [("Input", "Facts"), ("Input", "Actions"),
+             ("Facts", "Report"), ("Actions", "Report")],
+            ["Input"], ["Report"],
+        )
+        require_clean_graph(workflow)
+        workflow.compile()
+        status = workflow.get_compilation_status()
+        self.assertTrue(status["is_compiled"])
+        self.assertEqual(
+            [set(layer) for layer in status["layers"]],
+            [{"Input"}, {"Facts", "Actions"}, {"Report"}],
+        )
+
+    def test_auto_fix_changes_boundaries_and_keeps_warnings(self):
+        workflow = self.graph(
+            ["Input", "Report", "Detached"],
+            [("Input", "Report")], ["Input"], ["Report"],
+        )
+        with self.assertRaises(ValueError):
+            require_clean_graph(workflow)
+        self.assertEqual(workflow.entry_points, ["Input"])
+        self.assertEqual(workflow.end_points, ["Report"])
+        repaired = workflow.validate(auto_fix=True)
+        self.assertTrue(repaired["fixed"])
+        self.assertTrue(repaired["warnings"])
+        self.assertIn("Detached", workflow.entry_points)
+        self.assertIn("Detached", workflow.end_points)
+        # A fresh report still warns about the isolated node.
+        with self.assertRaises(ValueError):
+            require_clean_graph(workflow)
+
+    def test_dead_end_warning_requires_an_application_decision(self):
+        workflow = self.graph(
+            ["Input", "Report", "Side"],
+            [("Input", "Report"), ("Input", "Side")],
+            ["Input"], ["Report"],
+        )
+        report = workflow.validate(auto_fix=False)
+        self.assertTrue(report["is_valid"])
+        self.assertTrue(report["warnings"])
+        with self.assertRaises(ValueError):
+            require_clean_graph(workflow)
+        # This application's report must depend on Side's output.
+        workflow.add_edge("Side", "Report")
+        require_clean_graph(workflow)
+        self.assertEqual(workflow.entry_points, ["Input"])
+        self.assertEqual(workflow.end_points, ["Report"])
+
+    def test_compilation_is_not_a_cycle_rejection_gate(self):
+        workflow = self.graph(
+            ["A", "B"], [("A", "B"), ("B", "A")], ["A"], ["B"],
+        )
+        workflow.compile()
+        self.assertTrue(workflow.get_compilation_status()["is_compiled"])
+        self.assertFalse(workflow.validate(auto_fix=False)["is_valid"])
+        with self.assertRaises(ValueError):
+            require_clean_graph(workflow)
+
+    def test_empty_graph_is_rejected_by_the_report_gate(self):
+        workflow = GraphWorkflow(auto_compile=False, backend="networkx")
+        with self.assertRaises(ValueError):
+            require_clean_graph(workflow)
+
+    def test_unknown_edge_target_fails_during_construction(self):
+        workflow = self.graph(["Input"], [], ["Input"], ["Input"])
+        with self.assertRaises(ValueError):
+            workflow.add_edge("Input", "Missing")
+
+
+if __name__ == "__main__":
+    result = unittest.TextTestRunner(verbosity=2).run(
+        unittest.defaultTestLoader.loadTestsFromTestCase(GraphPreflightTests)
+    )
+    print(f"Network attempts: {len(network_attempts)}")
+    logging.shutdown()
+    workspace.cleanup()
+    raise SystemExit(0 if result.wasSuccessful() and not network_attempts else 1)
+```
+
+## Run and interpret the checks
+
+```bash
+python -I test_graph_preflight.py
+```
+
+Expect six passing tests and `Network attempts: 0`. Framework logs can also appear. A nonzero exit means a test failed or a network connection was attempted; inspect the failure before changing your expected values.
+
+| Check | What you learn |
+| --- | --- |
+| Fan-out/fan-in | A clean report precedes compilation, and the resulting layers preserve the declared dependencies. |
+| Disconnected stage | Read-only validation preserves entry/exit points; automatic repair can promote the detached stage to both boundaries. |
+| Unintended terminal branch | A warning can accompany `is_valid=True`; adding the intended dependency clears it without widening the exits. |
+| Cycle | Successful compilation does not establish an acceptable DAG. |
+| Empty graph | Explicit report inspection rejects a graph with no nodes. |
+| Unknown edge target | A target typo fails during incremental construction, before preflight. |
+
+## Review repairs before accepting them
+
+`auto_fix=True` can infer missing boundaries, add unreachable nodes to entries, and add nodes that cannot reach an exit to exits. That changes the definition of the workflow. An isolated analysis stage becoming its own entry and exit does not make its findings reach `Report`.
+
+The repair result retains warnings collected during that pass. Inspect `fixed`, review the new boundaries, and validate again after an intentional repair. The disconnected-node test demonstrates that an isolated-node warning remains even in a fresh report. Do not erase warnings just to pass the application gate; either add the intended dependency, remove an unnecessary stage, or choose an explicit policy for a legitimate independent branch.
+
+In this checked source, the empty-graph path returns an invalid report early, even with `raise_on_error=True`. The helper inspects the report directly so it also rejects that case. Rerun these checks when upgrading: [framework PR #2304](https://github.com/kyegomez/swarms/pull/2304) proposes changing cycle diagnostics. The tests avoid depending on a cycle appearing specifically under `errors` or `warnings`.
+
+These checks establish topology and preflight behavior for the NetworkX backend. They do not execute agents, verify model responses, prove that an agent's `run()` works, test checkpoint recovery, or establish tool-side-effect safety. Keep those checks separate from accepting the graph structure.

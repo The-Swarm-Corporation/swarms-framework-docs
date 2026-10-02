@@ -291,6 +291,7 @@
               "examples/sequential-workflow-example",
               "examples/sequential-workflow-streaming-example",
               "examples/concurrent-workflow-example",
+              "examples/graph-validation-preflight",
               "examples/mixture-of-agents-example",
               "examples/hierarchical-swarm-example",
               "examples/group-chat-example",
