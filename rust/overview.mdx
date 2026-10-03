@@ -1,0 +1,148 @@
+---
+title: Swarms Rust
+description: Build Rust agents and choose the core structures for sequential, concurrent, graph, and routed workflows
+icon: "rust"
+---
+
+[Swarms Rust](https://github.com/The-Swarm-Corporation/swarms-rs) gives you typed agents, asynchronous model calls, tools, and multi-agent orchestration in a Rust application. Start with a single agent, then choose a structure based on how information should move between agents.
+
+This page describes the Rust implementation. Its types, imports, and return values differ from the Python framework.
+
+## Set up your project
+
+Use Rust 1.88 or later. The library uses the Rust 2024 edition. Create a binary project with `cargo new swarms-rust-demo`, then add these dependencies to `Cargo.toml`:
+
+```toml
+[dependencies]
+swarms-rs = { git = "https://github.com/The-Swarm-Corporation/swarms-rs", rev = "f806e4ed33aa2f550ab165b02afbb8132a67cc7c" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+The Git revision pins the API used by the examples. Review changes before updating it. Cargo uses the package name `swarms-rs`; Rust imports use `swarms_rs`.
+
+Set `OPENAI_API_KEY` in your process environment before running the examples. Model requests use your provider account and can incur provider charges. `cargo check` compiles the examples without sending model requests.
+
+## Understand the core types
+
+| Type and import | Responsibility | When you use it |
+| --- | --- | --- |
+| `agent::SwarmsAgent<M>` | Concrete agent parameterized by a model provider. Maintains task conversations and executes the agent loop. | Build an agent with a system prompt and optional tools. |
+| `Agent` (also `structs::agent::Agent`) | Shared agent trait with asynchronous `run`, task planning, state persistence, identity, and cloning methods. | Call `run` or pass different implementations as `Box<dyn Agent>`. |
+| `structs::agent::AgentConfig` | Agent settings, including loop limits, token limits, retries, planning, autosave, and stop words. | Configure execution through the agent builder or a configuration object. |
+| `llm::Model` | Provider interface accepting a completion request and returning a completion response. | Integrate a model backend with the agent implementation. |
+| `structs::conversation::AgentConversation` | Ordered messages with roles, content, and optional tool outputs. Supports JSON export and import. | Inspect or serialize workflow results. |
+| `structs::tool::Tool` | Typed tool interface with argument, output, and error types. | Implement a capability and attach it with `.add_tool(tool)`. |
+
+Import the `Agent` trait to call `run` on a `SwarmsAgent`. The method takes an owned `String` and returns `Result<String, AgentError>` asynchronously. Workflow methods return their own result types; do not assume every structure returns a string.
+
+## Run a single agent
+
+Put the following code in `src/main.rs`:
+
+```rust
+use std::{env, error::Error};
+use swarms_rs::{llm::provider::openai::OpenAI, Agent};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let client = OpenAI::new(env::var("OPENAI_API_KEY")?)
+        .set_model("gpt-4o-mini");
+
+    let agent = client
+        .agent_builder()
+        .agent_name("Summarizer")
+        .system_prompt("Summarize the supplied text in three short bullet points.")
+        .max_loops(1)
+        .max_tokens(512)
+        .build();
+
+    let response = agent
+        .run("Rust supports ownership, traits, and async programming.".to_owned())
+        .await?;
+    println!("{response}");
+    Ok(())
+}
+```
+
+Run `cargo check` first, then use `cargo run` when your provider credentials are ready. The `?` operator propagates missing environment variables and agent errors to the caller.
+
+### Choose a provider
+
+The provider modules include `openai::OpenAI`, `anthropic::Anthropic`, and `openrouter::OpenRouter`. `OpenAI::from_url(base_url, api_key)` lets you configure an OpenAI-compatible endpoint. `OpenAI::from_env()` reads `OPENAI_API_KEY` and optionally `OPENAI_API_BASE`; it panics if the key is missing, so use explicit environment handling when you need recoverable startup errors.
+
+Leave temperature unset unless your selected model supports that parameter. `AgentConfig` defaults to `None`, allowing the provider to choose its default.
+
+## Choose an orchestration structure
+
+| Structure and module under `structs` | Information flow | Main result |
+| --- | --- | --- |
+| `SequentialWorkflow` — `sequential_workflow` | Runs agents in order. Each next agent receives the previous agent's name and output. | `AgentConversation` |
+| `ConcurrentWorkflow` — `concurrent_workflow` | Sends the same task to all agents concurrently. Collects successful responses. | `AgentConversation` |
+| `AgentRearrange` — `rearrange` | Uses named flow expressions such as `Researcher -> Writer` or `Researcher, Reviewer -> Writer`. | `String`, according to the configured output type |
+| `DAGWorkflow` — `graph_workflow` | Connects registered agents with directed edges, optional conditions, and transformations. Rejects cycles. | Map of agent names to per-agent results |
+| `SwarmRouter` — `swarms_router` | Constructs and delegates to the `SwarmType` selected in its configuration. | `AgentConversation` |
+| `AgentBatchExecutor` — `execute_agent_batch` | Processes multiple tasks with a concurrency limit. Each task runs through the agents in order; each agent receives the original task. | Map of tasks to conversations |
+
+Use a sequential workflow when an editor needs a writer's draft. Use a concurrent workflow when reviewers should assess the same input independently. Concurrent results arrive in completion order; do not rely on agent registration order when interpreting the conversation.
+
+### Build a sequential workflow
+
+Replace `src/main.rs` with this example:
+
+```rust
+use std::{env, error::Error};
+use swarms_rs::{
+    llm::provider::openai::OpenAI,
+    structs::sequential_workflow::SequentialWorkflow,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let client = OpenAI::new(env::var("OPENAI_API_KEY")?)
+        .set_model("gpt-4o-mini");
+    let writer = client
+        .agent_builder()
+        .agent_name("Writer")
+        .system_prompt("Write a concise explanation of the requested topic.")
+        .max_loops(1)
+        .max_tokens(512)
+        .build();
+    let reviewer = client
+        .agent_builder()
+        .agent_name("Reviewer")
+        .system_prompt("Review the supplied explanation and correct unclear wording.")
+        .max_loops(1)
+        .max_tokens(512)
+        .build();
+
+    let workflow = SequentialWorkflow::builder()
+        .name("Writing pipeline")
+        .metadata_output_dir("./output/writing")
+        .agents(vec![Box::new(writer), Box::new(reviewer)])
+        .build();
+
+    let conversation = workflow.run("Explain Rust ownership to a beginner.").await?;
+    println!("{}", conversation.to_json()?);
+    Ok(())
+}
+```
+
+The workflow owns the boxed agents. It records the original user task and each agent response in the returned conversation. It also writes execution metadata to its configured directory. Choose a writable path; a persistence failure makes the run return an error even after the agents finish.
+
+### Configure the other structures
+
+- **Concurrent workflow:** Use `ConcurrentWorkflow::builder().agents(...)`. An empty task or agent list returns `EmptyTasksOrAgents`. A run can return successful responses even if another agent fails. An overlapping run of the same task returns `TaskAlreadyExists`. Metadata files are written only when you set a nonempty `metadata_output_dir`.
+- **Agent rearrange:** Set unique agent names, provide `.flow("Researcher, Reviewer -> Writer")`, and call `validate_flow()` before `run`. Commas group agents in parallel; arrows separate sequential stages. `run` takes `&mut self`.
+- **Graph workflow:** Create `DAGWorkflow::new(name, description)`, register named agents, and connect them with `Flow { transform, condition }`. Execute from a registered start agent with `execute_workflow`. Check each map value for an error, not only the outer result.
+- **Router:** Build a `SwarmRouterConfig::with_agents(...)`, select `SwarmType::SequentialWorkflow`, `ConcurrentWorkflow`, or `AgentRearrange`, then call `SwarmRouter::new_with_config(config)`. This selects a structure from configuration; it does not ask an LLM to choose one. Collaboration prompt injection is enabled by default.
+- **Batch executor:** Set `BatchConfig.max_concurrent_tasks` to bound tasks in flight. This differs from parallel agents within a single concurrent workflow. Inspect the returned map for missing tasks when all agents for a task fail.
+
+## Add tools and retain state
+
+Implement `Tool` with serializable outputs, deserializable arguments, a tool definition, and an asynchronous `call`. The framework adapts typed tools to its dynamic tool interface. `MCPTool` wraps tools exposed by an MCP server; the agent builder supports SSE and stdio MCP connections.
+
+Agent autosave and workflow metadata are separate settings. Enable agent state persistence with `.enable_autosave().save_state_dir("./output/agents")`. Keep saved conversations and metadata in a directory appropriate for your application's data, and handle `AgentError` and workflow persistence errors at the boundary of your application.
+
+## Source and examples
+
+The examples above target [this source revision](https://github.com/The-Swarm-Corporation/swarms-rs/tree/f806e4ed33aa2f550ab165b02afbb8132a67cc7c). Explore the repository's [single-agent examples](https://github.com/The-Swarm-Corporation/swarms-rs/tree/main/swarms-rs/examples/single_agent) and [multi-agent examples](https://github.com/The-Swarm-Corporation/swarms-rs/tree/main/swarms-rs/examples/multiple_agent) for tools, providers, graph workflows, and routing. See the [Swarms ecosystem](/community/ecosystem) for related frameworks and clients.

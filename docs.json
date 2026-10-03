@@ -64,6 +64,12 @@
             ]
           },
           {
+            "group": "Swarms Rust",
+            "pages": [
+              "rust/overview"
+            ]
+          },
+          {
             "group": "Agent Development",
             "pages": [
               "agents/creating-agents",
