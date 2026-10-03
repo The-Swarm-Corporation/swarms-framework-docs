@@ -69,6 +69,7 @@
               "agents/creating-agents",
               "agents/agent-configuration",
               "agents/agent-memory",
+              "fr/agents/agent-memory",
               "agents/autonomous-mode",
               "agents/agent-tools",
               "agents/dynamic-tools",

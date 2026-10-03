@@ -1,0 +1,503 @@
+---
+title: "Mémoire des agents"
+sidebarTitle: "Mémoire des agents (français)"
+description: "Configurez la mémoire persistante, la compression du contexte, les archives et l’historique des conversations"
+icon: "database"
+keywords: ["mémoire persistante", "MEMORY.md", "compression du contexte", "Swarms"]
+---
+
+Traduction du guide [Agent Memory](/agents/agent-memory), © 2025 Swarms Corporation, sous [licence MIT](https://github.com/The-Swarm-Corporation/swarms-framework-docs/blob/main/LICENSE). Les exemples conservent le code du guide original.
+
+Les agents Swarms peuvent conserver une mémoire persistante sur disque grâce à la classe `Conversation`. Avec `persistent_memory=True`, chaque agent écrit son journal d’interactions dans un fichier `MEMORY.md`. Il recharge ce fichier lorsqu’un autre processus crée un agent avec le même `agent_name`. Ce paramètre vaut `False` par défaut : les agents gardent donc leur mémoire dans le processus, sans la conserver sur disque, sauf si vous activez cette option.
+
+Cette page explique comment :
+
+- Créer, charger et mettre à jour `MEMORY.md`
+- Compresser la mémoire pour rester dans la fenêtre de contexte du modèle
+- Conserver les échanges complets dans des archives
+- Inspecter, compacter, exporter ou désactiver la mémoire dans votre code
+- Donner accès à des connaissances externes grâce à un outil de recherche
+
+<Note>
+  La mémoire persistante dépend de `agent_name`. Réutiliser le même `agent_name` avec `persistent_memory=True` permet de retrouver le même `MEMORY.md` après un redémarrage du processus. Un autre nom crée un dossier mémoire distinct. Avec la valeur par défaut `False`, la mémoire reste limitée au processus courant.
+</Note>
+
+## Le paramètre `persistent_memory`
+
+`persistent_memory` détermine si l’agent lit et écrit le fichier `MEMORY.md`.
+
+<ParamField path="persistent_memory" type="bool" default="False">
+  Active la mémoire persistante sur disque. Avec `True`, l’agent crée `MEMORY.md` lors de sa première construction, le charge dans `agent.short_memory` lors des constructions suivantes et y écrit les nouveaux échanges. Avec `False`, la valeur par défaut, il fonctionne uniquement en mémoire : aucun `MEMORY.md`, aucune archive et un état neuf à chaque nouvelle instance.
+
+  ```python
+  from swarms import Agent
+
+  # Writes every turn to MEMORY.md and reloads it on the next construction.
+  persistent_agent = Agent(
+      agent_name="ResearchAssistant",
+      agent_description="Remembers context across sessions",
+      model_name="gpt-5.4",
+      max_loops=1,
+      persistent_memory=True,  # state survives restarts
+  )
+
+  # The default: no disk writes and no preload.
+  ephemeral_agent = Agent(
+      agent_name="OneShotAgent",
+      model_name="gpt-5.4",
+      max_loops=1,
+      persistent_memory=False,
+  )
+  ```
+</ParamField>
+
+## Les couches de mémoire
+
+Un agent peut utiliser plusieurs couches de mémoire en même temps :
+
+| Couche | Rôle | Persistance |
+| --- | --- | --- |
+| `conversation_history` | Messages en mémoire pour l’exécution courante | Processus courant |
+| `MEMORY.md` | Journal actif des interactions avec l’utilisateur, l’agent et les outils | Sur disque |
+| `archive/history_<timestamp>.md` | Échanges complets sauvegardés avant la compaction | Sur disque |
+| `Conversation.compact()` | Remplace l’historique actif par un résumé | Résumé sur disque |
+| `ContextCompressor` | Déclenche automatiquement la compaction près de la limite de contexte | Pendant l’exécution |
+
+`MEMORY.md` contient l’historique des interactions propres à l’agent. Pour consulter des documents externes ou une base de données, donnez-lui plutôt un [outil de recherche](#connaissances-externes).
+
+## Organisation des fichiers sur disque
+
+La mémoire de l’agent se trouve dans le dossier de travail défini par `WORKSPACE_DIR`. Si cette variable n’est pas définie, Swarms utilise `./agent_workspace` dans le répertoire courant.
+
+```text
+$WORKSPACE_DIR/agents/{agent_name}/
+|-- MEMORY.md
+`-- archive/
+    |-- history_2026-04-20_14-30-45.md
+    |-- history_2026-04-20_16-12-08.md
+    `-- ...
+```
+
+Ce dossier est distinct du dossier de travail propre à chaque instance de l’agent, `$WORKSPACE_DIR/agents/{agent-name}-{id12}/`. Ce dernier change à chaque nouvelle instance. Consultez [l’emplacement des fichiers](#emplacement-des-fichiers).
+
+<ParamField path="agent_name" type="str" default="swarm-worker-01">
+  Nom stable qui identifie le dossier mémoire de l’agent.
+
+  <Warning>
+    Définissez ce nom explicitement lorsque vous activez `persistent_memory`. Sinon, chaque agent reçoit le même nom par défaut, `"swarm-worker-01"`. Plusieurs agents portant ce nom lisent et écrivent alors simultanément dans le même dossier `MEMORY.md`, ce qui peut corrompre leur mémoire.
+  </Warning>
+
+  ```python
+  from swarms import Agent
+
+  agent = Agent(
+      agent_name="ResearchAgent",
+      model_name="claude-sonnet-4-6",
+      persistent_memory=True,
+  )
+
+  # Memory path (when persistent_memory=True):
+  # $WORKSPACE_DIR/agents/ResearchAgent/MEMORY.md
+  ```
+</ParamField>
+
+### Principes de fonctionnement
+
+- Le dossier dépend de `agent_name`, pas de `id`.
+- Pendant le fonctionnement normal, les nouveaux échanges sont ajoutés à la fin de `MEMORY.md`.
+- Chaque appel à `conversation.add(role, content)` met à jour l’historique en mémoire et le fichier sur disque.
+- La compression archive le `MEMORY.md` courant avant de le remplacer par un résumé compact.
+- Le `system_prompt`, les `rules` et la configuration du constructeur ne sont pas ajoutés à nouveau à `MEMORY.md` à chaque redémarrage.
+
+## Cycle de vie
+
+### 1. Création du fichier
+
+Lorsque vous construisez pour la première fois un agent avec un nouveau `agent_name`, Swarms crée :
+
+```text
+$WORKSPACE_DIR/agents/{agent_name}/MEMORY.md
+```
+
+Le fichier commence par un en-tête et une section consacrée au journal des interactions :
+
+```markdown
+# Agent Memory
+
+**Conversation:** ResearchAgent_id_agent-<uuid>_conversation
+**Created:** 2026-04-20T18:33:12
+
+---
+
+## Interaction Log
+```
+
+Si le fichier existe déjà, Swarms le conserve.
+
+### 2. Chargement lors de la construction
+
+Dans `Conversation.__init__`, Swarms lit le `MEMORY.md` existant et ajoute son contenu à `conversation_history` sous la forme d’un seul message `System`. Un fichier qui ne contient que l’en-tête est ignoré.
+
+L’historique prend alors cet ordre :
+
+```text
+[0] System: <system_prompt>
+[1] Human: <rules>                      # if provided; the role is the agent's user_name
+[2] System: [Persistent Memory — MEMORY.md]
+            ... full MEMORY.md contents ...
+[3] ...                                 # the constructor's messages, if provided
+```
+
+Le contenu chargé est ajouté directement à la mémoire. Il n’est donc pas réécrit dans le fichier.
+
+<Warning>
+  Ce contenu se trouve dans `agent.short_memory`, mais `agent.run()` ne l’envoie actuellement pas au modèle. Avec une valeur entière de `max_loops`, les requêtes utilisent les échanges de la conversation dont le rôle n’est pas `System`. Avec `max_loops="auto"`, elles partent de la tâche et de `run(messages=...)`. Le contenu chargé ayant le rôle `System`, aucun de ces chemins ne l’inclut. Pour transmettre au modèle ce que l’agent a conservé, fournissez ce contexte vous-même, par exemple dans `system_prompt` ou dans la tâche.
+</Warning>
+
+### 3. Écriture des nouveaux messages
+
+Chaque appel à `conversation.add(role, content)` :
+
+1. Ajoute le message à `conversation_history`
+2. Ajoute un bloc horodaté à `MEMORY.md`
+
+Sur disque, le format ressemble à ceci :
+
+```markdown
+### User — 2026-04-20T18:35:04
+Research cloud database options for low-latency analytics.
+
+---
+
+### ResearchAgent — 2026-04-20T18:35:21
+I recommend evaluating BigQuery, ClickHouse Cloud, and AlloyDB...
+
+---
+```
+
+Un verrou propre à chaque conversation sérialise les écritures sur disque. Les messages ajoutés lors de la construction, comme le prompt système et les règles, ne sont pas écrits dans le fichier. L’identité statique de l’agent n’est donc pas dupliquée à chaque redémarrage.
+
+## Compression du contexte
+
+Sans compression, un agent qui fonctionne longtemps peut finir par dépasser la fenêtre de contexte du modèle. Swarms peut lui associer un `ContextCompressor` qui résume les échanges et compacte la mémoire active.
+
+<Note>
+  Les exemples de configuration de la compression ci-dessous conservent la valeur par défaut `persistent_memory=False`. Ils agissent donc sur l’historique en mémoire. Activez également `persistent_memory=True` pour utiliser les opérations sur `MEMORY.md` et `archive/` décrites dans cette section.
+</Note>
+
+<ParamField path="context_compression" type="bool" default="True">
+  Active la compression automatique lorsque la mémoire approche de la limite de contexte configurée.
+
+  ```python
+  from swarms import Agent
+
+  agent = Agent(
+      agent_name="ResearchAgent",
+      model_name="claude-sonnet-4-6",
+      max_loops=5,
+      context_compression=True,
+      context_length=32000,  # optional — overrides the resolved default
+  )
+  ```
+</ParamField>
+
+### Quand la compression se déclenche
+
+La compression peut se déclencher lorsque toutes ces conditions sont réunies :
+
+- `context_compression=True`
+- `context_length` a une valeur non nulle
+- Le nombre de tokens de `short_memory.return_history_as_string()` atteint ou dépasse `threshold * context_length`
+- L’agent atteint un point de contrôle : le début de chaque itération avec une valeur entière de `max_loops`, ou le début de chaque sous-tâche avec `max_loops="auto"`
+
+Le seuil par défaut vaut `0.9`. La compression commence donc lorsque le prompt actif atteint environ 90 % de la fenêtre de contexte.
+
+<Note>
+  Le constructeur accepte `None` comme valeur par défaut de `context_length`, mais l’agent ne fonctionne jamais avec une valeur effective de `None`. Dans `__init__`, Swarms calcule une valeur à partir du modèle, ou utilise `16000` en dernier recours. La compression dispose donc toujours d’une limite de référence. Définissez `context_length` explicitement uniquement pour remplacer cette valeur, par exemple afin de correspondre à une fenêtre de contexte plus grande.
+</Note>
+
+Swarms vérifie le besoin de compression avec `max_loops="auto"` comme avec une valeur entière de `max_loops`. Le paramètre `context_compression` active cette vérification.
+
+En mode autonome, Swarms effectue la vérification avant chaque appel au modèle pendant la phase des sous-tâches, mais pas pendant la planification ni le résumé final. Lorsque la compression se déclenche, la boucle reconstruit la requête à partir du résumé et du prompt de la sous-tâche en cours. La requête suivante est donc plus courte. Consultez [le mode autonome](/agents/autonomous-mode#context-compression-between-subtasks).
+
+<Warning>
+  Avec une valeur entière de `max_loops`, la compression compacte actuellement `agent.short_memory` et `MEMORY.md`, mais ne réduit pas la requête envoyée. Chaque exécution construit sa requête une seule fois au démarrage, à partir des échanges dont le rôle n’est pas `System`. Une compaction ultérieure ne modifie donc pas cette requête. Une compaction au début d’une exécution remplace aussi la nouvelle tâche par le résumé. Ce résumé ayant le rôle `System`, il n’est pas envoyé : la requête contient alors uniquement le prompt système.
+</Warning>
+
+### Ce que fait la compression
+
+Lorsque la compression se déclenche :
+
+1. Un appel à un modèle résume les échanges courants.
+2. Swarms appelle `Conversation.compact(summary=...)`.
+3. Il copie le `MEMORY.md` courant dans `archive/history_<timestamp>.md`.
+4. Il supprime le `MEMORY.md` actif et le recrée avec un nouvel en-tête.
+5. Il reconstruit `conversation_history` avec le prompt système, les règles et les règles personnalisées.
+6. Il ajoute le résumé sous la forme d’un message `System`, en mémoire et dans `MEMORY.md`.
+
+Après la compaction, la mémoire active est de nouveau réduite :
+
+```text
+conversation_history:
+  [0] System: <system_prompt>
+  [1] User: <rules>                     # if provided
+  [2] User: <custom_rules_prompt>       # if provided
+  [3] System: [Compressed Memory Summary] ...<summary>
+
+MEMORY.md:
+  # Agent Memory
+  ...
+  ## Interaction Log
+  ### System — <timestamp>
+  [Compressed Memory Summary] ...<summary>
+
+archive/history_<previous-timestamp>.md:
+  Full pre-compaction transcript
+```
+
+Au redémarrage suivant du processus, Swarms charge le résumé compact depuis `MEMORY.md` plutôt que les échanges complets précédant la compaction. L’archive conserve ces échanges sans remplir la fenêtre de contexte active.
+
+## Configurer la compression
+
+La compression est activée par défaut :
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops=5,
+    context_compression=True,
+    context_length=32000,
+)
+```
+
+Désactivez-la lorsque vous voulez conserver le `MEMORY.md` actif sans compaction :
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="StaticAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops="auto",
+    context_compression=False,
+)
+```
+
+Lorsque la compression est activée, Swarms associe un `ContextCompressor(threshold=0.9)` à l’agent. Vous pouvez le remplacer après la construction pour ajuster le seuil, le modèle chargé du résumé, sa température ou la longueur du résumé :
+
+```python
+from swarms import Agent, ContextCompressor
+
+agent = Agent(
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+    max_loops=5,
+    context_compression=True,
+    context_length=32000,
+)
+
+agent._context_compressor = ContextCompressor(
+    threshold=0.75,
+    summarizer_model="claude-haiku-4-5",
+    summarizer_temperature=0.1,
+    summarizer_max_tokens=3000,
+)
+```
+
+Par défaut, `summarizer_model` prend la valeur de `model_name` de l’agent. L’appel qui produit le résumé passe directement par LiteLLM. Il n’est donc pas comptabilisé dans `agent.usage`.
+
+## Accéder à la mémoire dans votre code
+
+L’objet `Conversation` est accessible via `agent.short_memory`.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="ResearchAgent",
+    model_name="claude-sonnet-4-6",
+    persistent_memory=True,
+)
+
+agent.run("Research low-latency data warehouse options.")
+agent.run("Narrow the recommendation to GCP.")
+
+# Path to the active on-disk memory file (None when persistent_memory=False)
+print(agent.short_memory.memory_md_path)
+
+# Full prompt-ready history
+print(agent.short_memory.return_history_as_string())
+
+# Structured message list
+messages = agent.short_memory.to_dict()
+print(messages)
+
+# Last response content
+print(agent.short_memory.get_final_message_content())
+```
+
+### Compaction manuelle
+
+Vous pouvez compacter la mémoire vous-même à tout moment :
+
+```python
+agent.short_memory.compact(
+    summary=(
+        "Researched cloud data warehouses. "
+        "The user prefers GCP for latency and operations reasons. "
+        "Shortlist: BigQuery, AlloyDB, and ClickHouse Cloud."
+    )
+)
+```
+
+La compaction manuelle suit le même processus d’archivage, d’effacement et de réinitialisation que la compression automatique.
+
+### Exporter et charger les conversations
+
+`MEMORY.md` est le fichier mémoire persistant actif. Vous pouvez aussi exporter l’historique de la conversation au format JSON, puis le recharger :
+
+```python
+# Writes ./conversations/conversation_<conversation name>.json
+agent.short_memory.export()
+print(agent.short_memory.save_filepath)
+
+# Replace the history with a saved export
+agent.short_memory.load(agent.short_memory.save_filepath)
+```
+
+Les exports utilisent `save_filepath`. Si vous ne fournissez ni `save_filepath` ni `conversations_dir` à une `Conversation`, ce chemin vaut `./conversations/conversation_{name}.json` dans le répertoire courant. Le dossier n’est créé qu’au moment d’une sauvegarde. La conversation d’un agent porte le nom `{agent_name}_id_{agent id}_conversation`. `save_as_json()` et `save_as_yaml()` écrivent tous deux à l’emplacement indiqué par `save_filepath`, sans le modifier. Avec le chemin par défaut, `save_as_yaml()` écrit donc du YAML dans un fichier `.json`. Utilisez `export()`, qui adapte l’extension à `export_method`.
+
+### Rechercher dans la mémoire
+
+Utilisez les fonctions de recherche intégrées pour inspecter rapidement les échanges :
+
+```python
+results = agent.short_memory.search("GCP")
+matches = agent.short_memory.search_keyword_in_conversation("latency")
+```
+
+## Désactiver la mémoire sur disque
+
+La valeur par défaut `persistent_memory=False` limite la mémoire de l’agent au processus courant. Il ne charge pas de mémoire persistante, n’écrit rien dans `MEMORY.md` et ne crée aucun dossier `archive/` :
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="EphemeralAgent",
+    model_name="gpt-5.4",
+    persistent_memory=False,  # default
+)
+
+agent.run("This updates conversation_history but does not write to MEMORY.md.")
+```
+
+Si vous avez déjà construit un agent persistant, vous pouvez également effacer `memory_md_path` pour arrêter les écritures sur disque pendant le reste de l’exécution :
+
+```python
+agent.short_memory.memory_md_path = None
+```
+
+Les écritures suivantes s’arrêtent, mais le fichier `MEMORY.md` existant n’est pas supprimé. Aucune de ces méthodes ne désactive `conversation_history` : l’historique continue de suivre l’exécution courante en mémoire.
+
+## Emplacement des fichiers
+
+| Élément | Chemin | Moment de l’écriture |
+| --- | --- | --- |
+| `MEMORY.md` et `archive/` | `$WORKSPACE_DIR/agents/{agent_name}/` | `persistent_memory=True` |
+| Dossier de travail de l’agent : fichiers de la boucle autonome, état sauvegardé, `config.json` | `$WORKSPACE_DIR/agents/{agent-name}-{id12}/` | À la première utilisation, par exemple avec un outil de fichier, `agent.save()` ou `autosave=True` |
+| Exports des conversations | `./conversations/conversation_{name}.json` | `export()` ou `save_as_json()` sur une `Conversation` |
+| Sauvegarde automatique des structures multi-agents : `conversation_history.json`, `config.json` | `$WORKSPACE_DIR/swarms/{ClassName}/{name}-{timestamp}/` | `autosave=True` sur des structures comme `SequentialWorkflow`, `ConcurrentWorkflow` et `SwarmRouter` |
+| Tokens OAuth MCP | `~/.swarms/mcp_auth/` | Pendant le flux OAuth d’un serveur MCP |
+
+Sans valeur explicite, `WORKSPACE_DIR` utilise `./agent_workspace`. Le nom du dossier de travail combine `agent_name`, converti en minuscules avec des traits d’union, et les 12 derniers caractères de `id`. Cet identifiant change à chaque instance, sauf si vous fournissez `id`. Les dossiers sont créés à la première utilisation. Construire un `Agent` ou une `Conversation` ne crée rien dans `~/.swarms`.
+
+## Connaissances externes
+
+`MEMORY.md` contient l’historique des interactions propres à l’agent. Pour consulter des documents, une base de données ou toute autre source externe, donnez à l’agent un **outil** de recherche. Il l’appelle pendant sa boucle, et les résultats rejoignent la conversation comme les autres sorties d’outils.
+
+```python
+from swarms import Agent
+
+KNOWLEDGE = {
+    "storage": "Grid-scale batteries now cover 4-hour peaks at $95/kWh.",
+    "solar": "Utility solar LCOE fell to $29/MWh in 2025.",
+}
+
+
+def search_knowledge_base(query: str) -> str:
+    """Search the internal knowledge base and return matching passages.
+
+    Args:
+        query: Words to look for in the knowledge base.
+
+    Returns:
+        Matching passages, or a message saying nothing matched.
+    """
+    hits = [
+        text for key, text in KNOWLEDGE.items() if key in query.lower()
+    ]
+    return "\n".join(hits) if hits else "No matching documents."
+
+
+agent = Agent(
+    agent_name="KnowledgeAgent",
+    model_name="claude-sonnet-4-6",
+    tools=[search_knowledge_base],
+    max_loops=2,
+)
+
+response = agent.run(
+    "Summarize what our renewable energy documents say about storage."
+)
+```
+
+Remplacez la recherche dans le dictionnaire par un véritable index vectoriel, une requête SQL ou un appel HTTP : la structure du code reste la même. Consultez [les outils des agents](/agents/agent-tools) pour connaître l’interface complète.
+
+<ParamField path="long_term_memory" type="Union[Callable, Any]" default="None">
+  Objet quelconque associé à l’agent et conservé dans `agent.long_term_memory`.
+
+  <Warning>
+    `agent.run()` ne consulte jamais cet objet. Swarms appelle uniquement sa méthode `.save(path)`, lorsque `agent.save()` sauvegarde l’état sur disque. `autosave=True` déclenche aussi cette sauvegarde. La boucle d’exécution n’effectue aucune recherche automatique, et Swarms ne fournit pas de base vectorielle intégrée. Utilisez un outil de recherche, comme ci-dessus, pour toute information que l’agent doit réellement consulter pendant une exécution.
+  </Warning>
+</ParamField>
+
+## Bonnes pratiques
+
+- Choisissez des valeurs de `agent_name` stables et descriptives pour les agents qui doivent conserver leurs échanges.
+- Gardez `context_compression=True` et définissez `context_length` pour les agents autonomes ou les exécutions longues.
+- Réduisez `ContextCompressor.threshold` lorsque les outils produisent beaucoup de contenu ou que les réponses sont longues.
+- Compactez manuellement la mémoire après les étapes importantes pour conserver les informations utiles et réduire la taille du prompt.
+- Utilisez un outil de recherche pour les connaissances externes. Ne traitez pas `MEMORY.md` comme une base documentaire.
+- Gardez la valeur par défaut `False` de `persistent_memory` pour les tâches ponctuelles ou les agents qui ne doivent pas enregistrer leurs échanges.
+
+## Pourquoi ce fonctionnement ?
+
+### Pourquoi identifier la mémoire par `agent_name` ?
+
+Les valeurs de `id` peuvent changer au redémarrage d’un processus. Vous contrôlez `agent_name`, qui reste stable et donne ainsi une identité durable à l’agent.
+
+### Pourquoi charger la mémoire dans un seul message `System` ?
+
+Le modèle doit comprendre qu’il s’agit d’un historique conservé, et non d’une demande actuelle. Un seul message système de contexte est compact et moins ambigu que la réinjection des anciens échanges comme messages actifs.
+
+### Pourquoi effacer `MEMORY.md` pendant la compaction ?
+
+Si la compaction ajoutait seulement un résumé, l’exécution suivante chargerait ce résumé et les échanges complets qu’il résume. Effacer le fichier actif maintient un contexte de travail réduit, tandis que `archive/` conserve le journal complet.
+
+## Étapes suivantes
+
+<CardGroup cols={2}>
+  <Card title="Configuration des agents" icon="sliders" href="/agents/agent-configuration">
+    Configurez les paramètres essentiels de l’agent : `agent_name`, `max_loops` et les limites de contexte.
+  </Card>
+  <Card title="API Conversation" icon="comments" href="/api/conversation">
+    Découvrez la classe `Conversation` et ses fonctions d’export, de chargement et de recherche.
+  </Card>
+  <Card title="Mode autonome" icon="robot" href="/agents/autonomous-mode">
+    Comprenez comment la compression et les limites de sortie maintiennent les exécutions `max_loops="auto"` dans la fenêtre de contexte.
+  </Card>
+</CardGroup>
