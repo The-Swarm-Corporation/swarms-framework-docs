@@ -49,6 +49,7 @@
             "pages": [
               "introduction",
               "quickstart",
+              "pt-br/quickstart",
               "installation",
               "environment-setup"
             ]

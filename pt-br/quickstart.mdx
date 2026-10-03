@@ -1,0 +1,90 @@
+---
+title: Início rápido em português
+description: Crie seu primeiro agente e um fluxo de trabalho com dois agentes
+---
+
+Crie um agente com Swarms e depois conecte dois agentes em sequência. Este guia
+resume os exemplos iniciais do [guia em inglês](/quickstart). Os nomes das classes,
+os parâmetros e os textos enviados aos modelos permanecem iguais aos originais.
+
+## Prepare o ambiente
+
+Antes de executar os exemplos, [instale o Swarms](/installation) e
+[configure as variáveis de ambiente](/environment-setup), incluindo as credenciais
+do provedor do modelo. Os exemplos usam `gpt-5.4`; confira o acesso ao modelo e os
+custos de uso na sua conta do provedor.
+
+## Crie seu primeiro agente
+
+Um `Agent` combina um modelo de linguagem com recursos como ferramentas e memória.
+Copie o exemplo completo para um arquivo Python e execute-o no ambiente configurado:
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    model_name="gpt-5.4",
+    max_loops="auto",
+    interactive=True,
+)
+
+response = agent.run(
+    "What are the key benefits of using a multi-agent system?"
+)
+print(response)
+```
+
+- `model_name` seleciona o modelo.
+- `max_loops="auto"` permite que o agente decida quando concluiu a tarefa.
+  Veja os detalhes em [modo autônomo](/agents/autonomous-mode).
+- `interactive=True` solicita novas instruções depois de cada resposta.
+
+## Conecte dois agentes
+
+Em um `SequentialWorkflow`, a saída de um agente alimenta o próximo. Neste exemplo,
+o pesquisador produz um resumo e o redator usa esse resumo para escrever um artigo.
+O `system_prompt` define a responsabilidade de cada agente.
+
+```python
+from swarms import Agent, SequentialWorkflow
+
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt=(
+        "Your job is to research the provided topic "
+        "and provide a detailed summary."
+    ),
+    model_name="gpt-5.4",
+)
+
+writer = Agent(
+    agent_name="Writer",
+    system_prompt=(
+        "Your job is to take the research summary and write "
+        "a beautiful, engaging blog post about it."
+    ),
+    model_name="gpt-5.4",
+)
+
+workflow = SequentialWorkflow(agents=[researcher, writer])
+final_post = workflow.run(
+    "The history and future of artificial intelligence"
+)
+print(final_post)
+```
+
+A ordem da lista `agents` determina a sequência. Para executar agentes em paralelo,
+consulte [ConcurrentWorkflow](/architectures/concurrent-workflow).
+
+## Resolva problemas comuns
+
+- **O agente não responde:** confira as chaves e as variáveis descritas na
+  [configuração do ambiente](/environment-setup).
+- **O modelo não foi encontrado:** verifique o nome e a disponibilidade na
+  [documentação de provedores](/integrations/model-providers).
+- **Limite de requisições:** reduza as iterações com `max_loops=1` e consulte as
+  orientações de tratamento de erros no [guia em inglês](/quickstart#troubleshooting).
+
+Depois, explore a [referência de Agent](/api/agent), a
+[referência de SequentialWorkflow](/api/sequential-workflow) e o
+[exemplo com ferramentas](/examples/agent-with-tools).
