@@ -8,7 +8,7 @@ icon: clock
 
 The **CronJob** class wraps any callable (including Swarms agents) and turns it into a scheduled job that runs at specified intervals. It provides scheduling, failure handling, execution tracking, and optional callbacks for output customization.
 
-One `CronJob` binds **one agent** to **one interval**. For several agents on different cadences, use [`run_many`](#run-many).
+One `CronJob` binds **one agent** to **one interval**. For several agents on different cadences, use [`run_many`](#run_many).
 
 <Note>
 **Failure model.** A task that raises is logged, recorded as a failed execution, and retried at the next interval, the way cron behaves. It does not take the schedule down, and a failing task is not retried any faster than its `interval`. Set `max_consecutive_errors` to stop a job that is failing every time; when that budget is exhausted the job stops **and** `run()` raises, so a dead schedule is never mistaken for a healthy one.
@@ -165,7 +165,7 @@ jobs = cron.batched_run(tasks)
 Earlier versions scheduled only the first task: `batched_run` called `run()` per task, and `run()` blocked, so the loop never reached the second task. That is fixed — all tasks are scheduled, and the list of scheduled jobs is returned.
 </Note>
 
-For several agents on **different** cadences, use [`run_many`](#run-many) instead.
+For several agents on **different** cadences, use [`run_many`](#run_many) instead.
 
 ### run_many
 
