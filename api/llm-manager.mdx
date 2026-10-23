@@ -1,12 +1,12 @@
 ---
 title: 'LLMManager'
-description: 'Model selection, LiteLLM construction, invocation, and fallback rotation for an agent'
+description: 'LiteLLM construction and invocation for an agent'
 icon: 'microchip'
 ---
 
 ## Overview
 
-`LLMManager` owns everything an `Agent` does with a language model: building the `LiteLLM` instance from configuration, rotating through fallback models when one fails, checking model capabilities, invoking the model across all streaming modes, and re-running a failed task down the fallback chain.
+`LLMManager` owns everything an `Agent` does with a language model: building the `LiteLLM` instance from configuration, checking model capabilities, and invoking the model across all streaming modes. Fallback across `fallback_models` is a loop in `Agent.run`, not a manager concern.
 
 Every `Agent` builds one automatically as `agent.llm_manager`. You rarely construct it yourself — but it is where the behavior lives, and the agent's LLM methods are thin wrappers over it.
 
@@ -15,8 +15,7 @@ from swarms import Agent
 
 agent = Agent(agent_name="Analyst", model_name="gpt-5.4-mini")
 
-agent.llm_manager.get_current_model()      # 'gpt-5.4-mini'
-agent.llm_manager.get_available_models()   # ['gpt-5.4-mini']
+agent.llm_manager.call("What is Python?", current_loop=1)
 ```
 
 ## Import
@@ -33,62 +32,15 @@ That is deliberate. Agents mutate their own LLM configuration at run time: `tool
 
 Agent Skills are not part of `system_prompt`. `Agent.call_llm` adds the selected skills to each request before it delegates to `call()`. See [SkillsManager](/api/skills-manager).
 
-Anything the manager writes — `model_name`, `current_model_index`, `llm` — is written back to the agent, so `agent.llm`, serialization, and `save()` / `load()` all behave exactly as before.
+The `llm` it builds is written back to the agent, so `agent.llm`, serialization, and `save()` / `load()` all behave exactly as before.
 
 <ParamField path="agent" type="Any" required>
-  The owning `Agent`. Read for configuration; written to for `model_name`, `current_model_index`, and `llm`.
+  The owning `Agent`. Read for configuration; written to for `llm`.
 </ParamField>
 
-## Model selection and fallback
+## Fallback models
 
-Configure fallbacks on the agent, and the manager handles rotation.
-
-```python
-agent = Agent(
-    agent_name="Resilient",
-    fallback_models=["gpt-5.4-mini", "claude-sonnet-4-6", "gpt-5.4"],
-)
-```
-
-### get_available_models
-
-```python
-def get_available_models() -> List[str]
-```
-
-Models in preference order. Built from `fallback_models` when set, otherwise from `model_name` plus `fallback_model_name` (de-duplicated).
-
-### get_current_model
-
-```python
-def get_current_model() -> str
-```
-
-The model currently in use. Falls back to the first available model, then to `gpt-5.4`, if the index runs out of range.
-
-### switch_to_next_model
-
-```python
-def switch_to_next_model() -> bool
-```
-
-Advance to the next model in the list, update `agent.model_name`, and rebuild `agent.llm` against it. Returns `False` when the list is exhausted. Model switches are always logged.
-
-### reset_model_index
-
-```python
-def reset_model_index() -> None
-```
-
-Return to the primary model and rebuild the LLM.
-
-### is_fallback_available
-
-```python
-def is_fallback_available() -> bool
-```
-
-`True` when more than one model is configured.
+Fallback is not the manager's job. `Agent.run` walks `fallback_models` itself: when a model call raises `AgentLLMError`, it sets `model_name` to the next entry, rebuilds the client with `agent.llm_handling()`, and runs the task again. `build()` always reads `agent.model_name`. See [Agent](/api/agent#error-handling).
 
 ## Construction
 
@@ -197,7 +149,7 @@ Direct `llm.run()` returning the complete string. Used when neither `stream` nor
 
 **Returns** the complete response string — or, when the model made tool calls mid-stream, the assembled tool-call list instead. `is_last` is stripped from `kwargs` before dispatch.
 
-Any provider error is logged and re-raised. The agent's standard loop (`Agent._run`) retries the call up to `retry_attempts` times. After the last failure it raises `AgentLLMError`, which hands the task to the fallback chain below.
+Provider errors propagate unchanged; litellm has already retried the call `retry_attempts` times by then. `Agent.call_llm` wraps the error in `AgentLLMError`, which `Agent.run` answers by moving to the next fallback model.
 
 ### Stream plumbing
 
@@ -208,21 +160,6 @@ def extract_thinking_from_stream(stream)
 
 `stream_with_tool_collection` forwards every chunk unchanged while assembling fragmented `delta.tool_calls` deltas into a complete tool-call list. `extract_thinking_from_stream` swallows reasoning chunks from models that emit them, flushes them to a thinking panel, and yields only content chunks onward.
 
-## Fallback execution
-
-### handle_fallback_execution
-
-```python
-def handle_fallback_execution(
-    task=None, img=None, imgs=None, correct_answer=None,
-    streaming_callback=None, original_error=None, *args, **kwargs,
-) -> Any
-```
-
-Re-run a failed task against the next fallback model, recursing down the chain until it succeeds or every model is exhausted. `Agent.run` calls it when a run fails and more than one model is configured.
-
-When every model is exhausted, the original error goes to the agent's error handler, which logs it (and saves state when `autosave` is on) and re-raises it to the caller.
-
 ## Agent-level wrappers
 
 Each of these delegates to the manager and remains the supported public API:
@@ -231,15 +168,9 @@ Each of these delegates to the manager and remains the supported public API:
 |---|---|
 | `llm_handling(*args, **kwargs)` | `build()` |
 | `call_llm(task, img, imgs, current_loop, streaming_callback)` | `call()`, after adding the selected skills to the request |
-| `get_available_models()` | `get_available_models()` |
-| `get_current_model()` | `get_current_model()` |
-| `switch_to_next_model()` | `switch_to_next_model()` |
-| `reset_model_index()` | `reset_model_index()` |
-| `is_fallback_available()` | `is_fallback_available()` |
 | `check_model_supports_utilities(img)` | `check_model_supports_utilities()` |
 | `dynamic_temperature()` | `randomize_temperature()` |
 | `get_llm_parameters()` | `get_parameters()` |
-| `_handle_fallback_execution(...)` | `handle_fallback_execution()` |
 
 ## Related
 

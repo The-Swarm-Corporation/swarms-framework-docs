@@ -133,7 +133,7 @@ With `dynamic_tools=True`, `tool_search` calls run through `tool_search_tool`, w
 - An exception anywhere in `execute_tools` counts as a failed attempt. That includes the `tool_call_summary` model call.
 - After the last attempt, `tool_execution_retry` raises `AgentToolExecutionError`, chained from the last error.
 
-The agent catches `AgentToolExecutionError` apart from provider errors. It answers any recorded tool calls, reports the error to telemetry as `Agent.tool_error`, adds `Tool execution failed after N attempts: ...` to memory as a `"Tool Executor"` turn, and leaves the request retry loop without calling the model again. The run continues, so on the next loop the model reads the failure and can choose differently. A broken tool never consumes `retry_attempts`, which is reserved for provider failures.
+The agent catches `AgentToolExecutionError` apart from provider errors. It answers any recorded tool calls, reports the error to telemetry as `Agent.tool_error`, adds `Tool execution failed after N attempts: ...` to memory as a `"Tool Executor"` turn, and does not call the model again in that loop. The run continues, so on the next loop the model reads the failure and can choose differently. A broken tool never consumes `retry_attempts`, which is reserved for provider failures.
 
 You can drive the retry path directly, without a model call:
 

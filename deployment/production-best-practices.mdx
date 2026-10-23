@@ -17,7 +17,7 @@ Swarms defines an exception hierarchy under `AgentError`. Every class is exporte
 | Exception | When `Agent` raises it |
 |---|---|
 | `AgentInitializationError` | The constructor rejects the configuration, for example `max_loops` that is neither a positive integer nor `"auto"` |
-| `AgentLLMError` | Every one of the `retry_attempts` LLM calls failed, on the primary model and on every fallback model |
+| `AgentLLMError` | A model call failed after litellm's `retry_attempts` retries, on the primary model and on every fallback model |
 | `AgentToolExecutionError` | A tool batch failed `tool_retry_attempts` times. The agent catches this itself and shows the failure to the model, so it does not escape `run()` |
 | `AgentRunError`, `AgentLLMInitializationError` | Part of the hierarchy for your own code; the `Agent` run path does not raise them |
 
@@ -87,13 +87,13 @@ from swarms import Agent
 agent = Agent(
     agent_name="Resilient-Agent",
     model_name="claude-sonnet-4-6",
-    retry_attempts=5,        # LLM call attempts per loop (default 3)
+    retry_attempts=5,        # litellm retries per model call (default 3)
     tool_retry_attempts=3,   # attempts per tool batch (default 3)
     max_loops=3,
 )
 ```
 
-Retries run back to back, with no delay between attempts. Wrap `run()` in your own backoff, as below, when you need to wait out rate limits.
+litellm backs off exponentially on rate-limit errors, up to 10 seconds between retries, and retries other API errors at once. Wrap `run()` in your own backoff, as below, when a whole run needs to wait longer.
 
 ### Exponential Backoff
 
@@ -156,7 +156,7 @@ agent = Agent(
 result = agent.run("Generate a report")
 ```
 
-Each model gets the full `retry_attempts` before the agent moves to the next one. When the last model fails, `run()` raises `AgentLLMError`.
+Each model gets its `retry_attempts` retries before the agent moves to the next one, and every run starts from the first model again. When the last model fails, `run()` raises `AgentLLMError`.
 
 ### Fallback swarms
 

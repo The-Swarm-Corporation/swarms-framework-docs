@@ -27,7 +27,7 @@ graph TD
 |------------------------------------------|--------------------------------------------------------------------------------------------------|
 | **Conversational Loop**                  | Enables back-and-forth interaction with the model.                                               |
 | **Stoppable Conversation**               | Supports custom stopping conditions for the conversation.                                        |
-| **Retry Mechanism**                      | Retries failed LLM calls, then raises `AgentLLMError` so fallback models can take over.          |
+| **Retry Mechanism**                      | litellm retries a failed call `retry_attempts` times, then `run()` moves to the next fallback model. |
 | **Tool Integration**                     | Supports the integration of various tools for enhanced capabilities.                             |
 | **Persistent Memory**                    | Optional `MEMORY.md` that survives restarts, with automatic context compression.                 |
 | **Interactive Mode**                     | Allows real-time communication with the agent.                                                   |
@@ -63,21 +63,21 @@ from swarms import Agent
 
 | Attribute | Class | Owns |
 |---|---|---|
-| `agent.llm_manager` | [`LLMManager`](/api/llm-manager) | Model selection, LiteLLM construction, invocation, streaming, fallback rotation |
+| `agent.llm_manager` | [`LLMManager`](/api/llm-manager) | LiteLLM construction, invocation, streaming |
 | `agent.tool_manager` | [`ToolManager`](/api/tool-manager) | Tool setup, dynamic tool loading, tool-call parsing and execution, retries, MCP execution, handoffs |
 | `agent.mcp_manager` | [`MCPManager`](/api/mcp-manager) | MCP server connections, tool discovery, tool-call routing |
 | `agent.skills` | [`SkillsManager`](/api/skills-manager) | Agent Skills discovery and prompt rendering |
 | `agent.marketplace` | [`AgentMarketplaceHandler`](/api/agent-marketplace-handler) | Fetching and publishing marketplace prompts |
 | `agent.autonomous_loop` | `AutonomousAgentLoop` | The plan, execute, and summarize loop behind `max_loops="auto"` (see [Autonomous mode](/agents/autonomous-mode)) |
 
-Model, fallback, and skills helpers on the agent are thin wrappers over their manager, so both call styles work:
+Model and skills helpers on the agent are thin wrappers over their manager, so both call styles work:
 
 ```python
 agent = Agent(agent_name="Analyst", model_name="gpt-5.4-mini")
 
 # These are equivalent
-agent.get_current_model()
-agent.llm_manager.get_current_model()
+agent.check_model_supports_utilities()
+agent.llm_manager.check_model_supports_utilities()
 ```
 
 Tool handling has no agent-level wrappers. Apart from `add_tool`, `add_tools`, `remove_tool`, `remove_tools`, and the `mcp_enabled` property, you reach it through `agent.tool_manager` (for example `agent.tool_manager.execute_tools(...)`). See [Tool handling](#tool-handling).
@@ -152,7 +152,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="fallback_model_name" type="str" default="None">
-  Single fallback model used when the primary model fails. Only consulted when `fallback_models` is not set.
+  A single fallback model. When `fallback_models` is not set, it is folded into that list as `[model_name, fallback_model_name]`.
 </ParamField>
 
 <ParamField path="max_loops" type="Optional[Union[int, str]]" default="1">
@@ -244,11 +244,11 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="fallback_models" type="List[str]" default="None">
-  Ordered list of models to use. When set, it replaces `model_name`: the first entry is the primary model and the rest are tried in order if a run fails. See [Fallback model helpers](#fallback-model-helpers).
+  Ordered list of models to use. When set, it replaces `model_name`: the first entry is the primary model and the rest are tried in order when a model call fails. Every run starts from the first entry again, so a model that was down for one run is tried first on the next. See [Error Handling](#error-handling).
 </ParamField>
 
 <ParamField path="retry_attempts" type="Optional[int]" default="3">
-  Attempts per loop iteration for the LLM call. When every attempt fails, the run raises `AgentLLMError`, and `run()` then moves on to the next fallback model if one is configured. See [Error Handling](#error-handling).
+  Retries litellm makes after a failed model call, sent with every request. Rate-limit errors back off exponentially; other API errors retry at once. When they are used up, the run raises `AgentLLMError` and `run()` moves on to the next fallback model if one is configured. See [Error Handling](#error-handling).
 </ParamField>
 
 <ParamField path="stopping_token" type="str" default="None">
@@ -1005,18 +1005,6 @@ Returns the parameters of the language model as a string (`str(vars(self.llm))`)
 def get_llm_parameters() -> str
 ```
 
-### Fallback model helpers
-
-Methods backing the `fallback_models` / `fallback_model_name` feature. All delegate to [`LLMManager`](/api/llm-manager).
-
-```python
-def get_available_models() -> List[str]
-def get_current_model() -> str
-def switch_to_next_model() -> bool
-def reset_model_index() -> None
-def is_fallback_available() -> bool
-```
-
 ### Skills helpers
 
 Agent Skills loading, delegating to [`SkillsManager`](/api/skills-manager).
@@ -1087,11 +1075,6 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `update_loop_interval(loop_interval)` | Set `loop_interval` | `agent.update_loop_interval(2)` |
 | `llm_handling()` | Rebuild the LLM client from the current configuration; returns it and stores it on `agent.llm` | `agent.llm_handling()` |
 | `get_llm_parameters()` | Get LLM parameters (as a string) | `agent.get_llm_parameters()` |
-| `get_available_models()` | List primary + fallback model names | `agent.get_available_models()` |
-| `get_current_model()` | Get the model currently in use | `agent.get_current_model()` |
-| `switch_to_next_model()` | Switch to the next fallback model | `agent.switch_to_next_model()` |
-| `reset_model_index()` | Reset back to the primary model | `agent.reset_model_index()` |
-| `is_fallback_available()` | Whether more than one model is configured | `agent.is_fallback_available()` |
 | `check_model_supports_utilities(img)` | Log an error for each capability the model lacks (vision, function calling, parallel calls) | `agent.check_model_supports_utilities()` |
 | `dynamic_temperature()` | Set the LLM client's temperature to a random value in 0.0 to 1.0 | `agent.dynamic_temperature()` |
 | `check_available_tokens()` | `context_length` minus the tokens in the history | `agent.check_available_tokens()` |
@@ -2219,13 +2202,13 @@ except AgentError as e:
 
 | Exception | Raised by | Reaches your code |
 |---|---|---|
-| `AgentLLMError` | `run`, when the model returns no response after `retry_attempts` tries | Yes, once every fallback model has also failed |
+| `AgentLLMError` | `run`, when a model call fails after litellm's `retry_attempts` retries | Yes, once every fallback model has also failed |
 | `AgentInitializationError` | The constructor, for an invalid `max_loops` or a missing `context_length`, and for `publish_to_marketplace=True` without `use_cases` | Yes, at construction |
 | `AgentToolExecutionError` | `ToolManager`, when a callable tool fails every retry | No. `run` catches it, records the failure in the conversation, and lets the model react |
 | `AgentRunError` | Nothing in the current source | No |
 | `AgentLLMInitializationError` | Nothing in the current source | No |
 
-When the primary model fails, `run` retries with the next model in `fallback_models` (see [Fallback model helpers](#fallback-model-helpers)). Once the list is exhausted, the original exception is re-raised unchanged. Other failures, such as an authentication error from the provider, also propagate as their own exception types.
+Every provider error is wrapped in `AgentLLMError`, chained to the original, so an authentication error reaches you as `AgentLLMError` with the provider's exception as its cause. Only `AgentLLMError` moves `run` to the next model in `fallback_models`; once the list is exhausted, the last one is re-raised. Any other exception, from a tool, a stopping function or output formatting, raises at once without trying another model.
 
 <Warning>
   The classes are not all importable from the same place. `swarms.structs.agent` re-exports only `AgentInitializationError`, `AgentLLMError`, `AgentRunError`, and `AgentToolExecutionError`. `from swarms.structs.agent import AgentError` raises `ImportError`. Import from `swarms` or `swarms.schemas` instead.
