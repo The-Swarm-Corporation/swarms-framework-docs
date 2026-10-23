@@ -1,0 +1,169 @@
+---
+title: 'Comms Channel'
+description: 'Let agents talk through a markdown or text file, or any medium you implement, instead of only through in-memory conversation'
+icon: 'comments'
+---
+
+A `CommsChannel` is a place agents read what others said and post what they say. Give one to an agent with `channel`, and every run reads the channel as prior turns, posts the task once, and posts the agent's final answer. Give the same channel to several agents and they talk through it.
+
+`FileChannel` keeps the channel in a markdown or text file you can open, watch and edit while agents run.
+
+## Quick start
+
+```python
+from swarms import Agent, FileChannel
+
+channel = FileChannel("runs/q3-report.md")
+
+researcher = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+writer = Agent(
+    agent_name="Writer",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+
+researcher.run("Report on the EV battery market.")
+writer.run("Report on the EV battery market.")
+```
+
+After the two runs, `runs/q3-report.md` reads:
+
+```markdown
+## @Human
+
+Report on the EV battery market.
+
+## @Researcher
+
+The EV battery market grew 31% last year ...
+
+## @Writer
+
+# EV Battery Market Report
+...
+```
+
+The writer saw the researcher's answer as a prior turn and the task as its own. The task appears once, because an agent posts it only when the channel does not already hold it.
+
+## The file format
+
+Each message starts with a line of the form `## @agent_name`. The name is everything after the `@`, so names with spaces work. The body runs to the next such line and is kept as written, so headings and lists inside an answer survive. The path must end in `.md` or `.txt`; anything else raises `ValueError`. Markdown renders the transcript, text keeps it plain.
+
+You can write the file by hand. Add a `## @Human` section between runs and the next agent reads it as a turn. The one rule is that a line inside a message body must not start with `## @`.
+
+## What an agent does with its channel
+
+On every `run(task)`:
+
+1. It posts the task under its `user_name`, unless the channel already holds that exact message.
+2. When you do not pass `messages`, it reads the channel and sends every message except the task as prior turns. Other speakers' messages arrive as user turns and its own earlier messages as assistant turns. When you do pass `messages`, those are used instead and the channel is not read.
+3. After a successful run it posts its final answer under its `agent_name`. A run that raises posts nothing.
+
+The channel is not the agent's working memory. Tool calls, tool results and intermediate loops stay in `short_memory`; only the final answer reaches the channel. See [Agent memory](/agents/agent-memory) for that side.
+
+## Live consumers with QueueChannel
+
+`QueueChannel` puts every post on a queue as well as keeping the history, so another thread can block on the next message instead of polling a file. Run the agents in one thread and read in another; `close()` ends the reader's loop.
+
+```python
+import threading
+from swarms import Agent, QueueChannel, SequentialWorkflow
+
+channel = QueueChannel()
+workflow = SequentialWorkflow(agents=[researcher, analyst, writer], channel=channel)
+
+def produce():
+    try:
+        workflow.run("Report on the EV battery market.")
+    finally:
+        channel.close()
+
+threading.Thread(target=produce, daemon=True).start()
+
+for message in channel:          # blocks until the next post
+    print(message["agent_name"], message["content"])
+```
+
+`wait(timeout)` returns one message, or `None` when the timeout passes or the channel is closed. Pass a `multiprocessing.Queue` to share the live stream with another process; the `messages()` history then holds only what the posting process wrote.
+
+## A shared table with SqliteChannel
+
+`SqliteChannel` keeps the conversation as rows in a SQLite file, using only the standard library. SQLite serialises writes, so a fan-out step can post from several threads at once, and two processes pointed at the same file share one conversation. One file holds many conversations, told apart by `name`.
+
+```python
+from swarms import ConcurrentWorkflow, SqliteChannel
+
+channel = SqliteChannel("runs/channels.db", name="q3-ev-batteries")
+ConcurrentWorkflow(agents=agents, channel=channel).run("Report on the EV battery market.")
+```
+
+Beyond the two-field `messages()` every channel has, `rows()` returns the conversation with `id` and `created_at`, filtered by speaker or trimmed to the latest few:
+
+```python
+channel.rows()                   # every row, oldest first
+channel.rows(role="Writer")      # one speaker
+channel.rows(limit=1)            # the latest message
+SqliteChannel.conversations("runs/channels.db")   # names stored in the file
+```
+
+The table is ordinary SQLite: `messages(id, channel, agent_name, content, created_at)`. `fetch_messages(agent_name=None, limit=None)` returns rows with their ids and timestamps, filtered to one speaker or trimmed to the latest N, and `SqliteChannel.list_conversations(path)` names every conversation in a file. Any SQLite client can query the table directly. `clear()` deletes only this conversation's rows, and `close()` closes the connection while the file keeps everything. `":memory:"` works for a single process, for example in tests.
+
+## Multi-agent structures
+
+Give the channel to the structure, not to its members. Every structure that keeps a shared conversation takes `channel`: `SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange`, `GraphWorkflow`, `MixtureOfAgents`, `GroupChat`, `HierarchicalSwarm`, `PlannerWorkerSwarm` and `MajorityVoting`. `SwarmRouter` forwards it to whichever of those it builds.
+
+```python
+from swarms import Agent, SequentialWorkflow, FileChannel
+
+workflow = SequentialWorkflow(
+    agents=[researcher, writer, reviewer],
+    channel=FileChannel("runs/q3.md"),
+)
+workflow.run("Report on the EV battery market.")
+```
+
+The structure's conversation mirrors to the channel: the task is posted under `User`, and each agent's answer under its name, in the order the structure records them. Fan-out steps post after the step completes, in agent order, so the file never interleaves. System preambles such as team rosters stay out of the file.
+
+A non-empty channel seeds the run. Point a new structure at an existing file and the earlier turns become prior context, so stopping, editing the file by hand and running again is the human checkpoint.
+
+Member agents keep their own `channel` unset. If one is set, the structure detaches it with a warning so the transcript is written once.
+
+## Writing your own channel
+
+Subclass `CommsChannel` and implement two methods. `clear` is optional.
+
+```python
+from swarms import CommsChannel
+
+class ListChannel(CommsChannel):
+    def __init__(self):
+        self.rows = []
+
+    def post(self, agent_name: str, content: str) -> None:
+        self.rows.append({"agent_name": agent_name, "content": content})
+
+    def messages(self) -> list[dict]:
+        return list(self.rows)
+```
+
+The same two methods back a database table, a queue or a chat API. `messages()` returns rows shaped like `{"agent_name": ..., "content": ...}`, oldest first. The agent turns them into chat roles itself: its own name becomes `assistant`, every other name becomes `user`.
+
+## Concurrency
+
+Several lone agents appending to one file at the same moment can interleave. Inside a structure this does not arise, because the structure posts after each step. For hand-built parallel loops, run agents that share a file one after another, or post their answers yourself after the step finishes.
+
+## Reference
+
+| Name | What it is |
+|---|---|
+| `CommsChannel` | Abstract base: `post(agent_name, content)`, `messages()`, optional `clear()` |
+| `QueueChannel(q=None)` | In-memory history plus a queue; `wait(timeout)`, iteration and `close()` for a blocking consumer |
+| `SqliteChannel(path, name="default")` | Rows in a SQLite table; safe for threads and processes, many conversations per file. `rows(role, limit)` adds ids and timestamps; `conversations(path)` lists the names in a file |
+| `FileChannel(path)` | A `## @agent_name` transcript in a `.md` or `.txt` file; other extensions raise `ValueError`. `clear()` deletes the file |
+| `Agent(channel=...)` | The parameter that attaches a channel to an agent |

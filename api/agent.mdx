@@ -195,6 +195,10 @@ Each collaborator is independently documented. Reach for it directly when you wa
   </Warning>
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A shared channel, such as `FileChannel("runs/q3.md")`. Before a run the agent posts the task once and reads the channel as prior turns; after a successful run it posts its final answer. See [Comms Channel](/agents/comms-channel).
+</ParamField>
+
 <ParamField path="messages" type="Optional[List[Dict[str, Any]]]" default="None">
   Prior conversation turns in chat format, e.g. `[{"role": "user", "content": "..."}]`. They seed `short_memory` at construction and are re-sent as context on every run. Keys other than `role` and `content` (`name`, `tool_calls`, `tool_call_id`) are kept as message metadata. To supply turns for a single call instead, pass `messages` to [`run`](#run).
 </ParamField>

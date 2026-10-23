@@ -366,6 +366,10 @@ asyncio.run(main())
   Summarize the conversation when it crosses 90% of `context_length`. Applies to integer `max_loops` and `"auto"` alike. See [Agent Memory](/agents/agent-memory).
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A channel agents read before a run and post their final answer to after it, such as `FileChannel("runs/q3.md")`. Share one channel between agents to let them talk through a file. See [Comms Channel](/agents/comms-channel).
+</ParamField>
+
 ### Advanced Features
 
 <ParamField path="dynamic_temperature_enabled" type="bool" default="False">

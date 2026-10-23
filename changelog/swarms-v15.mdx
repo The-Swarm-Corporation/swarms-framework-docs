@@ -37,6 +37,7 @@ These changes are on master after 15.0.3 and are not in any published release ye
 * **Autonomous loop budgets**: `Agent` takes `max_planning_attempts` (default `5`), `max_subtask_iterations` (default `100`) and `max_subtask_loops` (default `20`). Each must be at least 1. See [Autonomous mode](/agents/autonomous-mode).
 * **Several skill directories**: `skills_dir` accepts a list of paths. When two directories hold a skill with the same name, the later one wins.
 * **ToolManager**: tool handling moved out of `agent.py` into a `ToolManager` built once per agent as `agent.tool_manager`. Context compression also stops tokenizing the history while its byte size is under budget, which cuts a tool turn from about 770 µs to 162 µs. See [ToolManager](/api/tool-manager).
+* **Comms channels**: `Agent(channel=...)` reads a shared channel as prior turns before a run and posts the task and its final answer to it. `FileChannel` keeps the channel in a markdown or text file, `QueueChannel` lets a consumer thread block on each new message, `SqliteChannel` stores it as rows that threads and processes can share, and `CommsChannel` is the two-method base class for other media. The multi-agent structures and `SwarmRouter` take `channel` too and mirror their shared conversation to it, so a whole workflow runs in one file. See [Comms Channel](/agents/comms-channel).
 
 ### Fixes
 

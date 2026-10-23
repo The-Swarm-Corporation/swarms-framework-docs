@@ -99,6 +99,10 @@ graph TD
   Additional keyword arguments passed to the consensus agent's `Agent` constructor.
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A shared channel, such as `FileChannel("runs/q3.md")`. The swarm seeds its conversation from the channel, then posts the task and every agent's answer to it under the speaker's name. Member agents' own `channel` settings are detached with a warning, so only the swarm posts. See [Comms Channel](/agents/comms-channel#multi-agent-structures).
+</ParamField>
+
 <Note>
   The constructor validates the configuration and raises `ValueError` if `agents` is empty or `None`, or if `max_loops` is `0` or less.
 </Note>

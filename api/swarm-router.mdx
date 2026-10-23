@@ -141,6 +141,10 @@ SwarmRouter(
   Stored as `router.conversation`. It is not passed to the underlying swarm. After each run, `router.conversation` is repointed at the swarm's own conversation.
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A shared channel, such as `FileChannel("runs/q3.md")`. Forwarded to the swarm the router builds, which seeds its conversation from the channel, then posts the task and every agent's answer to it under the speaker's name. Member agents' own `channel` settings are detached with a warning, so only the swarm posts. See [Comms Channel](/agents/comms-channel#multi-agent-structures).
+</ParamField>
+
 <ParamField path="agents_config" type="Optional[Dict[Any, Any]]" optional>
   Stored as `router.agents_config`. No swarm factory reads it.
 </ParamField>
