@@ -36,7 +36,7 @@ The advisor never calls tools and never produces user-facing output — it only 
 - **Executor-driven loop**: the executor runs every turn; the advisor is optional.
 - **Budgeted advisor calls**: `max_advisor_uses` caps how often the expensive model is invoked.
 - **Shared context**: both agents see the same conversation, so guidance compounds across turns.
-- **Provider-agnostic**: any LiteLLM-supported model works for either role.
+- **Provider-agnostic**: any RouteHub-supported model works for either role.
 - **Tools on executor only**: the executor can be a pre-configured `Agent` with tools or MCP; the advisor stays tool-free.
 
 ## Basic Example: Code Review

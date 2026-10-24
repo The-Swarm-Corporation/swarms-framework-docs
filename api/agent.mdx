@@ -121,7 +121,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="model_name" type="str" default="gpt-5.4">
-  The LiteLLM-compatible model identifier (e.g. `"gpt-5.4"`, `"claude-sonnet-4-6"`, `"groq/llama-3.3-70b-versatile"`). Ignored when `fallback_models` is set, since that list names the primary model.
+  The RouteHub-compatible model identifier (e.g. `"gpt-5.4"`, `"claude-sonnet-4-6"`, `"groq/llama-3.3-70b-versatile"`). Ignored when `fallback_models` is set, since that list names the primary model.
 </ParamField>
 
 <ParamField path="llm_args" type="dict" default="None">
@@ -466,7 +466,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="reasoning_enabled" type="bool" default="False">
-  Enable reasoning mode on the LLM client. Combined with `thinking_tokens` it sends an extended-thinking request. On models LiteLLM lists as reasoning-capable, the temperature is set to 1.
+  Enable reasoning mode on the LLM client. Combined with `thinking_tokens` it sends an extended-thinking request. On models RouteHub lists as reasoning-capable, the temperature is set to 1.
 </ParamField>
 
 <ParamField path="reasoning_effort" type="Optional[Literal['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'ultra', 'max', 'None']]" default="None">

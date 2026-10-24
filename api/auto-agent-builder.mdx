@@ -223,7 +223,7 @@ The builder filters the model's output before returning it:
 | No usable entries at all | Raises `ValueError` |
 | Malformed or non-JSON tool output | Raises `ValueError` |
 
-Tool calls are parsed from all shapes providers return: a plain dict, a list-wrapped dict, or an attribute-style object such as litellm's `ChatCompletionMessageToolCall`.
+Tool calls are parsed from all shapes providers return: a plain dict, a list-wrapped dict, or an attribute-style object such as the OpenAI SDK's `ChatCompletionMessageToolCall`.
 
 ## Usage Examples
 

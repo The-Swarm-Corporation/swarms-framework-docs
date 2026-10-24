@@ -60,6 +60,7 @@ These changes are on master after 15.0.3 and are not in any published release ye
 
 ### Changed defaults and removals
 
+* **RouteHub is the only LLM gateway.** Model calls, embeddings, token counting and the model catalogue go through [RouteHub](https://github.com/The-Swarm-Corporation/RouteHub), which is now a required dependency. litellm is no longer installed or supported, and the `SWARMS_LLM_BACKEND` setting is gone. `swarms[fast]` still adds rustworkx. Code that imported `litellm` directly should import `routehub`, which has the same function names. `LiteLLM(caching=...)` is ignored, and the output-token cap is always sent as `max_tokens`, which RouteHub renames for models that need `max_completion_tokens`.
 * `temperature` defaults to `None` (was `0.5`), so it is left out of the request and the provider's default applies. Current Claude models rejected the old default.
 * `dynamic_tools` defaults to `False` (was `True`). Pass `dynamic_tools=True` to keep tool schemas behind `tool_search`.
 * The `"xml"` output type and `swarms/utils/xml_utils.py` were removed. `output_type="xml"` now raises `ValueError`.

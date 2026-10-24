@@ -11,7 +11,7 @@ The `ModelRouter` is an intelligent routing system that automatically selects an
 Each step makes two LLM calls:
 
 1. A routing call to `gpt-4o` with `response_format=ModelOutput`. The reply is parsed into a `ModelOutput` that names the model, provider, rewritten task, `max_tokens`, `temperature`, and `system_prompt` to use.
-2. An execution call to `{provider}/{model}` through LiteLLM, using the settings from that reply.
+2. An execution call to `{provider}/{model}` through RouteHub, using the settings from that reply.
 
 ## Key Features
 
@@ -35,7 +35,7 @@ pip install -U swarms
 OPENAI_API_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
 GOOGLE_API_KEY=your_google_api_key
-# Add more API keys as needed following litellm format
+# Add more API keys as needed, one per provider
 ```
 
 ## Attributes
@@ -488,7 +488,7 @@ The default routing prompt embeds these recommendations. The routing model can s
 - `asyncio`: Asynchronous I/O support
 - `concurrent.futures`: Thread pool execution
 - `pydantic`: Data validation
-- `litellm`: LLM interface standardization
+- `routehub`: LLM interface standardization
 
 ## Source Code
 

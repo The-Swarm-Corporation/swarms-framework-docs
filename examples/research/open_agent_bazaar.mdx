@@ -94,7 +94,7 @@ A few design choices make the simulation tractable:
 | Partial observability | Per-agent task strings — every agent receives a different observation each timestep |
 | Concurrency | `ThreadPoolExecutor`-backed `run_parallel` — an entire market round completes at roughly the slowest single agent's latency |
 | Episode statelessness | `persistent_memory=False` so every episode is an independent sample |
-| Model-swap | Any LiteLLM-compatible string (`claude-sonnet-4-6`, `gemini/gemini-3-flash`, `gpt-5.4`, `groq/llama-3.3-70b-versatile`, …) |
+| Model-swap | Any RouteHub-compatible string (`claude-sonnet-4-6`, `gemini/gemini-3-flash`, `gpt-5.4`, `groq/llama-3.3-70b-versatile`, …) |
 | Telemetry | Dataclasses (`CrashTelemetry`, `LemonTelemetry`) track bankruptcies, price volatility, Sybil exposure, detection rate, consumer surplus, profits |
 
 The stock `run_agents_concurrently` broadcasts one shared task to every agent. The paper's setup needs **per-agent observations**, so the repo ships a small `run_parallel` helper that fans out one task per agent over a thread pool.
@@ -107,7 +107,7 @@ cd agent-bazaar-implementation
 pip install -r requirements.txt
 ```
 
-Open Agent Bazaar drives models through Swarms + LiteLLM. Copy the env template and fill in keys for whichever providers you want to run:
+Open Agent Bazaar drives models through Swarms + RouteHub. Copy the env template and fill in keys for whichever providers you want to run:
 
 ```bash
 cp .env.example .env
@@ -115,7 +115,7 @@ cp .env.example .env
 
 The paper evaluates three frontier models:
 
-| Provider | Env var | Paper model | LiteLLM string |
+| Provider | Env var | Paper model | RouteHub string |
 | --- | --- | --- | --- |
 | Anthropic | `ANTHROPIC_API_KEY` | Claude Sonnet 4.6 | `claude-sonnet-4-6` |
 | Google | `GEMINI_API_KEY` | Gemini 3 Flash | `gemini/gemini-3-flash` |
@@ -207,7 +207,7 @@ Price tags turn red when a firm prices below unit cost. Bankrupt stalls get boar
 
 - **Benchmark frontier models.** Swap `--model` between `claude-sonnet-4-6`, `gemini/gemini-3-flash`, and `gpt-5.4` — does the EAS ranking match the paper?
 
-- **Cheap open models.** Try `groq/llama-3.3-70b-versatile` or any other LiteLLM-compatible provider. Open Agent Bazaar abstracts the model entirely.
+- **Cheap open models.** Try `groq/llama-3.3-70b-versatile` or any other RouteHub-compatible provider. Open Agent Bazaar abstracts the model entirely.
 
 - **Harness sensitivity.** Vary `--stabilizers` and `--guardians`. What is the smallest fraction of aligned agents that flips a crashing market into a healthy one?
 

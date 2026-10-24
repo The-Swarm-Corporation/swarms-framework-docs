@@ -43,7 +43,7 @@ print(agent.run("Summarize the history of the transformer architecture in three 
 
 ## Model Names
 
-Swarms passes model names straight through to LiteLLM. Use the canonical Anthropic identifier:
+Swarms passes model names straight through to RouteHub. Use the canonical Anthropic identifier:
 
 | Model | `model_name` | Best for |
 |---|---|---|
@@ -132,7 +132,7 @@ print(agent.run("Prove that the sum of the first n odd integers equals n²."))
 ```
 
 - **`reasoning_enabled=True` with `thinking_tokens`** sends an explicit thinking budget. `thinking_tokens` (default `1024`) has no effect unless `reasoning_enabled=True`.
-- **`reasoning_effort`** (`"low"`, `"medium"`, `"high"`) is forwarded on its own, and LiteLLM maps it to a thinking budget for Claude.
+- **`reasoning_effort`** (`"low"`, `"medium"`, `"high"`) is forwarded on its own, and RouteHub maps it to a thinking budget for Claude.
 
 With either, Swarms forces `temperature=1`, drops `top_p`, and raises `max_tokens` above the thinking budget, as Anthropic requires.
 

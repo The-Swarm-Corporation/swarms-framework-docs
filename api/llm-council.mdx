@@ -208,7 +208,7 @@ When no custom members are provided, the default council includes:
 | `Claude-Sonnet-4.5-Councilor` | `anthropic/claude-sonnet-4-5` | 0.0 | Thoughtful and balanced |
 | `Grok-4-Councilor` | `xai/grok-4-1-fast-reasoning` | 0.8 | Creative and innovative |
 
-The agent names do not always match the model: the Gemini councilor runs on `gemini-2.5-flash`. The default council calls four providers, so you need credentials for OpenAI, Anthropic, xAI, and Google. LiteLLM routes the unprefixed `gemini-2.5-flash` to Vertex AI. If you only have API keys, pass your own `council_members`, for example with `gemini/gemini-2.5-flash`.
+The agent names do not always match the model: the Gemini councilor runs on `gemini-2.5-flash`. The default council calls four providers, so you need credentials for OpenAI, Anthropic, xAI, and Google. RouteHub routes the unprefixed `gemini-2.5-flash` to Google's Gemini API, the same as `gemini/gemini-2.5-flash`.
 
 ## Prompts
 

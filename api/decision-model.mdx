@@ -44,7 +44,7 @@ Use a decision model where you would otherwise call an LLM only to make a discre
 Use an [`Agent`](/api/agent) when you need generated text, tool calls or multi-step reasoning.
 
 <Note>
-`DecisionModel` is a standalone HTTP client built on `httpx`. It is not an `Agent`, it does not go through LiteLLM, and no swarm structure takes it as a parameter. You call it from your own code, before, between or after agent runs. See [Using it with agents and swarms](#using-it-with-agents-and-swarms).
+`DecisionModel` is a standalone HTTP client built on `httpx`. It is not an `Agent`, it does not go through RouteHub, and no swarm structure takes it as a parameter. You call it from your own code, before, between or after agent runs. See [Using it with agents and swarms](#using-it-with-agents-and-swarms).
 </Note>
 
 ## Import

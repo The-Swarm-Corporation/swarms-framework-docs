@@ -35,7 +35,7 @@ print(agent.last_result.steps)
 `run` returns the answer. `last_result` keeps the best path, the whole tree, and what the search cost.
 
 <Note>
-The model must support function calling. Every model output is a function call validated against a Pydantic schema, so the search never parses free-form prose. Any LiteLLM model string that supports function calling works, for example `model_name="claude-sonnet-4-6"`.
+The model must support function calling. Every model output is a function call validated against a Pydantic schema, so the search never parses free-form prose. Any RouteHub model string that supports function calling works, for example `model_name="claude-sonnet-4-6"`.
 </Note>
 
 <Note>
@@ -112,7 +112,7 @@ TreeOfThoughts(
 |-----------|------|---------|-------------|
 | `name` | `str` | `"Tree-of-Thoughts-Agent"` | Name used in logs, in the conversation, and as the prefix of every internal agent's name (`<name>-generator`, `<name>-evaluator`, `<name>-answerer`). |
 | `description` | `str` | `"Solves tasks by searching a tree of reasoning steps."` | Short description of the agent, for orchestrators. |
-| `model_name` | `str` | `"gpt-5.4"` | Any LiteLLM model string. The model must support function calling. |
+| `model_name` | `str` | `"gpt-5.4"` | Any RouteHub model string. The model must support function calling. |
 | `system_prompt` | `str` | `TREE_OF_THOUGHTS_SYSTEM_PROMPT` | System prompt for every model call. Replace it to give the search a domain persona. The step, evaluation and answer instructions are sent in each prompt, so they stay in force. |
 | `temperature` | `Optional[float]` | `None` | Sampling temperature for every call. `None` sends no temperature, so the provider's default applies. Some models, such as Claude Sonnet 5, reject the parameter. If you set it, keep it above 0 when sampling or averaging several evaluations. |
 | `agent_kwargs` | `Optional[Dict[str, Any]]` | `None` | Extra `Agent` arguments applied to every internal call, such as `max_tokens`, `llm_api_key` or `llm_base_url`. It cannot override `agent_name`, `system_prompt`, `model_name`, `temperature`, `max_loops`, `tools_list_dictionary`, `output_type`, `print_on` or `persistent_memory`. |

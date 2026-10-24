@@ -19,7 +19,7 @@ This tutorial walks through everything you need to build, configure, and scale a
 - **Built-in safeguards** — Fable 5 detects requests in narrow risk areas (cybersecurity, biology, chemistry, distillation) and quietly falls back to Opus 4.8 on those queries. Fallbacks happen in under 5% of sessions on average, and users are informed when they occur.
 
 <Tip>
-Fable 5 is automatically routed through LiteLLM by Swarms. As long as your `ANTHROPIC_API_KEY` is set, no other configuration is needed.
+Fable 5 is automatically routed through RouteHub by Swarms. As long as your `ANTHROPIC_API_KEY` is set, no other configuration is needed.
 </Tip>
 
 <Warning>
@@ -116,7 +116,7 @@ print(out)
 
 | Parameter | Value | Why |
 |---|---|---|
-| `model_name` | `"anthropic/claude-fable-5"` | The LiteLLM-prefixed name for Fable 5. |
+| `model_name` | `"anthropic/claude-fable-5"` | The provider-prefixed name for Fable 5. |
 | `max_loops` | `1` | One LLM call per `run()`. Bump to `"auto"` for autonomous loops. |
 | `reasoning_enabled` | `True` | Sends an explicit thinking block. Without it, `thinking_tokens` is ignored. |
 | `thinking_tokens` | `1024` | The thinking budget: a private scratchpad before responding. |
@@ -141,7 +141,7 @@ agent = Agent(
 
 - **`reasoning_enabled`** — turns on the explicit thinking block. `thinking_tokens` (default `1024`) only takes effect when this is `True`.
 - **`thinking_tokens`** — the maximum number of tokens the model can spend on internal reasoning before producing its final answer. Larger budgets help on multi-step problems (proofs, code refactors, deep research) at the cost of latency and tokens.
-- **`reasoning_effort`** — a coarse dial, forwarded on its own (LiteLLM maps it to a thinking budget). `"low"` is roughly chat-quality, `"medium"` suits analytical work, `"high"` is best for hard problems where you want the model to think before answering.
+- **`reasoning_effort`** — a coarse dial, forwarded on its own (RouteHub maps it to a thinking budget). `"low"` is roughly chat-quality, `"medium"` suits analytical work, `"high"` is best for hard problems where you want the model to think before answering.
 
 <Note>
 The autonomous loop's `think` tool is off by default (`think_tool=False`), so a model that already reasons natively doesn't spend an extra round-trip on it. Leave it off for Fable 5.

@@ -6,9 +6,9 @@ icon: "tree"
 
 ## Overview
 
-The `ForestSwarm` organizes agents into trees, where each agent specializes in processing specific tasks. Trees are collections of agents, each assigned based on their relevance to a task through keyword extraction and **litellm-based embedding similarity**.
+The `ForestSwarm` organizes agents into trees, where each agent specializes in processing specific tasks. Trees are collections of agents, each assigned based on their relevance to a task through keyword extraction and **embedding similarity**.
 
-The architecture allows for efficient task assignment by selecting a relevant agent from a set of trees. Tasks are processed with agents selected based on task relevance, calculated by the similarity of system prompts and task keywords using **litellm embeddings** and cosine similarity calculations.
+The architecture allows for efficient task assignment by selecting a relevant agent from a set of trees. Tasks are processed with agents selected based on task relevance, calculated by the similarity of system prompts and task keywords using **RouteHub embeddings** and cosine similarity calculations.
 
 <Note>
 `ForestSwarm`, `Tree` and `TreeAgent` are not exported from the top-level `swarms` package. Import them from `swarms.structs.tree_swarm`.
@@ -28,7 +28,7 @@ graph TD
     C --> I[ROTH IRA Specialist]
 
     subgraph Embedding Process
-        J[litellm Embeddings] --> K[Cosine Similarity]
+        J[RouteHub Embeddings] --> K[Cosine Similarity]
         K --> L[Agent Selection]
     end
 
@@ -86,7 +86,7 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float
 
 ## TreeAgent
 
-`TreeAgent` represents an individual agent responsible for handling a specific task. Agents are initialized with a **system prompt** and use **litellm embeddings** to dynamically determine their relevance to a given task.
+`TreeAgent` represents an individual agent responsible for handling a specific task. Agents are initialized with a **system prompt** and use **RouteHub embeddings** to dynamically determine their relevance to a given task.
 
 ### TreeAgent Attributes
 
@@ -111,7 +111,7 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float
 </ParamField>
 
 <ParamField path="system_prompt_embedding" type="Optional[List[float]]">
-  litellm-generated embedding of the system prompt for similarity-based task matching. `None` when there is no system prompt. If the embedding call fails, it falls back to a zero vector of length 1536
+  RouteHub-generated embedding of the system prompt for similarity-based task matching. `None` when there is no system prompt. If the embedding call fails, it falls back to a zero vector of length 1536
 </ParamField>
 
 <ParamField path="relevant_keywords" type="List[str]">
@@ -123,7 +123,7 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float
 </ParamField>
 
 <ParamField path="embedding_model_name" type="str" default="text-embedding-ada-002">
-  Name of the litellm embedding model
+  Name of the embedding model
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -161,7 +161,7 @@ def run_task(self, task: str, img: str = None, *args, **kwargs) -> Any
 
 ### is_relevant_for_task()
 
-Checks if the agent is relevant for the task using keyword matching and litellm embedding similarity.
+Checks if the agent is relevant for the task using keyword matching and embedding similarity.
 
 ```python
 def is_relevant_for_task(self, task: str, threshold: float = 0.7) -> bool
@@ -393,21 +393,21 @@ for i, result in enumerate(results):
 ## How It Works
 
 1. **Create Agents**: Agents are initialized with varying system prompts, representing different areas of expertise (e.g., financial planning, tax filing).
-2. **Generate Embeddings**: Each agent's system prompt is converted to litellm embeddings for semantic similarity calculations.
+2. **Generate Embeddings**: Each agent's system prompt is converted to embeddings through RouteHub for semantic similarity calculations.
 3. **Create Trees**: Agents are grouped into trees, with each tree representing a domain (e.g., "Financial Services Tree", "Investment & Trading Tree").
-4. **Calculate Distances**: litellm embeddings are used to calculate semantic distances between agents within each tree.
+4. **Calculate Distances**: RouteHub embeddings are used to calculate semantic distances between agents within each tree.
 5. **Run Task**: When a task is submitted, the system:
    - Walks the trees in order, and each tree's agents in sorted order
-   - Checks each agent for a keyword match first, and embeds the task with litellm only when no keyword matches
+   - Checks each agent for a keyword match first, and embeds the task through RouteHub only when no keyword matches
    - Picks the first agent whose keyword or embedding check passes
 6. **Task Execution**: The selected agent processes the task, and the result is returned and logged.
 7. **Batched Processing**: Multiple tasks can be processed using the `batched_run` method, sequentially by default or concurrently with `max_workers`.
 
 ## Key Features
 
-### litellm Integration
+### RouteHub Integration
 
-- **Embedding Generation**: Uses litellm's `embedding()` function for generating high-quality embeddings
+- **Embedding Generation**: Uses RouteHub's `embedding()` function for generating high-quality embeddings
 - **Model Flexibility**: Supports various embedding models (default: "text-embedding-ada-002")
 - **Error Handling**: A failed embedding call falls back to a zero vector instead of raising
 
@@ -471,8 +471,8 @@ Tree execution log model for tracking tree-level operations.
 The ForestSwarm Architecture leverages a hierarchical structure (forest) composed of individual trees, each containing agents specialized in specific domains. This design allows for:
 
 - **Modular and Scalable Organization**: By separating agents into trees, it is easy to expand or contract the system by adding or removing trees or agents.
-- **Task Specialization**: Each agent is specialized, which ensures that tasks are matched with the most appropriate agent based on litellm embedding similarity and expertise.
-- **Dynamic Matching**: The architecture uses both keyword-based and litellm embedding-based matching to assign tasks.
+- **Task Specialization**: Each agent is specialized, which ensures that tasks are matched with the most appropriate agent based on embedding similarity and expertise.
+- **Dynamic Matching**: The architecture uses both keyword-based and embedding-based matching to assign tasks.
 - **Logging and Accountability**: With `verbose=True`, each task execution is logged with the agent that handled it and the result produced.
 - **Batch Processing**: The architecture supports efficient batch processing of multiple tasks simultaneously.
 
