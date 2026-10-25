@@ -40,6 +40,7 @@ These changes are on master after 15.0.3 and are not in any published release ye
 
 ### Fixes
 
+* Telemetry sends finished spans every 500 ms during the run instead of holding them for five seconds, and opens its collector connection in the background at setup. A multi-agent run no longer pays for every span at exit: a four-second run's exit flush went from 441 ms to 44 ms. `SWARMS_OTEL_EXPORT_DELAY_MS` sets the interval.
 * `Agent.run()` raises `AgentLLMError` once every retry has failed, instead of returning an empty string. `fallback_models` are now tried, because the error reaches the fallback chain. See [Production best practices](/deployment/production-best-practices).
 * Selected skills reach the model on every call. They were appended to `system_prompt` after the LLM was built, so the model never saw them.
 * `run_stream` and `arun_stream` with `max_loops="auto"` enter the autonomous loop instead of calling the model without a plan.
