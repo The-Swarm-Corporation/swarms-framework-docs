@@ -81,7 +81,7 @@ The dominant cost when enabled is stringifying inputs and outputs for the span. 
 | `<Component>.init` | A component is constructed | `swarms.config` — the full constructor configuration as JSON |
 | `<Component>.run` | `run()` is called | inputs, output, status, identity |
 | `<Component>.<method>` | Other traced entry points: `SpreadSheetSwarm.run_from_config`, `AutoAgentBuilder.build_configs` | same as a run span |
-| `<Component>.error` and named error spans | An error is caught and *not* re-raised: `Agent.llm_error` (a failed LLM attempt inside the retry loop), `Agent.tool_error` (a tool batch that failed after `tool_retry_attempts`), `ConcurrentWorkflow.agent_error` (an agent failure swallowed under `on_error`) | error type, message, context such as `swarms.loop` or `swarms.agent` |
+| `<Component>.error` and named error spans | An error is caught and *not* re-raised: `Agent.llm_error` (a failed model call, recorded before it is re-raised as `AgentLLMError`), `Agent.tool_error` (a tool batch that failed after `tool_retry_attempts`), `ConcurrentWorkflow.agent_error` (an agent failure swallowed under `on_error`) | error type, message, context such as `swarms.loop` or `swarms.agent` |
 | `swarms.state` | `autosave=True` on an `Agent` or `AgentRearrange`, at the points where state is saved | `swarms.state` — the component's `to_dict()` snapshot as JSON |
 
 Every span carries identity attributes:

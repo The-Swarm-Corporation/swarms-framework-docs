@@ -201,7 +201,7 @@ The `Agent` class provides extensive configuration options to customize behavior
 </ParamField>
 
 <ParamField path="retry_attempts" type="int" default="3">
-  Number of retry attempts for failed LLM calls.
+  Retries litellm makes after a failed model call. Rate-limit errors back off exponentially; other API errors retry at once.
   
   ```python
   agent = Agent(retry_attempts=5)
@@ -456,7 +456,7 @@ asyncio.run(main())
 ### Reliability
 
 <ParamField path="fallback_models" type="List[str]" default="None">
-  Models to try in order. When set, the first entry is the primary model and `model_name` is not used. If a run fails after `retry_attempts`, the agent switches to the next model and runs the task again.
+  Models to try in order. When set, the first entry is the primary model and `model_name` is not used. When a model call fails after its `retry_attempts` retries, the agent switches to the next model and runs the task again. Every run starts from the first entry.
   
   ```python
   agent = Agent(

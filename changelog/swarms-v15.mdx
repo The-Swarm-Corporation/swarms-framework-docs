@@ -57,6 +57,8 @@ These changes are on master after 15.0.3 and are not in any published release ye
 * `Conversation` no longer creates `~/.swarms/conversations`, which crashed `Agent()` on a read-only home directory. It seeds the system prompt only when no history was restored.
 * `batch_agent_execution` works again and returns results in agent order. `aggregate()` defaults to a live model.
 * The CLI help states the real HeavySwarm model default, `gpt-5.4`.
+* `retry_attempts` reaches litellm with every request. It was a litellm module setting, which litellm clears after the first call it retries, so later calls in the same process were never retried.
+* `fallback_models` is tried only when the model call itself fails. An error in a tool, a stopping function or output formatting raises at once instead of re-running the task on the next model, and a run that fell back no longer leaves the agent on the fallback model: the next run starts from the primary again.
 
 ### Changed defaults and removals
 
@@ -66,6 +68,7 @@ These changes are on master after 15.0.3 and are not in any published release ye
 * `LLMCouncil.run()` dropped the `query` alias. Call `run(task)`, which rejects an empty task.
 * `swarms/utils/swarm_autosave.py` was deleted in favor of `WorkspaceManager`, and the unused `HierarchicalOrderRearrange` schema was removed.
 * Tool methods moved from `Agent` to `agent.tool_manager`, including `execute_tools`, `tool_execution_retry`, `setup_tools`, `setup_dynamic_tools`, `mcp_tool_handling` and `parse_llm_output`. `Agent` keeps `add_tool`, `add_tools`, `remove_tool`, `remove_tools` and `mcp_enabled`.
+* `Agent` no longer retries model calls itself. litellm retries each call `retry_attempts` times, so a dead endpoint costs `retry_attempts + 1` calls per model instead of up to `retry_attempts × (retry_attempts + 1)`. The fallback chain is a flat loop in `Agent.run`. Removed: `Agent.get_available_models()`, `get_current_model()`, `switch_to_next_model()`, `reset_model_index()`, `is_fallback_available()`, the `current_model_index` attribute, and `LLMManager.handle_fallback_execution()`. The model-catalogue function `swarms.get_available_models()` is unchanged. `fallback_model_name` still works and is folded into `fallback_models`. See [LLMManager](/api/llm-manager).
 
 ## New features
 
