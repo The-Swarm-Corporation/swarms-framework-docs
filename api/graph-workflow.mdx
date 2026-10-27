@@ -119,7 +119,7 @@ class GraphWorkflow:
 </ParamField>
 
 <ParamField path="max_parallel_nodes" type="Optional[int]" default="None">
-  Maximum number of nodes to execute concurrently within a layer. Defaults to `max(1, int(cpu_cores * 0.95))` when `None`. The run's thread pool is also capped at the size of the widest layer.
+  Maximum number of nodes to execute concurrently within a layer. When `None`, there is no cap and the run's thread pool is sized to the widest layer, so every node in a layer runs at once. When set, the pool is the smaller of this value and the widest layer.
 </ParamField>
 
 ## Methods
@@ -908,7 +908,7 @@ results = pipeline.run("Research AI trends in healthcare")
 ## Performance Characteristics
 
 - **Parallel Execution**: Independent agents in the same layer run concurrently
-- **Thread Pool**: One pool per run, sized to `max_parallel_nodes` (default ~95% of CPU cores) and capped at the widest layer
+- **Thread Pool**: One pool per run, sized to the widest layer, or to `max_parallel_nodes` when that is smaller
 - **Compilation**: Pre-computes execution plan, cached for multi-loop runs
 - **Memory**: Each agent maintains its own context
 - **Graph Backend**: Rustworkx is faster for large graphs (>100 nodes)

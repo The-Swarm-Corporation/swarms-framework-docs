@@ -233,7 +233,7 @@ workflow = GraphWorkflow.from_spec(
 </ParamField>
 
 <ParamField path="max_parallel_nodes" type="int">
-  Caps how many nodes execute concurrently within a layer. Defaults to `max(1, int(get_cpu_cores() * 0.95))` when not set.
+  Caps how many nodes execute concurrently within a layer. When not set, there is no cap: every node in the widest layer runs at once, since nodes are network-bound model calls. Set it to stay under a provider's rate limit.
 </ParamField>
 
 ## Methods

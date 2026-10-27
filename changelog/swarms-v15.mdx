@@ -66,6 +66,7 @@ These changes are on master after 15.0.3 and are not in any published release ye
 * `LLMCouncil.run()` dropped the `query` alias. Call `run(task)`, which rejects an empty task.
 * `swarms/utils/swarm_autosave.py` was deleted in favor of `WorkspaceManager`, and the unused `HierarchicalOrderRearrange` schema was removed.
 * Tool methods moved from `Agent` to `agent.tool_manager`, including `execute_tools`, `tool_execution_retry`, `setup_tools`, `setup_dynamic_tools`, `mcp_tool_handling` and `parse_llm_output`. `Agent` keeps `add_tool`, `add_tools`, `remove_tool`, `remove_tools` and `mcp_enabled`.
+* `GraphWorkflow` runs every node in a layer at once by default. Its thread pool used to default to 95% of CPU cores. Pass `max_parallel_nodes` to cap it.
 
 ## New features
 
