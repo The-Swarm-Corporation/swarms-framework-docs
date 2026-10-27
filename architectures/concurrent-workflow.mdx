@@ -19,7 +19,7 @@ The `ConcurrentWorkflow` runs multiple agents simultaneously on the same task, e
 - Real-time dashboard monitoring (optional)
 - Agent status tracking
 - Streaming callbacks support
-- Thread pool sized by agent count, capped at 32
+- Thread pool sized by agent count
 - Conversation history aggregation, with a fresh conversation for every run
 - Results recorded in agent order, one final answer per agent
 
@@ -133,7 +133,7 @@ results = workflow.run(
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
-  Thread pool size. Defaults to `len(agents)` capped at 32. Agent calls are network-bound, so this is sized by agent count rather than CPU cores.
+  Thread pool size. Defaults to `len(agents)`. Agent calls are network-bound, so this is sized by agent count rather than CPU cores.
 </ParamField>
 
 ## Methods
@@ -227,7 +227,7 @@ results = processing_team.batch_run(documents)
 
 ### Thread pool sizing
 
-The thread pool is sized by agent count, capped at 32 (`MAX_CONCURRENT_AGENTS`), since agent calls are network-bound rather than CPU-bound. Pass `max_workers` to override it, for example to stay under a provider's rate limit:
+The thread pool runs one thread per agent, since agent calls are network-bound rather than CPU-bound. There is no upper cap. For large rosters, pass `max_workers` to throttle concurrency, for example to stay under a provider's rate limit:
 
 ```python
 workflow = ConcurrentWorkflow(

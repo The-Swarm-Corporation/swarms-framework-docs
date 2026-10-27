@@ -62,6 +62,7 @@ These changes are on master after 15.0.3 and are not in any published release ye
 
 * `temperature` defaults to `None` (was `0.5`), so it is left out of the request and the provider's default applies. Current Claude models rejected the old default.
 * `dynamic_tools` defaults to `False` (was `True`). Pass `dynamic_tools=True` to keep tool schemas behind `tool_search`.
+* `ConcurrentWorkflow` and `GroupChat` run every agent at once by default. The 32-thread cap and the `MAX_CONCURRENT_AGENTS` constant were removed. Pass `max_workers` to `ConcurrentWorkflow` to throttle a large roster.
 * The `"xml"` output type and `swarms/utils/xml_utils.py` were removed. `output_type="xml"` now raises `ValueError`.
 * `LLMCouncil.run()` dropped the `query` alias. Call `run(task)`, which rejects an empty task.
 * `swarms/utils/swarm_autosave.py` was deleted in favor of `WorkspaceManager`, and the unused `HierarchicalOrderRearrange` schema was removed.
