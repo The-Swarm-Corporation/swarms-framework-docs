@@ -777,16 +777,6 @@ def load(
 ) -> None
 ```
 
-### save_to_yaml
-
-Save the agent to a YAML file.
-
-```python
-def save_to_yaml(
-    file_path: str
-) -> None
-```
-
 ### to_dict
 
 Convert every agent attribute (except `llm`) to a dictionary. Callables become `{"name", "doc"}` dicts, and values that cannot be serialized become `"<Non-serializable: TypeName>"`.
@@ -827,13 +817,12 @@ Convert agent configuration to TOML string. Extra arguments go to `toml.dumps`.
 def to_toml(*args, **kwargs) -> str
 ```
 
-### model_dump_json / model_dump_yaml
+### model_dump_json
 
-Save the agent configuration to `{agent_name}.json` or `{agent_name}.yaml` in the agent workspace, and return a message naming the path.
+Save the agent configuration to `{agent_name}.json` in the agent workspace, and return a message naming the path.
 
 ```python
 def model_dump_json() -> str
-def model_dump_yaml() -> str
 ```
 
 ### add_tool / add_tools / remove_tool / remove_tools
@@ -927,14 +916,6 @@ Display the agent's configuration dashboard.
 
 ```python
 def print_dashboard() -> None
-```
-
-### showcase_config
-
-Display the agent's configuration in a formatted table.
-
-```python
-def showcase_config() -> None
 ```
 
 ### update_system_prompt / update_max_loops / update_loop_interval
@@ -1065,15 +1046,11 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `reset()` | Drop short-term memory (leaves the agent unusable until rebuilt) | `agent.reset()` |
 | `save(file_path)` | Save agent state to JSON | `agent.save("state.json")` |
 | `load(file_path)` | Load agent state from JSON | `agent.load("/abs/path/state.json")` |
-| `save_to_yaml(file_path)` | Save `to_dict()` to a YAML file | `agent.save_to_yaml("config.yaml")` |
 | `to_dict()` | Convert to dictionary | `agent.to_dict()` |
 | `to_json(indent)` | Convert to JSON string | `agent.to_json()` |
 | `to_yaml(indent)` | Convert to YAML string | `agent.to_yaml()` |
 | `to_toml()` | Convert to TOML string | `agent.to_toml()` |
 | `model_dump_json()` | Save config to `{agent_name}.json` in the workspace | `agent.model_dump_json()` |
-| `model_dump_yaml()` | Save config to `{agent_name}.yaml` in the workspace | `agent.model_dump_yaml()` |
-| `get_saveable_state()` | The values `save` would write | `agent.get_saveable_state()` |
-| `get_preserved_instances()` | The class instances `load` keeps in place | `agent.get_preserved_instances()` |
 | `add_tool(tool)` | Append to `agent.tools` (not re-registered with the model) | `agent.add_tool(my_tool)` |
 | `add_tools(tools)` | Extend `agent.tools` (not re-registered with the model) | `agent.add_tools([t1, t2])` |
 | `remove_tool(tool)` | Remove from `agent.tools` | `agent.remove_tool(my_tool)` |
@@ -1105,7 +1082,6 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `list_output_types()` | Return the `OutputType` literal type | `typing.get_args(agent.list_output_types())` |
 | `pretty_print(response, loop_count)` | Print a response panel when `print_on` is set | `agent.pretty_print("Done", 1)` |
 | `print_dashboard()` | Display dashboard | `agent.print_dashboard()` |
-| `showcase_config()` | Display config table | `agent.showcase_config()` |
 | `stream_response(response, delay)` | Sleep `delay` seconds per word of `response`; prints nothing | `agent.stream_response("Response", 0.001)` |
 | `setup_config()` | Apply `dynamic_loops`, `multi_modal`, and `preset_stopping_token` (called by `__init__`) | `agent.setup_config()` |
 | `short_memory_init()` | Build the `Conversation` used as `short_memory` (called by `__init__`) | `agent.short_memory_init()` |
@@ -2170,7 +2146,6 @@ agent = Agent(agent_name="Settings-Agent", model_name="gpt-5.4", max_loops=1)
 print(agent.to_dict())
 print(agent.to_toml())
 print(agent.model_dump_json())
-print(agent.model_dump_yaml())
 
 agent.receive_message(agent_name="OtherAgent", task="message")
 agent.send_agent_message(agent_name="agent_name", message="message")
