@@ -146,7 +146,7 @@ Combine `--streaming-on --verbose` to watch the model think token by token.
 
 ## 5. Discover Models: `swarms models`
 
-Before you change `--model-name`, you need to know what to put there. The CLI ships a model-discovery command backed by the LiteLLM registry, so the list stays current as providers ship new models.
+Before you change `--model-name`, you need to know what to put there. The CLI ships a model-discovery command backed by RouteHub's model registry, so the list stays current as providers ship new models.
 
 List every model, grouped by provider:
 
@@ -172,7 +172,7 @@ Get detailed info about a specific model — context window, capabilities, prici
 swarms models --info claude-sonnet-4-6
 ```
 
-The output is a table with these rows, filled from LiteLLM's model map:
+The output is a table with these rows, filled from RouteHub's model catalogue:
 
 ```
 claude-sonnet-4-6
@@ -191,7 +191,7 @@ claude-sonnet-4-6
 └───────────────────┴─────────┘
 ```
 
-The values depend on the LiteLLM version you have installed; a model newer than your LiteLLM release may not be listed.
+The values come from OpenRouter's live model list, which RouteHub caches for five minutes, so a model OpenRouter does not carry may not be listed.
 
 If you mistype a model name, the `--info` command suggests the closest matches.
 

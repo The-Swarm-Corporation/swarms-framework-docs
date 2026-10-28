@@ -435,7 +435,7 @@ Worker messages appear in the order the workers finished. Each message also carr
 </Note>
 
 1. **Question Quality** — a stronger question-generation model produces tighter, less overlapping expert questions.
-2. **Worker Models** — balance cost vs quality for the worker pool; mixing providers via LiteLLM works out of the box.
+2. **Worker Models** — balance cost vs quality for the worker pool; mixing providers via RouteHub works out of the box.
 3. **Loop Count** — start at `max_loops=1`. Add more only when the synthesis clearly needs refinement.
 4. **Variant Choice** — `default` covers most tasks; reach for `heavy` only when you genuinely benefit from 15+ specialist perspectives.
 5. **Dashboard** — leave on for demos and debugging; off for production.

@@ -67,7 +67,7 @@ swarms onboarding --verbose
 - Python version (requires 3.10+)
 - Swarms version (the installed version; no update check)
 - API keys: passes if at least one of `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `COHERE_API_KEY` is set
-- Dependencies: tries to import `torch`, `transformers`, `litellm`, and `rich`. `torch` and `transformers` are not Swarms dependencies, so this row warns unless you installed them yourself
+- Dependencies: tries to import `routehub` and `rich`
 - Environment file: a non-empty `.env` in the current directory
 - Workspace directory: `WORKSPACE_DIR` is set and exists. Importing Swarms creates `./agent_workspace` and sets the variable when it is unset, so this check normally passes
 
@@ -439,7 +439,7 @@ swarms llm-council \
 
 ### models
 
-List, search, and inspect every LLM model available through LiteLLM. The catalog stays in sync as providers ship new models — no CLI update required.
+List, search, and inspect every LLM model available through RouteHub. The catalog stays in sync as providers ship new models — no CLI update required.
 
 **Usage:**
 ```bash
@@ -451,7 +451,7 @@ swarms models [--provider <name>] [--search <pattern>] [--info <model>]
 - `--search <pattern>` — Substring + fuzzy search by model name (up to 40 results)
 - `--info <model>` — Show context window, capabilities, and per-1M-token pricing
 
-The flags do not combine: `--info` takes precedence over `--search`, which takes precedence over `--provider`. The catalog is LiteLLM's model map, so it reflects the LiteLLM version you have installed.
+The flags do not combine: `--info` takes precedence over `--search`, which takes precedence over `--provider`. The catalog is RouteHub's model registry, read from OpenRouter's live model list and cached for five minutes.
 
 **Examples:**
 

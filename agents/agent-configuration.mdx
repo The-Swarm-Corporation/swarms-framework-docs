@@ -12,7 +12,7 @@ The `Agent` class provides extensive configuration options to customize behavior
 ### Model Configuration
 
 <ParamField path="model_name" type="str" default="gpt-5.4">
-  The name of the language model to use. Supports any model from OpenAI, Anthropic, Groq, Cohere, and more via LiteLLM.
+  The name of the language model to use. Supports any model from OpenAI, Anthropic, Groq, Cohere, and more via RouteHub.
   
   ```python
   agent = Agent(model_name="claude-sonnet-4-6")
@@ -52,7 +52,7 @@ The `Agent` class provides extensive configuration options to customize behavior
   Maximum number of tokens to generate in a single response.
 
   <Note>
-    When left unset (or set to `0` or less), `max_tokens` resolves during `__init__` to the model's own maximum output tokens from LiteLLM's model registry, falling back to `16000` only if that lookup fails. Pass `max_tokens` explicitly to override the resolved value. For OpenAI's o1/o3/o4 and gpt-5/gpt-6 families the value is sent as `max_completion_tokens`, the key those models accept.
+    When left unset (or set to `0` or less), `max_tokens` resolves during `__init__` to the model's own maximum output tokens from RouteHub's model registry, falling back to `16000` only if that lookup fails. Pass `max_tokens` explicitly to override the resolved value. The value is sent as `max_tokens`, and RouteHub renames it to `max_completion_tokens` for models that require that key, such as OpenAI's reasoning models.
   </Note>
 
   ```python
@@ -255,7 +255,7 @@ The `Agent` class provides extensive configuration options to customize behavior
 
 ### Streaming Methods
 
-In addition to the streaming flags above, the `Agent` exposes two streaming methods that yield tokens as a generator. They are real LLM streaming — tokens are forwarded the moment LiteLLM emits them, across **every loop** of the agent (tool-call turns, synthesis turns, autonomous plan/execute/summary phases).
+In addition to the streaming flags above, the `Agent` exposes two streaming methods that yield tokens as a generator. They are real LLM streaming — tokens are forwarded the moment RouteHub emits them, across **every loop** of the agent (tool-call turns, synthesis turns, autonomous plan/execute/summary phases).
 
 #### `agent.run_stream(task) -> Iterator[str]`
 

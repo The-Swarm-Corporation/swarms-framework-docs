@@ -398,7 +398,7 @@ zip_folders(
 
 ### count_tokens
 
-Count tokens in text using LiteLLM tokenizer.
+Count tokens in text using RouteHub's tokenizer.
 
 ```python
 from swarms import count_tokens
@@ -435,7 +435,7 @@ To see what a run actually cost, read the provider-reported counts on `agent.usa
 
 ### get_supported_models
 
-Get the list of models supported by LiteLLM.
+Get the list of models RouteHub knows.
 
 ```python
 from swarms.utils.litellm_tokenizer import get_supported_models
@@ -583,11 +583,11 @@ print(formatted)
 The `"xml"` output type and the `swarms.utils.xml_utils` module have been removed, so `"xml"` now raises `ValueError`. Use `"json"` or `"yaml"` for a serialized history. `"basemodel"` is still listed in `HistoryOutputType`, but `history_output_formatter` does not handle it and raises `ValueError`.
 </Warning>
 
-## LiteLLM Wrapper
+## LLM Client
 
 ### LiteLLM
 
-Wrapper class for LiteLLM with error handling. `Agent` builds one of these internally; use it directly for single LLM calls outside an agent.
+LLM client built on RouteHub, with error handling. `Agent` builds one of these internally; use it directly for single LLM calls outside an agent.
 
 ```python
 from swarms import LiteLLM
@@ -607,7 +607,7 @@ The constructor parameter is `model_name`, not `model` — because `LiteLLM.__in
 Commonly used constructor parameters:
 
 <ParamField path="model_name" type="str" default="gpt-5.4">
-  Any LiteLLM model string
+  Any RouteHub model string
 </ParamField>
 
 <ParamField path="system_prompt" type="str" default="None">
@@ -678,7 +678,7 @@ except NetworkConnectionError as e:
 
 ### LiteLLMException
 
-Exception class for LiteLLM wrapper errors. The wrapper re-raises it if it occurs, but nothing in the framework raises it today. Provider errors such as authentication or bad-request failures reach you as LiteLLM's own exception types.
+Exception class for LLM client errors. The client re-raises it if it occurs, but nothing in the framework raises it today. Provider errors such as authentication or bad-request failures reach you as RouteHub's own exception types from `routehub.exceptions`, which subclass the matching OpenAI SDK exceptions.
 
 ```python
 from swarms import LiteLLMException

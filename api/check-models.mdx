@@ -1,6 +1,6 @@
 ---
 title: 'Check Models'
-description: "List, count and look up the model names LiteLLM knows, plus OpenRouter's live catalogue"
+description: "List, count and look up the model names RouteHub knows, plus OpenRouter's live catalogue"
 icon: 'list-check'
 ---
 
@@ -8,7 +8,7 @@ icon: 'list-check'
 
 The `check_models` module tells you which model names you can pass to `Agent(model_name=...)`. It merges two sources:
 
-- **LiteLLM's model list**: `litellm.model_list` from the installed `litellm` package. It is read once, when the module is imported, and needs no network.
+- **RouteHub's model list**: `routehub.model_list`, built from OpenRouter's live model list and cached for five minutes. Membership tests also match provider aliases such as `claude-sonnet-4-6`.
 - **OpenRouter's live catalogue**: fetched from `https://openrouter.ai/api/v1/models`, with each id prefixed `openrouter/`. No API key is needed. The list is cached for five minutes.
 
 ```python
@@ -44,11 +44,11 @@ from swarms.structs.check_models import (
 
 ## How the list is built
 
-1. Start with LiteLLM's model list, de-duplicated, in LiteLLM's order.
-2. If `include_openrouter` is `True`, append each OpenRouter model, prefixed `openrouter/`. A model is skipped when LiteLLM already lists it, either with the `openrouter/` prefix or without it.
+1. Start with RouteHub's model list, de-duplicated, in RouteHub's order.
+2. If `include_openrouter` is `True`, append each OpenRouter model, prefixed `openrouter/`. A model is skipped when RouteHub already lists it, either with the `openrouter/` prefix or without it.
 3. If `exclude_keywords` is set, drop every model whose name contains one of them. The match is a case-insensitive substring match, and it applies to both sources.
 
-The LiteLLM list depends on your installed `litellm` version, so counts differ between environments.
+RouteHub's list comes from OpenRouter, so counts change as OpenRouter adds models, and the list is empty when OpenRouter cannot be reached.
 
 ## Functions
 
@@ -61,10 +61,10 @@ def get_available_models(
 ) -> Dict[str, Any]
 ```
 
-List every model name LiteLLM knows, plus OpenRouter's live catalogue.
+List every model name RouteHub knows, plus OpenRouter's live catalogue.
 
 <ParamField path="include_openrouter" type="bool" default="True">
-  Fetch OpenRouter's model list, or use the cached one, and include it. Set `False` to stay offline and use only LiteLLM's list.
+  Fetch OpenRouter's model list, or use the cached one, and include it. Set `False` to skip the `openrouter/` names and use only RouteHub's list.
 </ParamField>
 
 <ParamField path="exclude_keywords" type="Optional[Iterable[str]]" default="None">
@@ -82,7 +82,7 @@ List every model name LiteLLM knows, plus OpenRouter's live catalogue.
 </ResponseField>
 
 <ResponseField name="models" type="List[str]">
-  The model names: LiteLLM's first, then OpenRouter's.
+  The model names: RouteHub's first, then OpenRouter's.
 </ResponseField>
 
 This function never raises on a network failure. See [OpenRouter caching](#openrouter-caching).
@@ -109,7 +109,7 @@ Whether `model` appears in the list.
 **Returns** `True` if the name is listed.
 
 <Warning>
-The check is an exact, case-sensitive string match. LiteLLM can route some names it does not list, such as provider-prefixed spellings like `"openai/gpt-5.4"`, so `False` does not always mean an agent cannot call the model. Check the bare name too, or look the name up in `get_available_models()["models"]`.
+The check is an exact, case-sensitive string match. RouteHub can route some names it does not list, such as provider-prefixed spellings like `"openai/gpt-5.4"`, so `False` does not always mean an agent cannot call the model. Check the bare name too, or look the name up in `get_available_models()["models"]`.
 </Warning>
 
 ### model_count
@@ -140,7 +140,7 @@ The async form of `get_available_models()`. It takes the same arguments, returns
 def fetch_openrouter_models() -> List[str]
 ```
 
-Fetch OpenRouter's model list on its own. Each `id` in the response's `data` array becomes `openrouter/<id>`, for example `openrouter/moonshotai/kimi-k3`, and entries without an `id` are skipped. **Returns** the names, or an empty list if the request fails. The result is not merged with LiteLLM's list and ignores `exclude_keywords`.
+Fetch OpenRouter's model list on its own. Each `id` in the response's `data` array becomes `openrouter/<id>`, for example `openrouter/moonshotai/kimi-k3`, and entries without an `id` are skipped. **Returns** the names, or an empty list if the request fails. The result is not merged with RouteHub's list and ignores `exclude_keywords`.
 
 ### afetch_openrouter_models
 

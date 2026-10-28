@@ -6,7 +6,7 @@ icon: "route"
 
 ## Overview
 
-The `AgentRouter` is an embedding-based routing system that intelligently matches tasks to the most appropriate specialized agent using cosine similarity on embeddings. It uses LiteLLM's embedding models to generate vector representations of both agents and tasks, enabling semantic matching for optimal agent selection.
+The `AgentRouter` is an embedding-based routing system that intelligently matches tasks to the most appropriate specialized agent using cosine similarity on embeddings. It uses RouteHub's `embedding` function to generate vector representations of both agents and tasks, enabling semantic matching for optimal agent selection.
 
 When a task is submitted, the router:
 

@@ -10,7 +10,7 @@ The `AdvisorSwarm` implements the [advisor strategy](https://claude.com/blog/the
 
 The executor runs every turn. The advisor is on-demand -- consulted between executor turns when budget allows. Both agents read from and write to the same shared conversation context. The advisor never calls tools or produces user-facing output.
 
-This is provider-agnostic: any model supported by LiteLLM works for either role.
+This is provider-agnostic: any model supported by RouteHub works for either role.
 
 ```mermaid
 graph TD
@@ -48,7 +48,7 @@ pip install -U swarms
 | **On-Demand Advisor** | Advisor is consulted between turns, not in a fixed sequence |
 | **Shared Context** | Both agents read from and write to the same conversation |
 | **Budget Control** | `max_advisor_uses` caps advisor consultations per run |
-| **Provider-Agnostic** | Any LiteLLM-supported model works for either role |
+| **Provider-Agnostic** | Any RouteHub-supported model works for either role |
 | **Custom Agents** | Pass pre-configured agents with tools, MCP, or any Agent settings |
 
 ## Attributes
@@ -251,7 +251,7 @@ result = swarm.run("Simple task that doesn't need advisor guidance")
 
 ### Different Providers
 
-The swarm is provider-agnostic. Use any models LiteLLM supports:
+The swarm is provider-agnostic. Use any models RouteHub supports:
 
 ```python
 from swarms import AdvisorSwarm

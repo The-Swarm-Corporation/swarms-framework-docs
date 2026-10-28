@@ -19,7 +19,7 @@ The catalog roughly clusters into a handful of recurring patterns:
 
 A few practical notes that apply across the whole catalog:
 
-1. **Most structures take a `List[Agent]`.** Mix providers freely — a GPT agent and a Claude agent and a local Llama agent can sit side by side in `MixtureOfAgents` or `GroupChat`. The structure doesn't care; LiteLLM normalizes the calls.
+1. **Most structures take a `List[Agent]`.** Mix providers freely — a GPT agent and a Claude agent and a local Llama agent can sit side by side in `MixtureOfAgents` or `GroupChat`. The structure doesn't care; RouteHub normalizes the calls.
 2. **`SwarmRouter` is the meta-entry point.** If you're not sure which structure to commit to, instantiate one and change `swarm_type=` later — you don't have to rewrite the orchestration code.
 3. **Topology choice is a lever, not a guess.** Sequential is cheapest and most deterministic. Concurrent is fastest end-to-end, but the agents never see each other's work. Hierarchical pays an extra LLM call to the director in exchange for cleaner delegation. Ensembles pay N× tokens for variance reduction. Pick the trade-off, not the buzzword.
 
@@ -98,8 +98,8 @@ These are exported from `swarms` alongside the structures above. They serve, sch
 | [`CronJob`](/api/cron-job) | Turns any callable, including an `Agent`, into a scheduled job. | [cron_job.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/cron_job.py) |
 | [`DecisionModel`](/api/decision-model) | HTTP client for decision models (TypeSafe Jev, Cloudflare Clef) that answer typed questions about a state. | [decision_model.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/decision_model.py) |
 | [`get_decision_models`](/api/decision-model) | Lists decision model names from every provider. | [decision_model.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/decision_model.py) |
-| [`get_available_models`](/api/check-models) | Lists every model name LiteLLM knows, plus OpenRouter's live catalogue (cached for five minutes). | [check_models.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/check_models.py) |
-| [`is_model_available`](/api/check-models) | Whether a model name is one LiteLLM or OpenRouter can serve. | [check_models.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/check_models.py) |
+| [`get_available_models`](/api/check-models) | Lists every model name RouteHub knows, plus OpenRouter's live catalogue (cached for five minutes). | [check_models.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/check_models.py) |
+| [`is_model_available`](/api/check-models) | Whether a model name is one RouteHub or OpenRouter can serve. | [check_models.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/check_models.py) |
 | [`model_count`](/api/check-models) | How many model names `get_available_models` would return. | [check_models.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/check_models.py) |
 | [`Conversation`](/api/conversation) | Message history shared by agents and structures, with export and token counting. | [conversation.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/conversation.py) |
 | [`AgentLoader`](/api/agent-loader) | Creates `Agent` objects from Markdown, YAML, and CSV files. | [agent_loader.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/agent_loader.py) |
@@ -129,7 +129,7 @@ These are exported from `swarms` alongside the structures above. They serve, sch
 | [`ReasoningAgentRouter`](/agents/reasoning-agent-router) | Picks a reasoning agent by `swarm_type`; `agent_types` lists the valid values. | [reasoning_agent_router.py](https://github.com/kyegomez/swarms/blob/master/swarms/agents/reasoning_agent_router.py) |
 | [`ContextCompressor`](/agents/agent-memory) | Summarizes an agent's short-term memory when it nears the context limit in `max_loops="auto"` runs. | [context_compressor.py](https://github.com/kyegomez/swarms/blob/master/swarms/agents/context_compressor.py) |
 | [`SkillsManager`](/api/skills-manager) | Loads Agent Skills from disk and renders them for the model. | [skills_manager.py](https://github.com/kyegomez/swarms/blob/master/swarms/agents/skills_manager.py) |
-| [`LLMManager`](/api/llm-manager) | Model selection, LiteLLM construction, invocation, and fallback for an agent. | [llm_manager.py](https://github.com/kyegomez/swarms/blob/master/swarms/agents/llm_manager.py) |
+| [`LLMManager`](/api/llm-manager) | Model selection, LLM client construction, invocation, and fallback for an agent. | [llm_manager.py](https://github.com/kyegomez/swarms/blob/master/swarms/agents/llm_manager.py) |
 | [`AgentMarketplaceHandler`](/api/agent-marketplace-handler) | Fetches prompts from, and publishes prompts to, the Swarms Marketplace. | [agent_marketplace_handler.py](https://github.com/kyegomez/swarms/blob/master/swarms/agents/agent_marketplace_handler.py) |
 | [`create_agents_from_yaml`](/api/agent-loader) | Creates agents, and optionally a `SwarmRouter`, from a YAML file or string. | [create_agents_from_yaml.py](https://github.com/kyegomez/swarms/blob/master/swarms/agents/create_agents_from_yaml.py) |
 

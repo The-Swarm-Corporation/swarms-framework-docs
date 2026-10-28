@@ -303,7 +303,7 @@ agent._context_compressor = ContextCompressor(
 )
 ```
 
-`summarizer_model` defaults to the agent's own `model_name`. The summary call goes straight to LiteLLM, so it is not counted in `agent.usage`.
+`summarizer_model` defaults to the agent's own `model_name`. The summary call goes straight to RouteHub, so it is not counted in `agent.usage`.
 
 ## Access memory in code
 

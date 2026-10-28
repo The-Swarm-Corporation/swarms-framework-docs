@@ -190,12 +190,12 @@ Swarms uses the following naming pattern for models:
 - **Provider prefix**: `"groq/llama-3.3-70b-versatile"`, `"ollama/llama3.2"`
 - **OpenRouter**: `"openrouter/provider/model-name"`
 
-Model names are passed straight to LiteLLM, so any name LiteLLM can route works. To check a name before you build an agent, use `is_model_available`:
+Model names are passed straight to RouteHub, so any name RouteHub can route works. To check a name before you build an agent, use `is_model_available`:
 
 ```python
 from swarms import is_model_available
 
-print(is_model_available("claude-sonnet-4-6", include_openrouter=False))  # LiteLLM's catalogue only, no network call
+print(is_model_available("claude-sonnet-4-6", include_openrouter=False))  # RouteHub's catalogue only, without the openrouter/ names
 print(is_model_available("openrouter/moonshotai/kimi-k3"))                # also fetches OpenRouter's live catalogue
 ```
 
