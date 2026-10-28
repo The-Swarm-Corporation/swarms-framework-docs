@@ -270,6 +270,7 @@ def export_and_count_categories(self) -> Dict[str, int]
 |--------|-------------|
 | `query(index)` | Return the message dict at `index`, or `None` if out of range |
 | `delete(index)` | Remove the message at `index`; raises `IndexError` if out of range |
+| `truncate(index)` | Remove every message from `index` onward and return them as a list; an index at or past the end removes nothing and returns `[]` |
 | `update(index, role, content)` | Replace the role/content of the message at `index`; logs a warning if out of range |
 | `add_multiple(roles, contents)` / `add_multiple_messages(roles, contents)` | Add several messages in order through `add()`; raises `ValueError` if the lists differ in length |
 | `batch_add(messages)` | Append message dicts as-is: no timestamps, IDs, token counts, `MEMORY.md` writes, or autosave |
