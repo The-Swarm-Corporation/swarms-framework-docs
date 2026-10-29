@@ -186,6 +186,7 @@
               "api/self-moa-seq",
               "api/advisor-swarm",
               "api/planner-worker-swarm",
+              "api/phased-fan-out-workflow",
               "api/orchestration-methods",
               "api/debate-with-judge",
               "api/majority-voting",
