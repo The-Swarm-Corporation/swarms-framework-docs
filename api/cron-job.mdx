@@ -266,12 +266,23 @@ cron.stop()
 - `CronJobExecutionError`: If the job fails to stop properly
 
 **Behavior:**
-- Sets `is_running` to False
-- Waits up to 5 seconds for thread to terminate
-- Clears the schedule
-- Logs warning if thread doesn't terminate gracefully
+- Clears the schedule, then sets `is_running` to False. Tasks scheduled after the clear are kept, for example the task of a `run()` that restarts the job right away
+- Called from another thread, waits up to 5 seconds for the scheduler thread to terminate, and logs a warning if it doesn't
+- Called on the scheduler thread, which is where the job's agent and callback run, returns without waiting: the execution in progress finishes (with `batched_run`, so do the other tasks due at the same moment) and no later execution starts. `run()` can return before that agent or callback has finished
 
-Safe to call from another thread while `run()` is blocking, and safe to call on a job that is already stopped. A clean `stop()` makes `run()` return normally.
+Safe to call from another thread while `run()` is blocking, from the job's own agent or callback, and on a job that is already stopped. A clean `stop()` makes `run()` return normally.
+
+To end a job from inside it, for example after a set number of successful executions, call `stop()` from the callback:
+
+```python
+def stop_after_three(output, task, metadata):
+    if metadata["execution_count"] == 3:
+        cron.stop()
+    return output
+
+cron = CronJob(agent=agent, interval="10minutes", callback=stop_after_three)
+cron.run("Check the queue")  # returns after the third successful execution
+```
 
 ### set_callback
 
