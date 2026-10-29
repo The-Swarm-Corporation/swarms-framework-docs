@@ -200,6 +200,7 @@ def gather(
     self,
     strategy: str = "wait_all",
     timeout: Optional[float] = None,
+    task_ids: Optional[List[str]] = None,
 ) -> List[Any]
 ```
 
@@ -211,7 +212,13 @@ def gather(
   Max seconds to wait. `None` blocks indefinitely.
 </ParamField>
 
+<ParamField path="task_ids" type="List[str] | None" default="None">
+  Only wait for and return these tasks, by the IDs `spawn()` returned. `None` uses every task in the registry, including tasks an earlier `gather()` already returned. An empty list returns `[]` without waiting. The order of the IDs does not set the order of the results, and a repeated ID counts once.
+</ParamField>
+
 **Returns:** Mixed list. Tasks that had already finished when you called `gather()` come first, in spawn order: a completed task contributes its result and a failed task its exception. Tasks that finish during the wait follow in no guaranteed order, contributing their return value or the exception their future raised (a cancelled task contributes a `CancelledError`). Tasks still running when `timeout` expires, or when `"wait_first"` returns, are left out.
+
+**Raises:** `KeyError` if an ID in `task_ids` is not in the registry. It is raised before anything is waited on.
 
 <Note>
 `gather()` results are not keyed by task. When you need to know which result belongs to which task, keep the IDs from `spawn()` and read `get_task(task_id).result` (or `get_results()`) after `gather()` returns. A task spawned with `fail_fast=False` that fails during the wait contributes `None` here; its exception is on `get_task(task_id).error`.
@@ -259,7 +266,7 @@ task_ids = [
     for agent, topic in zip(researchers, topics)
 ]
 
-registry.gather(strategy="wait_all")
+registry.gather(strategy="wait_all", task_ids=task_ids)
 for tid in task_ids:
     task = registry.get_task(tid)
     print(task.status, str(task.result)[:80])
@@ -329,7 +336,7 @@ root_id = registry.spawn(root, "Plan a research project", depth=0)
 An `Agent` running with `max_loops="auto"` delegates through the same registry. Its sub-agent tools work like this:
 
 - `create_sub_agent` builds each sub-agent with the parent's `model_name` and `tools`. A sub-agent with tools gets `max_loops=5` so it can call a tool and read the result; one without tools gets `max_loops=1`. The budget stays finite even when the parent runs with `max_loops="auto"`.
-- `assign_task` spawns each assignment on a `SubagentRegistry` stored on the parent agent (created on first use with `max_depth=3`), with `fail_fast=False` and no retries. By default it waits for every task and returns one result or error per assignment.
+- `assign_task` spawns each assignment on a `SubagentRegistry` stored on the parent agent (created on first use with `max_depth=3`), with `fail_fast=False` and no retries. By default it waits for the tasks that call dispatched, not for tasks started earlier in the background, and returns one result or error per assignment.
 - `check_sub_agent_status` and `cancel_sub_agent_tasks` read and cancel tasks on that registry.
 
 See [Autonomous mode](/agents/autonomous-mode) for the full tool set.
