@@ -66,14 +66,6 @@ from swarms import Conversation
   Role used for the `rules` and `custom_rules_prompt` messages.
 </ParamField>
 
-<ParamField path="save_as_yaml_on" type="bool" default="False">
-  Stored but not read. The save format comes from `export_method`.
-</ParamField>
-
-<ParamField path="save_as_json_bool" type="bool" default="False">
-  Stored but not read. The save format comes from `export_method`.
-</ParamField>
-
 <ParamField path="token_count" type="bool" default="False">
   Count each message's tokens and store the result under its `token_count` key.
 </ParamField>
@@ -273,7 +265,6 @@ def export_and_count_categories(self) -> Dict[str, int]
 | `update(index, role, content)` | Replace the role/content of the message at `index`; logs a warning if out of range |
 | `add_multiple(roles, contents)` / `add_multiple_messages(roles, contents)` | Add several messages in order through `add()`; raises `ValueError` if the lists differ in length |
 | `batch_add(messages)` | Append message dicts as-is: no timestamps, IDs, token counts, `MEMORY.md` writes, or autosave |
-| `add_tool_output_to_agent(role, tool_output)` | Add a tool result through `add()` |
 | `get_str()` | Alias for `return_history_as_string()` |
 | `dynamic_auto_chunking()` | The rendered history trimmed from the front to fit `context_length` tokens |
 | `get_cache_stats()` | Returns `{hits, misses, cached_tokens, hit_rate}` for the history-string cache (only meaningful when `cache_enabled=True`) |
@@ -290,10 +281,7 @@ def export_and_count_categories(self) -> Dict[str, int]
 | `save_as_json(force=True)` / `save_as_yaml(force=True)` | Write the history to `save_filepath`; with `force=False` and `autosave` off, only log a warning |
 | `load_from_json(filename)` / `load_from_yaml(filename)` | Format-specific forms of `load()` |
 | `export_conversation(filename)` | For a `.json` name, calls `save_as_json()`, which writes to `save_filepath`, not `filename`; otherwise writes `role: content` lines to `filename` |
-| `import_conversation(filename)` | Alias for `load_from_json(filename)` |
-| `search_keyword_in_conversation(keyword)` | Like `search()`, for string contents only |
 | `count_messages_by_role()` | Dict of message counts keyed by role. `system`, `user`, `assistant`, and `function` are always present; roles are case-sensitive |
-| `get_visible_messages(agent, turn)` | Messages whose `turn` is below `turn` and whose `visible_to` is `"all"` or includes the agent's name; requires those keys on every message |
 | `clear()` | Empty the conversation history |
 | `Conversation.load_conversation(name, conversations_dir=None, load_filepath=None)` | Classmethod. With `load_filepath`, loads that file. Otherwise looks for `<name>.json`, `.yaml`, `.yml`, then `<name>` in the directory, and returns a conversation built with `name` if none is found |
 | `Conversation.list_conversations(conversations_dir=None)` | Classmethod: `{id, name, created_at, filepath}` for each JSON file with a `metadata` wrapper, newest first |
@@ -302,6 +290,26 @@ def export_and_count_categories(self) -> Dict[str, int]
 <Warning>
 `list_conversations()` only lists files that carry a `{"metadata": {"id", "name", "created_at"}}` wrapper. `export()` writes a bare message list, so conversations saved by this class are skipped. Use `list_cached_conversations()` to find them.
 </Warning>
+
+### Migrate removed helpers
+
+Call the underlying methods directly:
+
+- Replace `import_conversation(filename)` with `load_from_json(filename)`.
+- Replace `add_tool_output_to_agent(role, output)` with `add(role, output)`.
+- Replace `search_keyword_in_conversation(keyword)` with `search(keyword)`.
+  `search()` converts non-string contents to strings before matching.
+
+`get_visible_messages(agent, turn)` has been removed. It expected top-level
+`turn` and `visible_to` keys that normal messages do not contain. If your
+application adds its own visibility data, filter those messages in your
+application.
+
+The unread constructor flags `save_as_yaml_on` and `save_as_json_bool` have
+also been removed. Passing either by keyword now raises `TypeError`. Choose
+`export_method="json"` or `export_method="yaml"` for exports. Pass
+`token_count` and later constructor options by keyword because their
+positional indexes have moved.
 
 ## Output formats
 

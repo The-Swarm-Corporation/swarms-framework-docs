@@ -106,7 +106,7 @@ print(agent.short_memory.get_final_message_content())
 
 # Search past turns
 hits = agent.short_memory.search("GCP")
-matches = agent.short_memory.search_keyword_in_conversation("latency")
+matches = agent.short_memory.search("latency")
 ```
 
 ## Export and reload
