@@ -656,11 +656,40 @@ Commonly used constructor parameters:
 
 | Method or attribute | Description |
 |---|---|
-| `run(task=None, audio=None, img=None, imgs=None, messages=None, *args, **kwargs)` | Make one completion call. Keyword arguments override constructor settings for that call |
+| `run(task=None, img=None, imgs=None, messages=None, *args, **kwargs)` | Make one completion call. Keyword arguments override constructor settings for that call |
 | `arun(...)` | Async version of `run`, with the same arguments |
 | `__call__(task, *args, **kwargs)` | Same as `run(task, ...)` |
 | `batched_run(tasks, batch_size=10)` | Run several prompts concurrently and return responses in input order |
 | `usage` | Running totals: `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens`, `total_tokens` |
+
+### Migrate removed LiteLLM inputs and helpers
+
+The wrapper no longer accepts an audio filename through a named `audio`
+parameter. That parameter was ignored by both `run` and `arun`. For audio
+input, construct the provider's message body explicitly and pass it through
+`messages`; the wrapper does not load or encode audio files for you.
+
+Pass images as keywords, such as `llm.run("Describe this", img="photo.jpg")`.
+The second positional argument is now `img`. Constructor positions after
+`ssl_verify` also moved when the unread `max_completion_tokens` and `audio`
+parameters were removed; pass those options by keyword when migrating.
+
+Use `max_tokens` for the portable output-token limit. Provider-specific
+`max_completion_tokens` and `audio` keywords now follow the existing
+`**kwargs` override path instead of being consumed and ignored. For example,
+an `audio` output-configuration dictionary is forwarded to the provider.
+`audio="clip.wav"` is forwarded the same way: OpenAI reads `audio` as an
+output setting that must be a dictionary, so it will likely reject the
+request, while LiteLLM drops the keyword for providers such as Anthropic and
+Gemini, so the filename is still ignored there. This forwarding applies
+to constructor settings, sync calls, and async calls. Set provider
+`modalities` through keyword arguments rather than assigning `llm.modalities`.
+
+The uncalled `audio_processing()` and `reasoning_check()` methods have been
+removed, along with the orphaned `get_media_base64()` utility. Use Python's
+`base64` module to encode audio bytes when preparing an explicit message.
+Configure reasoning through `reasoning_effort`, `reasoning_enabled`, and
+`thinking_tokens`; the existing request builder still applies those options.
 
 ### NetworkConnectionError
 
