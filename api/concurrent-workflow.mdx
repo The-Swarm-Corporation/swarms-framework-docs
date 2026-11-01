@@ -37,7 +37,6 @@ class ConcurrentWorkflow:
         auto_save: bool = True,
         output_type: str = "dict-all-except-first",
         max_loops: int = 1,
-        auto_generate_prompts: bool = False,
         show_dashboard: bool = False,
         autosave: bool = True,
         verbose: bool = False,
@@ -74,12 +73,6 @@ class ConcurrentWorkflow:
 
 <ParamField path="max_loops" type="int" default="1">
   Maximum number of execution loops (currently unused in concurrent execution)
-</ParamField>
-
-<ParamField path="auto_generate_prompts" type="bool" default="False">
-  Accepted and stored, but never read — setting it has no effect. The
-  `activate_auto_prompt_engineering()` method that once consumed it no longer
-  exists.
 </ParamField>
 
 <ParamField path="show_dashboard" type="bool" default="False">
@@ -217,7 +210,6 @@ Display real-time dashboard showing agent status and outputs.
 | `max_workers` | Optional[int] | Thread pool size override |
 | `workspace` | WorkspaceManager | Owns the autosave directory |
 | `swarm_workspace_dir` | Optional[str] | Autosave directory; `None` when `autosave=False` |
-| `metadata_output_path` | str | Metadata file name built from the workflow name and ID; nothing is written to it |
 
 ## Usage Examples
 
