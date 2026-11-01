@@ -206,7 +206,7 @@ Compression can run when all of these are true:
 - The history's token count, from `short_memory.count_history_tokens()`, is greater than or equal to `threshold * context_length`
 - The agent is at a check point: the top of each loop iteration with an integer `max_loops`, or the top of each subtask iteration with `max_loops="auto"`
 
-The default threshold is `0.9`, so compression starts when the active prompt reaches about 90% of the context window.
+The default threshold is `0.9`, so compression starts when the active prompt reaches about 90% of the context window. Embedded attachment data does not count toward the token usage, because the rendered history shows it as `<data>`.
 
 <Note>
   `context_length` accepts `None` as its constructor default, but the agent never runs with an actual `None` value: during `__init__`, an unset `context_length` is resolved to a model-derived value (or `16000` as a fallback), so compression always has a real denominator to measure against. Pass `context_length` explicitly only to override that resolved default — for example, to match a larger context window.
