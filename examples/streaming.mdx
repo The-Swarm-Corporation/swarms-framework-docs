@@ -312,51 +312,42 @@ response = agent.run(
 
 ### 1. WebSocket Integration
 
+`agent.run()` is synchronous, so run it in a worker thread and hand each token back to the event loop:
+
 ```python
 import asyncio
+import json
+
 import websockets
 from swarms import Agent
 
-class WebSocketStreamer:
-    def __init__(self, websocket):
-        self.websocket = websocket
-    
-    async def send_token(self, token: str):
-        """Send token to WebSocket client"""
-        await self.websocket.send(json.dumps({
-            "type": "token",
-            "content": token,
-        }))
 
-async def handle_client(websocket, path):
-    # Create agent
-    agent = Agent(
-        model_name="gpt-5.4",
-        streaming_on=True,
-        print_on=False,
-    )
-    
-    # Create streamer
-    streamer = WebSocketStreamer(websocket)
-    
-    # Stream to WebSocket
-    response = agent.run(
-        task="Generate analysis",
-        streaming_callback=lambda token: asyncio.create_task(
-            streamer.send_token(token)
-        ),
-    )
-    
-    # Send completion
-    await websocket.send(json.dumps({
-        "type": "complete",
-        "content": response,
-    }))
+async def handle_client(websocket):
+    loop = asyncio.get_running_loop()
+    agent = Agent(model_name="gpt-5.4", print_on=False)
 
-# Start WebSocket server
-start_server = websockets.serve(handle_client, "localhost", 8765)
-asyncio.get_event_loop().run_until_complete(start_server)
+    def on_token(token: str) -> None:
+        # Called from the agent's thread; schedule the send on the event loop.
+        asyncio.run_coroutine_threadsafe(
+            websocket.send(json.dumps({"type": "token", "content": token})),
+            loop,
+        )
+
+    response = await asyncio.to_thread(
+        agent.run, "Generate analysis", streaming_callback=on_token
+    )
+    await websocket.send(json.dumps({"type": "complete", "content": response}))
+
+
+async def main():
+    async with websockets.serve(handle_client, "localhost", 8765):
+        await asyncio.Future()  # Serve until the process is stopped
+
+
+asyncio.run(main())
 ```
+
+A `streaming_callback` streams on its own, so `streaming_on` is not needed.
 
 ### 2. Progress Bar Integration
 

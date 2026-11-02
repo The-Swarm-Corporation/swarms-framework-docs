@@ -47,11 +47,18 @@ Swarms passes model names straight through to LiteLLM. Use the canonical Anthrop
 
 | Model | `model_name` | Best for |
 |---|---|---|
-| Claude Fable 5 | `"anthropic/claude-fable-5"` | Frontier reasoning, long autonomous tasks |
-| Claude Opus 4.8 | `"claude-opus-4-8"` | Deep analysis, complex problem-solving |
-| Claude Sonnet 4.6 | `"claude-sonnet-4-6"` | General-purpose work, tool use |
-| Claude Haiku 4.5 | `"claude-haiku-4-5"` | High-volume tasks, low latency |
-| Claude 3.5 Sonnet | `"claude-3-5-sonnet-20240620"` | Legacy production workloads |
+| Claude Fable 5.1 | `"claude-fable-5-1"` | Hardest reasoning, long agentic coding, large refactors |
+| Claude Opus 5.5 | `"claude-opus-5-5"` | Deep analysis, long tasks, code |
+| Claude Sonnet 5.5 | `"claude-sonnet-5-5"` | Everyday coding, analysis, agentic tool use |
+| Claude Haiku 5.5 | `"claude-haiku-5-5"` | Classification, summarization, high-volume tasks |
+| Claude Fable 5 | `"anthropic/claude-fable-5"` | Previous Fable model |
+| Claude Opus 4.8 | `"claude-opus-4-8"` | Previous generation |
+| Claude Sonnet 4.6 | `"claude-sonnet-4-6"` | Previous generation |
+| Claude Haiku 4.5 | `"claude-haiku-4-5"` | Previous generation |
+
+<Note>
+Current Claude models reject a sent `temperature`, and Opus 5.5 rejects every sampling parameter. Swarms leaves `temperature` and `top_p` unset by default, so don't set them for these models.
+</Note>
 
 <Tip>
 For Fable 5 specifically, see the dedicated [Claude Fable 5 tutorial](/examples/model-providers/claude-fable-5) — it documents the model's specific constraints (no tools, no `temperature`).

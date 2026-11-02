@@ -11,7 +11,7 @@ icon: "database"
 ```python
 from swarms import Agent, ConcurrentWorkflow, SqliteChannel
 
-channel = SqliteChannel("runs/channels.db", name="ev-batteries")
+channel = SqliteChannel("channels.db", name="ev-batteries")
 
 workflow = ConcurrentWorkflow(
     agents=[
@@ -41,7 +41,7 @@ SqliteChannel(path: str, name: str = "default")
 ```
 
 <ParamField path="path" type="str" required>
-  The database file, created if missing. `":memory:"` keeps the conversation in this process only.
+  The database file, created if missing. Its directory must already exist: unlike `FileChannel`, `SqliteChannel` does not create parent directories, and a missing one raises `sqlite3.OperationalError: unable to open database file`. `":memory:"` keeps the conversation in this process only.
 </ParamField>
 
 <ParamField path="name" type="str" default="default">
@@ -128,7 +128,7 @@ def list_conversations(cls, path: str) -> List[str]
 **Returns:** Conversation names, in the order their first message arrived. Returns `[]` if the file has no `messages` table.
 
 ```python
-SqliteChannel.list_conversations("runs/channels.db")
+SqliteChannel.list_conversations("channels.db")
 # ['ev-batteries', 'q3-review', 'support-1042']
 ```
 
@@ -155,7 +155,7 @@ def close(self) -> None
 ```python
 from swarms import Agent, SqliteChannel
 
-DB = "runs/support.db"
+DB = "support.db"
 
 for ticket in ["support-1042", "support-1043"]:
     agent = Agent(
@@ -174,7 +174,7 @@ print(SqliteChannel.list_conversations(DB))
 ```python
 import sqlite3
 
-rows = sqlite3.connect("runs/channels.db").execute(
+rows = sqlite3.connect("channels.db").execute(
     "SELECT agent_name, COUNT(*) FROM messages WHERE channel = ? GROUP BY agent_name",
     ("ev-batteries",),
 )

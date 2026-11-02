@@ -89,6 +89,18 @@ response = routehub.completion(
 print(response.choices[0].message.content)  # pong
 ```
 
+## Use RouteHub with Swarms
+
+Install Swarms with its `fast` extra and every agent makes its model calls through RouteHub instead of LiteLLM, with no code changes:
+
+```bash
+pip install -U "swarms[fast]"
+```
+
+The extra requires RouteHub 0.2.0 or newer, with RouteHub's own `fast` extra, and also installs rustworkx for `GraphWorkflow(backend="rustworkx")`. Swarms picks RouteHub whenever it is installed. Set `SWARMS_LLM_BACKEND=litellm` to force LiteLLM, or `routehub` to require RouteHub. See [Installation](/installation) and [Environment setup](/environment-setup).
+
+On RouteHub, local OpenAI-compatible servers need `/v1` in the agent's `llm_base_url`, for example `http://localhost:11434/v1` for Ollama.
+
 ## Next steps
 
 <CardGroup cols={2}>

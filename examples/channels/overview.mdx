@@ -55,7 +55,7 @@ workflow = SequentialWorkflow(
         Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1),
     ],
     max_loops=1,
-    channel=SqliteChannel("runs/channels.db", name="ev-batteries"),
+    channel=SqliteChannel("channels.db", name="ev-batteries"),
 )
 workflow.run("Report on the EV battery market.")
 ```

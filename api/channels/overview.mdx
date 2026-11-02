@@ -159,7 +159,7 @@ Because each run reads the channel first, a channel that already holds a convers
 from swarms import SqliteChannel
 from swarms.structs.conversation import Conversation
 
-channel = SqliteChannel("runs/chat.db", name="support-1042")
+channel = SqliteChannel("chat.db", name="support-1042")
 
 conversation = Conversation(channel=channel)  # Loads what support-1042 already holds
 conversation.add("Customer", "My invoice is wrong.")  # Stored and posted

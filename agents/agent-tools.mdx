@@ -371,8 +371,8 @@ agent = Agent(
   ```
 </ParamField>
 
-<ParamField path="tool_call_summary" type="bool" default="True">
-  After each tool batch, make one extra model call to summarize the output and add the summary to the conversation. Set to `False` to skip the extra call. A plain-text reply that calls no tool is never summarized.
+<ParamField path="tool_call_summary" type="bool" default="False">
+  After each tool batch, make one extra model call to summarize the output and add the summary to the conversation. Off by default; set to `True` to turn the extra call on. A plain-text reply that calls no tool is never summarized.
 </ParamField>
 
 When every attempt fails, the agent does not retry the model call. It records `Tool execution failed after N attempts: ...` in the conversation and moves to the next loop, so the model can read the error and try something else. Provider retries (`retry_attempts`) are not used up by a broken tool. See [ToolManager](/api/tool-manager#retries-and-failures) for the details.

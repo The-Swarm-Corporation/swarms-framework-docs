@@ -36,8 +36,8 @@ pip install -U swarms
   The model to use for the boss agent
 </ParamField>
 
-<ParamField path="temperature" type="float" default="0.1">
-  The temperature for the boss agent's model
+<ParamField path="temperature" type="Optional[float]" default="None">
+  The temperature for the boss agent's model. Unset sends none, which current Claude models require
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default="dict">
@@ -126,19 +126,19 @@ from swarms import Agent, MultiAgentRouter
 agents = [
     Agent(
         agent_name="ResearchAgent",
-        description="Specializes in researching topics and providing detailed, factual information",
+        agent_description="Specializes in researching topics and providing detailed, factual information",
         system_prompt="You are a research specialist. Provide detailed, well-researched information.",
         model_name="gpt-5.4",
     ),
     Agent(
         agent_name="CodeExpertAgent",
-        description="Expert in writing, reviewing, and explaining code",
+        agent_description="Expert in writing, reviewing, and explaining code",
         system_prompt="You are a coding expert. Write and review code with best practices.",
         model_name="gpt-5.4",
     ),
     Agent(
         agent_name="WritingAgent",
-        description="Skilled in creative and technical writing",
+        agent_description="Skilled in creative and technical writing",
         system_prompt="You are a writing specialist. Create and edit content.",
         model_name="gpt-5.4",
     ),

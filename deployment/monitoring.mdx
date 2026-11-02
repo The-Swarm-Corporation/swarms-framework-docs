@@ -40,9 +40,9 @@ print(agent.usage["total_tokens"] - before)  # tokens spent on this request
 
 ### Loguru Integration
 
-Swarms uses [Loguru](https://github.com/Delgan/loguru). On import it adds a console sink and two file sinks under `{WORKSPACE_DIR}/logs/`: a combined `swarms_YYYY-MM-DD.log`, rotated daily and kept for 10 days, and one `<module>.log` per Swarms module that logs, such as `agent.log` or `graph_workflow.log`. Errors from standard-library loggers go to `{WORKSPACE_DIR}/error.txt`.
+Swarms uses [Loguru](https://github.com/Delgan/loguru). On import it adds a console sink. With `SWARMS_LOG_FILES=True` it also adds two file sinks under `{WORKSPACE_DIR}/logs/`: a combined `swarms_YYYY-MM-DD.log`, rotated daily and kept for 10 days, and one `<module>.log` per Swarms module that logs, such as `agent.log` or `graph_workflow.log`. By default no log files are written.
 
-To replace the defaults with your own configuration, remove the existing sinks first. This also removes the workspace log files:
+To replace the defaults with your own configuration, remove the existing sinks first. This also removes the workspace log files, if `SWARMS_LOG_FILES` turned them on:
 
 ```python
 from loguru import logger

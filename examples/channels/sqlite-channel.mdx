@@ -13,7 +13,7 @@ Reference: [SqliteChannel](/api/channels/sqlite-channel).
 ```python
 from swarms import Agent, SqliteChannel
 
-channel = SqliteChannel("runs/channels.db", name="ev-batteries")
+channel = SqliteChannel("channels.db", name="ev-batteries")
 
 researcher = Agent(
     agent_name="Researcher",
@@ -58,7 +58,7 @@ agents = [
     for angle in angles
 ]
 
-channel = SqliteChannel("runs/channels.db", name="q3-ev-outlook")
+channel = SqliteChannel("channels.db", name="q3-ev-outlook")
 
 workflow = ConcurrentWorkflow(agents=agents, channel=channel)
 workflow.run("What will shape the EV battery market over the next five years?")
@@ -86,7 +86,7 @@ aggregator = Agent(
     max_loops=1,
 )
 
-channel = SqliteChannel("runs/investments.db", name="nvda-2026-11")
+channel = SqliteChannel("investments.db", name="nvda-2026-11")
 
 moa = MixtureOfAgents(
     agents=workers,
@@ -109,7 +109,7 @@ Give each conversation its own `name`. Channels with different names share the f
 ```python
 from swarms import Agent, SqliteChannel
 
-DB = "runs/support.db"
+DB = "support.db"
 
 tickets = {
     "support-1042": "My invoice shows the wrong plan.",
@@ -154,12 +154,12 @@ voters = [
     for i in range(1, 4)
 ]
 
-channel = SqliteChannel("runs/votes.db", name="rust-vs-go")
+channel = SqliteChannel("votes.db", name="rust-vs-go")
 
 vote = MajorityVoting(agents=voters, channel=channel)
 vote.run("Should our new ingestion service be written in Rust or Go? Answer with one word, then one sentence.")
 
-rows = sqlite3.connect("runs/votes.db").execute(
+rows = sqlite3.connect("votes.db").execute(
     "SELECT agent_name, substr(content, 1, 60) FROM messages WHERE channel = ? ORDER BY id",
     ("rust-vs-go",),
 )
