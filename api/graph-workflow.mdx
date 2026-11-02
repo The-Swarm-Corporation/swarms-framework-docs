@@ -58,6 +58,7 @@ class GraphWorkflow:
         on_node_complete: Optional[Callable[[str, Any], None]] = None,
         max_parallel_nodes: Optional[int] = None,
         channel: Optional[CommsChannel] = None,
+        on_error: str = "continue",
     )
 ```
 
@@ -125,6 +126,10 @@ class GraphWorkflow:
 
 <ParamField path="channel" type="CommsChannel" default="None">
   A comms channel the workflow posts each node's output to as its layer completes. The task itself is not posted. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
+<ParamField path="on_error" type="str" default="continue">
+  What a failed node does to the run. `"continue"`, the default: its `[ERROR]` string becomes its output and downstream nodes still run. `"skip_descendants"` keeps the `[ERROR]` output but skips every node that depends on it, while independent branches run; skipped nodes stay out of the conversation, don't fire `on_node_complete` and map to `None` in the results. `"raise"` starts no new nodes, lets running nodes finish, then raises the node's original exception. Any other value raises `ValueError` at construction. Under `"skip_descendants"` and `"raise"`, a layer with a failed or skipped node isn't checkpointed, so rerunning the task retries it. Each workflow applies its own policy: a subgraph's failure only reaches the outer workflow if the subgraph uses `"raise"`.
 </ParamField>
 
 ## Methods
@@ -221,7 +226,7 @@ Create a parallel processing chain (full mesh connection).
 
 Run the workflow graph with optimized parallel agent execution. The graph is compiled first if it is not already. Each node receives the task plus one chat turn per predecessor output. When `max_loops > 1`, end-point outputs from each loop are fed as additional context into the next loop so agents can iteratively refine their results.
 
-A node that raises does not stop the run: its output becomes an `"[ERROR] Agent <name> failed: ..."` string, and downstream nodes still run. A subgraph node's output is the inner workflow's results joined as `[node_id]: output` blocks.
+By default, a node that raises does not stop the run: its output becomes an `"[ERROR] Agent <name> failed: ..."` string, and downstream nodes still run. Set [`on_error`](#parameters) to change this. A subgraph node's output is the inner workflow's results joined as `[node_id]: output` blocks.
 
 An agent node's result is whatever that agent's `run()` returns, so it follows the agent's own `output_type`. The `Agent` default, `"str-all-except-first"`, is the agent's transcript rather than its last answer; give the agents `output_type="final"` to collect answers only. Every node's output is also appended to `workflow.conversation`, which is not reset between runs.
 

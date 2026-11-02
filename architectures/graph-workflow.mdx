@@ -236,6 +236,10 @@ workflow = GraphWorkflow.from_spec(
   Caps how many nodes execute concurrently within a layer. When not set, there is no cap: every node in the widest layer runs at once, since nodes are network-bound model calls. Set it to stay under a provider's rate limit.
 </ParamField>
 
+<ParamField path="on_error" type="str" default="continue">
+  What a failed node does to the run. `"continue"`, the default: its `[ERROR]` string becomes its output and downstream nodes still run. `"skip_descendants"` keeps the `[ERROR]` output but skips every node that depends on it, while independent branches run; skipped nodes stay out of the conversation, don't fire `on_node_complete` and map to `None` in the results. `"raise"` starts no new nodes, lets running nodes finish, then raises the node's original exception. Any other value raises `ValueError` at construction. Under `"skip_descendants"` and `"raise"`, a layer with a failed or skipped node isn't checkpointed, so rerunning the task retries it. Each workflow applies its own policy: a subgraph's failure only reaches the outer workflow if the subgraph uses `"raise"`.
+</ParamField>
+
 ## Methods
 
 ### add_node()
@@ -325,7 +329,7 @@ result = workflow.run(
 
 Return shape: with `max_loops == 1` (the default), `run()` returns a `Dict[str, Any]` with every node's output, keyed by node ID. With `max_loops > 1`, it returns per-loop results keyed as `{node_id}_loop_{loop_number}` plus the final loop's results under the plain `node_id` keys.
 
-A node that raises does not stop the run. Its output becomes an `"[ERROR] Agent <name> failed: ..."` string and downstream nodes still execute.
+By default, a node that raises does not stop the run. Its output becomes an `"[ERROR] Agent <name> failed: ..."` string and downstream nodes still execute. Set [`on_error`](#key-parameters) to change this.
 
 ## Nested workflows
 
