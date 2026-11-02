@@ -27,11 +27,11 @@ pip install -U swarms
 ## Attributes
 
 <ParamField path="name" type="str" default="SelfMoASeq">
-  Human-readable name for this orchestrator. Accepted but not currently stored on the instance
+  Human-readable name for this orchestrator
 </ParamField>
 
 <ParamField path="description" type="str" default="Self-MoA-Seq: Sequential Self-Mixture of Agents">
-  Short description of the orchestrator. Accepted but not currently stored on the instance
+  Short description of the orchestrator
 </ParamField>
 
 <ParamField path="model_name" type="str" default="gpt-5.4">
@@ -96,10 +96,6 @@ pip install -U swarms
 
 <ParamField path="retry_max_delay" type="float" default="60.0">
   Stored and range-validated (must be at least `retry_delay`) at construction time. Not currently applied to retry any operation.
-</ParamField>
-
-<ParamField path="additional_kwargs" type="Dict[str, Any]" default="{}">
-  Accepted by the constructor but not currently stored or forwarded to the proposer/aggregator agents.
 </ParamField>
 
 <ParamField path="top_p" type="Optional[float]" default="None">
