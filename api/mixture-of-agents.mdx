@@ -209,6 +209,49 @@ Runs the mixture of agents for a batch of tasks concurrently using ThreadPoolExe
   `run_concurrently()` runs every task on this one instance. Each `run()` replaces `self.conversation` and reuses the same worker agents, so concurrent tasks can overwrite each other's state. Use `run_batched()`, or one `MixtureOfAgents` per task, when results must stay isolated.
 </Warning>
 
+---
+
+### `arun()`
+
+```python
+async def arun(
+    self,
+    task: str,
+    img: Optional[str] = None,
+    max_concurrency: Optional[int] = None,
+) -> str
+```
+
+Runs the same workflow as `run()` on the event loop, awaiting each agent's `arun`. Layers run in order, since each needs the previous layer's answers.
+
+**Parameters:**
+
+<ParamField path="task" type="str" required>
+  The task to be executed by the mixture of agents
+</ParamField>
+
+<ParamField path="img" type="str" optional>
+  Optional image input forwarded to the worker agents
+</ParamField>
+
+<ParamField path="max_concurrency" type="int" optional>
+  Most workers running at once in a layer. Defaults to `max_workers`, or every worker when that is unset. A value below 1 raises `ValueError`
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="result" type="str">
+  The conversation formatted by `output_type`, as `run()` returns it
+</ResponseField>
+
+<Note>
+  A failing worker's error is recorded as that worker's answer, in the form `"Error: {e}"`, and the other workers carry on. A failing aggregator raises.
+</Note>
+
+<Note>
+  `Agent.arun` still calls `Agent.run` through `asyncio.to_thread`, so each running worker holds a thread from asyncio's default executor.
+</Note>
+
 ## Usage Example
 
 ```python
