@@ -48,7 +48,7 @@ graph TD
 | `memory_capacity` | `int` | `6` | Long-term memory capacity for `ReflexionAgent` |
 | `eval` | `bool` | `False` | Enable evaluation mode for self-consistency |
 | `random_models_on` | `bool` | `False` | Enable random model selection for diversity |
-| `majority_voting_prompt` | `Optional[str]` | `None` | Passed to `SelfConsistencyAgent`, which stores it but does not use it in aggregation |
+| `majority_voting_prompt` | `Optional[str]` | `None` | Passed to `SelfConsistencyAgent`, which aggregates with it. `None` uses the default majority voting prompt |
 | `reasoning_model_name` | `Optional[str]` | `None` | Model for the reasoning agent in ReasoningDuo. `None` uses `model_name` |
 
 The constructor raises `ReasoningAgentInitializationError` when `max_loops` is `0`, or when `model_name` or `swarm_type` is empty. An unknown `swarm_type` is not caught until `run()`, which then raises `ReasoningAgentExecutorError`. Both exceptions live in `swarms.agents.reasoning_agent_router`.
