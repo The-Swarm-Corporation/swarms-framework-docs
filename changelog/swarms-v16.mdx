@@ -1,0 +1,193 @@
+---
+title: Swarms v16
+description: Changelog for Swarms v16 "Overclock", the 16.0.0 release
+---
+
+**Release:** 16.0.0 on 2026-10-03
+
+## Overview
+
+Swarms v16, code-named Overclock, covers the 44 commits merged after 15.0.3, from 2026-09-16 through 2026-10-02. For everything up to 15.0.3, see the [v15 changelog](/changelog/swarms-v15). The 16.0.1 to 16.0.4 point releases carry work from the next cycle and are covered with v17.
+
+The release adds two new kinds of reasoning. `DecisionModel` asks typed questions about a state and returns calibrated probabilities instead of text, and `TreeOfThoughts` searches a tree of partial solutions instead of answering in one pass.
+
+The rest of v16 is about runs you can trust and runs that are fast. A model call that fails every retry now raises `AgentLLMError` instead of returning an empty string, so `fallback_models` finally run. More structures start each task from an empty conversation, and several record answers in agent order rather than transcripts in completion order. Tool handling moved out of `agent.py` into a `ToolManager`, and the context compressor stopped tokenizing the whole history on every loop, which makes a tool turn about 5x faster on a short conversation and about 65x faster at 300 messages. Three defaults changed: `temperature`, `dynamic_tools` and `MCPConnection.transport`.
+
+## Highlights
+
+* **DecisionModel**: choice, score and yes/no (`noul`) questions about a state in one request, with typed answers and calibrated probabilities, on TypeSafe's Jev or Cloudflare's Clef.
+* **TreeOfThoughts**: a reasoning agent that generates, scores, prunes and searches candidate steps, then answers from the best path.
+* **Failures raise**: `Agent.run()` raises `AgentLLMError` after every retry fails, and tries each of `fallback_models` first.
+* **ToolManager**: tool handling lives in `agent.tool_manager`. `agent.py` shrank from 4,566 to 3,227 lines.
+* **Skills reach the model**: selected skills are sent with every LLM call, and `skills_dir` accepts a list of directories.
+* **Autonomous loop budgets**: `max_planning_attempts`, `max_subtask_iterations` and `max_subtask_loops` are constructor parameters.
+* **More usage totals**: `GraphWorkflow.usage` and `HeavySwarm.usage`.
+
+## New features
+
+### DecisionModel
+
+A decision model does not generate text. It answers typed questions about a state: a choice picks one option, a score rates against ordered levels, and a `noul` gives the probability that a statement is true. Every question is answered in one request, and each answer must come back with its own type. The default model is TypeSafe's `jev-latest`, which reads `TYPESAFE_API_KEY`. Any name starting with `clef` (`"clef"` or `"clef-flash"`) uses Cloudflare Workers AI and reads `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_AUTH_TOKEN`, with the same response shape.
+
+```python
+from swarms import DecisionModel, get_decision_models
+
+model = DecisionModel()  # jev-latest
+
+result = model.run(
+    state={"message": "Checkout has been failing for every customer for an hour."},
+    questions={
+        "team": {
+            "type": "choice",
+            "instructions": "Which team should handle this?",
+            "criteria": {"billing": "Payments", "technical": "Outages and errors"},
+        },
+        "urgent": {"type": "noul", "instructions": "Is this urgent?"},
+    },
+)
+
+answers = result["answers"]
+print(answers["team"]["choice"], answers["team"]["confidence"], answers["urgent"]["noul"])
+print(get_decision_models())
+```
+
+There are single-question helpers (`choice`, `score`, `noul`), an async `arun`, and retries with backoff on rate limits and overloads. `get_decision_models()` merges the built-in names with each provider's live list when its credentials are set. Other providers plug in through `base_url`, `endpoint` and `api_key_env`, or by overriding `build_headers`, `build_payload` and `parse_response`. Nine examples ship in `examples/decision_models/`. Current versions also report prices, summed usage and per-request cost. See [DecisionModel](/api/decision-model).
+
+### TreeOfThoughts
+
+`TreeOfThoughts` implements Tree of Thoughts (Yao et al., 2023). Each step generates `num_thoughts` candidates, scores each from 0 to 1 and prunes those below `value_threshold`, then searches breadth-first with a beam of `breadth` or depth-first with backtracking. `max_expansions` caps the cost. Every model output is a function call validated against a Pydantic schema, and every call runs on a fresh, stateless agent, so evaluations never share context. `thought_description` and `evaluation_criteria` adapt the search to a domain.
+
+```python
+from swarms import TreeOfThoughts
+
+agent = TreeOfThoughts(
+    model_name="gpt-5.4",
+    search_algorithm="bfs",          # or "dfs"
+    generation_strategy="propose",   # or "sample"
+    evaluation_strategy="value",     # or "vote"
+    thought_description="One arithmetic operation on two remaining numbers.",
+    evaluation_criteria="Can the numbers left still reach exactly 24?",
+)
+answer = agent.run("Use 4, 9, 10 and 13, each once, with + - * / to make 24.")
+
+print(agent.last_result.steps)  # the best path; last_result.root is the whole tree
+print(agent.usage)
+```
+
+See [Tree of Thoughts](/agents/tree-of-thoughts) and the [Fermi estimation](/examples/tree-of-thoughts/fermi-estimation) example.
+
+### ToolManager
+
+All tool handling moved out of `agent.py` into `ToolManager` (`swarms/agents/tool_manager.py`), built once per agent as `agent.tool_manager`: schema setup, parsing, execution and retries, MCP, handoffs, dynamic tools and display. The 140-line tool dispatch block in `_run` is one call now. In the same change, `ContextCompressor.should_compress` skips tokenizing the history while its UTF-8 size is under the budget, since a token is never shorter than one byte. That was about 78% of a tool turn: it went from about 770 µs to 162 µs on a short conversation, and from 18.2 ms to 0.28 ms at 300 messages.
+
+```python
+from swarms import Agent
+
+agent = Agent(agent_name="Assistant", model_name="gpt-5.4", max_loops=1)
+
+# v15: agent.execute_tools(...)
+# v16: agent.tool_manager.execute_tools(...)
+print(type(agent.tool_manager).__name__)
+```
+
+`add_tool`, `add_tools`, `remove_tool`, `remove_tools` and `mcp_enabled` stay on `Agent`. See [ToolManager](/api/tool-manager) and the moved names under [Removals and breaking changes](#removals-and-breaking-changes).
+
+### Autonomous loop budgets
+
+The three iteration budgets of `max_loops="auto"` were module constants. They are now `Agent` parameters with the same defaults, so an agent that sets none behaves as before. `max_subtask_iterations` bounds the execution-phase LLM calls, each of which re-sends the transcript, so it is the number that caps a run's cost. Each must be at least 1, or construction raises `ValueError`.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops="auto",
+    max_planning_attempts=3,     # default 5
+    max_subtask_iterations=40,   # default 100
+    max_subtask_loops=10,        # default 20
+)
+```
+
+See [Autonomous mode](/agents/autonomous-mode).
+
+### Skills from several directories
+
+`skills_dir` accepts one path or a list, read in order. Passing a list used to raise `TypeError`. When two directories hold a skill with the same name, the later one wins and a warning is logged.
+
+```python
+from swarms import Agent
+
+agent = Agent(
+    agent_name="Analyst",
+    model_name="gpt-5.4",
+    skills_dir=["./team_skills", "./my_skills"],
+)
+```
+
+Skills also reach the model now. They used to be appended to `system_prompt` after the LLM client had copied it, so requests went out without them while each run added another copy. The skills selected for a task are sent with every call: as a system message when the call has messages, in front of the task otherwise. `system_prompt` is left unchanged. See [Agent skills](/agents/agent-skills) and [SkillsManager](/api/skills-manager).
+
+### More usage totals
+
+`GraphWorkflow.usage` sums `Agent.usage` over every node and subgraph, counting an agent that backs several nodes once. `HeavySwarm.usage` also counts question generation, which runs on a bare `LiteLLM` and was counted nowhere before.
+
+```python
+from swarms import Agent, GraphWorkflow
+
+researcher = Agent(agent_name="Researcher", model_name="gpt-5.4", max_loops=1)
+writer = Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1)
+
+wf = GraphWorkflow()
+wf.add_node(researcher)
+wf.add_node(writer)
+wf.add_edge("Researcher", "Writer")
+wf.run("Write a one-page brief on HBM supply constraints.")
+print(wf.usage)
+```
+
+See [Token usage](/agents/token-usage).
+
+## Improvements
+
+**Failures that surface.** When an LLM call failed every retry, `Agent.run()` returned an empty string or the prompt, and because nothing was raised, `fallback_models` were never tried. It now raises `AgentLLMError`, chained to the provider's error, after trying each fallback model. The turns the failed attempt added to memory are removed first, so a fallback model does not see the task twice. Current versions leave the retries to LiteLLM and walk `fallback_models` in one loop, with the same error. See [Production best practices](/deployment/production-best-practices).
+
+**Per-task isolation.** `GroupChat`'s async run, `ReasoningDuo` and `ConcurrentWorkflow.run` start each run from an empty conversation. A second run used to carry the first task as context, and with `output_type="dict"` two `ConcurrentWorkflow.run` calls returned the same live list. `MajorityVoting.run_concurrently` runs each task on its own shallow clone, so the consensus agent no longer sees another task's votes. `SelfConsistencyAgent` gives each sample its own agent, so samples are independent draws again. `Agent.run(n=...)` passes images, callbacks and messages to every sample. (In v17 `n` is no longer a parameter: passed by keyword it is forwarded to the model request.)
+
+**Answers, in order.** `ConcurrentWorkflow` returns results in agent order whether or not the dashboard is on, and records each agent's answer rather than its transcript. `RoundRobinSwarm` records answers too: two agents over two loops had recorded turns growing from 335 to 3,612 characters. `aggregate()` sends worker turns as typed turns and records answers. `batch_agent_execution` works again and returns results in agent order, with `None` in the slot of a failed agent.
+
+**Tool execution.** An agent with tools that answers in plain text records nothing extra. It used to record `"[] (empty list)"` and make a second LLM call to summarize it, so `output_type="final"` returned the summary. A failing tool batch runs once per `tool_retry_attempts` attempt instead of twice, so tools that already succeeded in the batch no longer run again.
+
+**Streaming and interactive mode.** `run_stream` and `arun_stream` route through `run()`, so `max_loops="auto"` plans and uses its tools instead of looping with no bound. With `interactive=True`, the follow-up input is sent to the model, not only recorded.
+
+**Conversation storage.** `Conversation` no longer creates `~/.swarms/conversations` on every construction, which crashed `Agent()` on a read-only home directory. Saves go to `./conversations/` as before. A restored conversation seeds its system prompt and rules only when no history was loaded, so autosaved conversations stop gaining a system message per restart.
+
+**Examples.** New examples cover decision models (a `HierarchicalSwarm` director, a resume screening funnel, a calibrated ensemble judge, `GroupChat` guardrails), Tree of Thoughts tasks with verified answers, a runnable `aggregate()`, and AgentSH, a self-organized multi-agent harness with no orchestrator in `examples/guides/agentsh_implementation/`.
+
+## Bug fixes
+
+* `router(task)` and `router.batch_run(tasks)` work for every swarm type. They always passed `imgs=None`, which only `SequentialWorkflow` accepted.
+* `CouncilAsAJudge` runs its judges on `model_name` when `judge_agent_model_name` is unset. They had run on `gpt-5.4` whatever you configured. See [CouncilAsAJudge](/api/council-as-judge).
+* `ModelRouter` parses the routing reply into `ModelOutput` before reading it. It raised `AttributeError` on every task. See [ModelRouter](/api/model-router).
+* A failed `CronJob` run waits for the next interval instead of re-running on every one-second tick, and idle ticks no longer reset the error count. See [CronJob](/api/cron-job).
+* `MCPDeployer` enforces `timeout` for blocking targets. A late result used to come back as a success; the client now gets a tool error. See [MCPDeployer](/api/mcp-deployer).
+* `aggregate()` defaults to a live model, `claude-sonnet-5`. The old default, `claude-3-sonnet-20240229`, is retired, so every call without an explicit model failed.
+* `LLMCouncil.run` rejects an empty or whitespace-only task with `ValueError`. Its prompt builders moved to `swarms/prompts/llm_council_prompts.py`, and imports from the struct module still work.
+* The `heavy-swarm` CLI help states the real model default, `gpt-5.4`, instead of `gpt-4o-mini`.
+
+## Removals and breaking changes
+
+* A model call that fails every retry raises `AgentLLMError` instead of returning (`from swarms import AgentLLMError`). Catch it, or set `fallback_models`.
+* `temperature` defaults to `None` (was `0.5`) on `Agent` and `LiteLLM`, and is sent only when set, so the provider's default applies. Current Claude models rejected the old default with HTTP 400. If you relied on 0.5, set it.
+* `dynamic_tools` defaults to `False` (was `True`). Pass `dynamic_tools=True` to keep tool schemas behind `tool_search`.
+* `MCPConnection.transport` defaults to `"auto"` (was `"streamable_http"`), so an `/sse` URL connects over SSE. An explicit transport still wins. See [MCP integration](/integrations/mcp).
+* Tool methods moved from `Agent` to `agent.tool_manager`: `execute_tools`, `tool_execution_retry`, `parse_llm_output`, `setup_tools`, `setup_dynamic_tools`, `handle_tool_schema_ops`, `tool_handling`, `mcp_tool_handling`, `add_mcp_tools_to_memory`, `defer_tool_schemas`, `defer_mcp_tools` and `temp_llm_instance_for_tool_summary`. Private helpers lost their underscore, for example `_handoff_task_tool` is now `handoff_task_tool`. Tests that patched `swarms.structs.agent.LiteLLM` for the tool summary should patch `swarms.agents.tool_manager.LiteLLM`.
+* `Agent.get_all_selected_tools` and the module-level `parse_done_token` in `swarms.structs.agent` were removed. Use `get_autonomous_loop_tool_names()` from `swarms.structs.autonomous_loop_utils`.
+* Agents with `skills_dir` now send their skills to the model, which can change answers and token counts.
+* `CouncilAsAJudge` defaults `random_model_name` to `False` (was `True`), so it no longer swaps your model for a random one.
+* The `"xml"` output type and `swarms/utils/xml_utils.py` were removed. `output_type="xml"` raises `ValueError`. Use `"json"` or `"yaml"`.
+* `LLMCouncil.run()` dropped the `query` alias. Call `run(task)`. See [LLMCouncil](/api/llm-council).
+* `swarms/utils/swarm_autosave.py` was deleted in favor of `WorkspaceManager`, and the unused `HierarchicalOrderRearrange` schema was removed from `hs_schemas.py`.
+
+## Conclusion
+
+v16 makes runs measurable, honest and fast. `DecisionModel` and `TreeOfThoughts` add typed decisions and searched answers, failed model calls raise instead of passing as results, more structures start each task clean, and a tool turn costs a fraction of what it did. When you upgrade from v15, catch `AgentLLMError` or configure `fallback_models`, set `temperature` and `dynamic_tools` explicitly if you relied on the old defaults, call moved tool methods through `agent.tool_manager`, and replace `output_type="xml"` and `LLMCouncil.run(query=...)`. Install it with `pip install -U swarms`. See [Installation](/installation).

@@ -192,8 +192,10 @@ base_tool = BaseTool(
 # Convert tools to OpenAI schema
 schema = base_tool.convert_tool_into_openai_schema()
 
-# Execute a tool call given as JSON text
-result = base_tool.execute_tool('{"name": "search", "parameters": {"query": "Python"}}')
+# Execute a tool call from a model response (a dict, JSON text or a list of calls)
+result = base_tool.execute_function_calls_from_api_response(
+    {"name": "search", "parameters": {"query": "Python"}}
+)
 ```
 
 <Note>
@@ -529,21 +531,16 @@ model_schema = base_tool.base_model_to_dict(MyModel)
 ### Tool Execution
 
 ```python
-# Execute tool from LLM response
-result = base_tool.execute_tool(llm_response)
+# Execute the tool calls in an LLM response
+result = base_tool.execute_function_calls_from_api_response(llm_response)
 
-# Function map for the by-name and from-text helpers
+# Function map for execute_tool_by_name
 base_tool.convert_funcs_into_tools()
 
 # Execute specific tool by name
 result = base_tool.execute_tool_by_name(
     tool_name="search_web",
     response='{"name": "search_web", "parameters": {"query": "Python"}}'
-)
-
-# Execute from JSON text
-result = base_tool.execute_tool_from_text(
-    '{"name": "search_web", "parameters": {"query": "Python"}}'
 )
 ```
 

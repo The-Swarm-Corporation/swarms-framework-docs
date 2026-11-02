@@ -206,7 +206,7 @@ result = swarm.run(
 )
 ```
 
-Each call clears the swarm's conversation first, so the returned transcript covers only the current task.
+Each call clears the swarm's conversation and resets every agent's memory first, so the returned transcript covers only the current task and a reused swarm does not answer with the previous run's questions.
 
 ### `usage`
 
@@ -384,7 +384,7 @@ report = swarm.run(
 
 ### Parallel Execution
 
-All workers fan out on a thread pool that carries the tracing context into each thread. `self.max_workers` is set to `int(os.cpu_count() * 0.9)`; it is not a constructor parameter.
+All workers fan out on a thread pool that carries the tracing context into each thread. `self.max_workers` is set to `max(1, int(os.cpu_count() * 0.95))`, so a one-CPU host still gets a thread; it is not a constructor parameter.
 
 ```python
 with ContextThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -483,15 +483,13 @@ history = swarm.conversation.conversation_history
 
 ## Error Handling
 
-`run()` does not raise when a phase fails. It logs the error and returns a message string instead of the formatted conversation:
+`run()` raises when a phase fails, so a failed run is never returned as the answer. Question generation that reports an `error` raises `RuntimeError`, and a failing synthesis agent or captain raises its own exception:
 
 ```python
-result = swarm.run("Task")
-
-if isinstance(result, str) and result.startswith(
-    ("Error", "Failed", "Critical error")
-):
-    print(f"Swarm execution failed: {result}")
+try:
+    result = swarm.run("Task")
+except Exception as e:
+    print(f"Swarm execution failed: {e}")
 ```
 
 If a single worker raises, the error is logged, that worker's answer is left out of the conversation, and the other workers and the synthesis still run.

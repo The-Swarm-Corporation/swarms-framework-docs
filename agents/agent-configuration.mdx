@@ -143,8 +143,8 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="agent_description" type="str" default="Auto-generated">
-  Description of the agent's purpose and capabilities.
+<ParamField path="agent_description" type="str" default="An autonomous agent that can perform tasks and learn from experience powered by Swarms">
+  Description of the agent's purpose and capabilities. Orchestrators and `handoffs` show it to the model when routing tasks.
   
   ```python
   agent = Agent(
@@ -155,8 +155,8 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="system_prompt" type="str" default="Default system prompt">
-  The system prompt that defines agent behavior and expertise.
+<ParamField path="system_prompt" type="str | None" default="None">
+  The system prompt that defines agent behavior and expertise. Left as `None`, the agent sends no system message at all. With an integer `max_loops` of 2 or more the loop prompt is still added, and with `max_loops="auto"` the autonomous prompt is, after your text when you give one. For the framework's old general-purpose persona, pass `system_prompt=build_agent_system_prompt()` (from `swarms.prompts.agent_system_prompts`).
   
   ```python
   SYSTEM_PROMPT = """
@@ -201,10 +201,18 @@ The `Agent` class provides extensive configuration options to customize behavior
 </ParamField>
 
 <ParamField path="retry_attempts" type="int" default="3">
-  Number of retry attempts for failed LLM calls.
+  Retries the LLM client makes after a failed model call, sent with every request as litellm's `num_retries` (with backoff on rate limits). One model gets at most `retry_attempts + 1` calls per loop. When they all fail, the run raises `AgentLLMError` or moves to the next entry in `fallback_models`.
   
   ```python
   agent = Agent(retry_attempts=5)
+  ```
+</ParamField>
+
+<ParamField path="stopping_token" type="str" default="None">
+  A stop sequence sent to the provider as `stop=[stopping_token]`, so generation ends when the model produces it. `preset_stopping_token=True` sets it to `"<DONE>"`. A `stop` key in `llm_args` overrides it.
+
+  ```python
+  agent = Agent(model_name="gpt-5.4", stopping_token="<END>")
   ```
 </ParamField>
 
@@ -226,7 +234,7 @@ The `Agent` class provides extensive configuration options to customize behavior
 </ParamField>
 
 <ParamField path="streaming_on" type="bool" default="False">
-  Stream each LLM call. With `print_on=True` tokens render in a live panel; with `print_on=False` the stream is collected silently. Required for `streaming_callback` to receive tokens.
+  Stream each LLM call. With `print_on=True` tokens render in a live panel (reasoning dimmed, tool calls in cyan); with `print_on=False` the stream is collected silently. Not required for `streaming_callback`: a callback streams on its own.
 
   ```python
   agent = Agent(streaming_on=True)
@@ -234,7 +242,7 @@ The `Agent` class provides extensive configuration options to customize behavior
 </ParamField>
 
 <ParamField path="stream" type="bool" default="False">
-  Detailed streaming. Each token is printed with its metadata (model, finish reason, logprobs, citations, usage), and `streaming_callback` receives a dict per token whose `"token"` key holds the text.
+  Detailed streaming. Each token is printed with its metadata (model, finish reason, logprobs, citations, usage), and `streaming_callback` receives a dict per token whose `"token"` key holds the text and whose `"type"` key is `"content"`, `"reasoning"`, or `"tool_call"`.
 
   ```python
   agent = Agent(stream=True)
@@ -243,13 +251,13 @@ The `Agent` class provides extensive configuration options to customize behavior
 </ParamField>
 
 <ParamField path="streaming_callback" type="Callable" default="None">
-  Function that receives each streamed token as a string. It only fires on streamed calls, so pair it with `streaming_on=True`. On its own it is never called. You can also pass it per call: `agent.run(task, streaming_callback=fn)`.
+  Function that receives each streamed text fragment as a string. Setting it is enough to make the agent stream; `streaming_on=True` is not needed. Reasoning arrives behind a `[thinking] ` header and each tool call behind a `[tool call] <name>` header followed by its arguments, so filter on those headers if you only want reply text. You can also pass it per call: `agent.run(task, streaming_callback=fn)`.
 
   ```python
   def on_token(token: str):
       print(token, end="", flush=True)
 
-  agent = Agent(streaming_on=True, streaming_callback=on_token)
+  agent = Agent(model_name="gpt-5.4", streaming_callback=on_token)
   ```
 </ParamField>
 
@@ -296,7 +304,7 @@ asyncio.run(main())
 ```
 
 <Note>
-  Both methods stream tokens through every internal loop, including tool calls, synthesis turns after a tool returns, and the autonomous plan/execute/summary cycle when `max_loops="auto"`. Streamed calls are counted in `agent.usage` once the stream has been consumed.
+  Both methods stream tokens through every internal loop, including tool calls, synthesis turns after a tool returns, and the autonomous plan/execute/summary cycle when `max_loops="auto"`. Tool calls and reasoning come through as text behind `[tool call]` and `[thinking]` headers. Streamed calls are counted in `agent.usage` once the stream has been consumed.
 </Note>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -377,7 +385,7 @@ asyncio.run(main())
 </ParamField>
 
 <ParamField path="reasoning_prompt_on" type="bool" default="True">
-  Add reasoning prompts to guide multi-step thinking.
+  Append the loop prompt to the system prompt when `max_loops` is an integer of 2 or more. It has no effect with `max_loops=1` or `"auto"`, and `interactive=True` turns it off.
   
   ```python
   agent = Agent(max_loops=5, reasoning_prompt_on=True)
@@ -419,7 +427,7 @@ asyncio.run(main())
 ### State Management
 
 <ParamField path="autosave" type="bool" default="False">
-  Automatically save agent state after each execution.
+  Save agent state with `save()` at the start and end of each run and on errors, and write a `config.json` snapshot to the agent workspace at each loop step. Off by default, so a run writes nothing to disk.
   
   ```python
   agent = Agent(autosave=True)
@@ -456,7 +464,7 @@ asyncio.run(main())
 ### Reliability
 
 <ParamField path="fallback_models" type="List[str]" default="None">
-  Models to try in order. When set, the first entry is the primary model and `model_name` is not used. If a run fails after `retry_attempts`, the agent switches to the next model and runs the task again.
+  Models to try in order. When set, the first entry is the primary model and `model_name` is not used. When a model call fails after the client's `retry_attempts` retries (an `AgentLLMError`), the agent drops that attempt's turns, switches to the next model, and runs the task again. Other errors raise at once. Every run starts from the primary model again. `fallback_model_name="..."` is a shorthand for `[model_name, fallback_model_name]`.
   
   ```python
   agent = Agent(
@@ -549,4 +557,4 @@ batch_agent = Agent(
 
 ## Reference
 
-Location in source: `swarms/structs/agent.py:306-412` (the `Agent.__init__` signature)
+Location in source: `swarms/structs/agent.py:288-389` (the `Agent.__init__` signature)

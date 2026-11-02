@@ -12,6 +12,7 @@ The `AgentRearrange` class enables complex workflows where multiple agents can w
 
 - **Flexible Flow Syntax**: Define sequential (`->`) and concurrent (`,`) agent execution in one flow
 - **Custom Flow Patterns**: Mix sequential and concurrent execution patterns
+- **Nested Swarms**: Run a whole swarm, such as a `ConcurrentWorkflow` or another `AgentRearrange`, as one step of the flow
 - **Team Awareness**: Agents can be aware of their position in the workflow
 - **Batch Processing**: Process multiple tasks with the same flow
 - **Concurrent Execution**: Run multiple tasks in parallel
@@ -29,16 +30,15 @@ pip install -U swarms
 class AgentRearrange:
     def __init__(
         self,
-        id: str = None,
+        id: Optional[str] = None,
         name: str = "AgentRearrange",
         description: str = "A swarm of agents for rearranging tasks.",
-        agents: List[Union[Agent, Callable]] = None,
+        agents: List[Any] = None,
         flow: str = None,
         max_loops: int = 1,
         verbose: bool = False,
-        memory_system: Any = None,
         output_type: OutputType = "all",
-        autosave: bool = True,
+        autosave: bool = False,
         team_awareness: bool = False,
         time_enabled: bool = False,
         message_id_on: bool = False,
@@ -48,7 +48,7 @@ class AgentRearrange:
 ```
 
 <Note>
-  Earlier versions accepted `human_in_the_loop`, `custom_human_in_the_loop`, and `rules` parameters (and an `H` token in the flow string for human review steps). These have been **removed** — `AgentRearrange` no longer supports inline human-in-the-loop steps or a `rules` argument.
+  Earlier versions accepted `human_in_the_loop`, `custom_human_in_the_loop`, and `rules` parameters (and an `H` token in the flow string for human review steps). These have been **removed** — `AgentRearrange` no longer supports inline human-in-the-loop steps or a `rules` argument. `memory_system` has also been removed, since nothing read it; passing it raises `TypeError`. Query your store yourself and pass the records in the task. `SwarmRearrange` is gone too: pass the swarms to `AgentRearrange` directly (see [Nested Swarms](#nested-swarms)).
 </Note>
 
 ## Parameters
@@ -65,8 +65,8 @@ class AgentRearrange:
   Description of the system's purpose
 </ParamField>
 
-<ParamField path="agents" type="List[Union[Agent, Callable]]" required>
-  List of agents to include in the system. Can be Agent objects or callable functions.
+<ParamField path="agents" type="List[Any]" required>
+  The agents in the flow. A swarm that has a non-empty string `name` and a `run(task)` method, such as a `ConcurrentWorkflow`, `SequentialWorkflow` or another `AgentRearrange`, can stand in for an agent and is referenced in the flow by its `name`. Anything without an `agent_name` is treated as a swarm, so a plain function, which has no `name`, raises `ValueError`. See [Nested Swarms](#nested-swarms).
 </ParamField>
 
 <ParamField path="flow" type="str" required>
@@ -82,16 +82,12 @@ class AgentRearrange:
   Whether to enable verbose logging
 </ParamField>
 
-<ParamField path="memory_system" type="Any" default="None">
-  Accepted for backwards compatibility. The value is stored on the instance and is not read by the workflow. Configure memory on the individual agents with `persistent_memory` instead.
-</ParamField>
-
 <ParamField path="output_type" type="OutputType" default="all">
   Format of the returned conversation. One of `"list"`, `"dict"`, `"dictionary"`, `"str"`, `"string"`, `"all"`, `"final"`, `"last"`, `"json"`, `"yaml"`, `"dict-all-except-first"`, `"str-all-except-first"`, `"dict-final"`, `"list-final"`. The default `"all"` returns the transcript as `"role: content"` text. Any other value raises `ValueError` at construction.
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="True">
-  Whether to automatically save execution data
+<ParamField path="autosave" type="bool" default="False">
+  If `True`, the shared conversation is written to `conversation_history.json` in the workspace directory (`{WORKSPACE_DIR}/swarms/AgentRearrange/{name}-{timestamp}/`) after every `run()`, including one that fails. Clones made by `batch_run()` and `concurrent_run()` never save, so parallel tasks cannot race on one file.
 </ParamField>
 
 <ParamField path="team_awareness" type="bool" default="False">
@@ -125,6 +121,40 @@ The flow pattern defines how agents execute:
 - **Concurrent**: `agent1, agent2, agent3` (agents run simultaneously)
 - **Mixed**: `agent1 -> agent2, agent3 -> agent4` (agent1 first, then agent2 and agent3 concurrently, then agent4)
 
+## Nested Swarms
+
+A whole swarm can be a step of the flow. Anything with a non-empty string `name` and a `run(task)` method, such as a `ConcurrentWorkflow`, a `SequentialWorkflow` or another `AgentRearrange`, can go in `agents` next to ordinary agents. The flow refers to it by its `name`, and it can appear in a sequential step, in a parallel step, more than once, and under `run_stream()`.
+
+```python
+from swarms import Agent, AgentRearrange, ConcurrentWorkflow
+
+planner = Agent(agent_name="Planner", model_name="gpt-5.4", max_loops=1)
+analyst_a = Agent(agent_name="Analyst-A", model_name="gpt-5.4", max_loops=1)
+analyst_b = Agent(agent_name="Analyst-B", model_name="gpt-5.4", max_loops=1)
+editor = Agent(agent_name="Editor", model_name="gpt-5.4", max_loops=1)
+checker = Agent(agent_name="Checker", model_name="gpt-5.4", max_loops=1)
+
+research_team = ConcurrentWorkflow(
+    name="Research-Team",
+    agents=[analyst_a, analyst_b],
+    output_type="final",
+)
+review_team = AgentRearrange(
+    name="Review-Team",
+    agents=[editor, checker],
+    flow="Editor -> Checker",
+    output_type="final",
+)
+
+pipeline = AgentRearrange(
+    agents=[planner, research_team, review_team],
+    flow="Planner -> Research-Team -> Review-Team",
+)
+result = pipeline.run("Assess the HBM supply outlook for 2027.")
+```
+
+A nested swarm receives the whole shared conversation so far, flattened into one task string, the same context an agent gets. Whatever its `run()` returns is recorded as its answer, so give the inner swarm `output_type="final"` if only its last answer should go into the outer conversation. The original object stays available as `pipeline.agents[i].swarm`. A swarm without a usable `name` raises `ValueError` at construction.
+
 ## Methods
 
 ### `run(task, img=None, *args, **kwargs)`
@@ -132,6 +162,8 @@ The flow pattern defines how agents execute:
 Execute the agent rearrangement task.
 
 Each call starts a fresh shared conversation, so a reused instance does not carry the previous task's transcript. Every agent's final answer, not its whole transcript, is added to that conversation. The flow is not validated up front: a step that names an unregistered agent raises `ValueError` when it is reached, after earlier steps have run.
+
+A failing agent raises, in a sequential step and in a parallel step alike: the exception propagates out of `run()` instead of being written into the conversation as that agent's answer.
 
 <ParamField path="task" type="str" required>
   The task to execute through the agent workflow
@@ -187,7 +219,7 @@ Process multiple tasks concurrently on a thread pool. Each task runs on an isola
 
 ### `run_async(task, img=None, *args, **kwargs)`
 
-Asynchronously execute a task.
+Asynchronously execute a task by running `run()` in a worker thread with `asyncio.to_thread`. Errors from `run()` are re-raised.
 
 <ParamField path="task" type="str" required>
   The task to be executed through the agent workflow
@@ -211,18 +243,18 @@ Set a custom flow pattern for agent execution. The new flow is validated immedia
 
 ### `add_agent(agent)`
 
-Add an agent to the swarm.
+Add an agent, or a nested swarm, to the swarm.
 
-<ParamField path="agent" type="Agent" required>
-  The agent to be added
+<ParamField path="agent" type="Any" required>
+  The agent or swarm to be added. A swarm is wrapped the same way as in the constructor.
 </ParamField>
 
 ### `add_agents(agents)`
 
-Add multiple agents to the swarm at once.
+Add multiple agents, or nested swarms, to the swarm at once.
 
-<ParamField path="agents" type="List[Agent]" required>
-  A list of Agent objects to be added
+<ParamField path="agents" type="List[Any]" required>
+  A list of agents or swarms to be added
 </ParamField>
 
 ### `remove_agent(agent_name)`
@@ -315,7 +347,7 @@ Convert all attributes to a dictionary for serialization.
 | `id` | str | Unique identifier for the system |
 | `name` | str | Human-readable name |
 | `description` | str | Description of the system's purpose |
-| `agents` | List[Union[Agent, Callable]] | The agents in the system, as a list. Look agents up by `agent_name`, not by indexing with a name |
+| `agents` | List[Any] | The agents in the system, as a list, with each nested swarm wrapped (the original is at `agents[i].swarm`). Look agents up by `agent_name`, not by indexing with a name |
 | `flow` | str | Flow pattern defining agent execution order |
 | `steps` | List[List[str]] | Read-only property: the parsed flow, one list of agent names per `->` step. `"a -> b, c"` gives `[["a"], ["b", "c"]]` |
 | `max_loops` | int | Number of times the flow runs per call |
@@ -570,7 +602,7 @@ except Exception as e:
 2. **Team Awareness**: Enable for complex flows where context matters
 3. **Error Handling**: Always wrap execution in try-except blocks
 4. **Logging**: Enable verbose mode during development
-5. **Memory**: `memory_system` is not read; set `persistent_memory=True` on individual agents for context that survives restarts
+5. **Memory**: Set `persistent_memory=True` on individual agents for context that survives restarts
 6. **Flow Validation**: Call `validate_flow()` or `explain()` before production use, since construction does not check agent names
 7. **Agent Naming**: Use clear, descriptive agent names in flows
 

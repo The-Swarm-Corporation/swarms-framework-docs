@@ -57,12 +57,42 @@ The fastest way to get started is to create a `.env` file in your project root:
 ### Core Configuration
 
 <ParamField path="WORKSPACE_DIR" type="string" default="./agent_workspace">
-  The directory where agents store their state, logs, and autosave files. When it is unset, `import swarms` sets it to `agent_workspace` under the current working directory and creates it. If the path you give cannot be created, Swarms logs a warning and falls back to that default instead of failing the import.
+  The directory where agents store their state, logs, and autosave files. When it is unset, `import swarms` sets it to `agent_workspace` under the current working directory. Importing swarms creates no files or directories; the directory is created the first time something writes to it, such as `autosave=True` or `SWARMS_LOG_FILES=True`. If the path you give cannot be created, Swarms logs a warning and falls back to that default instead of failing.
   
   ```bash
   WORKSPACE_DIR="agent_workspace"
   ```
 </ParamField>
+
+<ParamField path="SWARMS_LLM_BACKEND" type="string" default="unset">
+  Which library makes model calls: `litellm` or `routehub`. When unset, Swarms uses RouteHub if it is installed (`pip install "swarms[fast]"`) and LiteLLM otherwise. Any other value raises `ValueError`, and naming a library that is not installed raises `ImportError`.
+
+  ```bash
+  SWARMS_LLM_BACKEND="litellm"
+  ```
+</ParamField>
+
+<ParamField path="SWARMS_LOG_FILES" type="bool" default="False">
+  Write log files to `{WORKSPACE_DIR}/logs`. Off by default, so Swarms writes no log files unless you set it. `True`, `1`, `yes` and `on` enable it.
+</ParamField>
+
+<ParamField path="SWARMS_STRICT_MODEL_CHECK" type="bool" default="False">
+  Check each agent's model against the model catalog when it is built, and warn about an unknown model, a `max_tokens` above the model's limit, or tools on a model without function calling. Only the value `true` (any case) enables it.
+</ParamField>
+
+<ParamField path="SWARMS_TELEMETRY_ON" type="bool" default="True">
+  OpenTelemetry tracing, on by default. Set it to `False` to opt out. The other `SWARMS_OTEL_*` variables are described in [Telemetry](/deployment/telemetry).
+</ParamField>
+
+### Email channel credentials
+
+Only needed if you use the email [comms channels](/api/channels/overview):
+
+| Variable | Used by |
+|---|---|
+| `SMTP_USERNAME` | [`SmtpChannel`](/api/channels/smtp-channel) login, when `username` is not passed. Falls back to `from_address` |
+| `SMTP_PASSWORD` | `SmtpChannel` password, when `password` is not passed. For Gmail, use an app password |
+| `AGENTMAIL_API_KEY` | [`AgentMailChannel`](/api/channels/agentmail-channel), when `api_key` is not passed |
 
 ### LLM Provider API Keys
 
@@ -123,11 +153,19 @@ XAI_API_KEY="your-xai-key"
 
 # Swarms Settings (Optional)
 SWARMS_TELEMETRY_ON="false"      # opt out of OpenTelemetry tracing, which is on by default
+SWARMS_LLM_BACKEND=""            # "litellm" or "routehub"; unset picks RouteHub when installed
+SWARMS_LOG_FILES="False"         # write log files to WORKSPACE_DIR/logs
+SWARMS_STRICT_MODEL_CHECK="False" # warn about unknown models and over-limit max_tokens
 SWARMS_API_KEY="your-swarms-key" # only for the Swarms marketplace
+
+# Email channels (Optional)
+SMTP_USERNAME=""
+SMTP_PASSWORD=""
+AGENTMAIL_API_KEY=""
 ```
 
 <Note>
-  Provider keys are read by LiteLLM, so any variable LiteLLM documents for a provider works here. Swarms' own settings are `WORKSPACE_DIR`, the telemetry variables described in [Telemetry](/deployment/telemetry), and `SWARMS_API_KEY` (for the [marketplace](/integrations/marketplace)). Other variables, such as `LOG_LEVEL` or `MAX_WORKERS`, are not read by Swarms.
+  Provider keys are read by LiteLLM, so any variable LiteLLM documents for a provider works here. Swarms' own settings are `WORKSPACE_DIR`, `SWARMS_LLM_BACKEND`, `SWARMS_LOG_FILES`, `SWARMS_STRICT_MODEL_CHECK`, the telemetry variables described in [Telemetry](/deployment/telemetry), the email channel credentials, and `SWARMS_API_KEY` (for the [marketplace](/integrations/marketplace)). Other variables, such as `LOG_LEVEL` or `MAX_WORKERS`, are not read by Swarms.
 </Note>
 
 <Warning>

@@ -196,12 +196,14 @@ Executes the complete HeavySwarm orchestration flow with multi-loop functionalit
   The conversation history formatted according to `output_type` (default `"dict-all-except-first"`, which returns a `list` of message dicts covering the question-generation, agent, and synthesis output — excluding the initial task message — not just the synthesis agent's final string). Pass `output_type="str-all-except-first"` for a plain string, or `output_type="final"` / `"last"` to get only the last message's content.
 </ResponseField>
 
+**Raises:** the error from any phase that fails, so a failed run is never returned as an answer. Question generation that reports an `error` raises `RuntimeError("Error in question generation: ...")`; a failing synthesis agent or captain raises its own exception.
+
 <Note>
-  `run()` does not raise when a phase fails. It returns an error string instead, such as `"Error in question generation: ..."` or `"Failed to execute agents in loop 1: ..."`. If one worker raises, the error is logged, that worker's answer is missing from the conversation, and the other workers continue.
+  A single worker that raises does not stop the run. The error is logged, that worker's answer is missing from the conversation, and the other workers continue.
 </Note>
 
 **Workflow:**
-1. Clears the conversation, so each call starts from an empty history, and adds the task
+1. Clears the conversation and resets every agent's memory, so a reused swarm starts each call from an empty history and does not answer with the previous run's questions, then adds the task
 2. For first loop: Execute original task with full orchestration
 3. For subsequent loops: Combine previous results with original task as context
 4. Question generation: Generate specialized questions for the active variant's agents. When `img` is given, the decomposer sees the image too, so the questions refer to what it shows
@@ -444,7 +446,7 @@ All dashboard elements use Swarms-inspired red/black styling with professional f
 ## Performance Optimization
 
 - **Parallel Execution**: The active variant's specialized agents run concurrently
-- **Thread Pool**: Workers run across a pool sized to roughly 90% of the host's CPU cores
+- **Thread Pool**: Workers run across a pool sized to 95% of the host's CPU cores (at least one thread)
 - **Timeout**: `timeout` is applied when each finished worker's result is read; it does not stop a running worker
 
 ## Source Code

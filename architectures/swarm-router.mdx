@@ -87,7 +87,7 @@ seq_result = seq.run(task)
 conc = SwarmRouter(swarm_type="ConcurrentWorkflow", agents=agents)
 conc_result = conc.run(task)
 
-# Mixture of Agents (last agent acts as aggregator)
+# Mixture of Agents (writer and editor are the workers, reviewer is the aggregator)
 moa = SwarmRouter(swarm_type="MixtureOfAgents", agents=agents)
 moa_result = moa.run(task)
 ```
@@ -115,7 +115,7 @@ moa_result = moa.run(task)
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
-  Iteration count for the underlying swarm. Semantics depend on `swarm_type` (e.g. for `MixtureOfAgents` this is the number of layers).
+  Iteration count for the underlying swarm. Semantics depend on `swarm_type` (e.g. for `MixtureOfAgents` this is the number of layers, and for `GroupChat` the number of agent turns). `HeavySwarm` uses `heavy_swarm_max_loops` instead.
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default='"dict"'>
@@ -152,6 +152,10 @@ moa_result = moa.run(task)
 
 <ParamField path="verbose" type="bool" default="False">
   Emit info / debug logs (reliability check, cache hits, swarm creation).
+</ParamField>
+
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel forwarded to the swarm the router builds, for `SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange`, `MixtureOfAgents`, `HierarchicalSwarm`, `GroupChat`, `MajorityVoting` and `PlannerWorkerSwarm`. Other swarm types ignore it. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
 ## Swarm-Specific Parameters
@@ -233,6 +237,7 @@ router = SwarmRouter(
     director_settings={
         "agent_name": "LeadDirector",
         "temperature": 0.2,
+        "top_p": None,  # Claude rejects temperature and top_p together
     },
 )
 ```
@@ -486,7 +491,7 @@ except SwarmRouterRunError as e:
 5. **Enable autosave for production** — durable `config.json` / `state.json` / `metadata.json` make incident analysis far cheaper.
 
 <Warning>
-  Some swarm types have specific requirements: `AgentRearrange` requires `rearrange_flow`; `MixtureOfAgents` consumes the last agent in the list as the aggregator; `DebateWithJudge` consumes the third agent as the judge.
+  Some swarm types have specific requirements: `AgentRearrange` requires `rearrange_flow`; `MixtureOfAgents` consumes the last agent in the list as the aggregator, and only the agents before it answer as workers; `DebateWithJudge` consumes the third agent as the judge.
 </Warning>
 
 ## Configuration Reference

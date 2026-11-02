@@ -1,0 +1,376 @@
+---
+title: "PhasedFanOutWorkflow"
+description: "A lead agent plans a phased multi-agent run, the plan fans out across fresh agents, and the lead combines the results"
+icon: "sitemap"
+---
+
+## Overview
+
+`PhasedFanOutWorkflow` lets a lead agent design the multi-agent run for a task instead of you wiring it up in advance. The lead writes a plan of **phases**. Phases run in order, the steps inside a phase run in parallel, and a step can **fan out** to one fresh agent per item of a list an earlier step returned. When the last phase finishes, the lead reads the results and writes the answer.
+
+It is inspired by the dynamic workflows in Anthropic's Claude Managed Agents, where an orchestrating agent decides at run time how many agents to start and what each one does.
+
+```python
+from swarms.structs.phased_fan_out_workflow import PhasedFanOutWorkflow
+
+workflow = PhasedFanOutWorkflow(
+    model_name="gpt-5.4",
+    worker_model_name="gpt-5.4-mini",
+    size_guideline="small",
+)
+print(workflow.run("Find every bug in these files and verify each one: ..."))
+print(workflow.usage)
+```
+
+For a task like this, the lead might plan one finder agent per file in the first phase, then one verifier per reported bug in the second. The number of verifiers is only known once the finders have answered.
+
+### How a run works
+
+```
+run(task)
+  │
+  ├── 1. Plan      lead writes a WorkflowPlan as JSON
+  ├── 2. Validate  the plan is checked before any agent runs; errors go back to the lead
+  ├── 3. Execute   phase 1 ─▶ phase 2 ─▶ ...   (steps in a phase run in parallel,
+  │                                              for_each steps start one agent per item)
+  └── 4. Combine   lead reads the return_steps outputs and writes the answer
+```
+
+1. **Plan.** The lead receives the task, the roster of predefined agents, whether it may define its own agents, the agent limit and a size guideline, and returns a `WorkflowPlan` as JSON. The plan is data, not code, so nothing the model writes is executed.
+2. **Validate.** The plan is checked against the rules in [Plan validation](#plan-validation). A rejected plan goes back to the lead with its errors, up to `max_plan_attempts` times.
+3. **Execute.** Each phase runs its steps on a thread pool of at most `max_concurrent_agents`. Every step gets a fresh agent, so no conversation state carries over between steps or runs.
+4. **Combine.** The lead receives the task, the plan that ran and the outputs of the `return_steps`, and writes the final answer.
+
+### When to use it
+
+- The work splits into stages, and how wide a stage is depends on what an earlier stage found: one agent per file, per bug, per contract, per search result.
+- You want independent checking: one agent finds, a different fresh agent verifies.
+- You don't know the right team in advance and want the model to design it within limits you set.
+
+Use [`SequentialWorkflow`](/api/sequential-workflow), [`ConcurrentWorkflow`](/api/concurrent-workflow) or [`GraphWorkflow`](/api/graph-workflow) when you already know the shape of the run.
+
+## Import
+
+```python
+from swarms.structs.phased_fan_out_workflow import (
+    PhasedFanOutWorkflow,
+    PhasedFanOutWorkflowError,
+    WorkflowPlan,
+)
+```
+
+`PhasedFanOutWorkflow` is not exported from `swarms` and is not a `SwarmRouter` swarm type. Import it from its module.
+
+## Constructor
+
+```python
+PhasedFanOutWorkflow(
+    name: str = "PhasedFanOutWorkflow",
+    description: str = "A lead agent plans a phased multi-agent run and combines the results.",
+    lead_agent: Optional[Agent] = None,
+    model_name: str = "gpt-5.4",
+    agents: Optional[List[Agent]] = None,
+    allow_inline_agents: bool = True,
+    worker_model_name: Optional[str] = None,
+    max_agents: int = 1000,
+    max_concurrent_agents: int = 16,
+    size_guideline: str = "medium",
+    max_retries: int = 2,
+    max_plan_attempts: int = 3,
+    output_type: OutputType = "final",
+)
+```
+
+<ParamField path="name" type="str" default="PhasedFanOutWorkflow">
+  Name of the workflow. The default lead agent is named `{name}-lead`.
+</ParamField>
+
+<ParamField path="description" type="str" default="A lead agent plans a phased multi-agent run and combines the results.">
+  Description of the workflow.
+</ParamField>
+
+<ParamField path="lead_agent" type="Agent" default="None">
+  The agent that plans and combines. When omitted, one is built from `model_name` with the built-in planning prompt. A lead you pass is copied fresh for every run, so it should be able to return the plan JSON described in [The plan](#the-plan).
+</ParamField>
+
+<ParamField path="model_name" type="str" default="gpt-5.4">
+  Model for the default lead agent. Ignored when `lead_agent` is given.
+</ParamField>
+
+<ParamField path="agents" type="List[Agent]" default="None">
+  Predefined agents a plan may use, by `agent_name`. The lead sees each one's `agent_name` and `agent_description`, so write descriptions that say what the agent is for. Each use gets a fresh copy built from the agent's constructor arguments. Names must be unique.
+</ParamField>
+
+<ParamField path="allow_inline_agents" type="bool" default="True">
+  Whether the plan may define its own agents, each with a name and a system prompt. Set it to `False` to restrict the plan to `agents`.
+</ParamField>
+
+<ParamField path="worker_model_name" type="str" default="None">
+  Model for inline agents. Defaults to the lead agent's model. Predefined agents keep their own models.
+</ParamField>
+
+<ParamField path="max_agents" type="int" default="1000">
+  Hard limit on worker agents started in one run, the lead not included. A plan whose fixed steps already exceed it is rejected, and a fan-out that would pass it raises before any of its agents start. Retries do not count.
+</ParamField>
+
+<ParamField path="max_concurrent_agents" type="int" default="16">
+  Agents that may run at the same time within a phase. Must be between 1 and 256.
+</ParamField>
+
+<ParamField path="size_guideline" type="str" default="medium">
+  Tells the lead how many agents to aim for. It is guidance in the prompt; `max_agents` is the enforced limit.
+
+  | Value | Guidance given to the lead |
+  |---|---|
+  | `"small"` | Fewer than 5 agents in total |
+  | `"medium"` | Fewer than 10 agents in total |
+  | `"large"` | Fewer than 50 agents in total |
+  | `"unrestricted"` | As many as the task needs, within the hard limit |
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="2">
+  Retries for a failed agent, each with a new fresh agent, before its step fails. `0` disables retries.
+</ParamField>
+
+<ParamField path="max_plan_attempts" type="int" default="3">
+  Plans the lead may write, including repairs after rejection, before the run raises.
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="final">
+  Format of the value `run()` returns. `"final"` returns the lead's answer. Other values format the run's conversation (see [Return value](#return-value)).
+</ParamField>
+
+**Raises:** `ValueError` if `max_agents` is below 1, `max_concurrent_agents` is outside 1 to 256, `size_guideline` is unknown, `max_retries` is negative, `max_plan_attempts` is below 1, predefined agent names repeat, or there are no predefined agents and inline agents are not allowed.
+
+## The plan
+
+The lead returns JSON matching `WorkflowPlan`:
+
+```json
+{
+  "name": "bug-hunt",
+  "description": "Find bugs per file, then verify each one independently.",
+  "inline_agents": [
+    {"name": "Finder", "system_prompt": "You find bugs in one file. Report each bug in one sentence."},
+    {"name": "Verifier", "system_prompt": "You independently confirm or reject one reported bug."}
+  ],
+  "phases": [
+    {
+      "title": "Find",
+      "steps": [
+        {
+          "id": "find_stats",
+          "agent": "Finder",
+          "prompt": "Find the bugs in stats.py from this task:\n{task}",
+          "output_schema": {"type": "object", "properties": {"bugs": {"type": "array", "items": {"type": "string"}}}}
+        }
+      ]
+    },
+    {
+      "title": "Verify",
+      "steps": [
+        {
+          "id": "verify",
+          "agent": "Verifier",
+          "prompt": "Is this a real bug? {item}\n\nCode:\n{task}",
+          "for_each": "find_stats.bugs"
+        }
+      ]
+    }
+  ],
+  "return_steps": ["verify"]
+}
+```
+
+| Model | Field | Meaning |
+|---|---|---|
+| `WorkflowPlan` | `name`, `description` | Labels for the plan |
+| | `inline_agents` | Agents the plan defines itself: `name` and `system_prompt`. They run on `worker_model_name` |
+| | `phases` | Run in order |
+| | `return_steps` | Step ids whose outputs the lead combines into the answer |
+| `Phase` | `title` | Shown in logs and in the conversation |
+| | `steps` | Run in parallel |
+| `Step` | `id` | Unique; `task` and `item` are reserved |
+| | `agent` | A predefined or inline agent name |
+| | `prompt` | The step's prompt, with placeholders |
+| | `for_each` | Optional, `"<step_id>.<field>"`: run one agent per item of that list |
+| | `output_schema` | Optional JSON schema. The agent is told to return only JSON matching it, and the reply is parsed as JSON |
+
+### Placeholders
+
+Workers see only their own rendered prompt, not the task, so placeholders are how they get their material:
+
+| Placeholder | Replaced with |
+|---|---|
+| `{task}` | The original task |
+| `{step_id}` | That earlier step's output; JSON for structured output, and a list for a fan-out step |
+| `{item}` | The fan-out item this agent handles; only in a `for_each` step |
+
+### Fan-out
+
+A `for_each` step reads a list field from an earlier step's structured output and starts one agent per item. If the source step is itself a fan-out, the lists from all its agents are joined. The output of a fan-out step is a list with one entry per item, in item order. A failed item's entry is `None`.
+
+## Plan validation
+
+Every rule below is checked before any agent runs. A plan that breaks one is sent back to the lead with the reasons.
+
+- Every step's `agent` is a predefined or inline agent.
+- Inline agents are allowed (`allow_inline_agents`), have unique names, and don't reuse a predefined agent's name.
+- There is at least one phase, and every phase has at least one step.
+- Step ids are unique and are not `task` or `item`.
+- Every step prompt contains `{task}`, `{item}` or a `{step_id}`. A step with none of them would give its agent nothing to work on.
+- A `{step_id}` names a step in an **earlier** phase. Steps in the same phase run at the same time and can't see each other.
+- `{item}` appears only in a `for_each` step.
+- `for_each` looks like `<step_id>.<field>`, the source is in an earlier phase, and `field` is declared in the source step's `output_schema` with type `array` (or no type).
+- No two steps in a phase have the same agent, prompt and `for_each`, since they would return the same output.
+- `return_steps` is non-empty and names known steps.
+- The number of steps without `for_each` does not exceed `max_agents`.
+
+You can run the same checks yourself:
+
+```python
+plan = WorkflowPlan.model_validate(plan_dict)
+errors = workflow.validate_plan(plan)  # [] when the plan is valid
+```
+
+## Methods
+
+### run()
+
+Plan the task, run the phases and return the combined result.
+
+```python
+def run(self, task: str, img: Optional[str] = None) -> Any
+```
+
+**Parameters:**
+- `task` (str): The task. Put all the material workers need in it; they reach it through `{task}`.
+- `img` (str, optional): An image passed to the lead when planning. Workers do not receive it.
+
+**Returns:** The run's conversation formatted by `output_type`. With the default `"final"`, the lead's answer.
+
+**Raises:** `PhasedFanOutWorkflowError` if no valid plan is written within `max_plan_attempts`, a fan-out would pass `max_agents`, a fan-out source does not hold a list at the `for_each` field, or a step without `for_each` fails after its retries.
+
+### validate_plan()
+
+Check a plan without running it.
+
+```python
+def validate_plan(self, plan: WorkflowPlan) -> List[str]
+```
+
+**Returns:** The problems found; an empty list when the plan is valid.
+
+### plan()
+
+Ask the lead for a valid plan, sending errors back for repair. `run()` calls it with the run's fresh lead.
+
+```python
+def plan(self, task: str, img: Optional[str] = None) -> WorkflowPlan
+```
+
+<Note>
+In the current release `plan()` uses the lead that `run()` creates, so calling it before any `run()` raises `AttributeError`. To inspect a plan, call `run()` and read `last_plan`.
+</Note>
+
+## Attributes after a run
+
+| Attribute | Type | Contents |
+|---|---|---|
+| `last_plan` | `WorkflowPlan` | The plan that ran |
+| `last_run` | `dict` | `task`, `outputs` (every step's output by id), `failures`, `agent_count` (workers started, retries excluded), `agents` (every agent instance used, the lead included), `answer` and `usage` |
+| `usage` | `dict` | Provider token counts summed over the lead and every worker of the last run: `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens`, `total_tokens` |
+
+Each entry in `last_run["failures"]` is a dict with `phase`, `step`, `item` and `error`.
+
+## Return value
+
+`run()` records the run in a [`Conversation`](/api/conversation) and returns it through `output_type`. The conversation holds, in order:
+
+| Role | Content |
+|---|---|
+| `user` | The task |
+| `{name}-lead` | The plan, as JSON |
+| `{phase title} / {step id}` | Each step's output, one row per step |
+| `{name}-lead` | The final answer |
+
+```python
+workflow = PhasedFanOutWorkflow(model_name="gpt-5.4", output_type="dict")
+for row in workflow.run(task):
+    print(row["role"])
+# user, PhasedFanOutWorkflow-lead, Find / find_stats, Verify / verify, PhasedFanOutWorkflow-lead
+```
+
+## Failure handling
+
+- A failed agent is retried with a new fresh agent up to `max_retries` times.
+- A **fan-out item** that still fails becomes `None` in that step's output list, is recorded in `last_run["failures"]`, and the run continues.
+- A **single step** that still fails raises `PhasedFanOutWorkflowError` once its phase finishes.
+- A **fan-out that would pass `max_agents`** raises before any of its agents start.
+
+```python
+from swarms.structs.phased_fan_out_workflow import PhasedFanOutWorkflowError
+
+try:
+    answer = workflow.run(task)
+except PhasedFanOutWorkflowError as error:
+    print("Run failed:", error)
+    print("Plan:", workflow.last_plan)
+    print("Failures:", workflow.last_run["failures"])
+```
+
+## Usage Examples
+
+### Predefined agents only
+
+Restrict the plan to agents you trust and let the lead decide how many copies of each to run.
+
+```python
+from swarms import Agent
+from swarms.structs.phased_fan_out_workflow import PhasedFanOutWorkflow
+
+reader = Agent(
+    agent_name="Clause-Reader",
+    agent_description="Reads one contract and quotes any clause triggered by a change of ownership or control.",
+    system_prompt="You read a single contract and quote, word for word, every clause triggered by a change of control, merger, acquisition or sale of shares. If there is none, say so.",
+    model_name="gpt-5.4-mini",
+    max_loops=1,
+)
+checker = Agent(
+    agent_name="Clause-Checker",
+    agent_description="Independently checks whether a quoted clause really is a change-of-control clause.",
+    system_prompt="You are a skeptical contracts lawyer. Decide whether the quoted clause is triggered by a change of control, and give one sentence of reasoning.",
+    model_name="gpt-5.4-mini",
+    max_loops=1,
+)
+
+workflow = PhasedFanOutWorkflow(
+    model_name="gpt-5.4",
+    agents=[reader, checker],
+    allow_inline_agents=False,
+    size_guideline="small",
+)
+print(workflow.run("Which of these contracts contain a change-of-control clause? ...contracts..."))
+```
+
+### Inline agents on a cheaper model
+
+```python
+workflow = PhasedFanOutWorkflow(
+    model_name="gpt-5.4",              # The lead plans and combines
+    worker_model_name="gpt-5.4-mini",  # Inline agents do the work
+    max_agents=40,
+    max_concurrent_agents=8,
+    size_guideline="large",
+)
+answer = workflow.run("Summarise each of these 30 support tickets, then group them by root cause: ...")
+print(workflow.last_run["agent_count"], "workers")
+```
+
+More walkthroughs are in the [PhasedFanOutWorkflow examples](/examples/multi-agent/phased-fan-out-workflow-example).
+
+## Source Code
+
+- [`phased_fan_out_workflow.py`](https://github.com/kyegomez/swarms/blob/master/swarms/structs/phased_fan_out_workflow.py)
+- [Lead prompt](https://github.com/kyegomez/swarms/blob/master/swarms/prompts/phased_fan_out_workflow_prompts.py)
+- [Examples on GitHub](https://github.com/kyegomez/swarms/tree/master/examples/multi_agent/phased_fan_out_workflow)

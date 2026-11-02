@@ -64,7 +64,8 @@ print(agent.usage)
 Every completion the agent's own model client makes adds to the total:
 
 - Every loop of `run()`, including turns that only call tools.
-- The tool-summary call after a tool runs (`tool_call_summary=True`, the default) and the summary after MCP tool calls.
+- The tool-summary call after a tool runs (with `tool_call_summary=True`; the default is `False`) and the summary after MCP tool calls.
+- The context-compression summary call, when compression fires.
 - The plan, execute and summary calls of `max_loops="auto"`, and the planning call of `plan_enabled=True`.
 - Calls made after switching to a fallback model. The total lives on the agent, so rebuilding the model client does not reset it.
 - Streamed calls. Swarms asks the provider to end the stream with a usage chunk and records it when the stream has been consumed. `run()` consumes its own streams; with `run_stream()` and `arun_stream()` the total updates once you have read every token.

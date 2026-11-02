@@ -29,7 +29,6 @@ vision_agent = Agent(
     agent_name="Vision-Analyst",
     agent_description="An agent that analyzes images and provides detailed descriptions",
     model_name="claude-sonnet-4-6",  # Vision-capable model
-    multi_modal=True,  # Enable multimodal processing
     max_loops=1,
 )
 
@@ -152,7 +151,6 @@ quality_control_agent = Agent(
     agent_description="Analyzes images and provides detailed quality control reports",
     model_name="gpt-5.4",
     system_prompt=custom_system_prompt,
-    multi_modal=True,  # Enable vision
     max_loops=1,
     output_type="str-all-except-first",
     tools=[security_analysis],  # Combine vision with tools
@@ -177,7 +175,6 @@ from swarms import Agent
 agent = Agent(
     agent_name="Multi-Image-Analyst",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
     max_loops=1,
 )
 
@@ -210,7 +207,6 @@ doc_agent = Agent(
     system_prompt="""You are an expert at analyzing documents, invoices,
     and forms. Extract all relevant information accurately.""",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
     max_loops=1,
 )
 
@@ -237,7 +233,6 @@ chart_agent = Agent(
     system_prompt="""You are an expert at analyzing charts, graphs, and
     data visualizations. Provide insights about trends and patterns.""",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
     max_loops=1,
 )
 
@@ -264,7 +259,6 @@ medical_agent = Agent(
     Provide detailed observations about medical images. Note: This is for
     educational purposes only and not a substitute for professional diagnosis.""",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
     max_loops=1,
 )
 
@@ -319,7 +313,6 @@ product_agent = Agent(
     system_prompt="""You analyze product images, identify products,
     and use tools to look up information about them.""",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
     max_loops=2,
     tools=[search_product_database, check_inventory],
 )
@@ -339,19 +332,16 @@ Swarms supports multiple vision-capable models:
 # OpenAI GPT-5.4
 agent_gpt4v = Agent(
     model_name="gpt-5.4",
-    multi_modal=True,
 )
 
 # OpenAI GPT-5.4 mini (cost-effective)
 agent_gpt4o_mini = Agent(
     model_name="gpt-5.4-mini",
-    multi_modal=True,
 )
 
 # Anthropic Claude with vision
 agent_claude = Agent(
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
 )
 
 ```
@@ -422,7 +412,6 @@ class ImageAnalysis(BaseModel):
 
 agent = Agent(
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
     max_loops=1,
     output_type="final",
 )
@@ -506,7 +495,6 @@ product_agent = Agent(
     agent_name="Product-Cataloger",
     system_prompt="Generate product descriptions from images",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
 )
 
 description = product_agent.run(
@@ -523,7 +511,6 @@ qa_agent = Agent(
     agent_name="QA-Inspector",
     system_prompt="Inspect products for defects and quality issues",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
 )
 
 inspection = qa_agent.run(
@@ -540,7 +527,6 @@ med_doc_agent = Agent(
     agent_name="Medical-Documentation",
     system_prompt="Extract information from medical documents and forms",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
 )
 
 extracted_data = med_doc_agent.run(

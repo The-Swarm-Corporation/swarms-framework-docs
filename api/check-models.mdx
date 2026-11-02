@@ -22,7 +22,7 @@ print(model_count(include_openrouter=False))
 ```
 
 <Note>
-These functions are standalone utilities. `Agent` does not call them, so an agent never checks its `model_name` against this list. Do not confuse `get_available_models()` here with [`Agent.get_available_models()`](/api/llm-manager#get_available_models), which returns the agent's own fallback chain.
+These functions are standalone utilities. `Agent` does not call them, so an agent never checks its `model_name` against this list. An agent's own fallback chain is its `fallback_models` list; see [Model fallback](/api/llm-manager).
 </Note>
 
 ## Import

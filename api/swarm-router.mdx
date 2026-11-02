@@ -72,6 +72,7 @@ SwarmRouter(
     multi_agent_collab_prompt: bool = False,
     list_all_agents: bool = False,
     conversation: Any = None,
+    channel: Optional[CommsChannel] = None,
     heavy_swarm_question_agent_model_name: str = "gpt-5.4",
     heavy_swarm_worker_model_name: str = "gpt-5.4",
     heavy_swarm_swarm_show_output: bool = True,
@@ -85,7 +86,6 @@ SwarmRouter(
     autosave_use_timestamp: bool = True,
     director_model_name: str = "gpt-5.4",
     director_settings: Optional[Dict[str, Any]] = None,
-    channel: Optional[CommsChannel] = None,
     *args,
     **kwargs,
 )
@@ -114,11 +114,11 @@ SwarmRouter(
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
-  Maximum execution loops where supported by the underlying swarm (e.g. `HierarchicalSwarm`, `GroupChat`). For `MixtureOfAgents` it is the number of layers. `HeavySwarm` uses `heavy_swarm_max_loops` instead, and `CouncilAsAJudge`, `LLMCouncil`, and `MultiAgentRouter` do not receive it. Cannot be `0`.
+  Maximum execution loops where supported by the underlying swarm (e.g. `HierarchicalSwarm`, `MajorityVoting`). For `MixtureOfAgents` it is the number of layers. For `GroupChat` it is the number of agent turns: the router passes `max_loops + 1`, because `GroupChat` counts the task as its first message. `HeavySwarm` uses `heavy_swarm_max_loops` instead, and `CouncilAsAJudge`, `LLMCouncil`, and `MultiAgentRouter` do not receive it. Cannot be `0`.
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default="dict">
-  Output formatter applied to the conversation. One of `'list'`, `'dict'`, `'dictionary'`, `'string'`, `'str'`, `'final'`, `'last'`, `'json'`, `'all'`, `'yaml'`, `'dict-all-except-first'`, `'str-all-except-first'`, `'basemodel'`, `'dict-final'`, `'list-final'`. `HeavySwarm`, `DebateWithJudge`, `CouncilAsAJudge`, and `LLMCouncil` receive it too; `RoundRobin` does not.
+  Output formatter applied to the conversation. One of `'list'`, `'dict'`, `'dictionary'`, `'string'`, `'str'`, `'final'`, `'last'`, `'json'`, `'all'`, `'yaml'`, `'dict-all-except-first'`, `'str-all-except-first'`, `'dict-final'`, `'list-final'`. Every swarm type receives it.
 </ParamField>
 
 <ParamField path="fallback_swarms" type="Optional[List[SwarmType]]" default="None">
@@ -171,7 +171,7 @@ These are only consulted when the corresponding `swarm_type` is selected.
 
 #### GroupChat
 
-`GroupChat` is asynchronous and self-selecting — there are **no speaker-selection functions**. The router passes `agents`, `max_loops`, `output_type`, and `verbose` through to it; agents decide on their own whether to speak. See the [GroupChat API reference](/api/group-chat) for `threshold` / `idle_timeout` tuning (configure those by constructing the `GroupChat` directly).
+`GroupChat` is turn-based and self-selecting: there are **no speaker-selection functions**. Each turn every agent bids, and the single highest bidder above the threshold speaks. The router passes `name`, `description`, `agents`, `output_type`, `verbose`, `channel` and `max_loops + 1` through to it, so `max_loops` is the number of agent turns. See the [GroupChat API reference](/api/group-chat) for `threshold` / `recency_penalty` tuning (configure those by constructing the `GroupChat` directly).
 
 #### HeavySwarm
 
@@ -229,12 +229,12 @@ These are only consulted when the corresponding `swarm_type` is selected.
 
 The constructor accepts arbitrary `*args` / `**kwargs` for forward-compatibility, but they are **not** stored on the router or forwarded to the underlying swarm — extra constructor kwargs are effectively ignored. Configure the underlying swarm through the router's explicit parameters listed above.
 
-For `MixtureOfAgents`, the aggregator is **not** passed as a kwarg; the **last agent** in `agents` is used as the aggregator automatically:
+For `MixtureOfAgents`, the aggregator is **not** passed as a kwarg; the **last agent** in `agents` is used as the aggregator automatically, and the agents before it are the workers. With a single agent, that agent is both the only worker and the aggregator:
 
 ```python
 router = SwarmRouter(
     swarm_type="MixtureOfAgents",
-    agents=[worker_1, worker_2, aggregator],  # aggregator = agents[-1]
+    agents=[worker_1, worker_2, aggregator],  # workers = agents[:-1], aggregator = agents[-1]
 )
 ```
 
@@ -367,12 +367,6 @@ config = router.to_dict()
 
 ---
 
-### `fetch_message_history_as_string()`
-
-Return the underlying swarm's conversation as a single string, excluding the first message. Call it after at least one `run()`. Returns `None` if no history is available.
-
----
-
 ### `list_agents_to_eachother()`
 
 Internal helper. Points `self.conversation` at the underlying swarm's conversation. Called after each run, because the swarm is built lazily on the first `run()` and several structures replace their conversation object per task. Rarely called directly.
@@ -388,9 +382,9 @@ Internal helper. Points `self.conversation` at the underlying swarm's conversati
 | `SequentialWorkflow` | `agents` (≥1) |
 | `ConcurrentWorkflow` | `agents` (≥1) |
 | `AgentRearrange` | `agents`, `rearrange_flow` |
-| `MixtureOfAgents` | `agents` (workers + aggregator as the **last** element; the full list, aggregator included, also answers as workers) |
+| `MixtureOfAgents` | `agents` (workers + aggregator as the **last** element; the aggregator does not also answer as a worker) |
 | `HierarchicalSwarm` | `agents` (workers); director is created automatically |
-| `GroupChat` | `agents` (≥2; asynchronous, self-selecting — no speaker function) |
+| `GroupChat` | `agents` (≥2; turn-based bidding, no speaker function) |
 | `MajorityVoting` | `agents` (≥3 recommended) |
 | `CouncilAsAJudge` | `council_judge_model_name` (builds its own agents; `agents` is not passed) |
 | `LLMCouncil` | `agents` (council members), `chairman_model` |

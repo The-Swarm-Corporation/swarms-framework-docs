@@ -69,6 +69,32 @@ pip install -r requirements.txt
 
 </CodeGroup>
 
+## Optional speedups: `swarms[fast]`
+
+The `fast` extra installs [RouteHub](/routehub/overview) and rustworkx:
+
+```bash
+pip install -U "swarms[fast]"
+```
+
+- With RouteHub installed, every model call goes through RouteHub instead of LiteLLM, with no code changes. Set `SWARMS_LLM_BACKEND=litellm` to force LiteLLM (see [Environment setup](/environment-setup)).
+- rustworkx enables `GraphWorkflow(backend="rustworkx")`. The default graph backend stays networkx.
+
+<Note>
+  On RouteHub, local OpenAI-compatible servers need `/v1` in `llm_base_url`, for example `http://localhost:11434/v1` for Ollama.
+</Note>
+
+## Docker
+
+An official image, [`swarmscorp/swarms`](https://hub.docker.com/r/swarmscorp/swarms), runs Swarms on Python 3.13 (Alpine) as a non-root user with a writable `/app`:
+
+```bash
+docker pull swarmscorp/swarms:latest
+docker run --rm -e OPENAI_API_KEY -v "$PWD:/app" swarmscorp/swarms python agent.py
+```
+
+To build it yourself from the repository's `Dockerfile`, pass `--build-arg PYTHON_VERSION=3.14` for another Python version.
+
 ## Why Use uv? (Recommended)
 
 [uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver, written in Rust. It offers significant performance improvements over traditional pip:

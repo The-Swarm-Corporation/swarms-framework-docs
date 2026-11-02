@@ -59,7 +59,7 @@ agent = Agent(
 
 ### Pattern 3: Agent with System Prompt
 
-For specialized behavior and domain expertise:
+For specialized behavior and domain expertise. Without a `system_prompt`, the agent sends no system message, so the model sees only your turns:
 
 ```python
 SYSTEM_PROMPT = """
@@ -107,7 +107,6 @@ agent = Agent(
     agent_name="Research-Agent",
     model_name="claude-sonnet-4-6",
     max_loops="auto",  # Autonomous loop mode
-    reasoning_prompt_on=True,
     dynamic_temperature_enabled=True,
     verbose=True,
 )
@@ -134,11 +133,11 @@ agent = Agent(
     max_loops=1,
 )
 
-# If a model fails after retry_attempts, the agent moves to the next one
+# If a model call fails after retry_attempts, the agent moves to the next one
 response = agent.run("Generate a report")
 ```
 
-When `fallback_models` is set, its first entry is the primary model and `model_name` is not used.
+When `fallback_models` is set, its first entry is the primary model and `model_name` is not used. Every run starts from the primary again, and if the last model also fails, `run` raises `AgentLLMError`.
 
 ### Pattern 7: Agent from Marketplace Prompt
 
@@ -187,7 +186,7 @@ print(other.run("What is my project called?", messages=history))
 
 ### Pattern 9: Several Answers to One Task
 
-`run(task, n=3)` runs the task three times and returns a list with one output per run. Every run gets the same `img`, `imgs`, `messages` and `streaming_callback`. The runs share the agent's conversation, so later runs see the earlier answers. Use `output_type="final"` so each entry holds only that run's answer. With `max_loops="auto"`, `n` is ignored and you get one output.
+`run` has no `n` parameter. Call it once per answer. Runs on one agent share its conversation, so call `agent.reset()` between them when each answer should be independent. Use `output_type="final"` so each result holds only that run's answer.
 
 ```python
 from swarms import Agent
@@ -199,7 +198,11 @@ agent = Agent(
     output_type="final",
 )
 
-ideas = agent.run("Suggest a name for a note-taking app.", n=3)
+ideas = []
+for _ in range(3):
+    ideas.append(agent.run("Suggest a name for a note-taking app."))
+    agent.reset()
+
 for idea in ideas:
     print(idea)
 ```
@@ -355,4 +358,4 @@ code_agent = Agent(
 
 For the complete API reference, see the [Agent class documentation](/api/agent).
 
-Location in source: `swarms/structs/agent.py:130` (`class Agent`); the constructor (`__init__`) starts at line 306.
+Location in source: `swarms/structs/agent.py:114` (`class Agent`); the constructor (`__init__`) starts at line 288.

@@ -134,7 +134,7 @@ def run(
 **Raises:**
 - `ValueError`: If `task` is not provided
 
-Each call clears the shared conversation before adding the new task, so reusing one swarm instance does not carry the previous task's transcript forward. The task queue is not cleared between `run()` calls.
+Each call empties the task queue and starts a new conversation before adding the task, so reusing one swarm instance does not carry the previous task's tasks or transcript forward. With a `channel`, the new conversation is first seeded with what the channel already holds, so the planner, workers and judge see the earlier discussion.
 
 ### get_status()
 
@@ -398,7 +398,7 @@ Represents a single task in the shared queue.
 | Planner output parsing fails | Check that `planner_model_name` supports structured output (function calling) |
 | Judge output parsing fails | Defaults to `is_complete=False` with quality 0, so the cycle continues safely |
 | Worker stuck on a task | Set `task_timeout` to detect and fail stuck tasks |
-| All workers idle but tasks remain | Tasks may be blocked on unmet dependencies -- check for circular dependency chains |
+| All workers idle but tasks remain | Workers stop once no pending task can be claimed, so a task whose dependencies never complete (for example a circular chain or a failed dependency) is left `PENDING` and the cycle moves on to the judge. Check the dependency chain in `get_status()` |
 
 ## Performance Considerations
 

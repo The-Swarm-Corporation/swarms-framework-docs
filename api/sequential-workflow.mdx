@@ -36,11 +36,10 @@ class SequentialWorkflow:
         agents: List[Union[Agent, Callable]] = None,
         max_loops: int = 1,
         output_type: OutputType = "dict",
-        shared_memory_system: callable = None,
         multi_agent_collab_prompt: bool = False,
         collab_prompt: Optional[str] = None,
         team_awareness: bool = False,
-        autosave: bool = True,
+        autosave: bool = False,
         verbose: bool = False,
         drift_detection: bool = False,
         drift_threshold: float = 0.75,
@@ -78,10 +77,6 @@ class SequentialWorkflow:
   Format of the output from the workflow. One of `"list"`, `"dict"`, `"dictionary"`, `"str"`, `"string"`, `"all"`, `"final"`, `"last"`, `"json"`, `"yaml"`, `"dict-all-except-first"`, `"str-all-except-first"`, `"dict-final"`, `"list-final"`. The default `"dict"` returns the run's conversation as a list of `{"role", "content"}` message dicts.
 </ParamField>
 
-<ParamField path="shared_memory_system" type="callable" default="None">
-  Optional callable for managing shared memory between agents
-</ParamField>
-
 <ParamField path="multi_agent_collab_prompt" type="bool" default="False">
   If True, each agent receives a collaboration preamble as a system turn for the
   duration of the run.
@@ -104,8 +99,8 @@ class SequentialWorkflow:
   If `True`, the step-by-step flow structure is added to the shared conversation as a system message. Each agent always receives the names of the agents ahead and behind it as a system turn, whether or not this is set.
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="True">
-  Whether to enable autosaving of conversation history to workspace
+<ParamField path="autosave" type="bool" default="False">
+  If `True`, the run's conversation is written to `conversation_history.json` in the workflow's workspace directory after every `run()`, including one that fails. Off by default, so a run writes nothing to disk.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -136,13 +131,17 @@ class SequentialWorkflow:
   A comms channel the workflow posts to: the task as `User`, then each agent's answer in order. Agents also read what the channel already holds, so a later run on the same channel continues the conversation. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
+<Note>
+  `shared_memory_system` has been removed; nothing read it. The constructor still accepts `*args` and `**kwargs`, so passing it, or any other unknown keyword, raises no error and has no effect.
+</Note>
+
 ## Methods
 
 ### `run(task, img=None, imgs=None, *args, **kwargs)`
 
 Executes a specified task through the agents in the dynamically constructed flow.
 
-Each call starts a fresh conversation on the internal `AgentRearrange`, so a reused workflow does not carry the previous task's transcript. The conversation is autosaved after the run, even when it fails.
+Each call starts a fresh conversation on the internal `AgentRearrange`, so a reused workflow does not carry the previous task's transcript. With `autosave=True`, the conversation is saved after the run, even when it fails. An agent that raises stops the pipeline, and the exception propagates to the caller.
 
 If `drift_detection` is configured, a judge agent scores the final output's semantic alignment with the original task after the pipeline completes. If the score falls below `drift_threshold`, the pipeline reruns, at most `drift_max_retries` times, then returns the last output with a warning.
 
@@ -176,7 +175,7 @@ Executes a batch of tasks through the agents, one task after another. Each task 
 
 ### `run_async(task)`
 
-Executes the specified task through the agents asynchronously.
+Executes the specified task through the agents asynchronously, by running the internal `AgentRearrange.run()` in a worker thread with `asyncio.to_thread`. Drift detection and autosave are not applied on this path; use `run()` if you need them.
 
 <ParamField path="task" type="str" required>
   The task for the agents to execute. Must be a non-empty string.
@@ -287,7 +286,6 @@ Validates the workflow configuration and prepares agents for execution.
 | `agents` | List[Union[Agent, Callable]] | List of agents or callables to execute in sequence |
 | `max_loops` | int | Maximum number of times to execute the workflow |
 | `output_type` | OutputType | Format of the output from the workflow |
-| `shared_memory_system` | callable | Optional shared memory helper |
 | `multi_agent_collab_prompt` | bool | Whether each agent receives the collaboration preamble as a system turn |
 | `collab_prompt` | Optional[str] | Custom preamble text, used only when `multi_agent_collab_prompt=True` |
 | `team_awareness` | bool | Whether team-awareness is enabled on the underlying `AgentRearrange` |

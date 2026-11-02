@@ -107,7 +107,7 @@ This folder is separate from the agent's working folder, `$WORKSPACE_DIR/agents/
 - `MEMORY.md` is append-updated during normal operation.
 - Every `conversation.add(role, content)` writes to in-memory history and to disk.
 - Compression archives the current `MEMORY.md` before replacing it with a compact summary.
-- The agent's static `system_prompt`, `rules`, and constructor configuration are not repeatedly appended to `MEMORY.md`.
+- The agent's `system_prompt` and `rules` are never appended to `MEMORY.md`. The constructor's `messages` are: each construction with `messages=` appends them to the log again.
 
 ## Lifecycle
 
@@ -141,14 +141,14 @@ During `Conversation.__init__`, Swarms reads the existing `MEMORY.md` and adds i
 The resulting history order is:
 
 ```text
-[0] System: <system_prompt>
+[0] System: <system_prompt>             # if set; an agent has none by default
 [1] Human: <rules>                      # if provided; the role is the agent's user_name
 [2] System: [Persistent Memory — MEMORY.md]
             ... full MEMORY.md contents ...
 [3] ...                                 # the constructor's messages, if provided
 ```
 
-The preload is added directly to memory, so it is not written back to disk again.
+The preload is added directly to memory, so it is not written back to disk again. The constructor's `messages` come after it and go through `add()`, so they are written to `MEMORY.md`.
 
 <Warning>
   The preload is stored in `agent.short_memory`, but `agent.run()` does not currently send it to the model. With an integer `max_loops`, requests are built from the conversation's non-`System` turns. With `max_loops="auto"`, they start from the task and `run(messages=...)`. The preload is a `System` message, so neither path includes it. To give the model what the agent remembered, pass that context yourself, for example in `system_prompt` or in the task.
@@ -159,7 +159,7 @@ The preload is added directly to memory, so it is not written back to disk again
 Every `conversation.add(role, content)` call:
 
 1. Appends the message to `conversation_history`
-2. Appends a timestamped block to `MEMORY.md`
+2. Appends a timestamped block to `MEMORY.md`, unless the content is `None` or blank
 
 The on-disk format looks like this:
 
@@ -175,7 +175,7 @@ I recommend evaluating BigQuery, ClickHouse Cloud, and AlloyDB...
 ---
 ```
 
-Disk writes are serialized with a per-conversation lock. Construction-time messages such as system prompts and rules are suppressed from disk so static identity does not get duplicated on every restart.
+Disk writes are serialized with a per-conversation lock. The system prompt and rules are suppressed from disk so static identity does not get duplicated on every restart. Constructor `messages` are not suppressed.
 
 ## Context compression
 
@@ -203,7 +203,7 @@ Compression can run when all of these are true:
 
 - `context_compression=True`
 - `context_length` is set to a non-zero value
-- The token usage of `short_memory.return_history_as_string()` is greater than or equal to `threshold * context_length`
+- The history's token count, from `short_memory.count_history_tokens()`, is greater than or equal to `threshold * context_length`
 - The agent is at a check point: the top of each loop iteration with an integer `max_loops`, or the top of each subtask iteration with `max_loops="auto"`
 
 The default threshold is `0.9`, so compression starts when the active prompt reaches about 90% of the context window.
@@ -216,9 +216,7 @@ The compressor is checked for both `max_loops="auto"` and integer `max_loops` ru
 
 In autonomous runs it is checked before every model call in the subtask phase, but not during planning or the final summary. When it fires, the loop rebuilds its request as the summary plus the prompt for the subtask in progress, so the next request really is smaller. See [Autonomous Mode](/agents/autonomous-mode#context-compression-between-subtasks).
 
-<Warning>
-  With an integer `max_loops`, compression currently compacts `agent.short_memory` and `MEMORY.md` but does not shrink what is sent. Each run builds its request once, from the conversation's non-`System` turns, when it starts, so a compaction later in the run leaves that request unchanged. A compaction at the start of a run replaces the new task along with the rest of the history, and the `System` summary is not sent, so that request carries only the system prompt.
-</Warning>
+With an integer `max_loops`, every loop iteration rebuilds its request from `agent.short_memory`, so after a compaction the next request is the system prompt plus the summary, which is stored as a `user` turn and is sent. The task of the current run was added before the first check, so a compaction at the start of a run folds that task into the summary along with the rest of the history.
 
 ### What compression does
 
@@ -226,25 +224,24 @@ When compression fires:
 
 1. The current transcript is summarized with an LLM call.
 2. `Conversation.compact(summary=...)` is called.
-3. The current `MEMORY.md` is copied to `archive/history_<timestamp>.md`.
+3. The current `MEMORY.md` is copied to `archive/history_<timestamp>.md`, unless it holds only the header.
 4. The active `MEMORY.md` is deleted and recreated with a fresh header.
-5. `conversation_history` is rebuilt with the system prompt, rules, and custom rules.
-6. The summary is appended as one `System` message to both memory and `MEMORY.md`.
+5. `conversation_history` is rebuilt with the system prompt (when set) and rules (when given).
+6. The summary, prefixed with `[Compressed Memory Summary]`, is appended as one `user` message to both memory and `MEMORY.md`.
 
 After compaction, active memory is small again:
 
 ```text
 conversation_history:
-  [0] System: <system_prompt>
-  [1] User: <rules>                     # if provided
-  [2] User: <custom_rules_prompt>       # if provided
-  [3] System: [Compressed Memory Summary] ...<summary>
+  [0] System: <system_prompt>           # if set
+  [1] Human: <rules>                    # if provided
+  [2] user: [Compressed Memory Summary] ...<summary>
 
 MEMORY.md:
   # Agent Memory
   ...
   ## Interaction Log
-  ### System — <timestamp>
+  ### user — <timestamp>
   [Compressed Memory Summary] ...<summary>
 
 archive/history_<previous-timestamp>.md:
@@ -303,7 +300,7 @@ agent._context_compressor = ContextCompressor(
 )
 ```
 
-`summarizer_model` defaults to the agent's own `model_name`. The summary call goes straight to LiteLLM, so it is not counted in `agent.usage`.
+`summarizer_model` defaults to the agent's own `model_name`, `summarizer_temperature` to `None` (no temperature is sent), and `summarizer_max_tokens` to `4000`. The summary call's token usage is added to `agent.usage`.
 
 ## Access memory in code
 
@@ -345,11 +342,12 @@ agent.short_memory.compact(
         "Researched cloud data warehouses. "
         "The user prefers GCP for latency and operations reasons. "
         "Shortlist: BigQuery, AlloyDB, and ClickHouse Cloud."
-    )
+    ),
+    summary_role="user",
 )
 ```
 
-Manual compaction follows the same archive, wipe, and re-seed flow as automatic compression.
+Manual compaction follows the same archive, wipe, and re-seed flow as automatic compression. `summary_role` defaults to `"System"`, and requests skip `System` rows, so pass `summary_role="user"`, as the compressor does, for the summary to reach the model on the next run.
 
 ### Export and load conversations
 

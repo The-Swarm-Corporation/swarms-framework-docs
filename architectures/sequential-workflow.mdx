@@ -123,8 +123,8 @@ workflow = SequentialWorkflow(
   is `True`.
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="True">
-  Automatically save conversation history
+<ParamField path="autosave" type="bool" default="False">
+  Save the run's conversation to `conversation_history.json` in the workspace directory after every run. Off by default, so a run writes nothing to disk.
 </ParamField>
 
 <ParamField path="drift_detection" type="bool" default="False">
@@ -147,15 +147,15 @@ workflow = SequentialWorkflow(
   Enable verbose logging
 </ParamField>
 
-<ParamField path="shared_memory_system" type="callable" default="None">
-  Accepted and stored on the instance, but never read during execution — it is not wired into the underlying `AgentRearrange` or into any agent. Use `persistent_memory=True` on individual agents if you need memory that survives across runs.
-</ParamField>
+<Note>
+  `shared_memory_system` has been removed. The constructor still accepts `**kwargs`, so passing it raises no error and does nothing. Use `persistent_memory=True` on individual agents if you need memory that survives across runs.
+</Note>
 
 ## Methods
 
 ### run()
 
-Execute the workflow with a task.
+Execute the workflow with a task. An agent that raises stops the pipeline, and the exception propagates to the caller.
 
 ```python
 result = workflow.run(
@@ -180,7 +180,7 @@ results = workflow.run_batched(tasks)
 
 ### run_async()
 
-Execute workflow asynchronously.
+Execute the workflow asynchronously, in a worker thread. Drift detection and autosave are not applied on this path.
 
 ```python
 import asyncio

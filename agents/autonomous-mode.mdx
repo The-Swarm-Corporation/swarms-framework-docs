@@ -84,7 +84,7 @@ Three constructor parameters bound the loop. Each must be at least `1`, or `Agen
 
 Worst case, a run makes `max_planning_attempts + max_subtask_iterations × max_subtask_loops + 1` model calls. With the defaults that is 5 + 2,000 + 1. Extra calls on top of that come from:
 
-- `tool_call_summary=True` (the default), which summarizes each batch of your own tool results with a separate model call
+- `tool_call_summary=True` (off by default), which summarizes each batch of your own tool results with a separate model call
 - the context compressor, which makes one summarizer call each time it fires
 - sub-agents, which run on their own budgets
 

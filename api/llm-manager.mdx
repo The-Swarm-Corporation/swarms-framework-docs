@@ -1,22 +1,21 @@
 ---
 title: 'LLMManager'
-description: 'Model selection, LiteLLM construction, invocation, and fallback rotation for an agent'
+description: 'LiteLLM construction, capability checks, invocation, and streaming for an agent'
 icon: 'microchip'
 ---
 
 ## Overview
 
-`LLMManager` owns everything an `Agent` does with a language model: building the `LiteLLM` instance from configuration, rotating through fallback models when one fails, checking model capabilities, invoking the model across all streaming modes, and re-running a failed task down the fallback chain.
+`LLMManager` owns the language-model plumbing of an `Agent`: building the `LiteLLM` instance from configuration, checking model capabilities, invoking the model across all streaming modes, and turning the raw stream into reasoning, content and tool-call parts. Fallback between models is not here: `Agent.run` walks `fallback_models` itself (see [Model fallback](#model-fallback)).
 
-Every `Agent` builds one automatically as `agent.llm_manager`. You rarely construct it yourself — but it is where the behavior lives, and the agent's LLM methods are thin wrappers over it.
+Every `Agent` builds one automatically as `agent.llm_manager`. You rarely construct it yourself, but it is where the behavior lives, and the agent's LLM methods are thin wrappers over it.
 
 ```python
 from swarms import Agent
 
-agent = Agent(agent_name="Analyst", model_name="gpt-5.4-mini")
+agent = Agent(agent_name="Analyst", model_name="gpt-5.4")
 
-agent.llm_manager.get_current_model()      # 'gpt-5.4-mini'
-agent.llm_manager.get_available_models()   # ['gpt-5.4-mini']
+agent.llm_manager.call("What is Python?", current_loop=1)
 ```
 
 ## Import
@@ -33,62 +32,41 @@ That is deliberate. Agents mutate their own LLM configuration at run time: `tool
 
 Agent Skills are not part of `system_prompt`. `Agent.call_llm` adds the selected skills to each request before it delegates to `call()`. See [SkillsManager](/api/skills-manager).
 
-Anything the manager writes — `model_name`, `current_model_index`, `llm` — is written back to the agent, so `agent.llm`, serialization, and `save()` / `load()` all behave exactly as before.
+The `llm` the agent builds from the manager is stored on the agent, so `agent.llm`, serialization, and `save()` / `load()` all work against it.
 
 <ParamField path="agent" type="Any" required>
-  The owning `Agent`. Read for configuration; written to for `model_name`, `current_model_index`, and `llm`.
+  The owning `Agent`. Read for configuration. `build()` sets `agent.model_name` to `gpt-5.4` when it is `None`.
 </ParamField>
 
-## Model selection and fallback
+## Model fallback
 
-Configure fallbacks on the agent, and the manager handles rotation.
+Fallback runs in one flat loop in `Agent.run`, not in the manager. Configure it on the agent:
 
 ```python
+from swarms import Agent
+from swarms.structs.agent import AgentLLMError
+
 agent = Agent(
     agent_name="Resilient",
-    fallback_models=["gpt-5.4-mini", "claude-sonnet-4-6", "gpt-5.4"],
+    model_name="gpt-5.4",
+    fallback_models=["gpt-5.4", "claude-sonnet-4-6", "gemini/gemini-2.5-pro"],
+    retry_attempts=3,  # retries per model, made by the client
 )
+
+try:
+    agent.run("Summarise the latest FOMC statement.")
+except AgentLLMError as error:
+    print("every model failed:", error.__cause__)
 ```
 
-### get_available_models
+- **Retries belong to the client.** `retry_attempts` is passed to `LiteLLM` as `retries` and sent with every request as litellm's `num_retries`, so one model gets at most `retry_attempts + 1` calls.
+- **The first entry of `fallback_models` is the primary**, and `agent.model_name` is set to it. `fallback_model_name` is folded into `fallback_models` (as `[model_name, fallback_model_name]`) at construction.
+- **Only an `AgentLLMError` moves to the next model.** `Agent.call_llm` wraps any error from `call()` in `AgentLLMError`, chained to the provider's error as `__cause__`. Any other exception, such as a bug in a tool, raises at once. After the last model fails, the `AgentLLMError` reaches the caller.
+- **Every run starts from the primary model again**, rebuilding `agent.llm` with `llm_handling()` whenever the model changes.
 
-```python
-def get_available_models() -> List[str]
-```
-
-Models in preference order. Built from `fallback_models` when set, otherwise from `model_name` plus `fallback_model_name` (de-duplicated).
-
-### get_current_model
-
-```python
-def get_current_model() -> str
-```
-
-The model currently in use. Falls back to the first available model, then to `gpt-5.4`, if the index runs out of range.
-
-### switch_to_next_model
-
-```python
-def switch_to_next_model() -> bool
-```
-
-Advance to the next model in the list, update `agent.model_name`, and rebuild `agent.llm` against it. Returns `False` when the list is exhausted. Model switches are always logged.
-
-### reset_model_index
-
-```python
-def reset_model_index() -> None
-```
-
-Return to the primary model and rebuild the LLM.
-
-### is_fallback_available
-
-```python
-def is_fallback_available() -> bool
-```
-
-`True` when more than one model is configured.
+<Warning>
+The fallback-index helpers were removed: `get_available_models`, `get_current_model`, `switch_to_next_model`, `reset_model_index`, `is_fallback_available`, `current_model_index`, and `LLMManager.handle_fallback_execution`, on both `LLMManager` and `Agent`. Calling one raises `AttributeError`. Read `agent.fallback_models` for the configured chain and `agent.model_name` for the model in use.
+</Warning>
 
 ## Construction
 
@@ -105,6 +83,8 @@ The core settings include:
 - `temperature` from the agent. It defaults to `None`, and `LiteLLM` leaves it out of the request when unset, so models that reject any temperature value, such as some Claude models, work without extra configuration.
 - `usage_hook`, set to the agent's own usage counter. Token totals live on the agent, so they survive a rebuild after a fallback switch. See [Token usage](/agents/token-usage).
 - `base_url` and `api_key`, from the agent's `llm_base_url` and `llm_api_key`.
+- `retries`, from the agent's `retry_attempts`.
+- `stop`, set to `[agent.stopping_token]` when the agent has a `stopping_token`, so the provider stops generating there. `llm_args` can override it.
 
 MCP tool schemas come from the agent's [ToolManager](/api/tool-manager). With dynamic tool loading on, they are deferred into the tool catalog (`agent.tool_manager.defer_mcp_tools()`). Otherwise they are fetched with `agent.tool_manager.add_mcp_tools_to_memory()` and sent with every request.
 
@@ -132,7 +112,7 @@ The current LiteLLM instance's attributes as a string.
 def check_model_supports_utilities(img: Optional[str] = None) -> None
 ```
 
-Log an error for each capability the current model lacks — vision when an image is supplied, function calling when a tool schema is set, parallel function calling when more than two tools are registered. **Logging only; never raises.**
+Log each capability the current model lacks: an error for vision when an image is supplied, an error for function calling when a tool schema is set, and a warning for parallel function calling when more than two tools are registered. The function-calling messages are logged once per process. **Logging only; never raises.**
 
 ### randomize_temperature
 
@@ -158,22 +138,24 @@ def call(
 ) -> Any
 ```
 
-Call the model, selecting one of three modes from the agent's configuration:
+Call the model, selecting one of three modes from the agent's configuration. Every streaming mode reads from [`stream_parts`](#stream_parts), so reasoning and tool calls stream along with the content.
 
 <Tabs>
 <Tab title="Non-streaming">
-Direct `llm.run()` returning the complete string. Used when neither `stream` nor `streaming_on` is set.
+Direct `llm.run()` returning the complete string. Used when `stream` and `streaming_on` are off and no `streaming_callback` is given.
 </Tab>
 <Tab title="Panel streaming">
-`agent.streaming_on = True`. Three sub-behaviors:
-- With `streaming_callback` — tokens forwarded in real time
-- With `print_on=False` — silent collection
-- Otherwise — a live Rich streaming panel
+`agent.streaming_on = True`, or a `streaming_callback` is given (even with `streaming_on` off). Three sub-behaviors:
+- With `streaming_callback`: the text of every part is forwarded in real time, including the `[thinking]` and `[tool call]` headers
+- With `print_on=False`: silent collection
+- Otherwise: a live Rich streaming panel, with reasoning dimmed and tool calls in cyan
 </Tab>
 <Tab title="Detailed streaming">
-`agent.stream = True`. Emits a `token_info` dict per token with full metadata: index, model, id, finish reason, citations, usage, logprobs, timestamp.
+`agent.stream = True`. Emits a `token_info` dict per part with full metadata: index, `type` (`"content"`, `"reasoning"` or `"tool_call"`), model, id, finish reason, citations, usage, logprobs, timestamp.
 </Tab>
 </Tabs>
+
+Each call runs inside an `Agent.llm_call` telemetry span that records the request, the response and the tokens used.
 
 <ParamField path="task" type="str" required>
   The prompt to send.
@@ -192,36 +174,65 @@ Direct `llm.run()` returning the complete string. Used when neither `stream` nor
 </ParamField>
 
 <ParamField path="streaming_callback" type="Callable[[str], None]">
-  Receives `token_info` dicts in detailed streaming, token strings in panel streaming.
+  Receives `token_info` dicts in detailed streaming, and the text of every streamed part in panel streaming.
 </ParamField>
 
-**Returns** the complete response string — or, when the model made tool calls mid-stream, the assembled tool-call list instead. `is_last` is stripped from `kwargs` before dispatch.
+**Returns** the complete response string (content only, without reasoning or tool-call text), or, when the model made tool calls mid-stream, the assembled tool-call list instead. `is_last` is stripped from `kwargs` before dispatch.
 
-Any provider error is logged and re-raised. The agent's standard loop (`Agent._run`) retries the call up to `retry_attempts` times. After the last failure it raises `AgentLLMError`, which hands the task to the fallback chain below.
+Any provider error propagates. litellm has already retried it `retry_attempts` times; `Agent.call_llm` then wraps it in `AgentLLMError`, which moves `Agent.run` to the next model in `fallback_models`. See [Model fallback](#model-fallback).
 
-### Stream plumbing
-
-```python
-def stream_with_tool_collection(stream, tool_calls_out: list)
-def extract_thinking_from_stream(stream)
-```
-
-`stream_with_tool_collection` forwards every chunk unchanged while assembling fragmented `delta.tool_calls` deltas into a complete tool-call list. `extract_thinking_from_stream` swallows reasoning chunks from models that emit them, flushes them to a thinking panel, and yields only content chunks onward.
-
-## Fallback execution
-
-### handle_fallback_execution
+### run_side_call
 
 ```python
-def handle_fallback_execution(
-    task=None, img=None, imgs=None, correct_answer=None,
-    streaming_callback=None, original_error=None, *args, **kwargs,
+def run_side_call(
+    llm: Any,
+    task: str,
+    current_loop: int = 0,
+    streaming_callback: Optional[Callable[[str], None]] = None,
 ) -> Any
 ```
 
-Re-run a failed task against the next fallback model, recursing down the chain until it succeeds or every model is exhausted. `Agent.run` calls it when a run fails and more than one model is configured.
+Run a call on a model other than the agent's own, such as the tool-call summary model, and stream it the same way `call()` would when the agent streams. `streaming_callback` defaults to the callback of the run in progress, then to the agent's `streaming_callback`. Returns the model's reply.
 
-When every model is exhausted, the original error goes to the agent's error handler, which logs it (and saves state when `autosave` is on) and re-raises it to the caller.
+## Stream plumbing
+
+### stream_parts
+
+```python
+def stream_parts(stream, tool_calls_out: list, content_out: list)
+```
+
+Yield everything the model streams as it arrives, as `(kind, text, chunk)` tuples where `kind` is `"reasoning"`, `"content"` or `"tool_call"`.
+
+- **Content** passes through unchanged and is appended to `content_out`; joined, it is the reply text.
+- **Reasoning** starts with a `[thinking] ` header.
+- **Each tool call** starts with a `[tool call] <name>` header, followed by a space and its argument fragments.
+
+A part of a new kind starts on a new line, and a trailing newline ends a stream that finished on reasoning or a tool call. `tool_calls_out` is filled with the assembled tool calls once the stream ends. In `max_loops="auto"` almost every turn is a tool call, so a callback sees the whole autonomous run:
+
+```
+[tool call] create_plan {"task_description":"Get the current weather in Paris and London...","steps":[...]}
+[tool call] get_weather {"city":"Paris"}
+[tool call] complete_task {"task_id":"main_task","summary":"...","results":"...Paris is warmer."}
+```
+
+To keep only the reply text, filter callback text on the headers, or use detailed streaming and filter on `token_info["type"]`.
+
+### stream_with_tool_collection
+
+```python
+def stream_with_tool_collection(stream, tool_calls_out: list)
+```
+
+Forward every chunk unchanged while assembling fragmented `delta.tool_calls` deltas into a complete tool-call list, which fills `tool_calls_out` once the stream is consumed. `stream_parts` reads through it.
+
+### extract_thinking_from_stream
+
+```python
+def extract_thinking_from_stream(stream)
+```
+
+Swallow reasoning chunks, flush them to a thinking panel when `print_on` is set, and yield only content chunks onward. The streaming modes of `call()` no longer use it; they stream reasoning through `stream_parts` instead. It remains available through `Agent._extract_thinking_from_stream`.
 
 ## Agent-level wrappers
 
@@ -230,16 +241,12 @@ Each of these delegates to the manager and remains the supported public API:
 | `Agent` method | Delegates to |
 |---|---|
 | `llm_handling(*args, **kwargs)` | `build()` |
-| `call_llm(task, img, imgs, current_loop, streaming_callback)` | `call()`, after adding the selected skills to the request |
-| `get_available_models()` | `get_available_models()` |
-| `get_current_model()` | `get_current_model()` |
-| `switch_to_next_model()` | `switch_to_next_model()` |
-| `reset_model_index()` | `reset_model_index()` |
-| `is_fallback_available()` | `is_fallback_available()` |
+| `call_llm(task, img, imgs, current_loop, streaming_callback)` | `call()`, after adding the selected skills to the request. Wraps any error in `AgentLLMError` |
 | `check_model_supports_utilities(img)` | `check_model_supports_utilities()` |
 | `dynamic_temperature()` | `randomize_temperature()` |
 | `get_llm_parameters()` | `get_parameters()` |
-| `_handle_fallback_execution(...)` | `handle_fallback_execution()` |
+| `_stream_with_tool_collection(stream, tool_calls_out)` | `stream_with_tool_collection()` |
+| `_extract_thinking_from_stream(stream)` | `extract_thinking_from_stream()` |
 
 ## Related
 

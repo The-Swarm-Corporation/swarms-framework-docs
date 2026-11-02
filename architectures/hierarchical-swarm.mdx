@@ -224,6 +224,10 @@ Example output:
   Log the autosave directory and each save.
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the swarm posts to: the task, the director's plan and orders, each worker's report and the director's feedback. Each run's conversation is seeded with what the channel already holds. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
 <Note>
   The swarm enforces `output_type="final"` on all configurable director and worker agents so only final responses pass between agents. The swarm-level `output_type` still determines the value returned from `run()`.
 </Note>
@@ -586,7 +590,7 @@ Each agent gets only what it needs from the shared conversation:
 - **Judge** — the conversation as typed chat turns.
 - **Feedback director** — the current step's worker responses only.
 
-`run()` resets the conversation and the cursors, so every task starts clean.
+`run()` starts a new conversation and resets the cursors, so every task starts clean. When the swarm has a `channel`, the new conversation is seeded with what the channel already holds, so a run can continue an earlier discussion.
 
 ## Related Architectures
 

@@ -38,7 +38,7 @@ class ConcurrentWorkflow:
         output_type: str = "dict-all-except-first",
         max_loops: int = 1,
         show_dashboard: bool = False,
-        autosave: bool = True,
+        autosave: bool = False,
         verbose: bool = False,
         on_error: str = "store",
         max_workers: Optional[int] = None,
@@ -80,8 +80,8 @@ class ConcurrentWorkflow:
   Whether to display real-time dashboard during execution
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="True">
-  Whether to automatically save conversation history to workspace
+<ParamField path="autosave" type="bool" default="False">
+  If `True`, the run's conversation is written to `conversation_history.json` in the workflow's workspace directory after every `run()`, including one that fails. Off by default, so a run writes nothing to disk.
 </ParamField>
 
 <ParamField path="on_error" type="str" default="store">
@@ -89,7 +89,7 @@ class ConcurrentWorkflow:
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
-  Thread pool size. Defaults to `len(agents)` capped at 32. Agent calls are network-bound, so this is sized by agent count rather than CPU cores.
+  Thread pool size. Defaults to `len(agents)`, with no upper cap, so every agent runs at once. Agent calls are network-bound, so this is sized by agent count rather than CPU cores. Set it to throttle a large roster, for example to stay under a provider's rate limit.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -100,13 +100,17 @@ class ConcurrentWorkflow:
   A comms channel the workflow posts to: the task as `User`, then every agent's answer in agent order once the step completes. Each agent still receives only the task. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
+<Note>
+  `auto_generate_prompts` has been removed; nothing read it. Passing it now raises `TypeError`.
+</Note>
+
 ## Methods
 
 ### `run(task, img=None, imgs=None, streaming_callback=None)`
 
 Execute all agents concurrently on the given task.
 
-Each call starts with a fresh conversation, so a reused workflow returns only this task's messages. Each agent's final answer is recorded, not its whole transcript, and answers are collected in the order of `agents`, not completion order. With `on_error="store"`, a failed agent is recorded with `"Error: ..."` as its content, under the role `"<agent_name> (failed)"` (or its plain name in dashboard mode). The conversation is autosaved after the run, even when it fails.
+Each call starts with a fresh conversation, so a reused workflow returns only this task's messages. Each agent's final answer is recorded, not its whole transcript, and answers are collected in the order of `agents`, not completion order. With `on_error="store"`, a failed agent is recorded with `"Error: ..."` as its content, under the role `"<agent_name> (failed)"` (or its plain name in dashboard mode). With `autosave=True`, the conversation is saved after the run, even when it fails.
 
 <ParamField path="task" type="str" required>
   The task to be executed by all agents
@@ -449,7 +453,7 @@ When `show_dashboard=True`, you'll see real-time updates like:
 
 ## Performance Considerations
 
-- **Concurrency**: Thread pool sized by agent count, capped at 32 (`MAX_CONCURRENT_AGENTS`). Agent calls are network-bound, so this does not derive from CPU core count. Override with `max_workers`.
+- **Concurrency**: One thread per agent by default, with no upper cap, so a 100-agent workflow runs all 100 at once. Agent calls are network-bound, so this does not derive from CPU core count. Pass `max_workers` to throttle.
 - **Concurrent Execution**: All agents run truly concurrently using ThreadPoolExecutor
 - **Memory Usage**: Each agent maintains its own context, consider memory for many agents
 - **API Rate Limits**: Be aware of rate limits when using cloud-based LLMs

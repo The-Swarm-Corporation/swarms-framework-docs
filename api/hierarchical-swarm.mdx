@@ -171,7 +171,7 @@ Executes the hierarchical swarm for the specified number of feedback loops.
 </ResponseField>
 
 **Workflow:**
-1. Clears the conversation and every agent's delivery cursor, then re-adds the worker roster and the task, so each call starts clean
+1. Starts a new conversation and clears every agent's delivery cursor, then adds the worker roster and the task, so each call starts clean. With a `channel`, the new conversation is first seeded with what the channel already holds
 2. Director distributes orders to agents (after an optional planning pass)
 3. Agents execute tasks and report back to director
 4. Failed workers are retried up to `max_agent_retries`

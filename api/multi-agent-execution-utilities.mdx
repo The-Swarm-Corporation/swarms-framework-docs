@@ -11,7 +11,7 @@ The `multi_agent_exec` module provides a comprehensive set of utility functions 
 Every function on this page is exported from the top-level `swarms` package, so `from swarms import run_agents_concurrently` works. They also remain importable from `swarms.structs.multi_agent_exec` and `swarms.structs.batch_agent_execution`.
 
 <Note>
-These helpers call `agent.run()` on the agents you pass and do not reset their conversations. Running the same `Agent` instance twice, or in two threads at once, carries one task's history into the next. Pass distinct agent instances when tasks must not share context.
+These helpers call `agent.run()` (or `agent.arun()` for the async helpers) on the agents you pass and do not reset their conversations. Running the same `Agent` instance twice, or in two threads at once, carries one task's history into the next. Pass distinct agent instances when tasks must not share context.
 </Note>
 
 ## Installation
@@ -25,8 +25,8 @@ pip install -U swarms
 | Function | Category | Description |
 |----------|----------|-------------|
 | `run_single_agent` | Single Agent | Runs a single agent synchronously |
-| `run_agent_async` | Single Agent | Runs a single agent asynchronously using asyncio |
-| `run_agents_concurrently_async` | Concurrent | Runs multiple agents concurrently using asyncio |
+| `run_agent_async` | Single Agent | Awaits a single agent's `arun` on the running event loop |
+| `run_agents_concurrently_async` | Concurrent | Awaits multiple agents' `arun` concurrently, with an optional `max_concurrency` cap |
 | `run_agents_concurrently` | Concurrent | Optimized concurrent runner with image support and flexible output formats |
 | `run_agents_concurrently_multiprocess` | Concurrent | Manages agents concurrently in batches with optimized performance |
 | `batched_grid_agent_execution` | Batched & Grid | Runs `agents[i]` on `tasks[i]` concurrently |
@@ -69,7 +69,7 @@ print(result)
 
 ### run_agent_async()
 
-Runs a single agent asynchronously using asyncio.
+Runs a single agent on the running event loop.
 
 ```python
 async def run_agent_async(agent: AgentType, task: str) -> Any
@@ -79,7 +79,11 @@ async def run_agent_async(agent: AgentType, task: str) -> Any
 - `agent` (AgentType): Agent instance to run
 - `task` (str): Task string to execute
 
-**Returns:** Agent execution result. The blocking `agent.run()` call runs in a worker thread via `asyncio.to_thread`, so it does not block the event loop
+**Returns:** Agent execution result. The function awaits `agent.arun(task)`. An object without an `arun` method has its `run()` called in a worker thread via `asyncio.to_thread` instead, so it does not block the event loop
+
+<Note>
+`Agent.arun` itself currently runs `Agent.run` in a worker thread, so each in-flight `Agent` still holds a thread while it waits on the model.
+</Note>
 
 ```python
 import asyncio
@@ -103,22 +107,24 @@ asyncio.run(main())
 
 ### run_agents_concurrently_async()
 
-Runs multiple agents concurrently using asyncio.
+Runs multiple agents concurrently on one event loop. Each agent is awaited through `run_agent_async` with `asyncio.gather`, and an `asyncio.Semaphore` caps how many are in flight at once.
 
 ```python
 async def run_agents_concurrently_async(
     agents: List[AgentType],
-    task: str
+    task: str,
+    max_concurrency: Optional[int] = None,
 ) -> List[Any]
 ```
 
 **Parameters:**
 - `agents` (List[AgentType]): List of Agent instances to run concurrently
 - `task` (str): Task string to execute by all agents
+- `max_concurrency` (Optional[int]): Most agents running at once, for example to stay under a provider rate limit. `None` (the default) runs every agent at once
 
 **Returns:** List of outputs from each agent, in input order
 
-**Raises:** The first exception raised by any agent. Results from the other agents are not returned in that case
+**Raises:** `ValueError` if `max_concurrency` is less than 1. Otherwise, the first exception raised by any agent; results from the other agents are not returned in that case
 
 ```python
 import asyncio
@@ -136,7 +142,8 @@ async def main():
     ]
 
     task = "Analyze the impact of AI on job markets"
-    results = await run_agents_concurrently_async(agents, task)
+    # At most two agents call the model at once
+    results = await run_agents_concurrently_async(agents, task, max_concurrency=2)
 
     for i, result in enumerate(results):
         print(f"Agent {i+1} result: {result}")
@@ -213,7 +220,7 @@ for agent_name, result in results_dict.items():
 
 ### run_agents_concurrently_multiprocess()
 
-Runs multiple agents on the same task in batches. Despite the name, it does not start processes: each batch runs through `run_agents_concurrently_async` on a fresh event loop, and batches run one after another.
+Runs multiple agents on the same task in batches. Despite the name, it does not start processes: each batch runs through `run_agents_concurrently_async` (every agent in the batch at once) on one dedicated event loop, and batches run one after another.
 
 ```python
 def run_agents_concurrently_multiprocess(
@@ -624,6 +631,7 @@ except Exception as e:
 | **Image Support** | Pass image data to agents that support multimodal processing for enhanced capabilities |
 | **Dictionary Output** | Use `return_agent_output_dict=True` for structured results with agent name mapping |
 | **Error Handling** | The thread-pool functions return a failed agent's exception (or `None` for `batch_agent_execution`) in its slot. `run_single_agent`, `run_agent_async`, `run_agents_concurrently_async` and `run_agents_concurrently_multiprocess` propagate the exception |
+| **Concurrency Cap** | `run_agents_concurrently_async(..., max_concurrency=N)` bounds in-flight agents; `run_agents_concurrently` and the grid functions are bounded by `max_workers` |
 
 ## Best Practices
 

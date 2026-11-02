@@ -141,6 +141,8 @@
             "group": "Changelog",
             "pages": [
               "changelog/overview",
+              "changelog/swarms-v17",
+              "changelog/swarms-v16",
               "changelog/swarms-v15",
               "changelog/swarms-v14",
               "changelog/swarms-v13",
@@ -187,6 +189,7 @@
               "api/concurrent-workflow",
               "api/agent-rearrange",
               "api/graph-workflow",
+              "api/phased-fan-out-workflow",
               "api/batched-grid-workflow",
               "api/mixture-of-agents",
               "api/hierarchical-swarm",
@@ -208,11 +211,9 @@
               "api/multi-agent-router",
               "api/auto-agent-builder",
               "api/auto-swarm-builder",
-              "api/swarm-rearrange",
               "api/model-router",
               "api/agent-router",
               "api/multi-swarm-orchestration",
-              "api/hierarchical-communication-framework",
               "api/hhcs",
               "api/multi-agent-execution-utilities",
               "api/async-subagent",
@@ -364,6 +365,7 @@
               "examples/swarm-router-example",
               "examples/multi-agent/advisor-swarm-example",
               "examples/multi-agent/debate-quickstart",
+              "examples/multi-agent/phased-fan-out-workflow-example",
               "examples/social-swarm-patterns"
             ]
           },
@@ -541,5 +543,15 @@
         ]
       }
     ]
-  }
+  },
+  "redirects": [
+    {
+      "source": "/api/swarm-rearrange",
+      "destination": "/api/agent-rearrange"
+    },
+    {
+      "source": "/api/hierarchical-communication-framework",
+      "destination": "/api/hierarchical-swarm"
+    }
+  ]
 }

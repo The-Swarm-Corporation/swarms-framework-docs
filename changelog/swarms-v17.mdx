@@ -1,0 +1,228 @@
+---
+title: Swarms v17
+description: Changelog for Swarms v17 "InterLink", the release that adds comms channels, PhasedFanOutWorkflow and swarms[fast]
+---
+
+**Releases:** 17.0.0 on 2026-11-02. Parts of this work first shipped in the v16 point releases: 16.0.1 on 2026-10-03 · 16.0.2 on 2026-10-11 · 16.0.3 on 2026-10-26 · 16.0.4 on 2026-10-27
+
+## Overview
+
+Swarms v17, code-named InterLink, covers 227 commits merged between October 2 and November 2, 2026. For the first time in a major release, the `swarms/` package got smaller: eleven modules were added and a net 2,235 lines removed.
+
+Five threads run through it. **Channels**: an agent or a structure can read and post its conversation through a shared medium, such as a markdown file, a queue, SQLite, an HTTP server or an email thread. **Start-up speed**: `import swarms` drops from 1.91 s to 0.28 s. **Full-width concurrency**: `ConcurrentWorkflow` and `GraphWorkflow` run every node of a layer at once. **Answers, not transcripts**: seven structures and helpers that recorded an agent's whole conversation now record its answer. **Failures that raise**: swarms that returned error strings now raise, so `SwarmRouter(fallback_swarms=...)` works, and more than forty unused parameters, methods and modules are gone.
+
+<Warning>
+Read [Removals and breaking changes](#removals-and-breaking-changes) before you upgrade. `Agent()` now sends no system prompt unless you give it one, workflows no longer autosave, and failed swarms raise. Many removed keyword arguments are absorbed by `**kwargs` and silently ignored, so search your code for the names listed.
+</Warning>
+
+## Highlights
+
+* **Comms channels**: `FileChannel`, `QueueChannel`, `SqliteChannel`, `HttpChannel`, `SmtpChannel` and `AgentMailChannel`, on `Agent`, `Conversation`, nine structures and `SwarmRouter`.
+* **PhasedFanOutWorkflow**: a lead agent plans phases at run time, fans out one fresh agent per item, and combines the results.
+* **`swarms[fast]`**: model calls go through RouteHub, and `GraphWorkflow` gains the rustworkx backend.
+* **`import swarms` in 0.28 s**, down from 1.91 s, and nothing written to disk on import.
+* **DecisionModel on OpenAI**: `gpt-6-luna`, model prices and `calculate_cost`.
+* **Streaming autonomous runs**: tool calls and thinking stream behind `[tool call]` and `[thinking]` headers.
+* **Async fan-out with a cap**: `run_agents_concurrently_async(max_concurrency=...)`, `CouncilAsAJudge.arun` and `MajorityVoting.arun`.
+
+## New features
+
+### Comms channels
+
+A comms channel is a conversation that lives outside the agent. Every agent or structure given the same channel reads what was said there before a run and posts what it says after. A second run on a non-empty channel continues where the first left off.
+
+```python
+from swarms import Agent, FileChannel, SequentialWorkflow
+
+channel = FileChannel("runs/ev_report.md")
+
+workflow = SequentialWorkflow(
+    agents=[
+        Agent(agent_name="Researcher", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1),
+    ],
+    max_loops=1,
+    channel=channel,
+)
+workflow.run("Report on the EV battery market.")
+print(channel.path.read_text())
+```
+
+| Channel | Stored in |
+|---|---|
+| `FileChannel` | A `.md` or `.txt` file you can read and edit |
+| `QueueChannel` | A queue a consumer blocks on |
+| `SqliteChannel` | A SQLite table, safe across threads and processes |
+| `HttpChannel` | A server you run, shared across machines |
+| `SmtpChannel` | An email thread in your own mailbox |
+| `AgentMailChannel` | An email thread in an AgentMail inbox |
+
+`SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange`, `GraphWorkflow`, `MixtureOfAgents`, `HierarchicalSwarm`, `GroupChat`, `MajorityVoting` and `PlannerWorkerSwarm` take `channel=`, and `SwarmRouter` forwards it. Subclass `CommsChannel` for your own medium. See [Comms Channels](/api/channels/overview) and the [quickstarts](/examples/channels/overview).
+
+### PhasedFanOutWorkflow
+
+A lead agent writes a plan of phases. Phases run in order, steps in a phase run in parallel, and a `for_each` step starts one fresh agent per item an earlier step returned, so the width of the run is decided at run time. The plan is validated before anything runs, and the lead combines the results. It is inspired by the dynamic workflows in Anthropic's Claude Managed Agents.
+
+```python
+from swarms.structs.phased_fan_out_workflow import PhasedFanOutWorkflow
+
+workflow = PhasedFanOutWorkflow(
+    model_name="gpt-5.4",
+    worker_model_name="gpt-5.4-mini",
+    size_guideline="small",
+)
+print(workflow.run("Find every bug in these files and verify each one: ..."))
+print(workflow.usage)
+```
+
+See [PhasedFanOutWorkflow](/api/phased-fan-out-workflow).
+
+### `swarms[fast]`
+
+`pip install "swarms[fast]"` installs RouteHub, and every model call goes through it instead of LiteLLM, with no code changes. It also installs rustworkx for `GraphWorkflow(backend="rustworkx")`. Set `SWARMS_LLM_BACKEND=litellm` to force LiteLLM while RouteHub is installed. On RouteHub, local servers need `/v1` in `llm_base_url`, for example `http://localhost:11434/v1` for Ollama.
+
+```bash
+pip install -U "swarms[fast]"
+```
+
+See [RouteHub](/routehub/overview).
+
+### DecisionModel on OpenAI, with prices
+
+`DecisionModel(model_name="gpt-6-luna")` calls OpenAI's Decisions API with `OPENAI_API_KEY`, with the same questions and answer shapes as the TypeSafe and Cloudflare providers. Every model now has a price, `model.usage` sums tokens over every request, and `calculate_cost()` prices one request or all of them.
+
+```python
+from swarms import DecisionModel, get_decision_model_prices
+
+print(get_decision_model_prices())
+
+model = DecisionModel(model_name="gpt-6-luna")
+urgent = model.noul(
+    state="Checkout has been failing for every customer for the last hour.",
+    instructions="Is this support request urgent?",
+)
+print(urgent, model.calculate_cost())
+```
+
+See [DecisionModel](/api/decision-model).
+
+### The whole autonomous run streams
+
+With streaming on, an autonomous run used to stream almost nothing, because nearly every turn is a tool call. Now `run_stream`, `arun_stream`, callbacks and the live panel receive content as before, reasoning behind a `[thinking]` header, and each tool call behind a `[tool call] <name>` header followed by its arguments. Detailed streaming's `token_info` gains a `type` of `content`, `reasoning` or `tool_call`. A `streaming_callback` also receives tokens when `streaming_on` is off.
+
+```python
+for token in agent.run_stream("Get the weather in Paris and London, then say which is warmer."):
+    print(token, end="", flush=True)
+```
+
+See [Streaming](/examples/streaming).
+
+### Async fan-out with a concurrency cap
+
+`run_agents_concurrently_async` awaits each agent's `arun` and takes `max_concurrency`. `CouncilAsAJudge.arun` and `MajorityVoting.arun` follow their sync `run`, with at most `max_concurrency` agents calling the model at once.
+
+```python
+import asyncio
+
+from swarms import run_agents_concurrently_async
+
+results = asyncio.run(
+    run_agents_concurrently_async(agents, "Summarise today's news.", max_concurrency=8)
+)
+```
+
+See [Multi-agent execution utilities](/api/multi-agent-execution-utilities).
+
+### AgentRearrange runs whole swarms as steps
+
+`AgentRearrange(agents=...)` accepts any object with a `name` and a `run(task)` method, so swarms can be steps in a flow. `SwarmRearrange` is removed.
+
+```python
+from swarms import AgentRearrange, ConcurrentWorkflow
+
+research_team = ConcurrentWorkflow(name="Research-Team", agents=[analyst_a, analyst_b])
+
+pipeline = AgentRearrange(
+    agents=[planner, research_team, writer],
+    flow="Planner -> Research-Team -> Writer",
+)
+```
+
+Give an inner swarm `output_type="final"` to record only its answer. See [AgentRearrange](/api/agent-rearrange).
+
+### One AgentLoader
+
+`AgentLoader` loads Markdown, CSV, JSON and YAML through one schema, `AgentConfig`, whose fields are `Agent` parameters. `auto()` dispatches on extension, `load_agents_from_markdown` reads a whole directory, and `create_agent_file` writes any of the formats. `CSVAgentLoader`, `MarkdownAgentLoader` and `create_agents_from_yaml` are removed. See [AgentLoader](/api/agent-loader).
+
+### Smaller additions
+
+* `Agent.list_tools()` returns every tool name the agent can call: local, MCP, handoff, `tool_search` and the autonomous-loop tools.
+* `stopping_token` is sent to the provider as a stop sequence. It defaults to `None`.
+* `AutoSwarmBuilder.usage` and `AutoAgentBuilder.usage` report provider tokens. `SwarmRouter.usage` counts agents a built swarm keeps in a dict, such as `CouncilAsAJudge`'s judges.
+* An official Docker image, `swarmscorp/swarms`, on Python 3.13.
+* `AGENTS.md`, Copilot instructions and a `py.typed` marker for coding agents and type checkers.
+* New environment flags: `SWARMS_LLM_BACKEND`, `SWARMS_LOG_FILES`, `SWARMS_STRICT_MODEL_CHECK`, `SWARMS_OTEL_EXIT_TIMEOUT`, `SWARMS_OTEL_EXPORT_DELAY_MS`, plus `SMTP_USERNAME`, `SMTP_PASSWORD` and `AGENTMAIL_API_KEY` for the email channels. See [Environment setup](/environment-setup).
+
+## Improvements
+
+**Start-up (0.28 s).** `import swarms` no longer loads LiteLLM, RouteHub, mcp, networkx, rustworkx, graphviz, the OpenTelemetry SDK or starlette. Each loads when something uses it. Importing swarms writes no files, and building an `Agent` whose limits are set opens no network connection.
+
+**Full-width concurrency.** `ConcurrentWorkflow` capped itself at 32 agents and `GraphWorkflow` sized its pool to CPU cores. Both now run every node of a layer at once, so a 100-node fan-out on stub agents went from 2.04 s to 0.21 s. Set `max_workers` on `ConcurrentWorkflow` if a provider rate-limits you.
+
+**Failures raise.** `HeavySwarm`, `MixtureOfAgents`, `MajorityVoting`, `AuctionSwarm` and `AgentRearrange` parallel steps returned an error string or counted an exception as a vote. They now raise, so `fallback_swarms` can fall back.
+
+**One flat model loop.** Retries and fallback models collapse from three stacked layers into one loop. Provider errors arrive as `AgentLLMError` with the original as `__cause__`, `retry_attempts` counts client retries per model, and every run starts at the primary model.
+
+**Answers, not transcripts.** `HeavySwarm`, `ReflexionAgent`, `handoff_task`, `GKPAgent`, `ExpertPanelDiscussion` and `IterativeReflectiveExpansion` now record and return each agent's answer instead of its whole conversation.
+
+**Claude 5 and current models.** Current Claude models reject a sent `temperature`, so every remaining hard-coded temperature and the default `top_p` are now `None`. Prompt caching no longer stacks `cache_control` markers past Anthropic's limit of four. `ModelRouter` lists models that exist today, and `AgentJudge`, `ReflexionAgent` and `GKPAgent` no longer default to the retired `openai/o1`.
+
+**Telemetry.** Run spans record full conversations, arguments, requests and responses, compressed. With `SWARMS_TELEMETRY_ON=False`, the OpenTelemetry API is not even imported. See [Telemetry](/deployment/telemetry).
+
+**Nothing written to disk unless you ask.** Workflows don't autosave, no log files or `error.txt` are written by default, and imports create no directories.
+
+## Bug fixes
+
+* `run(..., streaming_callback=fn)` on a `SwarmRouter` no longer crashes the swarm's constructor.
+* `AgentLoader` results come back in file order, `AgentLoader(concurrent=False)` is honoured, and a nested `model:` block in YAML is applied instead of ignored.
+* `max_loops: auto` loads in every agent file format.
+* `PhasedFanOutWorkflow` accepts a JSON plan followed by prose.
+* The `"str"`, `"string"` and `"all"` output types return the whole conversation, not the trimmed model context.
+
+## Removals and breaking changes
+
+**Changed defaults:**
+
+* `Agent()` sends **no system prompt** when you give none. Pass `system_prompt=` explicitly for the old persona.
+* `autosave` defaults to `False` on `SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange` and `SpreadSheetSwarm`.
+* No log files by default. Set `SWARMS_LOG_FILES=True` to write them.
+* `tool_call_summary` defaults to `False`.
+* Model catalog warnings only appear with `SWARMS_STRICT_MODEL_CHECK=True`.
+* Telemetry records full content. Set `SWARMS_TELEMETRY_ON=False` to opt out.
+* Streaming callbacks receive tool-call and thinking text behind headers. Return values are unchanged.
+* Stdio MCP servers start with a minimal environment. Pass what they need in `env`.
+* `top_p` and every built-in temperature default to `None`. `AgentJudge`, `ReflexionAgent` and `GKPAgent` default to `gpt-5.4`.
+
+**Removed modules and classes:** `SwarmRearrange` (use `AgentRearrange` with nested swarms), `create_agents_from_yaml`, `CSVAgentLoader` and `MarkdownAgentLoader` (use `AgentLoader`), the hierarchical structured communication framework (use `HierarchicalSwarm`), `Transcript`, `log_agent_data`, 26 `BaseTool` methods, `MAX_CONCURRENT_AGENTS`, and `output_type="basemodel"`.
+
+**Removed parameters and methods:**
+
+| Removed | Now |
+|---|---|
+| `Agent(multi_modal=...)`, `sop`, `sop_list`, `output_cleaner` | Ignored |
+| `Agent.run(n=...)`, `Agent.run(correct_answer=...)` | No longer parameters. Passed by keyword, they are forwarded to the model request like any other extra keyword. Loop over `run` for several samples. `correct_answer` was the fourth positional parameter, so pass `streaming_callback` and later arguments by keyword |
+| `Agent.bulk_run`, `check_available_tokens` | `AttributeError`; use `run_batched` and `input_tokens` |
+| The fallback index helpers (`get_current_model`, `switch_to_next_model` and others) | `AttributeError`; use `fallback_models` |
+| `Conversation(output_metadata=...)` | `TypeError` |
+| `GroupChat(idle_timeout=...)` | `TypeError` |
+| `ConcurrentWorkflow(auto_generate_prompts=..., metadata_output_path=...)` | `TypeError` |
+| `SwarmRouter(agents_config=...)`, `fetch_message_history_as_string` | Ignored, or `AttributeError` |
+| `AgentRearrange(memory_system=...)` | `TypeError` |
+| `SequentialWorkflow(shared_memory_system=...)`, `MultiAgentRouter(shared_memory_system=...)` | Ignored |
+| `mcp_url="python server.py"` as a stdio server | Raises; use `mcp_config` with a command |
+
+**Dependencies:** `asyncio` and `setuptools` are no longer installed.
+
+## Conclusion
+
+v17 connects agents to the world outside their own memory and takes weight off the framework. Channels let a conversation live in a file, a database, a server or an inbox, `PhasedFanOutWorkflow` lets a lead agent size the run itself, and `swarms[fast]` and the import work make every process start faster. When you upgrade from v16, pass an explicit `system_prompt` wherever you relied on the default persona, set `autosave=True` where you read the saved history, catch exceptions from swarms that used to return error strings, and remove the parameters listed above.

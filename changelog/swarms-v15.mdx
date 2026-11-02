@@ -1,13 +1,13 @@
 ---
 title: Swarms v15
-description: Changelog for Swarms v15, from 15.0.0 through 15.0.3, plus the unreleased changes on master
+description: Changelog for Swarms v15, from 15.0.0 through 15.0.3
 ---
 
 **Releases:** 15.0.0 on 2026-09-01 · 15.0.1 on 2026-09-07 · 15.0.2 on 2026-09-08 · 15.0.3 on 2026-09-16
 
 ## Overview
 
-Swarms v15 covers everything merged after 14.0.2, across four releases and 111 commits. A further set of changes has landed on master since 15.0.3 and is listed under [Unreleased](#unreleased).
+Swarms v15 covers everything merged after 14.0.2, across four releases and 111 commits. The changes merged after 15.0.3 shipped in 16.0.0; see [Swarms v16](/changelog/swarms-v16).
 
 The headline is how agents talk to each other. Every multi-agent structure now delivers shared context as typed chat turns: each speaker arrives as its own labelled message, instead of the whole room being flattened into one user message. Structures also record each agent's answer rather than its whole transcript, and start each task from an empty conversation. Runs stop leaking earlier tasks into later ones, and requests keep a stable prefix that prompt caching can reuse.
 
@@ -23,52 +23,7 @@ Around that, v15 adds token usage accounting, fallback swarms for `SwarmRouter`,
 * **Model catalogue (15.0.3)**: `is_model_available`, `model_count` and `get_available_models` check names against LiteLLM and OpenRouter.
 * **Leaner autonomous loop (15.0.1)**: a `glob` tool, tool output capped by token budget, and context compression between subtasks.
 
-## Unreleased
-
-<Note>
-These changes are on master after 15.0.3 and are not in any published release yet. They ship in the next release. To use them now, install from source: `pip install git+https://github.com/kyegomez/swarms.git`. See [Installation](/installation).
-</Note>
-
-### New features
-
-* **TreeOfThoughts**: a reasoning agent that grows a tree of partial solutions, scores and prunes them, and answers from the best path. Every model output is a validated function call. See [Tree of Thoughts](/agents/tree-of-thoughts).
-* **DecisionModel**: a client that asks choice, score and yes/no (`noul`) questions about a state in one request and returns typed answers with calibrated probabilities. It defaults to TypeSafe's `jev-latest`, and `model_name="clef"` or `"clef-flash"` uses Cloudflare Workers AI. `get_decision_models()` lists the available names. See [DecisionModel](/api/decision-model).
-* **More usage totals**: `GraphWorkflow.usage` sums every node and subgraph, and `HeavySwarm.usage` includes question generation. See [Token usage](/agents/token-usage).
-* **Autonomous loop budgets**: `Agent` takes `max_planning_attempts` (default `5`), `max_subtask_iterations` (default `100`) and `max_subtask_loops` (default `20`). Each must be at least 1. See [Autonomous mode](/agents/autonomous-mode).
-* **Several skill directories**: `skills_dir` accepts a list of paths. When two directories hold a skill with the same name, the later one wins.
-* **ToolManager**: tool handling moved out of `agent.py` into a `ToolManager` built once per agent as `agent.tool_manager`. Context compression also stops tokenizing the history while its byte size is under budget, which cuts a tool turn from about 770 µs to 162 µs. See [ToolManager](/api/tool-manager).
-
-### Fixes
-
-* Telemetry sends finished spans every 500 ms during the run instead of holding them for five seconds, and opens its collector connection in the background at setup. A multi-agent run no longer pays for every span at exit: a four-second run's exit flush went from 441 ms to 44 ms. `SWARMS_OTEL_EXPORT_DELAY_MS` sets the interval.
-* `Agent.run()` raises `AgentLLMError` once every retry has failed, instead of returning an empty string. `fallback_models` are now tried, because the error reaches the fallback chain. See [Production best practices](/deployment/production-best-practices).
-* Selected skills reach the model on every call. They were appended to `system_prompt` after the LLM was built, so the model never saw them.
-* `run_stream` and `arun_stream` with `max_loops="auto"` enter the autonomous loop instead of calling the model without a plan.
-* Interactive follow-up input is sent to the model again.
-* An agent with tools that answers in plain text no longer records `"[] (empty list)"` or a tool summary as its answer.
-* A failing tool batch runs once per `tool_retry_attempts` attempt, not twice.
-* `Agent.run(n=...)` passes every input to each sample.
-* `ConcurrentWorkflow.run`, `GroupChat`'s async run, `ReasoningDuo` and `MajorityVoting.run_concurrently` start each run or task from an empty conversation.
-* `ConcurrentWorkflow` returns results in agent order and records each agent's answer. `RoundRobinSwarm` records answers too.
-* `SelfConsistencyAgent` gives each sample its own agent, so samples are independent.
-* `router(task)` and `router.batch_run(tasks)` work for every swarm type. They passed `imgs=None`, which most swarms rejected.
-* `CouncilAsAJudge` runs its judges on `model_name` when `judge_agent_model_name` is unset.
-* `ModelRouter` parses the routing reply before reading it, and `CronJob` waits for the next interval after a failed run instead of retrying every second.
-* `MCPDeployer` enforces `timeout` for blocking targets.
-* `Conversation` no longer creates `~/.swarms/conversations`, which crashed `Agent()` on a read-only home directory. It seeds the system prompt only when no history was restored.
-* `batch_agent_execution` works again and returns results in agent order. `aggregate()` defaults to a live model.
-* The CLI help states the real HeavySwarm model default, `gpt-5.4`.
-
-### Changed defaults and removals
-
-* `temperature` defaults to `None` (was `0.5`), so it is left out of the request and the provider's default applies. Current Claude models rejected the old default.
-* `dynamic_tools` defaults to `False` (was `True`). Pass `dynamic_tools=True` to keep tool schemas behind `tool_search`.
-* `ConcurrentWorkflow` and `GroupChat` run every agent at once by default. The 32-thread cap and the `MAX_CONCURRENT_AGENTS` constant were removed. Pass `max_workers` to `ConcurrentWorkflow` to throttle a large roster.
-* The `"xml"` output type and `swarms/utils/xml_utils.py` were removed. `output_type="xml"` now raises `ValueError`.
-* `LLMCouncil.run()` dropped the `query` alias. Call `run(task)`, which rejects an empty task.
-* `swarms/utils/swarm_autosave.py` was deleted in favor of `WorkspaceManager`, and the unused `HierarchicalOrderRearrange` schema was removed.
-* Tool methods moved from `Agent` to `agent.tool_manager`, including `execute_tools`, `tool_execution_retry`, `setup_tools`, `setup_dynamic_tools`, `mcp_tool_handling` and `parse_llm_output`. `Agent` keeps `add_tool`, `add_tools`, `remove_tool`, `remove_tools` and `mcp_enabled`.
-* `GraphWorkflow` runs every node in a layer at once by default. Its thread pool used to default to 95% of CPU cores. Pass `max_parallel_nodes` to cap it.
+Changes merged after 15.0.3 shipped in 16.0.0. See [Swarms v16](/changelog/swarms-v16).
 
 ## New features
 
@@ -252,4 +207,4 @@ print(swarms.__version__)
 
 ## Conclusion
 
-v15 makes multi-agent runs honest about who said what. Context arrives as typed turns, each task starts clean, and every structure records answers rather than transcripts. Usage accounting shows what a run cost, fallback swarms keep a router serving when one architecture fails, and `MCPDeployer` lets other agents and MCP hosts call yours. When you upgrade from v14, replace any AOP server with `MCPDeployer`, drop references to the `HierarchicalSwarm` dashboard and its streaming methods, and update code that read strings from `return_messages_as_list`. If you install from master, also check the new `temperature` and `dynamic_tools` defaults listed under [Unreleased](#unreleased).
+v15 makes multi-agent runs honest about who said what. Context arrives as typed turns, each task starts clean, and every structure records answers rather than transcripts. Usage accounting shows what a run cost, fallback swarms keep a router serving when one architecture fails, and `MCPDeployer` lets other agents and MCP hosts call yours. When you upgrade from v14, replace any AOP server with `MCPDeployer`, drop references to the `HierarchicalSwarm` dashboard and its streaming methods, and update code that read strings from `return_messages_as_list`. For the `temperature` and `dynamic_tools` defaults that changed after 15.0.3, see [Swarms v16](/changelog/swarms-v16).

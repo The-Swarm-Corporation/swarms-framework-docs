@@ -1,0 +1,160 @@
+---
+title: "PhasedFanOutWorkflow Examples"
+description: "Let a lead agent plan a phased run, fan out one agent per item, and combine the results"
+icon: "sitemap"
+---
+
+`PhasedFanOutWorkflow` hands the design of a multi-agent run to a lead agent. The lead plans phases, each phase's steps run in parallel, a step can start one agent per item an earlier step found, and the lead combines what comes back. It is inspired by the dynamic workflows in Anthropic's Claude Managed Agents.
+
+Reference: [PhasedFanOutWorkflow](/api/phased-fan-out-workflow).
+
+## Prerequisites
+
+```bash
+pip install -U swarms
+export OPENAI_API_KEY="sk-..."
+```
+
+## Find bugs, then verify each one
+
+The lead decides the plan. A typical plan has one finder agent per file, then one fresh verifier per reported bug, so no bug is confirmed by the agent that reported it.
+
+```python
+from swarms.structs.phased_fan_out_workflow import PhasedFanOutWorkflow
+
+CODE = {
+    "stats.py": "def mean(xs):\n    return sum(xs) / len(xs) - 1\n",
+    "users.py": "def find(users, name):\n    for u in users:\n        if u['name'] = name:\n            return u\n",
+    "cache.py": "def get(cache, key, default=[]):\n    default.append(key)\n    return cache.get(key, default)\n",
+}
+
+task = (
+    "Find every bug in these files. Plan one agent per file to find bugs, "
+    "then one independent agent per reported bug to verify it, and report "
+    "only verified bugs.\n\n"
+    + "\n\n".join(f"# {path}\n{code}" for path, code in CODE.items())
+)
+
+workflow = PhasedFanOutWorkflow(
+    model_name="gpt-5.4",              # Lead: plans and combines
+    worker_model_name="gpt-5.4-mini",  # Inline agents the plan defines
+    size_guideline="small",
+)
+print(workflow.run(task))
+print(workflow.usage)
+```
+
+Put everything the workers need in the task. Workers see only their own prompt, and the plan reaches the task's material through the `{task}` placeholder.
+
+## Inspect what ran
+
+```python
+plan = workflow.last_plan
+for phase in plan.phases:
+    print(f"Phase: {phase.title}")
+    for step in phase.steps:
+        fan_out = f" (one agent per item of {step.for_each})" if step.for_each else ""
+        print(f"  {step.id}: {step.agent}{fan_out}")
+
+print("Workers started:", workflow.last_run["agent_count"])
+print("Failures:", workflow.last_run["failures"])
+
+for step_id, output in workflow.last_run["outputs"].items():
+    print(step_id, "->", str(output)[:120])
+```
+
+## Use only your own agents
+
+With `allow_inline_agents=False`, the lead can only plan with the agents you pass. It sees each agent's `agent_name` and `agent_description` and decides how many copies of each to run.
+
+```python
+from swarms import Agent
+from swarms.structs.phased_fan_out_workflow import PhasedFanOutWorkflow
+
+CONTRACTS = {
+    "acme_supply.txt": "If Supplier undergoes a change of control, Buyer may terminate this Agreement on 30 days' notice.",
+    "globex_license.txt": "This license is non-transferable. Licensee may not assign this license without prior written consent.",
+    "initech_services.txt": "Either party may terminate for convenience with 90 days' notice. Fees are payable monthly in arrears.",
+    "umbrella_lease.txt": "A merger, acquisition or sale of a majority of Tenant's shares is deemed an assignment requiring Landlord's consent.",
+}
+
+reader = Agent(
+    agent_name="Clause-Reader",
+    agent_description="Reads one contract and quotes any clause triggered by a change of ownership or control.",
+    system_prompt="You read a single contract and quote, word for word, every clause that is triggered by a change of control, merger, acquisition or sale of shares. If there is none, say so.",
+    model_name="gpt-5.4-mini",
+    max_loops=1,
+)
+
+checker = Agent(
+    agent_name="Clause-Checker",
+    agent_description="Independently checks whether a quoted clause really is a change-of-control clause.",
+    system_prompt="You are a skeptical contracts lawyer. Given a contract and a quoted clause, decide whether the clause is triggered by a change of control: a merger, an acquisition, or a sale of a controlling stake. A clause that treats such an event as an assignment counts. A plain ban on assignment that never mentions a change of ownership does not. Give a verdict and one sentence of reasoning.",
+    model_name="gpt-5.4-mini",
+    max_loops=1,
+)
+
+task = (
+    "Which of these contracts contain a change-of-control clause? "
+    "Read each contract separately, then have every candidate clause checked independently.\n\n"
+    + "\n\n".join(f"# {name}\n{text}" for name, text in CONTRACTS.items())
+)
+
+workflow = PhasedFanOutWorkflow(
+    model_name="gpt-5.4",
+    agents=[reader, checker],
+    allow_inline_agents=False,
+    size_guideline="small",
+)
+print(workflow.run(task))
+```
+
+Each step gets a fresh copy of `Clause-Reader` or `Clause-Checker`, so four readers never share a conversation.
+
+## Set the limits
+
+```python
+workflow = PhasedFanOutWorkflow(
+    model_name="gpt-5.4",
+    worker_model_name="gpt-5.4-mini",
+    size_guideline="large",      # Guidance: aim for fewer than 50 agents
+    max_agents=60,               # Enforced: a fan-out past 60 workers stops before it starts
+    max_concurrent_agents=8,     # At most 8 agents at once within a phase
+    max_retries=1,               # One retry per failed agent
+    max_plan_attempts=2,         # The lead gets one repair after a rejected plan
+)
+```
+
+## Handle failures
+
+A failed fan-out item becomes `None` and the run continues. A failed single step, an exhausted plan budget, or a fan-out past `max_agents` raises `PhasedFanOutWorkflowError`.
+
+```python
+from swarms.structs.phased_fan_out_workflow import PhasedFanOutWorkflowError
+
+try:
+    answer = workflow.run(task)
+except PhasedFanOutWorkflowError as error:
+    print("Run stopped:", error)
+    if workflow.last_plan:
+        print("Planned phases:", [p.title for p in workflow.last_plan.phases])
+    print("Failures so far:", workflow.last_run["failures"])
+```
+
+## See the whole run
+
+Set `output_type="dict"` to get every step's output alongside the plan and the answer:
+
+```python
+workflow = PhasedFanOutWorkflow(model_name="gpt-5.4", output_type="dict")
+for row in workflow.run(task):
+    print(f"[{row['role']}] {str(row['content'])[:100]}")
+```
+
+The rows are the task, the plan, one row per step named `{phase title} / {step id}`, and the lead's answer.
+
+## Tips
+
+- **Say how to split the work.** "One agent per file, then one agent per bug" gives the lead a shape to plan around.
+- **Use a strong lead and cheaper workers.** The lead's plan decides the run's quality; workers do narrow tasks.
+- **Keep `size_guideline` and `max_agents` apart.** The guideline steers the plan; `max_agents` is the hard stop.

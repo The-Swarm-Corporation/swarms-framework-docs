@@ -100,14 +100,42 @@ rearrange = AgentRearrange(
 )
 ```
 
+### Nested Swarms
+
+A whole swarm can be one step of the flow. Pass it in `agents` next to ordinary agents and refer to it by its `name`. Anything with a non-empty `name` and a `run(task)` method works, such as a `ConcurrentWorkflow` or another `AgentRearrange`, in sequential or parallel steps:
+
+```python
+from swarms import AgentRearrange, ConcurrentWorkflow
+
+research_team = ConcurrentWorkflow(
+    name="Research-Team",
+    agents=[analyst1, analyst2],
+    output_type="final",
+)
+review_team = AgentRearrange(
+    name="Review-Team",
+    agents=[editor, checker],
+    flow="Editor -> Checker",
+    output_type="final",
+)
+
+pipeline = AgentRearrange(
+    agents=[planner, research_team, review_team],
+    flow="Planner -> Research-Team -> Review-Team",
+)
+result = pipeline.run("Assess the HBM supply outlook for 2027.")
+```
+
+The nested swarm receives the shared conversation so far as one task string, and whatever it returns is recorded as its answer. Set `output_type="final"` on the inner swarm to record only its last answer. This replaces the removed `SwarmRearrange`.
+
 ## Key Parameters
 
 <ParamField path="name" type="str" default="AgentRearrange">
   Name for the agent rearrange system
 </ParamField>
 
-<ParamField path="agents" type="List[Agent]" required>
-  List of agents to orchestrate
+<ParamField path="agents" type="List[Any]" required>
+  The agents to orchestrate. A swarm with a `name` and a `run(task)` method can also be a member and is referenced in the flow by its name. See [Nested Swarms](#nested-swarms).
 </ParamField>
 
 <ParamField path="flow" type="str" required>
@@ -126,16 +154,12 @@ rearrange = AgentRearrange(
   Output format, for example `"all"`, `"final"`, `"list"`, `"dict"` or `"str-all-except-first"`. An unknown value raises `ValueError` at construction.
 </ParamField>
 
-<ParamField path="memory_system" type="Any" default="None">
-  Accepted for backwards compatibility and stored, but never read. Use `persistent_memory=True` on individual agents instead.
-</ParamField>
-
 <ParamField path="verbose" type="bool" default="False">
   Log every flow step and agent transition. Pass `verbose=True` while debugging a flow.
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="True">
-  Persist workflow state. Defaults to `True`.
+<ParamField path="autosave" type="bool" default="False">
+  Save the shared conversation to `conversation_history.json` in the workspace directory after every run, including a failed one. Off by default.
 </ParamField>
 
 <ParamField path="time_enabled" type="bool" default="False">
@@ -150,7 +174,7 @@ rearrange = AgentRearrange(
 
 ### run()
 
-Execute the defined flow with a task. Each call starts a fresh shared conversation, so a reused instance does not carry the previous task's transcript.
+Execute the defined flow with a task. Each call starts a fresh shared conversation, so a reused instance does not carry the previous task's transcript. An agent that raises, in a sequential or a parallel step, stops the run and the exception propagates to the caller.
 
 ```python
 result = rearrange.run(

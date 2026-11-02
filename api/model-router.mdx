@@ -242,7 +242,7 @@ for task, result in zip(analysis_tasks, results):
 
 ### Asynchronous Execution
 
-`async_run()` is currently broken (see the [Warning above](#async-run)). To call `ModelRouter` from an async context without blocking the event loop, offload the synchronous `run()` to a thread with `asyncio.to_thread()`:
+`async_run()` is currently broken (see the [Warning above](#async_run)). To call `ModelRouter` from an async context without blocking the event loop, offload the synchronous `run()` to a thread with `asyncio.to_thread()`:
 
 ```python
 import asyncio

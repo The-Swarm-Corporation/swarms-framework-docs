@@ -128,10 +128,50 @@ def run(self, task: str, streaming_callback: Optional[Callable[[str, str, bool],
 1. Starts a fresh conversation and adds the task to it, so a reused instance never carries an earlier task's votes
 2. For each loop (up to `max_loops`):
    - Runs all voters concurrently. Each voter receives the shared conversation as typed chat turns: the task as a `user` turn, its own earlier answers as `assistant` turns, and peers' answers and earlier consensus as `user` turns labelled with the speaker's name
-   - Records each voter's final answer (not its whole transcript) under the voter's name. A voter that raises is recorded with the exception in place of an answer
+   - Records each voter's final answer (not its whole transcript) under the voter's name. If a voter raises, `run()` raises that error instead of counting it as a vote
    - Runs the consensus agent on the same typed history and records its answer
 3. Saves the conversation to the workspace when `autosave=True`
 4. Returns the conversation in the specified output format
+
+### arun()
+
+Async version of `run()`. Each voter is awaited through its own `Agent.arun()` on the event loop, so the vote can run inside an existing `asyncio` application without a thread pool of its own.
+
+```python
+async def arun(self, task: str, max_concurrency: Optional[int] = None) -> Any
+```
+
+**Parameters:**
+- `task` (str): The task or question to be analyzed by the agent panel
+- `max_concurrency` (Optional[int]): Most agents running at once. `None` (the default) runs every voter at once
+
+**Returns:** The conversation formatted according to `output_type`, as `run()` returns
+
+**Raises:**
+- `ValueError`: If `max_concurrency` is less than `1`
+- Whatever a voter or the consensus agent raised
+
+It follows the same loop as `run()`: a fresh conversation, every voter's answer recorded under its name, then the consensus agent's answer, for `max_loops` loops, with the conversation saved when `autosave=True`. It takes no `streaming_callback`, and the consensus agent's streaming is turned off.
+
+```python
+import asyncio
+
+from swarms import Agent, MajorityVoting
+
+voters = [
+    Agent(agent_name=f"Voter-{i}", model_name="gpt-5.4", max_loops=1)
+    for i in range(5)
+]
+swarm = MajorityVoting(agents=voters, output_type="final")
+
+result = asyncio.run(
+    swarm.arun(
+        "Is Python or Rust better for a high-performance web server?",
+        max_concurrency=2,
+    )
+)
+print(result)
+```
 
 ### batch_run()
 

@@ -19,14 +19,14 @@ description: A turn-based, self-selecting multi-agent conversation for debate, b
 
 ## How It Works
 
-1. **Seed** — the conversation is cleared and the task is posted as the first message; every agent sees it. Each `run` starts fresh, so a reused instance never carries an earlier transcript.
+1. **Seed** — a new conversation is started and the task is posted as the first message; every agent sees it. Each `run` starts fresh, so a reused instance never carries an earlier transcript. With a `channel`, the new conversation is first seeded with what the channel already holds.
 2. **Bid (in parallel)** — each turn, every agent is asked concurrently (via a forced `respond(score, message)` tool call) how much it wants to speak, on a `0..1` scale, along with the reply it would give. Agents read the shared conversation as typed turns: the task as a `user` turn, their own replies as `assistant` turns, and peers' replies as `user` turns labelled with the speaker's name.
 3. **Select one speaker** — the single highest *recency-adjusted* bidder that clears `threshold` and has a non-empty reply takes the floor. Only that one reply is posted to the conversation for this turn.
 4. **Recency penalty** — an agent that spoke within the last `recency_window` turns has `recency_penalty` subtracted from its bid, so the floor tends to move around the room instead of one agent monologuing.
 5. **Stop** — the chat ends when `max_loops` total messages have been posted, or a turn arrives where no agent's adjusted bid clears `threshold` (a conversational lull).
 
 <Note>
-  `idle_timeout` is accepted for backward compatibility but is currently unused — the chat stops on a bidding lull (step 5 above), not a wall-clock timeout.
+  The `idle_timeout` parameter has been removed; passing it raises `TypeError`. The chat stops on a bidding lull (step 5 above), not a wall-clock timeout.
 </Note>
 
 ## Key Features
@@ -145,10 +145,6 @@ quick = GroupChat(agents=[proponent, opponent], max_loops=6)
   How many of the most recent speakers are subject to `recency_penalty`.
 </ParamField>
 
-<ParamField path="idle_timeout" type="float" default="8.0">
-  Accepted for backward compatibility but currently **unused** — the chat now stops on a bidding lull (no agent clears `threshold`) rather than a wall-clock timeout.
-</ParamField>
-
 <ParamField path="output_type" type="str" default="str-all-except-first">
   History format. The default joins the replies without speaker names. Use `"str"` for a `Name: message` transcript, or `"list"` / `"dict"` to iterate individual messages.
 </ParamField>
@@ -159,6 +155,10 @@ quick = GroupChat(agents=[proponent, opponent], max_loops=6)
 
 <ParamField path="verbose" type="bool" default="False">
   Emit internal log messages (decision scores, broadcasts, stop events) and print each posted message as a styled panel.
+</ParamField>
+
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the chat posts to: the task as `User`, then each message that wins a turn. Bids are not posted. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
 ## Methods

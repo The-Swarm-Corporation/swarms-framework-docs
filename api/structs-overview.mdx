@@ -37,8 +37,8 @@ pip install -U swarms
 | [ConcurrentWorkflow](/api/concurrent-workflow) | Parallel task execution | Runs every agent on the same task at once and collects the answers in agent order |
 | [SequentialWorkflow](/api/sequential-workflow) | Step-by-step processing | Runs agents one after another, each building on the previous output |
 | [GraphWorkflow](/api/graph-workflow) | Complex task dependencies | Manages tasks with complex dependencies |
+| [PhasedFanOutWorkflow](/api/phased-fan-out-workflow) | Work whose width is only known at run time | A lead agent plans phases, fans out one agent per item, and combines the results |
 | [BatchedGridWorkflow](/api/batched-grid-workflow) | Grid-style parallel task distribution | Pairs each agent with a different task and runs them concurrently |
-| [SwarmRearrange](/api/swarm-rearrange) | Pipelines of swarms | Runs whole swarms along an `AgentRearrange`-style flow string |
 
 ## Hierarchical Architectures
 
@@ -50,7 +50,6 @@ pip install -U swarms
 | [Auto Agent Builder](/api/auto-agent-builder) | Automated roster creation | Generates the agent roster for a task and leaves the architecture to you |
 | [PlannerWorkerSwarm](/api/planner-worker-swarm) | Plan-then-delegate execution | A planner emits a dependency-aware task queue that a pool of workers claims and executes concurrently |
 | [PlannerGeneratorEvaluator](/api/planner-generator-evaluator) | Contract-checked generation | A planner sets step contracts, a generator produces, an evaluator scores each step |
-| [HierarchicalStructuredCommunicationFramework](/api/hierarchical-communication-framework) | Structured generate-and-critique | Supervisor, generator, evaluator and refiner roles exchange structured messages |
 | [ForestSwarm](/api/forest-swarm) | Topical routing over large rosters | Organizes agents into trees and routes each task by embedding similarity |
 | [SubagentRegistry](/api/async-subagent) | Background delegation | Spawns async subagent tasks with status tracking, retries and depth limits |
 
@@ -92,7 +91,7 @@ These are exported from `swarms.structs` next to the architectures above.
 For single-agent reasoning strategies such as [Tree of Thoughts](/agents/tree-of-thoughts), see the [reasoning agents overview](/agents/reasoning-agents-overview).
 
 <Note>
-`AgentRouter`, `ForestSwarm`, `PlannerWorkerSwarm` and `HierarchicalStructuredCommunicationFramework` are not exported from the top-level `swarms` package. Import them from their modules; the [structures catalog](/architectures/structures-catalog) links each one's source file.
+`AgentRouter`, `ForestSwarm`, `PlannerWorkerSwarm` and `PhasedFanOutWorkflow` are not exported from the top-level `swarms` package. Import them from their modules; the [structures catalog](/architectures/structures-catalog) links each one's source file.
 </Note>
 
 ## Communication Structure

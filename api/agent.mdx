@@ -70,24 +70,28 @@ from swarms import Agent
 | `agent.marketplace` | [`AgentMarketplaceHandler`](/api/agent-marketplace-handler) | Fetching and publishing marketplace prompts |
 | `agent.autonomous_loop` | `AutonomousAgentLoop` | The plan, execute, and summarize loop behind `max_loops="auto"` (see [Autonomous mode](/agents/autonomous-mode)) |
 
-Model, fallback, and skills helpers on the agent are thin wrappers over their manager, so both call styles work:
+Model and skills helpers on the agent are thin wrappers over their manager, so both call styles work:
 
 ```python
-agent = Agent(agent_name="Analyst", model_name="gpt-5.4-mini")
+agent = Agent(agent_name="Analyst", model_name="gpt-5.4")
 
 # These are equivalent
-agent.get_current_model()
-agent.llm_manager.get_current_model()
+agent.get_llm_parameters()
+agent.llm_manager.get_parameters()
 ```
 
-Tool handling has no agent-level wrappers. Apart from `add_tool`, `add_tools`, `remove_tool`, `remove_tools`, and the `mcp_enabled` property, you reach it through `agent.tool_manager` (for example `agent.tool_manager.execute_tools(...)`). See [Tool handling](#tool-handling).
+Tool handling has few agent-level wrappers. Apart from `list_tools`, `add_tool`, `add_tools`, `remove_tool`, `remove_tools`, and the `mcp_enabled` property, you reach it through `agent.tool_manager` (for example `agent.tool_manager.execute_tools(...)`). See [Tool handling](#tool-handling).
 
 Each collaborator is independently documented. Reach for it directly when you want the behavior without going through the agent.
 
 ## Initialization
 
 <Note>
-  `Agent.__init__` also accepts `*args` and `**kwargs` and ignores them. A misspelled keyword argument is silently dropped rather than rejected, so check names against this list.
+  `Agent.__init__` also accepts `*args` and `**kwargs` and ignores them. A misspelled keyword argument is silently dropped rather than rejected, so check names against this list. The same applies to removed parameters: `sop`, `sop_list`, `multi_modal`, and `output_cleaner` are no longer read. Use `skills_dir` in place of `sop`, and post-process the value `run()` returns in place of `output_cleaner`. Vision support is detected from `model_name`.
+</Note>
+
+<Note>
+  The construction-time `reliability_check` validates `max_loops` and `context_length`. The model-catalog warnings (unknown model, `max_tokens` above the model's limit, no function calling) run only when `SWARMS_STRICT_MODEL_CHECK=true`.
 </Note>
 
 <ParamField path="id" type="Optional[str]" default="None">
@@ -113,7 +117,14 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="system_prompt" type="Optional[str]" default="None">
-  The system prompt that defines the agent's behavior and personality. When `None`, the agent uses the framework's general-purpose `AGENT_SYSTEM_PROMPT_3`, rendered with the current time by `build_agent_system_prompt()`, rather than an empty prompt. Some options append to it during construction: `max_loops="auto"` (autonomous-mode instructions), `reasoning_prompt_on`, `react_on`, `handoffs`, and `dynamic_tools`.
+  The system prompt that defines the agent's behavior and personality. When `None` (the default), the agent sends no system message at all, and no empty `System` row is added to its conversation. Some options append to it during construction: `max_loops="auto"` (autonomous-mode instructions), `reasoning_prompt_on` with integer `max_loops` of 2 or more, `safety_prompt_on`, `react_on`, `handoffs`, and `dynamic_tools`.
+
+  | `system_prompt` | `max_loops=1` | integer `max_loops >= 2` | `max_loops="auto"` |
+  |---|---|---|---|
+  | not passed | no system message | the loop prompt | the autonomous prompt |
+  | your text | your text | your text, then the loop prompt | your text, then the autonomous prompt |
+
+  To get the framework's old general-purpose persona back, pass it explicitly: `system_prompt=build_agent_system_prompt()` (from `swarms.prompts.agent_system_prompts`).
 </ParamField>
 
 <ParamField path="llm" type="Optional[Any]" default="None">
@@ -152,7 +163,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="fallback_model_name" type="str" default="None">
-  Single fallback model used when the primary model fails. Only consulted when `fallback_models` is not set.
+  Single fallback model used when the primary model fails. Only consulted when `fallback_models` is not set: during construction it is folded into `fallback_models` as `[model_name, fallback_model_name]`.
 </ParamField>
 
 <ParamField path="max_loops" type="Optional[Union[int, str]]" default="1">
@@ -204,15 +215,15 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="streaming_on" type="bool" default="False">
-  Stream tokens as they are generated. By default tokens render in a Rich streaming panel. With a `streaming_callback`, each token string goes to the callback instead. With `print_on=False` and no callback, the stream is collected silently.
+  Stream tokens as they are generated. By default tokens render in a Rich streaming panel, with reasoning dimmed and tool calls in cyan. With a `streaming_callback`, each streamed text fragment goes to the callback instead. With `print_on=False` and no callback, the stream is collected silently. Reasoning and tool calls stream too, not only reply text: see [Streamed parts](#streamed-parts).
 </ParamField>
 
 <ParamField path="stream" type="bool" default="False">
-  Detailed token-by-token streaming. Every token is printed with its metadata (`ResponseStream {...}`), and the per-token metadata dict (token, model, finish reason, citations, usage, and so on) is passed to `streaming_callback`. Takes precedence over `streaming_on`.
+  Detailed token-by-token streaming. Every token is printed with its metadata (`ResponseStream {...}`), and the per-token metadata dict (token, `type`, model, finish reason, citations, usage, and so on) is passed to `streaming_callback`. `type` is `"content"`, `"reasoning"`, or `"tool_call"`. Takes precedence over `streaming_on`.
 </ParamField>
 
 <ParamField path="streaming_callback" type="Optional[Callable[[str], None]]" default="None">
-  Receives tokens as they stream. It is only called when the agent streams: with `streaming_on=True` it gets each token string, and with `stream=True` it gets each per-token metadata dict. With neither flag set it is never called. `run_stream` and `arun_stream` turn `streaming_on` on for you.
+  Receives tokens as they stream. Setting a callback is enough to make the agent stream: you do not need `streaming_on=True`. It gets each streamed text fragment as a string, including the `[thinking]` and `[tool call]` headers described under [Streamed parts](#streamed-parts). With `stream=True` it gets each per-token metadata dict instead. The tool-output summary and the post-MCP summary stream to the same callback.
 </ParamField>
 
 <ParamField path="interactive" type="bool" default="False">
@@ -228,7 +239,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default="str-all-except-first">
-  How the run's result is formatted. See [Output Types](#output-types) for all 15 accepted values.
+  How the run's result is formatted. See [Output Types](#output-types) for all 14 accepted values.
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="False">
@@ -244,7 +255,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="fallback_models" type="List[str]" default="None">
-  Ordered list of models to use. When set, it replaces `model_name`: the first entry is the primary model and the rest are tried in order if a run fails. See [Fallback model helpers](#fallback-model-helpers).
+  Ordered list of models to use. When set, it replaces `model_name`: the first entry is the primary model and the rest are tried in order when a model call fails. Every run starts from the primary again. See [Fallback models](#fallback-models).
 </ParamField>
 
 <ParamField path="channel" type="CommsChannel" default="None">
@@ -252,11 +263,11 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="retry_attempts" type="Optional[int]" default="3">
-  Attempts per loop iteration for the LLM call. When every attempt fails, the run raises `AgentLLMError`, and `run()` then moves on to the next fallback model if one is configured. See [Error Handling](#error-handling).
+  Retries the LLM client makes after a failed model call. It is sent with every request as litellm's `num_retries`, so one model gets at most `retry_attempts + 1` calls per loop iteration, with backoff on rate limits. When they all fail, the run raises `AgentLLMError`, and `run()` then moves on to the next fallback model if one is configured. See [Error Handling](#error-handling).
 </ParamField>
 
 <ParamField path="stopping_token" type="str" default="None">
-  Stored on the agent, but the run loop never checks it. To end a run early, use `stopping_condition` or `stopping_func`.
+  A stop sequence sent to the provider as `stop=[stopping_token]`, so generation ends when the model produces it. A `stop` key in `llm_args` overrides it. To end a multi-loop run early on your own condition, use `stopping_condition` or `stopping_func`.
 </ParamField>
 
 <ParamField path="stopping_condition" type="Callable[[str], bool]" default="None">
@@ -284,7 +295,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="preset_stopping_token" type="bool" default="False">
-  Sets `agent.stopping_token` to `"<DONE>"`. The check is `is not None`, so this also happens with the default `False`. Nothing in the run loop reads `stopping_token`.
+  When `True`, sets `stopping_token` to `"<DONE>"`, which is then sent to the provider as a stop sequence. With the default `False`, `stopping_token` is left as you passed it.
 </ParamField>
 
 <ParamField path="auto_generate_prompt" type="bool" default="False">
@@ -299,14 +310,6 @@ Each collaborator is independently documented. Reach for it directly when you wa
   Path that `save()` writes to when called with no argument. When unset, falls back to an auto-generated `{api_key}_state.json` filename inside the agent workspace.
 </ParamField>
 
-<ParamField path="sop" type="str" default="None">
-  Standard operating procedure. Added to the conversation as a user message during construction.
-</ParamField>
-
-<ParamField path="sop_list" type="List[str]" default="None">
-  List of standard operating procedures, joined with newlines into `sop` and added to the conversation during construction.
-</ParamField>
-
 <ParamField path="rules" type="str" default="None">
   Rules that govern agent behavior, added to the conversation after the system prompt.
 </ParamField>
@@ -319,12 +322,8 @@ Each collaborator is independently documented. Reach for it directly when you wa
   Run [`plan(task)`](#plan) at the start of each run (integer `max_loops`). The plan is added to the conversation before the first loop.
 </ParamField>
 
-<ParamField path="multi_modal" type="Optional[bool]" default="None">
-  When `True`, sets `sop` to the framework's multi-modal instruction prompt, which is added to the conversation during construction. Images are accepted through `run(img=..., imgs=...)` whether or not this is set.
-</ParamField>
-
-<ParamField path="tool_call_summary" type="bool" default="True">
-  After callable tools run, make a separate LLM call that summarises their output and add the summary to the conversation. MCP tool results are always summarised this way.
+<ParamField path="tool_call_summary" type="bool" default="False">
+  After callable tools run, make a separate LLM call that summarises their output and add the summary to the conversation. Off by default, so a tool turn is one model call. MCP tool results are always summarised this way.
 </ParamField>
 
 <ParamField path="tool_retry_attempts" type="int" default="3">
@@ -343,16 +342,8 @@ Each collaborator is independently documented. Reach for it directly when you wa
   A Pydantic model (or dict) converted to a function-calling schema and added to the conversation as a message during construction. It is not registered as a callable tool.
 </ParamField>
 
-<ParamField path="output_cleaner" type="Callable" default="None">
-  Stored on the agent, but the run loop does not apply it. `agent.output_cleaner_op(response)` runs it and records the cleaned text in the conversation under the role `"Output Cleaner"`.
-</ParamField>
-
 <ParamField path="list_base_models" type="List[BaseModel]" default="None">
-  Pydantic models meant to be added to the conversation as function-calling schemas.
-
-  <Warning>
-    Passing a non-empty `list_base_models` currently raises `TypeError` during construction. `ToolManager.handle_tool_schema_ops` calls `BaseTool.multi_base_models_to_dict` without the list. Convert each model with `BaseTool().base_model_to_dict(Model)` (from `swarms.tools.base_tool`) and pass the results in `tools_list_dictionary` instead.
-  </Warning>
+  Pydantic models converted to function-calling schemas and added to the conversation as one message during construction (and again after `reset()`). Like `tool_schema`, they are not registered as callable tools.
 </ParamField>
 
 <ParamField path="mcp_url" type="Optional[Union[str, MCPConnection, Dict]]" default="None">
@@ -388,7 +379,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="mcp_transport" type="Optional[Literal['streamable_http', 'sse', 'stdio', 'auto']]" default="None">
-  Force a transport for every MCP server, overriding each connection's own setting. With `None`, each connection uses its own `transport`, which defaults to `streamable_http`, so a URL is not auto-detected. Pass `"auto"` to detect from the URL: HTTP URLs become `streamable_http` (or `sse` when the URL looks like an SSE endpoint), and a value with no scheme runs as a stdio command.
+  Force a transport for every MCP server, overriding each connection's own setting. With `None`, each connection uses its own `transport`, which defaults to `"auto"`: a connection with a `command` runs over stdio, a URL ending in `/sse` uses `sse`, and any other URL uses `streamable_http`. A URL must start with `http://` or `https://`; a string is never run as a command, so a stdio server needs an explicit `MCPConnection(command=..., args=[...])`.
 </ParamField>
 
 <ParamField path="mcp_timeout" type="Optional[int]" default="None">
@@ -466,7 +457,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="reasoning_prompt_on" type="bool" default="True">
-  When `max_loops` is 2 or more (or `"auto"`), append the framework's reasoning preamble to the system prompt and, for integer `max_loops`, add a `Current Internal Reasoning Loop: i/N` message at each iteration. `interactive=True` turns it off.
+  When `max_loops` is an integer of 2 or more, append the framework's loop prompt to the system prompt. It has no effect with `max_loops=1` or `"auto"`, and `interactive=True` turns it off. No per-iteration marker message is added to the conversation.
 </ParamField>
 
 <ParamField path="reasoning_enabled" type="bool" default="False">
@@ -488,11 +479,11 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="safety_prompt_on" type="bool" default="False">
-  Append the framework's safety prompt to the system message stored in the agent's conversation.
+  Append the framework's safety prompt to the system prompt during construction. It is sent to the model with every request.
 </ParamField>
 
 <ParamField path="random_models_on" type="bool" default="False">
-  Once, during construction, set `model_name` to a random pick from the built-in model list in `swarms.structs.ma_utils`. The LLM client is built just before this, so calls keep using the original model until the client is rebuilt.
+  Once, during construction, set `model_name` to a random pick from the built-in model list in `swarms.structs.ma_utils`. The pick happens before the LLM client is built, so calls go to the picked model. `fallback_models`, when set, still overrides it.
 </ParamField>
 
 <ParamField path="workspace_dir" type="str">
@@ -514,14 +505,14 @@ def run(
     task: Optional[Union[str, Any]] = None,
     img: Optional[str] = None,
     imgs: Optional[List[str]] = None,
-    correct_answer: Optional[str] = None,
     streaming_callback: Optional[Callable[[str], None]] = None,
-    n: int = 1,
     messages: Optional[List[Dict[str, Any]]] = None,
     *args,
     **kwargs
 ) -> Any
 ```
+
+Extra keyword arguments are forwarded to the model request and override the agent's own settings for that call (for example `temperature=0.2`). The `correct_answer` and `n` parameters were removed. Because of this forwarding, passing either one now sends it to the provider rather than raising `TypeError`, so drop them from existing calls. To get several answers, call `run` several times or use [`run_batched`](#run_batched).
 
 <ParamField path="task" type="Union[str, Any]">
   The task or prompt for the agent to process. Non-string values are formatted to text. An empty task raises `ValueError` unless `interactive=True`, in which case the agent prompts for one.
@@ -539,16 +530,8 @@ def run(
   </Warning>
 </ParamField>
 
-<ParamField path="correct_answer" type="str">
-  Accepted for compatibility but not used to check the output. It is only forwarded to fallback-model runs.
-</ParamField>
-
 <ParamField path="streaming_callback" type="Callable[[str], None]">
-  Overrides the agent's `streaming_callback` for this call. It is only called when the agent streams (`streaming_on=True` or `stream=True`).
-</ParamField>
-
-<ParamField path="n" type="int" default="1">
-  Number of samples. When `n > 1`, the task runs `n` times, each sample receives every input (`img`, `imgs`, `streaming_callback`, `messages`), and `run` returns a list of `n` results. The samples share the agent's conversation. Ignored when `max_loops="auto"`.
+  Overrides the agent's `streaming_callback` for this call. Passing one makes the call stream, with or without `streaming_on`.
 </ParamField>
 
 <ParamField path="messages" type="List[Dict[str, Any]]">
@@ -557,8 +540,10 @@ def run(
   the new user turn. The turns are also recorded in `short_memory`, and with
   `max_loops="auto"` the autonomous loop's transcript starts from them.
   Multi-agent structures use this to hand an agent the shared
-  room with roles intact — the agent's own turns as `assistant`, everyone else's
-  as labelled `user` turns — instead of one flattened string.
+  room with roles intact (the agent's own turns as `assistant`, everyone else's
+  as labelled `user` turns) instead of one flattened string. When the agent has a
+  `channel` and you pass `messages`, the channel is not read and only the answer
+  is posted.
 
   ```python
   agent.run(
@@ -581,11 +566,10 @@ def run(
 | Scenario              | Return Type     | Description                                             |
 |-----------------------|-----------------|---------------------------------------------------------|
 | Single task           | Per `output_type` | The conversation shaped by `output_type` (a string by default) |
-| `n > 1`               | `List[Any]`     | One result per sample, each shaped by `output_type`     |
 | `max_loops="auto"`    | Per `output_type` | Shaped by `output_type` on every path, including when the model ends with `complete_task` |
 | Streaming             | Per `output_type` | The complete result after streaming completes          |
 
-**Raises:** `ValueError` for an empty task outside interactive mode. `AgentLLMError`, chained from the last provider error, once every retry and every fallback model has failed. See [Error Handling](#error-handling).
+**Raises:** `ValueError` for an empty task outside interactive mode. `AgentLLMError`, chained from the provider error, once the last model in `fallback_models` (or the only model) has failed. See [Error Handling](#error-handling).
 
 **Examples:**
 
@@ -605,11 +589,11 @@ response = agent.run(
     imgs=["image1.jpg", "image2.png", "image3.jpeg"]
 )
 
-# Three independent samples
-samples = agent.run("Suggest a name for a coffee shop.", n=3)
+# Per-call override forwarded to the model request
+response = agent.run("Suggest a name for a coffee shop.", temperature=0.9)
 ```
 
-To receive tokens as they arrive, build the agent with `streaming_on=True` and pass a callback:
+To receive tokens as they arrive, pass a callback. `streaming_on=True` is not required:
 
 ```python
 from swarms import Agent
@@ -617,7 +601,7 @@ from swarms import Agent
 def streaming_callback(token: str):
     print(token, end="", flush=True)
 
-agent = Agent(agent_name="Storyteller", model_name="gpt-5.4", streaming_on=True)
+agent = Agent(agent_name="Storyteller", model_name="gpt-5.4")
 
 response = agent.run(
     task="Tell me a long story about space exploration",
@@ -734,6 +718,30 @@ asyncio.run(main())
 <Note>
   Both `run_stream` and `arun_stream` work for any `max_loops` value (1, integer &gt; 1 with tools, or `"auto"`). They stream tokens through every internal loop, including tool-call turns, synthesis turns after a tool returns, and the autonomous plan/execute/summary cycle.
 </Note>
+
+### Streamed parts
+
+Every streaming path (`streaming_callback`, `run_stream`, `arun_stream`, the live panel, and `stream=True`) reads from `LLMManager.stream_parts`, which yields everything the model streams as it arrives, not only reply text:
+
+| Part | What you receive |
+|---|---|
+| Reply text | The content fragments, unchanged |
+| Reasoning | A `[thinking] ` header, then the reasoning fragments |
+| Tool call | A `[tool call] <name>` header, then the argument JSON fragments |
+
+A part that follows another part starts on a new line. Only the reply text is kept as the response: reasoning and tool-call text are shown but not stored as content. In `max_loops="auto"` almost every turn is a tool call, so the stream mostly carries `[tool call]` lines, and the final answer arrives inside `complete_task`'s arguments.
+
+```python
+from swarms import Agent
+
+agent = Agent(agent_name="Planner", model_name="gpt-5.4", max_loops="auto", print_on=False)
+
+for token in agent.run_stream("Plan a three-step study schedule for linear algebra."):
+    print(token, end="", flush=True)
+# [tool call] create_plan {"task_description": ...}
+# [tool call] subtask_done {...}
+# ...
+```
 
 ### run_concurrent_tasks
 
@@ -897,15 +905,11 @@ def send_agent_message(agent_name: str, message: str, *args, **kwargs) -> str
 
 ### reset
 
-Drop the agent's short-term memory by setting `agent.short_memory = None`. Nothing is re-initialized in its place.
+Start the agent over on a fresh conversation. `short_memory` is rebuilt the way `__init__` builds it, so the system prompt, the constructor `messages`, the `MEMORY.md` preload, and the `tool_schema` / `list_base_models` schemas come back. The autonomous loop's plan is cleared. `agent.usage` is kept, since it totals every call the agent has made.
 
 ```python
 def reset() -> None
 ```
-
-<Warning>
-  After `reset()` the agent cannot run again until `short_memory` is replaced with a fresh `Conversation`. Construct a new agent instead unless you intend to rebuild it yourself.
-</Warning>
 
 ### plan
 
@@ -991,6 +995,14 @@ Notable attributes, all set during construction:
 | `agent.tool_struct` | The `BaseTool` executor built from `tools`. |
 | `agent.tool_loader` | The `DynamicToolLoader` when `dynamic_tools` applies, else `None`. |
 
+### list_tools
+
+Names of every tool the agent can call, right after construction: callables from `tools`, MCP server tools, `handoff_task` (with `handoffs`), `tool_search` (with `dynamic_tools`), and the autonomous-loop tools (with `max_loops="auto"`). Tools deferred behind `tool_search` are included. Duplicates are removed and the order is stable. Delegates to `ToolManager.list_tools`.
+
+```python
+def list_tools() -> List[str]
+```
+
 ### get_llm_parameters
 
 Returns the parameters of the language model as a string (`str(vars(self.llm))`).
@@ -999,17 +1011,13 @@ Returns the parameters of the language model as a string (`str(vars(self.llm))`)
 def get_llm_parameters() -> str
 ```
 
-### Fallback model helpers
+### Fallback models
 
-Methods backing the `fallback_models` / `fallback_model_name` feature. All delegate to [`LLMManager`](/api/llm-manager).
+Fallback is handled inside [`run`](#run) by one flat loop over `fallback_models`; there are no helper methods to call. For each model in order, `run` rebuilds the client if the model differs from the current one, then runs the task. Only an `AgentLLMError` (any failed model call, after the client's own `retry_attempts` retries) moves it to the next model, and the failed run's turns are dropped from the conversation first, so the next model starts from clean history. Any other error raises at once. When the last model fails, its `AgentLLMError` is raised.
 
-```python
-def get_available_models() -> List[str]
-def get_current_model() -> str
-def switch_to_next_model() -> bool
-def reset_model_index() -> None
-def is_fallback_available() -> bool
-```
+Every run starts from the primary model again, so a fallback in one run does not leave the agent switched. During a run, `agent.model_name` names the model in use. `fallback_model_name` is folded into `fallback_models` at construction.
+
+The earlier helpers (`get_available_models`, `get_current_model`, `switch_to_next_model`, `reset_model_index`, `is_fallback_available`) were removed. Read `agent.fallback_models` and `agent.model_name` instead.
 
 ### Skills helpers
 
@@ -1045,7 +1053,7 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 
 | Method | Description | Usage Example |
 |--------|-------------|---------------|
-| `run(task, img, imgs, correct_answer, streaming_callback, n, messages)` | Run the agent loop, or the autonomous loop when `max_loops="auto"` | `agent.run("Generate a report")` |
+| `run(task, img, imgs, streaming_callback, messages)` | Run the agent loop, or the autonomous loop when `max_loops="auto"` | `agent.run("Generate a report")` |
 | `__call__(task, img)` | Alternative way to call `run` | `agent("Generate a report")` |
 | `arun(task, img)` | Async version of `run` | `await agent.arun("Task")` |
 | `run_stream(task, img)` | Sync streaming generator over `run` | `for t in agent.run_stream("Task"): ...` |
@@ -1055,7 +1063,7 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `call_llm(task, img, imgs, current_loop, streaming_callback)` | Make one LLM call through `LLMManager`, with the selected skills attached | `agent.call_llm("Generate text")` |
 | `plan(task)` | Add an LLM-generated plan to the conversation | `agent.plan("Analyze trends")` |
 | `add_memory(message)` | Add a message to short-term memory | `agent.add_memory("Important info")` |
-| `reset()` | Drop short-term memory (leaves the agent unusable until rebuilt) | `agent.reset()` |
+| `reset()` | Start over on a fresh conversation, keeping the system prompt, seeded `messages`, and `usage` | `agent.reset()` |
 | `save(file_path)` | Save agent state to JSON | `agent.save("state.json")` |
 | `load(file_path)` | Load agent state from JSON | `agent.load("/abs/path/state.json")` |
 | `save_to_yaml(file_path)` | Save `to_dict()` to a YAML file | `agent.save_to_yaml("config.yaml")` |
@@ -1067,6 +1075,7 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `model_dump_yaml()` | Save config to `{agent_name}.yaml` in the workspace | `agent.model_dump_yaml()` |
 | `get_saveable_state()` | The values `save` would write | `agent.get_saveable_state()` |
 | `get_preserved_instances()` | The class instances `load` keeps in place | `agent.get_preserved_instances()` |
+| `list_tools()` | Names of every tool the agent can call | `agent.list_tools()` |
 | `add_tool(tool)` | Append to `agent.tools` (not re-registered with the model) | `agent.add_tool(my_tool)` |
 | `add_tools(tools)` | Extend `agent.tools` (not re-registered with the model) | `agent.add_tools([t1, t2])` |
 | `remove_tool(tool)` | Remove from `agent.tools` | `agent.remove_tool(my_tool)` |
@@ -1080,27 +1089,19 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `update_loop_interval(loop_interval)` | Set `loop_interval` | `agent.update_loop_interval(2)` |
 | `llm_handling()` | Rebuild the LLM client from the current configuration; returns it and stores it on `agent.llm` | `agent.llm_handling()` |
 | `get_llm_parameters()` | Get LLM parameters (as a string) | `agent.get_llm_parameters()` |
-| `get_available_models()` | List primary + fallback model names | `agent.get_available_models()` |
-| `get_current_model()` | Get the model currently in use | `agent.get_current_model()` |
-| `switch_to_next_model()` | Switch to the next fallback model | `agent.switch_to_next_model()` |
-| `reset_model_index()` | Reset back to the primary model | `agent.reset_model_index()` |
-| `is_fallback_available()` | Whether more than one model is configured | `agent.is_fallback_available()` |
 | `check_model_supports_utilities(img)` | Log an error for each capability the model lacks (vision, function calling, parallel calls) | `agent.check_model_supports_utilities()` |
 | `dynamic_temperature()` | Set the LLM client's temperature to a random value in 0.0 to 1.0 | `agent.dynamic_temperature()` |
-| `check_available_tokens()` | `context_length` minus the tokens in the history | `agent.check_available_tokens()` |
 | `handle_skills(task)` | Select skills for a task; sent with every LLM call | `agent.handle_skills("Build a DCF")` |
 | `load_skills_metadata(skills_dir)` | Load Agent Skills metadata | `agent.load_skills_metadata("./skills")` |
 | `load_full_skill(skill_name)` | Load complete skill content | `agent.load_full_skill("my-skill")` |
 | `handle_publish_to_marketplace()` | Publish to the Swarms marketplace | `agent.handle_publish_to_marketplace()` |
-| `handle_sop_ops()` | Add `sop` / `sop_list` to the conversation | `agent.handle_sop_ops()` |
 | `check_if_no_prompt_then_autogenerate(task)` | Generate a system prompt when `auto_generate_prompt=True` | `agent.check_if_no_prompt_then_autogenerate("Task")` |
-| `output_cleaner_op(response)` | Apply `output_cleaner` and record the result; returns `None` | `agent.output_cleaner_op(response)` |
 | `list_output_types()` | Return the `OutputType` literal type | `typing.get_args(agent.list_output_types())` |
 | `pretty_print(response, loop_count)` | Print a response panel when `print_on` is set | `agent.pretty_print("Done", 1)` |
 | `print_dashboard()` | Display dashboard | `agent.print_dashboard()` |
 | `showcase_config()` | Display config table | `agent.showcase_config()` |
 | `stream_response(response, delay)` | Sleep `delay` seconds per word of `response`; prints nothing | `agent.stream_response("Response", 0.001)` |
-| `setup_config()` | Apply `dynamic_loops`, `multi_modal`, and `preset_stopping_token` (called by `__init__`) | `agent.setup_config()` |
+| `setup_config()` | Apply `dynamic_loops` and `preset_stopping_token` (called by `__init__`) | `agent.setup_config()` |
 | `short_memory_init()` | Build the `Conversation` used as `short_memory` (called by `__init__`) | `agent.short_memory_init()` |
 | `reliability_check()` | Validate configuration; raises `AgentInitializationError` (called by `__init__`) | `agent.reliability_check()` |
 
@@ -1317,7 +1318,7 @@ stateless_agent.run("Summarise the latest news.")
 
 For long-running agents the conversation history can grow until it fills the context window. `context_compression=True` (the default) attaches a `ContextCompressor` that summarises the conversation history with the agent's own model whenever token usage crosses 90% of `context_length`, and replaces the history with that summary. The system prompt and rules are kept. With `persistent_memory=True`, `MEMORY.md` is wiped and re-seeded at the same time, so it stops growing.
 
-The check runs at the start of every loop iteration. In autonomous mode it also runs between subtask iterations, and the loop rebuilds the request it sends around the summary, so the payload shrinks too. The summary call is not counted in `agent.usage`.
+The check runs at the start of every loop iteration. In autonomous mode it also runs between subtask iterations, and the loop rebuilds the request it sends around the summary, so the payload shrinks too. The summary call's tokens are counted in `agent.usage`.
 
 ```python
 from swarms import Agent
@@ -1377,7 +1378,7 @@ Two read-only properties report token counts. See the [Token usage guide](/agent
 
 | Property | What it measures |
 |---|---|
-| `agent.usage` | What the provider billed, summed over every LLM call the agent's clients have made: the main client and the tool-summary client. A caller-supplied `llm` is included when it exposes a `usage_hook`. Returns a copy with `input_tokens`, `output_tokens`, `cached_tokens` (the part of `input_tokens` served from the prompt cache), `reasoning_tokens` (the part of `output_tokens` spent thinking, 0 when the provider does not report it), and `total_tokens`. Streaming calls count once their stream has been consumed. |
+| `agent.usage` | What the provider billed, summed over every LLM call the agent has made: the main client, the tool-summary client, and the context-compression summary. A caller-supplied `llm` is included when it exposes a `usage_hook`. Returns a copy with `input_tokens`, `output_tokens`, `cached_tokens` (the part of `input_tokens` served from the prompt cache), `reasoning_tokens` (the part of `output_tokens` spent thinking, 0 when the provider does not report it), and `total_tokens`. Streaming calls count once their stream has been consumed. |
 | `agent.input_tokens` | How many tokens the next request would carry: the system prompt, the whole `short_memory` conversation, and the tool schemas, counted with the model's tokenizer. It is an estimate that runs slightly above the billed figure, because role labels are counted. |
 
 ```python
@@ -1653,7 +1654,6 @@ from swarms.structs.transforms import TransformConfig
 agent = Agent(
     agent_name="Vision-Agent",
     model_name="claude-sonnet-4-6",
-    multi_modal=True,
     max_loops=1,
     transforms=TransformConfig(),
 )
@@ -1674,7 +1674,6 @@ image_agent = Agent(
     agent_name="Image-Analysis-Agent",
     model_name="gpt-5.4",
     system_prompt="You are an expert at analyzing images.",
-    multi_modal=True,
     transforms=TransformConfig(),
 )
 
@@ -1738,7 +1737,7 @@ response = agent.run("Analyze this complex scenario and provide insights")
 
 ### Agent with Streaming
 
-With `streaming_on=True`, the callback receives each token as a string.
+The callback receives each streamed fragment as a string. A callback alone turns streaming on; `streaming_on=True` is shown here for clarity.
 
 ```python
 from swarms import Agent
@@ -2168,7 +2167,7 @@ print(agent.model_dump_yaml())
 agent.receive_message(agent_name="OtherAgent", task="message")
 agent.send_agent_message(agent_name="agent_name", message="message")
 agent.add_memory("Add a memory to the agent")
-print(agent.check_available_tokens())
+print(agent.input_tokens)
 agent.print_dashboard()
 ```
 
@@ -2190,7 +2189,7 @@ agent.print_dashboard()
 | `"yaml"` | The conversation as a YAML string |
 
 <Warning>
-  `"basemodel"` passes the type check but the formatter has no branch for it, so a run that ends with `output_type="basemodel"` raises `ValueError`. XML output was removed, so `"xml"` is not accepted either.
+  Any other value, including the removed `"xml"` and `"basemodel"`, raises `ValueError` when the run formats its result.
 </Warning>
 
 ## Error Handling
@@ -2212,13 +2211,13 @@ except AgentError as e:
 
 | Exception | Raised by | Reaches your code |
 |---|---|---|
-| `AgentLLMError` | `run`, when the model returns no response after `retry_attempts` tries | Yes, once every fallback model has also failed |
+| `AgentLLMError` | `call_llm`, wrapping any failed model call (after the client's `retry_attempts` retries), chained to the provider's error | Yes, once every fallback model has also failed |
 | `AgentInitializationError` | The constructor, for an invalid `max_loops` or a missing `context_length`, and for `publish_to_marketplace=True` without `use_cases` | Yes, at construction |
 | `AgentToolExecutionError` | `ToolManager`, when a callable tool fails every retry | No. `run` catches it, records the failure in the conversation, and lets the model react |
 | `AgentRunError` | Nothing in the current source | No |
 | `AgentLLMInitializationError` | Nothing in the current source | No |
 
-When the primary model fails, `run` retries with the next model in `fallback_models` (see [Fallback model helpers](#fallback-model-helpers)). Once the list is exhausted, the original exception is re-raised unchanged. Other failures, such as an authentication error from the provider, also propagate as their own exception types.
+When the primary model fails, `run` moves to the next model in `fallback_models` (see [Fallback models](#fallback-models)). Once the list is exhausted, the last model's `AgentLLMError` is raised; read the provider's own exception from `error.__cause__`. Provider errors such as an authentication failure are wrapped the same way, so they also move `run` to the next model. Errors raised outside the model call, such as a bug in your stopping function, raise at once without trying another model.
 
 <Warning>
   The classes are not all importable from the same place. `swarms.structs.agent` re-exports only `AgentInitializationError`, `AgentLLMError`, `AgentRunError`, and `AgentToolExecutionError`. `from swarms.structs.agent import AgentError` raises `ImportError`. Import from `swarms` or `swarms.schemas` instead.
@@ -2228,13 +2227,13 @@ MCP failures use a separate hierarchy in `swarms.schemas.agent_mcp_errors`: `Age
 
 ## Telemetry
 
-Telemetry is on by default. Each `Agent.run` call emits an OpenTelemetry span with the task, the output, the status, and the agent's identity. Construction emits an `Agent.init` span with the constructor configuration. Failed model calls and failed tools emit `Agent.llm_error` and `Agent.tool_error` spans, and `autosave` also sends a `swarms.state` snapshot of the agent. Spans are exported over OTLP/HTTP to a Swarms telemetry endpoint.
+Telemetry is on by default. Each `Agent.run` call emits an OpenTelemetry span with the task and images, the output, the status, the agent's identity, the agent's full conversation, and the tokens the run used. Each model call gets its own `Agent.llm_call` span with the request, the response, the finish reason, and that call's token usage. Construction emits an `Agent.init` span with the constructor configuration. Failed model calls and failed tools emit `Agent.llm_error` and `Agent.tool_error` spans. Credential values (API keys, tokens, authorization headers) are redacted. Spans are exported over OTLP/HTTP to `telemetry.swarms.world`.
 
-Set `SWARMS_TELEMETRY_ON` to `false`, `0`, `no`, `off`, `disable`, or `disabled` to opt out. An empty value also turns it off. The switch is read once per process, so restart after you change it. See the [Telemetry guide](/deployment/telemetry) for what is captured.
+Set `SWARMS_TELEMETRY_ON` to `false`, `0`, `no`, `off`, `disable`, or `disabled` to opt out. An empty value also turns it off. Set it before `import swarms` (a `.env` file is loaded first): with telemetry off at import, `Agent.run` is left undecorated and costs nothing extra. The switch is read once per process, so restart after you change it. See the [Telemetry guide](/deployment/telemetry) for what is captured.
 
 ## New features and parameters
 
-Every constructor parameter, including the MCP, reasoning, memory, tool, and marketplace options, is documented under [Initialization](#initialization). Per-call options such as `imgs`, `correct_answer`, and `streaming_callback` are under [run](#run).
+Every constructor parameter, including the MCP, reasoning, memory, tool, and marketplace options, is documented under [Initialization](#initialization). Per-call options such as `imgs`, `messages`, and `streaming_callback` are under [run](#run).
 
 ## Best Practices
 
@@ -2245,7 +2244,7 @@ Every constructor parameter, including the MCP, reasoning, memory, tool, and mar
 | `retry_attempts` & error handling                       | Implement error handling and utilize the retry_attempts feature for robust execution.            |
 | `interactive` & `dashboard`                             | Use interactive mode for real-time conversations and dashboard for monitoring.                   |
 | `autosave`, `save`/`load`                               | Utilize autosave and save/load methods for continuity across sessions.                           |
-| `dynamic_context_window` & `check_available_tokens()`    | Optimize token usage with the dynamic_context_window parameter and the check_available_tokens() method. |
+| `dynamic_context_window` & `input_tokens`               | Optimize token usage with the dynamic_context_window parameter and check the next request's size with the input_tokens property. |
 | `concurrent` & `async` methods                          | Use concurrent and async methods for performance-critical applications.                          |
 | `run_batched`                                           | Leverage run_batched to process a list of related tasks in order; use run_concurrent_tasks for parallelism. |
 | `mcp_url` or `mcp_urls`                                 | Use mcp_url or mcp_urls to extend agent capabilities with external tools.                        |

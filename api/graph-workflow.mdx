@@ -136,7 +136,7 @@ class GraphWorkflow:
 Add an agent, or a nested `GraphWorkflow`, as a node in the workflow graph. An agent node's ID is its `agent_name`. A nested workflow becomes a `SUBGRAPH` node whose ID is the inner workflow's `name`; it is compiled on insertion if needed. Raises `ValueError` if a node with the same ID already exists.
 
 <ParamField path="agent" type="Union[Agent, GraphWorkflow]" required>
-  The agent or inner workflow to add. Pass the object itself, not a `Node`; to supply prebuilt `Node` objects, use the `nodes` constructor argument or `from_spec()`.
+  The agent or inner workflow to add. Pass the object itself, not a `Node`: a `Node` has no `agent_name` or `name`, so `add_node(Node(...))` raises `ValueError: Node id could not be auto-assigned`. To supply prebuilt `Node` objects with their own IDs, use the `nodes` constructor argument.
 </ParamField>
 
 <ParamField path="**kwargs" type="Any">
@@ -222,6 +222,8 @@ Create a parallel processing chain (full mesh connection).
 Run the workflow graph with optimized parallel agent execution. The graph is compiled first if it is not already. Each node receives the task plus one chat turn per predecessor output. When `max_loops > 1`, end-point outputs from each loop are fed as additional context into the next loop so agents can iteratively refine their results.
 
 A node that raises does not stop the run: its output becomes an `"[ERROR] Agent <name> failed: ..."` string, and downstream nodes still run. A subgraph node's output is the inner workflow's results joined as `[node_id]: output` blocks.
+
+An agent node's result is whatever that agent's `run()` returns, so it follows the agent's own `output_type`. The `Agent` default, `"str-all-except-first"`, is the agent's transcript rather than its last answer; give the agents `output_type="final"` to collect answers only. Every node's output is also appended to `workflow.conversation`, which is not reset between runs.
 
 <ParamField path="task" type="Optional[str]">
   Task to execute. Uses self.task if not provided.
@@ -536,7 +538,7 @@ Generate a human-readable summary of the workflow structure for inspection.
 Construct a workflow from a list of agents and connections.
 
 <ParamField path="agents" type="List[Union[Agent, Node]]" required>
-  List of agents or Node objects
+  List of agents or Node objects. Each `Node` is added through its agent, so its node ID becomes the agent's `agent_name` and any custom ID or metadata on the `Node` is dropped.
 </ParamField>
 
 <ParamField path="edges" type="List[Union[Edge, Tuple[Any, Any]]]" required>

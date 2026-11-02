@@ -341,7 +341,7 @@ Framework structures keep their prompts in dedicated modules under `swarms/promp
 
 | Module | Names | Used by |
 |---|---|---|
-| `swarms.prompts.agent_system_prompts` | `AGENT_SYSTEM_PROMPT_3`, `build_agent_system_prompt()` | `Agent`, when you do not pass `system_prompt` |
+| `swarms.prompts.agent_system_prompts` | `AGENT_SYSTEM_PROMPT_3`, `build_agent_system_prompt()` | Opt in with `Agent(system_prompt=build_agent_system_prompt())`. `Agent` sends no system prompt by default |
 | `swarms.prompts.autonomous_agent_prompt` | `autonomous_agent_system_prompt()`, `get_autonomous_agent_prompt()`, `get_autonomous_agent_prompt_with_context()` | `Agent` with `max_loops="auto"` |
 | `swarms.prompts.groupchat_prompt` | `GROUPCHAT_DECIDE_PROMPT` | [GroupChat](/api/group-chat), to ask each agent whether to speak |
 | `swarms.prompts.llm_council_prompts` | `get_gpt_councilor_prompt()`, `get_gemini_councilor_prompt()`, `get_claude_councilor_prompt()`, `get_grok_councilor_prompt()`, `get_chairman_prompt()`, `get_evaluation_prompt(query, responses, evaluator_name)`, `get_synthesis_prompt(query, original_responses, evaluations, id_to_member)` | [LLMCouncil](/api/llm-council) |
@@ -349,7 +349,7 @@ Framework structures keep their prompts in dedicated modules under `swarms/promp
 
 ### Default agent system prompt
 
-`AGENT_SYSTEM_PROMPT_3` is the default agent persona without a timestamp. `build_agent_system_prompt()` returns the same text with a `Time:` line for the current date and time. `Agent` calls it in `__init__` when `system_prompt` is `None`, so each agent gets the time it was created, not the time the module was imported.
+`AGENT_SYSTEM_PROMPT_3` is the default agent persona without a timestamp. `build_agent_system_prompt()` returns the same text with a `Time:` line for the current date and time. `Agent` no longer uses it by default: an agent built without `system_prompt` sends no system message. Pass `system_prompt=build_agent_system_prompt()` to get the old persona, with the time it was built.
 
 ```python
 from swarms.prompts.agent_system_prompts import build_agent_system_prompt

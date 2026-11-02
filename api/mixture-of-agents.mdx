@@ -132,7 +132,7 @@ def run(
     self,
     task: str,
     img: Optional[str] = None,
-) -> str
+) -> Any
 ```
 
 Executes the complete mixture of agents workflow with multiple layers and aggregation.
@@ -149,16 +149,15 @@ Executes the complete mixture of agents workflow with multiple layers and aggreg
 
 **Returns:**
 
-<ResponseField name="result" type="str">
-  The aggregated response from all agents after processing through all layers
+<ResponseField name="result" type="Any">
+  The conversation formatted by `output_type`. With the default `"final"` this is the aggregator's answer as a string
 </ResponseField>
 
-<Note>
-  `run()` catches exceptions internally and returns the string `"Error: {e}"` instead of raising, so callers should check the returned value rather than wrapping the call in a try/except.
-</Note>
+**Raises:**
+- Whatever the aggregator raised. A failed aggregation is not returned as an answer, so wrap the call in a `try`/`except` if you need to recover. A failing worker does not raise: its exception is recorded as that worker's answer and the run continues
 
 **Workflow:**
-1. Starts a fresh conversation, so a reused instance does not carry the previous task into the next one, and adds the task
+1. Starts a fresh conversation and resets every worker agent's memory, so a reused instance does not carry the previous task into the next one, then adds the task
 2. For each layer:
    - Runs all agents concurrently. The first layer receives the task; later layers receive the original task plus the previous layer's answers, each prefixed with the agent's name, not the full transcript
    - Adds each agent's answer to the conversation. When `layers > 1` the speaker is labelled with the layer, for example `Research-Agent (layer 1/3)`

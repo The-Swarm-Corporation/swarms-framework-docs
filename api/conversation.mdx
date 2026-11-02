@@ -23,7 +23,7 @@ from swarms import Conversation
 ## Parameters
 
 <ParamField path="id" type="Optional[str]" default="auto-generated">
-  Unique identifier for the conversation.
+  Unique identifier for the conversation. When omitted, 32 random hex characters.
 </ParamField>
 
 <ParamField path="name" type="Optional[str]" default="None">
@@ -31,7 +31,7 @@ from swarms import Conversation
 </ParamField>
 
 <ParamField path="system_prompt" type="Optional[str]" default="None">
-  Added as the first message, with role `"System"`, when a new conversation starts. Not re-added when history is restored from disk.
+  Added as the first message, with role `"System"`, when a new conversation starts. An empty string or `None` adds no message. Not re-added when history is restored from disk.
 </ParamField>
 
 <ParamField path="time_enabled" type="bool" default="False">
@@ -47,7 +47,7 @@ from swarms import Conversation
 </ParamField>
 
 <ParamField path="load_filepath" type="str" default="None">
-  Marks the conversation as one that resumes from disk. The constructor still reads `save_filepath`, not this path. To load a specific file, call `load(path)` or `Conversation.load_conversation(name, load_filepath=path)`.
+  File to resume from at construction. When it exists, its history is loaded; when it does not, the constructor falls back to the file at `save_filepath`. Later saves still go to `save_filepath`, not this path.
 </ParamField>
 
 <ParamField path="context_length" type="int" default="8192">
@@ -75,7 +75,7 @@ from swarms import Conversation
 </ParamField>
 
 <ParamField path="token_count" type="bool" default="False">
-  Count each message's tokens and store the result under its `token_count` key.
+  Count the tokens in each message's history line (`role: content`, with its timestamp when present) and store the result under its `token_count` key.
 </ParamField>
 
 <ParamField path="message_id_on" type="bool" default="False">
@@ -102,10 +102,6 @@ from swarms import Conversation
   Memoize the string returned by `return_history_as_string()` until the history changes, and record its token count for `get_cache_stats()`.
 </ParamField>
 
-<ParamField path="output_metadata" type="bool" default="False">
-  Stored but not read by `Conversation`.
-</ParamField>
-
 <ParamField path="memory_md_path" type="Optional[str]" default="None">
   Path to a `MEMORY.md` file for persistent memory. The file is created with a header if missing. Prior interactions in it are loaded as one `"System"` message, and every later `add()` appends to it.
 </ParamField>
@@ -124,7 +120,7 @@ The constructor runs these steps in order:
 
 <Steps>
 <Step title="Resume">
-If you passed `name`, `save_filepath`, or `load_filepath`, and the file at `save_filepath` exists, its history is loaded.
+If you passed `name`, `save_filepath`, or `load_filepath`, the history is loaded from `load_filepath` when that file exists, otherwise from `save_filepath` when that file exists.
 </Step>
 <Step title="Seed">
 Only when nothing was restored: `system_prompt`, then `rules`, then `custom_rules_prompt` are added.
@@ -133,11 +129,14 @@ Only when nothing was restored: `system_prompt`, then `rules`, then `custom_rule
 With `memory_md_path`, prior `MEMORY.md` content is added as one `"System"` message.
 </Step>
 <Step title="Messages">
-`messages`, if given, are appended.
+`messages`, if given, are appended through `add()`. With `memory_md_path`, they are also appended to `MEMORY.md`, on every construction.
+</Step>
+<Step title="Channel">
+With `channel`, each of its rows is added through `add_in_memory()`, with the row's `agent_name` as the role. These rows are not autosaved or posted back to the channel, but they are appended to `MEMORY.md` when `memory_md_path` is set. The channel is attached last, so nothing added during construction is posted to it.
 </Step>
 </Steps>
 
-An unnamed conversation gets a fresh random name, so it never resumes another instance's file. Constructing a `Conversation` writes nothing to disk unless `memory_md_path` is set, or `autosave` is on and a seeded message triggers a save.
+An unnamed conversation gets a fresh random name, so it never resumes another instance's file. Constructing a `Conversation` writes nothing to disk unless `memory_md_path` is set, or `autosave` is on and a seeded message triggers a save. The system prompt and rules are never written to `MEMORY.md`.
 
 ## Methods
 
@@ -161,7 +160,9 @@ def add(
 - `metadata` (Optional[dict]): Optional metadata, stored under the message's `metadata` key
 - `category` (Optional[str]): Optional category for the message (e.g., 'input', 'output')
 
-**Returns:** The stored message dict. Depending on the constructor flags it also carries `timestamp`, `message_id`, `category`, `metadata`, and `token_count`. With `autosave=True`, the conversation is exported after the add.
+**Returns:** The stored message dict. Depending on the constructor flags it also carries `timestamp`, `message_id`, `category`, `metadata`, and `token_count`. With `memory_md_path`, the message is appended to `MEMORY.md` unless its content is `None` or blank. With `channel`, it is posted to the channel unless its role is `System` or `system` or its content is `None`. With `autosave=True`, the conversation is exported after the add.
+
+`add_in_memory()` takes the same arguments and does the same, except that it never autosaves.
 
 ### add_messages()
 
@@ -184,11 +185,38 @@ Return the conversation history as a formatted string.
 def return_history_as_string(self) -> str:
 ```
 
-**Returns:** One `role: content` entry per message, separated by blank lines. Messages with a timestamp are prefixed with `[timestamp]`. With `dynamic_context_window=True`, the string is trimmed from the front to fit `context_length` tokens.
+**Returns:** One `role: content` entry per message, separated by blank lines. Messages with a timestamp are prefixed with `[timestamp]`. With `dynamic_context_window=True`, the string is trimmed from the front to fit `context_length` tokens: the newest messages that fit are kept whole, and the one before them keeps only the tail that fits.
+
+`count_history_tokens()` returns this string's token count from cached per-message counts, capped at `context_length` when `dynamic_context_window=True`.
+
+### to_messages()
+
+Build a chat request body from the history. `Agent` builds every request of an integer `max_loops` run this way.
+
+```python
+def to_messages(
+    self,
+    agent_name: Optional[str] = None,
+    start: int = 0,
+    prefix: Sequence[Dict[str, Any]] = (),
+) -> List[Dict[str, Any]]
+```
+
+**Parameters:**
+- `agent_name` (Optional[str]): The role whose rows become `assistant` turns
+- `start` (int): Index of the first stored message to include
+- `prefix` (Sequence[Dict[str, Any]]): Rows placed ahead of the history from `start`
+
+**Returns:** A list of chat messages, built row by row:
+- A row recorded by `record_assistant()` with tool calls becomes an `assistant` message carrying `tool_calls`, followed by one `tool` message per call. A call with no recorded result gets `(no result recorded for <tool name>)`.
+- A row whose role is already `system`, `user`, `assistant`, or `tool` (lower case) passes through with its `role`, `content`, `name`, `tool_calls`, and `tool_call_id`, read from the row or its `metadata`.
+- Any other row becomes `assistant` when its role equals `agent_name` and `user` otherwise, with its content as a string. Rows whose role is `System` or `Tool Executor`, or whose content is `None`, are skipped.
+
+Because `System` rows are skipped, the system prompt row and the `MEMORY.md` preload are not part of the result.
 
 ### compact()
 
-Collapse the interaction history into a single summary message, preserving the agent's static context (`system_prompt` → `rules` → `custom_rules_prompt`) ahead of it. If `memory_md_path` is configured, the on-disk `MEMORY.md` is archived to `<agent_folder>/archive/history_<timestamp>.md` and then wiped/re-seeded so the log doesn't keep growing across compressions.
+Collapse the interaction history into a single summary message. The history is rebuilt as `system_prompt` (when set), `rules`, and `custom_rules_prompt` (when given), followed by the summary. If `memory_md_path` is configured, the current `MEMORY.md` is copied to `archive/history_<timestamp>.md` next to it (skipped when it holds no entries), then deleted and recreated with a fresh header, so the log does not keep growing across compressions.
 
 ```python
 def compact(
@@ -201,6 +229,8 @@ def compact(
 **Parameters:**
 - `summary` (str): The compressed summary content that replaces the raw history.
 - `summary_role` (str): Role attached to the summary message. Defaults to `"System"`.
+
+The summary is added through `add()`: with `memory_md_path` it becomes the only entry in the new `MEMORY.md` log, and it is autosaved and posted to the channel like any other message. `to_messages()` skips `System` rows, so pass `summary_role="user"` when the summary must reach the model. The agent's `ContextCompressor` does this.
 
 ```python
 conv.compact(
@@ -276,7 +306,12 @@ def export_and_count_categories(self) -> Dict[str, int]
 | `delete(index)` | Remove the message at `index`; raises `IndexError` if out of range |
 | `update(index, role, content)` | Replace the role/content of the message at `index`; logs a warning if out of range |
 | `add_multiple(roles, contents)` / `add_multiple_messages(roles, contents)` | Add several messages in order through `add()`; raises `ValueError` if the lists differ in length |
-| `batch_add(messages)` | Append message dicts as-is: no timestamps, IDs, token counts, `MEMORY.md` writes, or autosave |
+| `batch_add(messages)` | Append message dicts as-is: no timestamps, IDs, token counts, `MEMORY.md` writes, channel posts, or autosave |
+| `add_in_memory(role, content, metadata=None, category=None)` | `add()` without the autosave |
+| `record_assistant(parsed, role="assistant")` | Add a model turn. When `parsed` is a list of tool-call dicts, the row also stores `tool_calls` and an empty `tool_results`, and the calls are returned as `{id, name, arguments}` dicts (an `id` is generated when the provider gave none). A text turn under the role `"assistant"` is stored as a string, and returns `[]` |
+| `flush_tool_results(calls, results)` | Store each call's result, keyed by call id, on the most recent row with tool calls, for `to_messages()` |
+| `Conversation.map_batch_results(tool_calls, output, results, formatter=str)` | Staticmethod. Fill `results` with one formatted value per call id: element by element when `output` is a list as long as `tool_calls`, otherwise the same value for every call |
+| `count_history_tokens()` | Token count of the rendered history, as described under `return_history_as_string()` |
 | `add_tool_output_to_agent(role, tool_output)` | Add a tool result through `add()` |
 | `get_str()` | Alias for `return_history_as_string()` |
 | `dynamic_auto_chunking()` | The rendered history trimmed from the front to fit `context_length` tokens |
@@ -293,7 +328,7 @@ def export_and_count_categories(self) -> Dict[str, int]
 | `to_json()` / `to_yaml()` | The history list as a JSON / YAML string |
 | `save_as_json(force=True)` / `save_as_yaml(force=True)` | Write the history to `save_filepath`; with `force=False` and `autosave` off, only log a warning |
 | `load_from_json(filename)` / `load_from_yaml(filename)` | Format-specific forms of `load()` |
-| `export_conversation(filename)` | For a `.json` name, calls `save_as_json()`, which writes to `save_filepath`, not `filename`; otherwise writes `role: content` lines to `filename` |
+| `export_conversation(filename)` | Write the history to `filename`: the full message list as indented JSON for a `.json` name, otherwise one `role: content` line per message. `save_filepath` is not used or changed |
 | `import_conversation(filename)` | Alias for `load_from_json(filename)` |
 | `search_keyword_in_conversation(keyword)` | Like `search()`, for string contents only |
 | `count_messages_by_role()` | Dict of message counts keyed by role. `system`, `user`, `assistant`, and `function` are always present; roles are case-sensitive |
@@ -315,7 +350,7 @@ Agents and swarms turn a `Conversation` into their return value with `history_ou
 |---|---|---|
 | `"list"` | `return_messages_as_list()` | List of `{"role", "content"}` dicts |
 | `"dict"`, `"dictionary"` | `to_dict()` | The full message list, with every stored key |
-| `"string"`, `"str"`, `"all"` | `get_str()` | The rendered history |
+| `"string"`, `"str"`, `"all"` | The rendering behind `return_history_as_string()` | The whole rendered history, never trimmed to `context_length` |
 | `"final"`, `"last"` | `get_final_message_content()` | The last message's content |
 | `"json"` | `to_json()` | JSON string |
 | `"yaml"` | `to_dict()`, then `yaml.safe_dump` | YAML string |

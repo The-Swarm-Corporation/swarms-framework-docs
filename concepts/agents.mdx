@@ -198,7 +198,7 @@ response = agent.run(
 )
 ```
 
-`multi_modal=True` is optional: it adds a built-in multimodal standard operating procedure to the conversation.
+Vision support is detected from `model_name`, so no extra flag is needed. The old `multi_modal` parameter was removed and is ignored if passed.
 
 ### Streaming Responses
 

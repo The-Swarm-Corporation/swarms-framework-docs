@@ -92,6 +92,40 @@ def run(self, task: str)
 3. Sends the aggregator the task and every judge's analysis as separate chat turns, each labelled with the judge's name
 4. Records the aggregator's report and returns the formatted conversation
 
+### arun()
+
+Async version of `run()`. Each judge, and then the aggregator, is awaited through its own `Agent.arun()` on the event loop, so the council can run inside an existing `asyncio` application.
+
+```python
+async def arun(self, task: str, max_concurrency: Optional[int] = None)
+```
+
+**Parameters:**
+- `task` (str): Task containing the response to evaluate
+- `max_concurrency` (Optional[int]): Most judges evaluating at once. `None` (the default) runs all six judges at once
+
+**Returns:** The conversation formatted according to `output_type`, as `run()` returns. Judge entries are recorded in dimension order, not the order the judges finished.
+
+**Raises:**
+- `ValueError`: If `max_concurrency` is less than `1`
+- `EvaluationError`: If any judge or the aggregator fails. The message names the failing dimension
+
+```python
+import asyncio
+
+from swarms import CouncilAsAJudge
+
+council = CouncilAsAJudge(model_name="gpt-5.4")
+
+evaluation = asyncio.run(
+    council.arun(
+        "Question: What is 2 + 2?\n\nResponse: 2 + 2 equals 4.",
+        max_concurrency=3,
+    )
+)
+print(evaluation)
+```
+
 ## Usage Examples
 
 ### Basic Evaluation

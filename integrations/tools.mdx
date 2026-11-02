@@ -350,7 +350,7 @@ tool_call = json.dumps({
     }
 })
 
-result = base_tool.execute_tool_from_text(tool_call)
+result = base_tool.execute_tool_by_name("process_data", tool_call)
 print(result)
 ```
 

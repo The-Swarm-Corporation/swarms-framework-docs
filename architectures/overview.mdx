@@ -41,7 +41,6 @@ These reach a decision rather than producing a pipeline result. Each has an API 
 | [Planner Worker Swarm](/api/planner-worker-swarm) | Planner emits a dependency-aware queue, workers claim tasks | Parallelizable work with dependencies |
 | [Planner Generator Evaluator](/api/planner-generator-evaluator) | Plan → generate → evaluate per step, with retries | Work that must pass a per-step contract |
 | [HHCS](/api/hhcs) | Router dispatches to a list of `SwarmRouter` clusters | Routing across whole swarms, not agents |
-| [Hierarchical Communication](/api/hierarchical-communication-framework) | Supervisor, generators, evaluators, refiners | Structured generate-and-critique loops |
 
 ### Distribution and Batching
 
@@ -60,7 +59,6 @@ These reach a decision rather than producing a pipeline result. Each has an API 
 | [Multi-Agent Router](/api/multi-agent-router) | A boss agent picks the specialist(s) for each task | Routing across a roster of specialists |
 | [Agent Router](/api/agent-router) | Embedding similarity between the task and agent descriptions | Routing without a chat-model call |
 | [Model Router](/api/model-router) | A function-calling model picks the model and provider | Choosing the model rather than the agent |
-| [Swarm Rearrange](/api/swarm-rearrange) | The `AgentRearrange` flow DSL over whole swarms | Chaining swarms into a pipeline |
 
 ### Communication Topologies
 

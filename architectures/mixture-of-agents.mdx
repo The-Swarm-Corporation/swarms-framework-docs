@@ -139,6 +139,10 @@ After the last layer, the aggregator reads every labelled answer from every laye
   The parameter is spelled `aggegrator_args` in the code — note the transposed letters. That misspelling is the name you must type; `aggregator_args` is not accepted and raises `TypeError`.
 </Warning>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the mixture posts to: the task, each worker's answer per layer, then the aggregator's answer. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
 ## Methods
 
 ### run()
@@ -151,6 +155,8 @@ result = moa.run(
     img=None,  # Optional image input
 )
 ```
+
+Each call starts a fresh conversation and resets every worker's memory, so a reused mixture does not carry an earlier task into the next one. If the aggregator fails, `run()` raises its exception rather than returning it as the answer. A failing worker does not stop the run: its exception is recorded as that worker's answer.
 
 ### run_batched()
 

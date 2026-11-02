@@ -486,31 +486,18 @@ agents = load_agents_from_markdown([
   Skip files larger than this size
 </ParamField>
 
-### MarkdownAgentLoader
+### AgentLoader
 
-Class for loading agents from markdown with advanced options. `load_agent_from_markdown` and `load_agents_from_markdown` are thin wrappers around it.
+`MarkdownAgentLoader` and `MarkdownAgentConfig` were removed. The two functions above now wrap [`AgentLoader`](/api/agent-loader), which loads Markdown, YAML, CSV and JSON agent files through one `AgentConfig` schema:
 
 ```python
-from swarms import MarkdownAgentLoader
+from swarms import AgentLoader
 
-loader = MarkdownAgentLoader(max_workers=4)
+loader = AgentLoader(concurrent=True, max_workers=4)
 
-agent = loader.load_single_agent("agent_config.md")
-agents = loader.load_multiple_agents("./agent_configs")
+agent = loader.load_agent_from_markdown("agent_config.md")
+agents = loader.load_agents_from_markdown("./agent_configs")
 ```
-
-<ParamField path="max_workers" type="int" default="None">
-  Accepted but currently ignored. The constructor always sets `max_workers` to twice the CPU count
-</ParamField>
-
-| Method | Description |
-|---|---|
-| `load_single_agent(file_path, **kwargs)` | Load one agent from a markdown file |
-| `load_multiple_agents(file_paths, **kwargs)` | Load agents from a directory path or a list of file paths |
-| `load_agent_from_markdown(file_path, **kwargs)` | Same as `load_single_agent` |
-| `load_agents_from_markdown(file_paths, concurrent=True, max_file_size_mb=10.0, **kwargs)` | Same as `load_multiple_agents`, with concurrency and file-size controls |
-| `parse_markdown_file(file_path)` | Parse a markdown file into a `MarkdownAgentConfig` without building an `Agent` |
-| `parse_yaml_frontmatter(content)` | Parse just the YAML frontmatter out of markdown content |
 
 ## Context Window Management
 

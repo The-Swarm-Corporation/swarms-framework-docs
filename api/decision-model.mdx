@@ -29,7 +29,7 @@ urgency = model.noul(
 print(f"Urgency: {urgency:.2f}")
 ```
 
-TypeSafe's `jev-latest` is the default model. Set `model_name` to `"clef"` or `"clef-flash"` to use Cloudflare's Clef models on Workers AI instead.
+TypeSafe's `jev-latest` is the default model. Set `model_name` to `"clef"` or `"clef-flash"` to use Cloudflare's Clef models on Workers AI, or to `"gpt-6-luna"` to use OpenAI's Decisions API. Questions and answers have the same shape for every provider, so switching provider is a model-name change.
 
 ### When to use it
 
@@ -50,25 +50,25 @@ Use an [`Agent`](/api/agent) when you need generated text, tool calls or multi-s
 ## Import
 
 ```python
-from swarms import DecisionModel, get_decision_models
+from swarms import DecisionModel, get_decision_model_prices, get_decision_models
 ```
 
-Both names are also exported from `swarms.structs`. The module is `swarms.structs.decision_model`.
+All three names are also exported from `swarms.structs`. The module is `swarms.structs.decision_model`.
 
 ## Providers
 
-The model name picks the provider. A name that starts with `clef` goes to Cloudflare. Every other name goes to TypeSafe, including names that start with `jev` and gateway ids such as `~typesafe/jev-latest`.
+The model name picks the provider. A name that starts with `clef` goes to Cloudflare, and a name that starts with `gpt-6-luna` goes to OpenAI. Every other name goes to TypeSafe, including names that start with `jev` and gateway ids such as `~typesafe/jev-latest`.
 
-| | TypeSafe | Cloudflare Workers AI |
-|---|---|---|
-| **Model names** | Starting with `jev`, or anything not starting with `clef` | Starting with `clef` |
-| **Built-in names** | `jev-latest`, `jev-preview`, `jev-1.13.0` | `clef`, `clef-flash` |
-| **Base URL** | `https://api.typesafe.ai` | `https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run` |
-| **Endpoint** | `/v1/systemone` | `/@cf/cloudflare/{model_name}` |
-| **API key variable** | `TYPESAFE_API_KEY` | `CLOUDFLARE_AUTH_TOKEN` |
-| **Other variables** | None | `CLOUDFLARE_ACCOUNT_ID`, filled into the base URL |
+| | TypeSafe | Cloudflare Workers AI | OpenAI |
+|---|---|---|---|
+| **Model names** | Starting with `jev`, or anything not matched by another provider | Starting with `clef` | Starting with `gpt-6-luna` |
+| **Built-in names** | `jev-latest`, `jev-preview`, `jev-1.13.0` | `clef`, `clef-flash` | `gpt-6-luna` |
+| **Base URL** | `https://api.typesafe.ai` | `https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run` | `https://api.openai.com/v1` |
+| **Endpoint** | `/v1/systemone` | `/@cf/cloudflare/{model_name}` | `/decisions` |
+| **API key variable** | `TYPESAFE_API_KEY` | `CLOUDFLARE_AUTH_TOKEN` | `OPENAI_API_KEY` |
+| **Other variables** | None | `CLOUDFLARE_ACCOUNT_ID`, filled into the base URL | None |
 
-Every request is a `POST` to the base URL plus the endpoint, with an `Authorization: Bearer <key>` header and a JSON body of `model`, `state` and `questions`. The body carries `model` for Cloudflare too, even though the endpoint already names the model.
+Every request is a `POST` to the base URL plus the endpoint, with an `Authorization: Bearer <key>` header. For TypeSafe and Cloudflare the JSON body is `model`, `state` and `questions`; it carries `model` for Cloudflare too, even though the endpoint already names the model. OpenAI uses its own wire format, which `DecisionModel` converts to and from (see the OpenAI tab below).
 
 <Tabs>
 <Tab title="TypeSafe">
@@ -96,7 +96,30 @@ model = DecisionModel(model_name="clef")
 fast = DecisionModel(model_name="clef-flash")
 ```
 
-Workers AI wraps its response body in a `result` envelope. `DecisionModel` unwraps it, so `run()` returns the same shape for both providers.
+Workers AI wraps its response body in a `result` envelope. `DecisionModel` unwraps it, so `run()` returns the same shape for every provider.
+</Tab>
+<Tab title="OpenAI">
+```bash
+export OPENAI_API_KEY="..."
+```
+
+```python
+from swarms import DecisionModel
+
+model = DecisionModel(model_name="gpt-6-luna")
+```
+
+The client calls the HTTP API with `httpx`, so there is no `openai` dependency. The request body is `model`, `input` and a list of `questions`, built from your questions:
+
+| Your question | Sent to OpenAI |
+|---|---|
+| Question id | `name` |
+| `noul` | `type: "predicate"`; any `criteria` are appended to the instructions as text |
+| `choice` criteria | `choices`, one `{"value", "description"}` per option (no `description` for a `None` value) |
+| `score` criteria | `levels`, one `{"label"}` per level |
+| `instructions` | Sent as text; a structured object is JSON-encoded |
+
+A string state is sent as is and a dict or list state as JSON text. A list of messages that all have `role: "user"` passes through unchanged, so `input_image` parts work. The answers are converted back and keyed by question id: a predicate becomes a `noul` answer, and `choice` and `score` answers get the same `probabilities`, `legend` and `confidence` fields as the other providers. A `refusal` answer raises `RuntimeError`, so every question still gets an answer of its own type.
 </Tab>
 <Tab title="Any other endpoint">
 Point the client at another gateway or provider that speaks the same wire format with `base_url`, `endpoint` and `api_key_env`:
@@ -175,7 +198,7 @@ DecisionModel(
 **Raises** `ValueError` when:
 
 - The default base URL needs an environment variable that is not set. For a `clef` model without `CLOUDFLARE_ACCOUNT_ID`: `Set CLOUDFLARE_ACCOUNT_ID in your environment or .env file.` This check runs before the API key check.
-- No API key is found: `No API key found. Pass api_key or set TYPESAFE_API_KEY in your environment or .env file.`
+- No API key is found: `No API key found. Pass api_key or set TYPESAFE_API_KEY in your environment or .env file.` The variable named is the provider's (`api_key_env`).
 
 The constructor makes no network calls.
 
@@ -207,6 +230,10 @@ The constructor makes no network calls.
 
 <ResponseField name="extra_body" type="Dict[str, Any]">
   Fields merged into every request body. `{}` when not set.
+</ResponseField>
+
+<ResponseField name="usage" type="Dict[str, int]">
+  Read-only property: `input_tokens` and `output_tokens` reported by the provider, summed over every request this instance has made, including `arun()`, `choice()`, `score()` and `noul()`. Returns a copy. Updates are thread-safe.
 </ResponseField>
 
 <ResponseField name="question_types" type="Tuple[str, ...]">
@@ -263,7 +290,7 @@ Each question has three keys:
 
 An answer can also carry its `type`, which `parse_response()` checks against the question. The shipped examples read `score` as a position on the `0` to `len(criteria) - 1` scale; with three levels, `2.0` is the top.
 
-The **state** is the content the questions are about. It can be a string, a JSON object or a list, and it is sent unchanged. The shipped examples pass an object, such as `{"job": ..., "resume": ...}`, and name its fields in their instructions.
+The **state** is the content the questions are about. It can be a string, a JSON object or a list, and it is sent unchanged to TypeSafe and Cloudflare (OpenAI conversion is described under [Providers](#providers)). The shipped examples pass an object, such as `{"job": ..., "resume": ...}`, and name its fields in their instructions.
 
 ## Methods
 
@@ -297,7 +324,7 @@ Ask every question about the state in one request. The questions are validated b
 </ResponseField>
 
 <ResponseField name="usage" type="Dict[str, Any]">
-  The provider's token usage. The shipped TypeSafe examples read `usage["input_tokens"]`.
+  The provider's token usage, with `input_tokens` and `output_tokens`. Pass it to [`calculate_cost()`](#calculate_cost) to price this request. Every request's usage is also added to the [`usage`](#attributes) property.
 </ResponseField>
 
 Any other fields the provider returns are passed through.
@@ -384,6 +411,35 @@ def list_models() -> List[str]
 
 Same as [`get_decision_models()`](#get_decision_models). It lists the models from every provider, not only this instance's.
 
+### get_price
+
+```python
+def get_price() -> Dict[str, float]
+```
+
+**Returns** this model's price as `{"input": ..., "output": ...}`, in US dollars per million tokens. The price comes from [`get_decision_model_prices()`](#get_decision_model_prices) for this model's provider on the first call and is cached on the instance. Raises `ValueError` when no price is known for `model_name`, for example a gateway id such as `~typesafe/jev-latest`.
+
+### calculate_cost
+
+```python
+def calculate_cost(
+    usage: Optional[Dict[str, int]] = None,
+) -> Dict[str, float]
+```
+
+Price token usage with [`get_price()`](#get_price). Pass one response's `usage` to price that request, or nothing to price every request so far (the [`usage`](#attributes) property). Missing counts are treated as `0`.
+
+**Returns** a dict with `input_tokens`, `output_tokens`, `input_cost`, `output_cost` and `total_cost`, the costs in US dollars. Raises `ValueError` when no price is known for the model.
+
+```python
+model = DecisionModel()
+response = model.run(state, questions)
+
+model.calculate_cost(response["usage"])  # this request
+model.calculate_cost()                   # every request so far
+# {"input_tokens": 310, "output_tokens": 47, "input_cost": 1.302e-05, "output_cost": 0.0, "total_cost": 1.302e-05}
+```
+
 ### close
 
 ```python
@@ -424,7 +480,7 @@ def parse_response(
 ) -> Dict[str, Any]
 ```
 
-Check the decoded response and return it. By default it unwraps a Cloudflare `result` envelope when `answers` is not at the top level. It then raises `RuntimeError` if any question has no answer, or if an answer's `type` differs from its question's. An answer without a `type` is accepted.
+Check the decoded response and return it. By default it unwraps a Cloudflare `result` envelope when `answers` is not at the top level, and for an OpenAI model converts the list of answers into a dict keyed by question id. It then raises `RuntimeError` if any question has no answer, or if an answer's `type` differs from its question's. An answer without a `type` is accepted.
 
 ```python
 from swarms import DecisionModel
@@ -459,8 +515,9 @@ List the decision models from every provider. **Returns** the built-in names, me
 
 - **TypeSafe**: when `TYPESAFE_API_KEY` is set, `GET https://api.typesafe.ai/v1/models`.
 - **Cloudflare**: when `CLOUDFLARE_AUTH_TOKEN` is set, `GET https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/models/search?search=clef`. The `@cf/cloudflare/` prefix is stripped from each name.
+- **OpenAI**: when `OPENAI_API_KEY` is set, `GET https://api.openai.com/v1/models`.
 
-Each request sends the key as a bearer token, with a 10 second timeout. Only live names that start with the provider's prefix (`jev` or `clef`) are kept. Names are de-duplicated and keep their order: TypeSafe's built-in then live names, then Cloudflare's.
+Each request sends the key as a bearer token, with a 10 second timeout. Only live names that start with the provider's prefix (`jev`, `clef` or `gpt-6-luna`) are kept. Names are de-duplicated and keep their order: TypeSafe's built-in then live names, then Cloudflare's, then OpenAI's.
 
 The function never raises. A failed request, a malformed body, or a missing `CLOUDFLARE_ACCOUNT_ID` logs a warning and leaves that provider's built-in names in place. With no credentials set, it returns the built-ins without a network call:
 
@@ -468,10 +525,34 @@ The function never raises. A failed request, a malformed body, or a missing `CLO
 from swarms import get_decision_models
 
 print(get_decision_models())
-# ['jev-latest', 'jev-preview', 'jev-1.13.0', 'clef', 'clef-flash']
+# ['jev-latest', 'jev-preview', 'jev-1.13.0', 'clef', 'clef-flash', 'gpt-6-luna']
 ```
 
-Results are not cached, so each call with credentials set makes fresh requests.
+Results are not cached, so each call with credentials set makes fresh requests. `OPENAI_API_KEY` is often set for agents too, in which case every call also queries OpenAI's model list.
+
+## get_decision_model_prices
+
+```python
+def get_decision_model_prices() -> Dict[str, Dict[str, float]]
+```
+
+List the price of every decision model. **Returns** model names mapped to `{"input": ..., "output": ...}`, in US dollars per million tokens.
+
+| Model | Input | Output | Source |
+|---|---|---|---|
+| `jev-latest`, `jev-preview`, `jev-1.13.0` | 0.042 | 0.0 | Built in. TypeSafe publishes no prices |
+| `clef` | 0.24 | 0.0 | Built in, replaced by Cloudflare's listed price when `CLOUDFLARE_AUTH_TOKEN` is set |
+| `clef-flash` | 0.09 | 0.0 | Built in, replaced by Cloudflare's listed price when `CLOUDFLARE_AUTH_TOKEN` is set |
+| `gpt-6-luna` | 0.10 | 0.0 | Built in |
+
+Only Cloudflare reports prices, through the same model search request `get_decision_models()` makes, so live Clef models without a built-in price are added too. Like `get_decision_models()`, it never raises: a failed request leaves the built-in prices in place.
+
+```python
+from swarms import get_decision_model_prices
+
+print(get_decision_model_prices())
+# {'jev-latest': {'input': 0.042, 'output': 0.0}, ..., 'clef': {'input': 0.24, 'output': 0.0}, ..., 'gpt-6-luna': {'input': 0.1, 'output': 0.0}}
+```
 
 ## Retries
 
@@ -490,7 +571,8 @@ Each retry logs a warning that names the status and the delay.
 |---|---|---|
 | `ValueError` | Constructor | No API key, or `CLOUDFLARE_ACCOUNT_ID` missing for a default Cloudflare URL |
 | `ValueError` | `run`, `arun`, helpers | `state` is `None`, no questions, an unknown type, or invalid `choice` or `score` criteria. Raised before any request |
-| `RuntimeError` | `run`, `arun`, helpers | A question has no answer, or the answer's type does not match |
+| `RuntimeError` | `run`, `arun`, helpers | A question has no answer, the answer's type does not match, or OpenAI refused to answer |
+| `ValueError` | `get_price`, `calculate_cost` | No price is known for `model_name` |
 | `httpx.HTTPStatusError` | `run`, `arun`, helpers | A non-retryable error status, or a retryable one after retries run out. The message includes the status, the URL and the response body, which names the offending field on a `422` |
 | `httpx.TransportError` | `run`, `arun`, helpers | A connection error or timeout on the last attempt |
 

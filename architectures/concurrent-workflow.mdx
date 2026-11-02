@@ -112,12 +112,12 @@ results = workflow.run(
   Output format for results. The default returns each agent's message as a `{"role", "content"}` dict, without the user's task.
 </ParamField>
 
-<ParamField path="autosave" type="bool" default="True">
-  Automatically save conversation history to the workflow workspace directory after each run
+<ParamField path="autosave" type="bool" default="False">
+  Save the conversation to the workflow workspace directory after each run. Off by default, so a run writes nothing to disk.
 </ParamField>
 
 <Warning>
-  `ConcurrentWorkflow.__init__` accepts **two** similarly named parameters: `autosave` and `auto_save` (both default `True`). Only `autosave` has any effect — it is the flag that enables the workspace writer. `auto_save` is stored on the instance and never read, so setting `auto_save=False` does **not** turn saving off. Always use `autosave`.
+  `ConcurrentWorkflow.__init__` accepts **two** similarly named parameters: `autosave` (default `False`) and `auto_save` (default `True`). Only `autosave` has any effect — it is the flag that enables the workspace writer. `auto_save` is stored on the instance and never read, so `auto_save=True` does **not** turn saving on. Always use `autosave`.
 </Warning>
 
 <ParamField path="verbose" type="bool" default="False">

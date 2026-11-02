@@ -55,7 +55,7 @@ tool_manager = BaseTool(
 </ParamField>
 
 <ParamField path="function_map" type="Dict[str, Callable]" default="None">
-  Mapping of function names to callables. `convert_funcs_into_tools()` fills it from `tools`
+  Mapping of function names to callables. `convert_funcs_into_tools()` fills it from `tools`, and `execute_function_calls_from_api_response()` builds it from `tools` when it is unset
 </ParamField>
 
 <ParamField path="list_of_dicts" type="List[Dict[str, Any]]" default="None">
@@ -101,29 +101,78 @@ schema = tool.base_model_to_dict(MyModel, output_str=False)
 </ParamField>
 
 <ResponseField name="return" type="Union[dict[str, Any], str]">
-  OpenAI function calling schema dictionary or JSON string
-</ResponseField>
-
-#### execute_tool
-
-Execute one or more tool calls described by a JSON string, using the functions in `tools`.
-
-```python
-result = tool.execute_tool('{"name": "add", "parameters": {"a": 1, "b": 2}}')
-```
-
-<ParamField path="response" type="str" required>
-  JSON describing the call. Accepted shapes are `{"name": ..., "parameters": {...}}`, `{"function": {"name": ..., "parameters": {...}}}`, and `{"functions": [...]}` for several calls
-</ParamField>
-
-<ResponseField name="return" type="str">
-  A JSON string of the form `{"results": {"add": "3"}, "summary": "add: 3"}`. Each result is converted to a string. A call to an unknown function is reported in `results` as `"Error: Function not found"` rather than raised
+  An OpenAI tool schema of the form `{"type": "function", "function": {...}}`, or with `output_str=True` the JSON string from `base_model_to_openai_function`
 </ResponseField>
 
 **Raises:**
-- `ToolValidationError`: If response validation fails
-- `ToolExecutionError`: If tool execution fails
-- `ToolNotFoundError`: If specified tool is not found
+- `ToolValidationError`: If `pydantic_type` is `None` or not a `BaseModel` subclass
+- `FunctionSchemaError`: If schema conversion fails
+
+#### multi_base_models_to_dict
+
+Convert several Pydantic models to OpenAI tool schemas, one per model, in order.
+
+```python
+schemas = tool.multi_base_models_to_dict([Model1, Model2])
+```
+
+<ParamField path="base_models" type="List[BaseModel]" required>
+  The Pydantic model classes to convert
+</ParamField>
+
+<ParamField path="output_str" type="bool" default="False">
+  Return the list as one JSON string instead
+</ParamField>
+
+<ResponseField name="return" type="Union[List[Dict[str, Any]], str]">
+  A list of `base_model_to_dict()` schemas, or that list JSON-encoded once when `output_str=True`
+</ResponseField>
+
+**Raises:**
+- `ToolValidationError`: If `base_models` is `None`
+- `FunctionSchemaError`: If any conversion fails
+
+#### execute_function_calls_from_api_response
+
+Detect and execute the tool calls in an OpenAI or Anthropic API response, using `function_map` or `tools`.
+
+```python
+tool = BaseTool(tools=[add])
+
+response = {
+    "choices": [{"message": {"tool_calls": [{
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "add", "arguments": '{"a": 2, "b": 3}'},
+    }]}}]
+}
+results = tool.execute_function_calls_from_api_response(response)
+print(results)  # ["Function 'add' result:\n5"]
+```
+
+<ParamField path="api_response" type="Union[Dict[str, Any], str, List[Any]]" required>
+  An OpenAI response with `tool_calls`, an Anthropic response with `tool_use` content blocks, a direct list of tool call objects (dicts or pydantic models, such as OpenAI's `ChatCompletionMessageToolCall`), a single pydantic response object, or any of these as a JSON string. Each tool in a list runs once
+</ParamField>
+
+<ParamField path="sequential" type="bool" default="False">
+  Run the calls one after another instead of in a thread pool
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="4">
+  Thread pool size for parallel execution
+</ParamField>
+
+<ParamField path="return_as_string" type="bool" default="True">
+  Format each result as `"Function '<name>' result:\n<value>"`. With `False`, return the raw values
+</ParamField>
+
+<ResponseField name="return" type="Union[List[Any], List[str]]">
+  One result per tool call, in call order. `[]` when the response is `None`, is not valid JSON, or contains no tool calls
+</ResponseField>
+
+**Raises:**
+- `ToolValidationError`: If neither `function_map` nor `tools` is set
+- `ToolExecutionError`: If a call names an unknown function or a function raises
 
 #### convert_funcs_into_tools
 
@@ -156,17 +205,41 @@ result = tool.execute_tool_by_name(
 </ParamField>
 
 <ParamField path="response" type="str" required>
-  Call JSON in the same shape `execute_tool` accepts. Its `name` must match `tool_name`; a bare arguments object such as `{"a": 1, "b": 2}` is skipped and returns empty results
+  Call JSON of the form `{"name": ..., "parameters": {...}}`, `{"function": {"name": ..., "parameters": {...}}}`, or `{"functions": [...]}`. Its `name` must match `tool_name`; a bare arguments object such as `{"a": 1, "b": 2}` is skipped and returns empty results, and any other name is reported in `results` as `"Error: Function not found"`
 </ParamField>
 
 <ResponseField name="return" type="str">
-  A JSON string of the form `{"results": {...}, "summary": "..."}`, as returned by `execute_tool`
+  A JSON string of the form `{"results": {"add": "3"}, "summary": "add: 3"}`. Each result is converted to a string. A tool that raises is tried 3 times, then reported in `results` as `"Error after 3 attempts: ..."` rather than raised
 </ResponseField>
 
 **Raises:**
 - `ToolValidationError`: If `function_map` is not set, or `tool_name` or `response` is empty
 - `ToolNotFoundError`: If `tool_name` is not in `function_map`
 - `ToolExecutionError`: If execution fails unexpectedly
+
+#### Other methods
+
+| Method | Description |
+|---|---|
+| `convert_tool_into_openai_schema()` | Check every function in `tools` for a docstring and type hints, and return `{"type": "function", "functions": [...]}`. Raises `ToolValidationError` when `tools` is unset or empty and `FunctionSchemaError` naming each function that failed |
+| `function_to_dict(func)` | The schema `func_to_dict()` returns, built with `get_openai_function_schema_from_func` |
+| `multiple_functions_to_dict(funcs)` | A list of tool schemas, one per function. Raises `ToolValidationError` for an empty list or a non-callable item |
+| `check_func_if_have_docs(func)` | `True` when `func` has a non-empty docstring; otherwise raises `ToolDocumentationError` |
+| `check_func_if_have_type_hints(func)` | `True` when `func` has annotations; otherwise raises `ToolTypeHintError` |
+| `find_function_name(func_name)` | The function in `tools` with that `__name__`, or `None` |
+| `check_str_for_functions_valid(output)` | `True` when `output` is JSON of the form `{"type": "function", "function": {"name": ...}}` and the name is in `function_map` |
+| `detect_tool_input_type(input)` | `"Pydantic"`, `"Dictionary"`, `"Function"` or `"Unknown"` |
+
+<Warning>
+**Removed methods.** 26 `BaseTool` methods that nothing called were deleted, 18 of them public: `validate_function_schema`, `dynamic_run`, `execute_tool`, `execute_tool_from_text`, `execute_function_with_dict`, `execute_multiple_functions_with_dict`, `dict_to_openai_schema_str`, `multi_dict_to_openai_schema_str`, `get_docs_from_callable`, `load_params_from_func_for_pybasemodel`, `detect_api_response_format`, `get_schema_provider_format`, `convert_schema_between_providers`, and their helpers. Calling one raises `AttributeError`.
+
+| Removed | Use instead |
+|---|---|
+| `execute_tool`, `execute_tool_from_text`, `dynamic_run` | `execute_tool_by_name()` for call JSON, `execute_function_calls_from_api_response()` for a model response |
+| `execute_function_with_dict`, `execute_multiple_functions_with_dict` | `execute_function_calls_from_api_response()` |
+| `dict_to_openai_schema_str`, `multi_dict_to_openai_schema_str` | Build schemas with `func_to_dict()` or `base_model_to_dict()` and `json.dumps` them |
+| `get_docs_from_callable` | `scrape_tool_func_docs` |
+</Warning>
 
 ## Tool Registry
 
@@ -256,6 +329,8 @@ schema = get_openai_function_schema_from_func(
     description="Add two integers"
 )
 ```
+
+A parameter typed with a nested Pydantic model, such as `items: list[LineItem]`, produces a valid schema: the model's `$defs` are placed at the root of `parameters`, where its `$ref` points.
 
 ### base_model_to_openai_function
 
