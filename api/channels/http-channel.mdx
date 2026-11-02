@@ -1,0 +1,202 @@
+---
+title: "HttpChannel"
+description: "A comms channel kept on a server you run, so agents on different machines share one conversation"
+icon: "globe"
+---
+
+## Overview
+
+`HttpChannel` keeps a conversation on a remote server and reaches it with three HTTP calls. Agents on different machines that point at the same URL share one conversation. The URL names the conversation, so one server can hold many.
+
+```python
+from swarms import Agent, HttpChannel
+
+agent = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=HttpChannel(
+        "https://agents.example.com/channels/ev-report",
+        headers={"Authorization": "Bearer <token>"},
+    ),
+)
+agent.run("Report on the EV battery market.")
+```
+
+## Import
+
+```python
+from swarms import HttpChannel
+```
+
+## Server contract
+
+The channel needs a server that answers three calls on the conversation's URL:
+
+| Call | Request body | Server must | Used by |
+|---|---|---|---|
+| `GET {url}` | None | Return every message as a JSON list of `{"agent_name": ..., "content": ...}`, oldest first | `messages()` |
+| `POST {url}` | `{"agent_name": ..., "content": ...}` | Append that message | `post()` |
+| `DELETE {url}` | None | Remove every message in the conversation | `clear()` |
+
+Any 2xx status counts as success, and the bodies of `POST` and `DELETE` replies are ignored. Any other status raises `httpx.HTTPStatusError`. Extra keys in `GET` rows are dropped, and `agent_name` and `content` are converted with `str()`.
+
+A minimal server with the standard library, keeping each conversation in memory by path:
+
+```python
+import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+conversations = {}
+
+
+class Handler(BaseHTTPRequestHandler):
+    def _reply(self, status, body=None):
+        data = json.dumps(body).encode() if body is not None else b""
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        self._reply(200, conversations.get(self.path, []))
+
+    def do_POST(self):
+        row = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        conversations.setdefault(self.path, []).append(
+            {"agent_name": row["agent_name"], "content": row["content"]}
+        )
+        self._reply(201, row)
+
+    def do_DELETE(self):
+        conversations.pop(self.path, None)
+        self._reply(204)
+
+
+if __name__ == "__main__":
+    ThreadingHTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
+```
+
+This server is for local testing. A production server should authenticate requests and store messages durably.
+
+## Constructor
+
+```python
+HttpChannel(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: float = 30.0,
+)
+```
+
+<ParamField path="url" type="str" required>
+  The conversation's endpoint, such as `https://host/channels/research`.
+</ParamField>
+
+<ParamField path="headers" type="Dict[str, str]" default="None">
+  Sent with every call, for example an `Authorization` header.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Seconds to wait for each call.
+</ParamField>
+
+### Attributes
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `url` | `str` | The conversation's endpoint |
+| `client` | `httpx.Client` | The connection pool every call goes through |
+
+## Methods
+
+### post()
+
+`POST` one message to the server.
+
+```python
+def post(self, agent_name: str, content: str) -> None
+```
+
+**Raises:** `httpx.HTTPStatusError` on a non-2xx reply.
+
+### messages()
+
+`GET` every message from the server, oldest first. Each call makes one request.
+
+```python
+def messages(self) -> List[Dict[str, Any]]
+```
+
+**Raises:** `httpx.HTTPStatusError` on a non-2xx reply.
+
+### clear()
+
+`DELETE` every message on the server.
+
+```python
+def clear(self) -> None
+```
+
+**Raises:** `httpx.HTTPStatusError` on a non-2xx reply.
+
+### close()
+
+Close the connection pool. The server keeps every message.
+
+```python
+def close(self) -> None
+```
+
+## Usage Examples
+
+### Two machines, one conversation
+
+Run the first agent on one host:
+
+```python
+from swarms import Agent, HttpChannel
+
+URL = "https://agents.example.com/channels/ev-report"
+
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="Gather the key facts as a short bullet list.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=HttpChannel(URL),
+)
+researcher.run("Report on the EV battery market.")
+```
+
+And the second on another. It reads the Researcher's answer from the server before it runs:
+
+```python
+from swarms import Agent, HttpChannel
+
+URL = "https://agents.example.com/channels/ev-report"
+
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="Turn the facts in the conversation into a short report.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=HttpChannel(URL),
+)
+writer.run("Report on the EV battery market.")
+```
+
+Both agents run the same task, so it is posted once.
+
+More examples are in the [HttpChannel quickstart](/examples/channels/http-channel).
+
+## Notes
+
+- **No retries.** A failed call raises straight away. If the server can be briefly unavailable, wrap the run in your own retry.
+- **A failed post fails the run.** If the server rejects the answer, `run()` raises `httpx.HTTPStatusError` instead of returning the answer.
+
+## Source Code
+
+- [`http_channel.py`](https://github.com/kyegomez/swarms/blob/master/swarms/structs/http_channel.py)
+- [Example server](https://github.com/kyegomez/swarms/blob/master/examples/channel_examples/http_channel_server.py)

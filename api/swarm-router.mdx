@@ -85,6 +85,7 @@ SwarmRouter(
     autosave_use_timestamp: bool = True,
     director_model_name: str = "gpt-5.4",
     director_settings: Optional[Dict[str, Any]] = None,
+    channel: Optional[CommsChannel] = None,
     *args,
     **kwargs,
 )
@@ -122,6 +123,10 @@ SwarmRouter(
 
 <ParamField path="fallback_swarms" type="Optional[List[SwarmType]]" default="None">
   Swarm types to try, in order, when the primary `swarm_type` raises while being built or run. Each fallback is built from the same agents and configuration and receives the same payload; the first to complete wins. If every swarm fails, `SwarmRouterRunError` is raised listing each attempt, with the last error as its cause. Validated at construction: it must be a list of valid `SwarmType` strings, and `rearrange_flow` must be set if it includes `"AgentRearrange"`. When `None`, the primary swarm's error propagates unchanged. See [Fallback swarms](#fallback-swarms).
+</ParamField>
+
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel forwarded to the structure the router builds, for `SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange`, `MixtureOfAgents`, `HierarchicalSwarm`, `GroupChat`, `MajorityVoting` and `PlannerWorkerSwarm`. Other swarm types ignore it. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
 ### Behavior modifiers

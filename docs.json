@@ -168,6 +168,18 @@
             ]
           },
           {
+            "group": "Comms Channels",
+            "pages": [
+              "api/channels/overview",
+              "api/channels/file-channel",
+              "api/channels/queue-channel",
+              "api/channels/sqlite-channel",
+              "api/channels/http-channel",
+              "api/channels/smtp-channel",
+              "api/channels/agentmail-channel"
+            ]
+          },
+          {
             "group": "Multi-Agent Harnesses",
             "pages": [
               "api/structs-overview",
@@ -353,6 +365,19 @@
               "examples/multi-agent/advisor-swarm-example",
               "examples/multi-agent/debate-quickstart",
               "examples/social-swarm-patterns"
+            ]
+          },
+          {
+            "group": "Comms Channels",
+            "pages": [
+              "examples/channels/overview",
+              "examples/channels/file-channel",
+              "examples/channels/queue-channel",
+              "examples/channels/sqlite-channel",
+              "examples/channels/http-channel",
+              "examples/channels/smtp-channel",
+              "examples/channels/agentmail-channel",
+              "examples/channels/multi-agent-structures"
             ]
           },
           {

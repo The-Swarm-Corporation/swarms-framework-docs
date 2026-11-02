@@ -43,6 +43,7 @@ class AgentRearrange:
         time_enabled: bool = False,
         message_id_on: bool = False,
         collab_prompt: Optional[str] = None,
+        channel: Optional[CommsChannel] = None,
     )
 ```
 
@@ -110,6 +111,10 @@ class AgentRearrange:
 
 <ParamField path="message_id_on" type="bool" default="False">
   Whether to include message IDs in conversations
+</ParamField>
+
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the flow posts to: the task as `User`, then each agent's answer as its step completes. Agents also read what the channel already holds, so a later run continues the conversation. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
 ## Flow Syntax

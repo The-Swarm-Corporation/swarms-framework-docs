@@ -1,0 +1,213 @@
+---
+title: "QueueChannel Quickstart"
+description: "Watch every agent message the moment it is posted, from another thread or process"
+icon: "list-ol"
+---
+
+`QueueChannel` puts every post on a queue. Run the agents in one thread, and in another block on the channel to receive each message as it lands. Use it to drive a terminal view, a websocket or a progress log without polling.
+
+Reference: [QueueChannel](/api/channels/queue-channel).
+
+## The pattern
+
+Every example on this page has the same shape:
+
+1. Create a `QueueChannel` and give it to the agents or the structure.
+2. Run them in a background thread, and call `channel.close()` when they finish.
+3. Iterate the channel in the main thread. The loop receives each message and ends when the channel is closed.
+
+## One agent, live
+
+```python
+import threading
+
+from swarms import Agent, QueueChannel
+
+channel = QueueChannel()
+
+agent = Agent(
+    agent_name="Researcher",
+    system_prompt="Gather the key facts as a short bullet list.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+
+
+def produce():
+    try:
+        agent.run("List five facts about solid-state batteries.")
+    finally:
+        channel.close()
+
+
+threading.Thread(target=produce, daemon=True).start()
+
+for message in channel:
+    print(f"[{message['agent_name']}]\n{message['content']}\n")
+```
+
+The loop prints the task under `Human` as soon as the run starts, then the answer under `Researcher` when it finishes.
+
+## A SequentialWorkflow, step by step
+
+Each agent's answer arrives as soon as that agent finishes, while the next one is still working.
+
+```python
+import threading
+
+from swarms import Agent, QueueChannel, SequentialWorkflow
+
+channel = QueueChannel()
+
+workflow = SequentialWorkflow(
+    agents=[
+        Agent(
+            agent_name="Researcher",
+            system_prompt="Gather the key facts as a short bullet list.",
+            model_name="gpt-5.4",
+            max_loops=1,
+        ),
+        Agent(
+            agent_name="Analyst",
+            system_prompt="Weigh the facts in the conversation and state the main risk.",
+            model_name="gpt-5.4",
+            max_loops=1,
+        ),
+        Agent(
+            agent_name="Writer",
+            system_prompt="Turn the conversation into a three-paragraph brief.",
+            model_name="gpt-5.4",
+            max_loops=1,
+        ),
+    ],
+    max_loops=1,
+    channel=channel,
+)
+
+
+def produce():
+    try:
+        workflow.run("Report on the EV battery market.")
+    finally:
+        channel.close()
+
+
+threading.Thread(target=produce, daemon=True).start()
+
+for message in channel:
+    print(f"\n[{message['agent_name']}]\n{message['content']}")
+```
+
+## A GroupChat as it happens
+
+Each message that wins a turn arrives as soon as it is posted.
+
+```python
+import threading
+
+from swarms import Agent, GroupChat, QueueChannel
+
+
+def speaker(name, stance):
+    return Agent(
+        agent_name=name,
+        system_prompt=f"You argue for {stance}. Keep each message short.",
+        model_name="gpt-5.4",
+        max_loops=1,
+    )
+
+
+channel = QueueChannel()
+
+chat = GroupChat(
+    agents=[
+        speaker("Optimist", "the benefits"),
+        speaker("Pessimist", "the risks"),
+        speaker("Realist", "a balanced view"),
+    ],
+    max_loops=6,
+    channel=channel,
+)
+
+result = {}
+
+
+def produce():
+    try:
+        result["output"] = chat.run("Should hospitals adopt AI for triage?")
+    finally:
+        channel.close()
+
+
+threading.Thread(target=produce, daemon=True).start()
+
+for message in channel:
+    print(f"{message['agent_name']}: {message['content']}\n")
+
+print("Final output:", result["output"])
+```
+
+`GroupChat` gives each agent the `respond` tool it needs to bid for a turn, so the agents need no extra setup.
+
+## Show progress with a timeout
+
+`wait(timeout=...)` returns `None` when nothing was posted in time, so you can show a heartbeat while a long step runs.
+
+```python
+import threading
+
+from swarms import Agent, ConcurrentWorkflow, QueueChannel
+
+channel = QueueChannel()
+
+workflow = ConcurrentWorkflow(
+    agents=[
+        Agent(agent_name=f"{angle}-Analyst", model_name="gpt-5.4", max_loops=1)
+        for angle in ["Technology", "Regulation", "Supply-Chain"]
+    ],
+    channel=channel,
+)
+
+done = threading.Event()
+
+
+def produce():
+    try:
+        workflow.run("What will shape the EV battery market over the next five years?")
+    finally:
+        done.set()
+        channel.close()
+
+
+threading.Thread(target=produce, daemon=True).start()
+
+while True:
+    message = channel.wait(timeout=5)
+    if message is not None:
+        print(f"[{message['agent_name']}] {message['content'][:100]}")
+    elif done.is_set():
+        break
+    else:
+        print("... still working")
+```
+
+`ConcurrentWorkflow` posts the task first, then every answer in agent order once the parallel step completes.
+
+## Keep the transcript
+
+The queue only delivers messages, and `messages()` keeps them in memory for this process. To keep the conversation after the process exits, write it out at the end:
+
+```python
+import json
+
+with open("runs/transcript.json", "w") as f:
+    json.dump(channel.messages(), f, indent=2)
+```
+
+Or use [`FileChannel`](/examples/channels/file-channel) or [`SqliteChannel`](/examples/channels/sqlite-channel) instead.
+
+## Next steps
+
+- [Channels with every structure](/examples/channels/multi-agent-structures)
+- [QueueChannel reference](/api/channels/queue-channel), including a `multiprocessing.Queue` example

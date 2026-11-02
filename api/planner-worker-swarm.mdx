@@ -99,6 +99,10 @@ pip install -U swarms
   Enable verbose logging
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the swarm posts to: the task as `User`, the planner's plan, each worker's result under its name, and the cycle judge's verdict. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
 **Raises:**
 
 | Exception | Condition |

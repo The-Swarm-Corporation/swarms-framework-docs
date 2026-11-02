@@ -1,0 +1,205 @@
+---
+title: "AgentMailChannel"
+description: "A comms channel kept as one email thread in an AgentMail inbox that people can reply to"
+icon: "envelopes-bulk"
+---
+
+## Overview
+
+`AgentMailChannel` keeps a conversation as one email thread in an [AgentMail](https://agentmail.to) inbox. Each post is an email from the inbox to the people in `to`: the first starts the thread and the rest reply in it. People on the thread can reply from their own mail client, and their replies join the conversation under their email address.
+
+It talks to the AgentMail REST API over HTTPS, so there is no SMTP or IMAP server to configure. To use a mailbox you already run instead, see [`SmtpChannel`](/api/channels/smtp-channel).
+
+```python
+from swarms import Agent, AgentMailChannel
+
+channel = AgentMailChannel(
+    inbox_id="research@agentmail.to",
+    to="you@example.com",
+    subject="EV battery market report",
+)  # Reads AGENTMAIL_API_KEY
+
+agent = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+agent.run("Report on the EV battery market.")
+# you@example.com receives two emails in one thread: the task and the answer.
+```
+
+## Import
+
+```python
+from swarms import AgentMailChannel
+```
+
+## Setup
+
+1. Create an account and an inbox at [agentmail.to](https://agentmail.to). The inbox id is its address, such as `research@agentmail.to`.
+2. Create an API key and export it:
+
+```bash
+export AGENTMAIL_API_KEY="..."
+```
+
+## Constructor
+
+```python
+AgentMailChannel(
+    inbox_id: str,
+    to: Union[str, List[str]],
+    subject: str = "Swarms conversation",
+    thread_id: Optional[str] = None,
+    api_key: Optional[str] = None,
+    base_url: str = "https://api.agentmail.to",
+    timeout: float = 30.0,
+)
+```
+
+<ParamField path="inbox_id" type="str" required>
+  The inbox the agents send from, such as `research@agentmail.to`.
+</ParamField>
+
+<ParamField path="to" type="str | List[str]" required>
+  The address or addresses that get each post and can reply.
+</ParamField>
+
+<ParamField path="subject" type="str" default="Swarms conversation">
+  The subject of the first email.
+</ParamField>
+
+<ParamField path="thread_id" type="str" default="None">
+  An existing AgentMail thread to join instead of starting one. The first post then replies to the thread's newest message.
+</ParamField>
+
+<ParamField path="api_key" type="str" default="None">
+  An AgentMail API key. Defaults to the `AGENTMAIL_API_KEY` environment variable.
+</ParamField>
+
+<ParamField path="base_url" type="str" default="https://api.agentmail.to">
+  The API host. Use `https://api.agentmail.eu` for the EU region.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Seconds to wait for each call.
+</ParamField>
+
+**Raises:** `ValueError` if no API key is passed or set.
+
+### Attributes
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `thread_id` | `str` or `None` | The AgentMail thread id. Set by the first post. Save it to rejoin the thread later |
+| `inbox_id` | `str` | The sending inbox |
+| `to` | `str` or `List[str]` | The recipients |
+| `client` | `httpx.Client` | The connection pool every call goes through |
+
+## How messages are sent and read
+
+AgentMail adds its own footer and the quoted thread to each email body. So that `messages()` can read a post back exactly, each post carries two headers:
+
+| Header | Value |
+|---|---|
+| `X-Swarms-Agent` | The speaker's name |
+| `X-Swarms-Length` | The length of the posted text |
+
+`messages()` reads every page of the thread and returns the messages oldest first:
+
+| Email | `agent_name` | `content` |
+|---|---|---|
+| Sent from the inbox | `X-Swarms-Agent` | The first `X-Swarms-Length` characters of the body: the post exactly, without AgentMail's footer or the quoted thread |
+| A person's reply | Their `From` address | AgentMail's `extracted_text`: the reply without the history it quotes |
+
+The two headers are trusted only on mail the inbox sent. A reply that sets `X-Swarms-Agent` itself is still attributed to its `From` address.
+
+## Methods
+
+### post()
+
+Send one email. The first post (with no `thread_id`) sends a new message with `subject`. Later posts reply to the channel's previous post, so the thread stays in order.
+
+```python
+def post(self, agent_name: str, content: str) -> None
+```
+
+**Raises:** `httpx.HTTPStatusError` on a non-2xx reply.
+
+### messages()
+
+Read the whole thread, oldest first. Returns `[]` before the first post when no `thread_id` was given.
+
+```python
+def messages(self) -> List[Dict[str, Any]]
+```
+
+**Raises:** `httpx.HTTPStatusError` on a non-2xx reply.
+
+### clear()
+
+Delete the thread from the inbox, so the next post starts a new one. Emails already delivered stay in the recipients' mailboxes.
+
+```python
+def clear(self) -> None
+```
+
+### close()
+
+Close the connection pool. The thread stays in the inbox.
+
+```python
+def close(self) -> None
+```
+
+## Usage Examples
+
+### A person approves before the swarm continues
+
+```python
+import time
+
+from swarms import Agent, AgentMailChannel
+
+channel = AgentMailChannel(
+    inbox_id="launch@agentmail.to",
+    to="pm@yourco.com",
+    subject="Launch plan for review",
+)
+
+planner = Agent(agent_name="Planner", model_name="gpt-5.4", max_loops=1, channel=channel)
+planner.run("Draft a launch plan for our new analytics product.")
+
+# Wait for the PM to answer the email.
+while not any(m["agent_name"] == "pm@yourco.com" for m in channel.messages()):
+    time.sleep(30)
+
+planner.run("Finalise the plan using the PM's reply.")
+channel.close()
+```
+
+### Rejoin a thread later
+
+```python
+saved = channel.thread_id
+
+later = AgentMailChannel(
+    inbox_id="launch@agentmail.to",
+    to="pm@yourco.com",
+    thread_id=saved,
+)
+for message in later.messages():
+    print(message["agent_name"], message["content"][:80])
+```
+
+More examples are in the [AgentMailChannel quickstart](/examples/channels/agentmail-channel).
+
+## Notes
+
+- **Every read is an API call per page.** An agent reads the channel on every run.
+- **Treat replies as untrusted input.** Anyone who can email the inbox and is on the thread can add to the conversation the agents read.
+
+## Source Code
+
+View the [source on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/agentmail_channel.py).

@@ -130,6 +130,10 @@ from swarms import HierarchicalSwarm
   Whether to print the director's orders, and its plan when it returns one, to the console at each step. Orders are shown in full, and the panel is titled with the director's name. This is separate from `verbose`, which controls logging
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the swarm posts to: the task as `User`, the director's plan and orders, each worker's report under its name, and the director's feedback. `System` notes are not posted. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
 <Note>
   `HierarchicalSwarm` forces every configurable director and worker agent to use `output_type="final"`. The swarm-level `output_type` parameter still controls the format returned by `HierarchicalSwarm.run()`.
 </Note>

@@ -1,0 +1,309 @@
+---
+title: "Channels with Every Structure"
+description: "One runnable example of a comms channel with each multi-agent structure, and what each one posts"
+icon: "diagram-project"
+---
+
+Nine multi-agent structures and `SwarmRouter` take a `channel` argument. The structure posts the task once, then each member's contribution under that member's name, so the channel becomes a readable record of who said what.
+
+Every example on this page uses a [`FileChannel`](/examples/channels/file-channel) so you can open the result. Replace it with any other channel and the code stays the same:
+
+```python
+from swarms import FileChannel, QueueChannel, SqliteChannel, HttpChannel
+
+channel = FileChannel("runs/team.md")
+# channel = QueueChannel()
+# channel = SqliteChannel("runs/channels.db", name="team")
+# channel = HttpChannel("http://127.0.0.1:8765/channels/team")
+```
+
+<Warning>
+Give the channel to the structure only. A structure with a channel detaches the channels of its member agents, with a warning, so each message is posted once.
+</Warning>
+
+## At a glance
+
+| Structure | What lands in the channel |
+|---|---|
+| [SequentialWorkflow](#sequentialworkflow) | `User`, then each agent in order |
+| [ConcurrentWorkflow](#concurrentworkflow) | `User`, then every agent in agent order once the step completes |
+| [AgentRearrange](#agentrearrange) | `User`, then each agent as its step of the flow completes |
+| [GraphWorkflow](#graphworkflow) | Each node's output as its layer completes; no task row |
+| [MixtureOfAgents](#mixtureofagents) | `User`, each worker per layer as `Name (layer i/n)`, then the aggregator |
+| [HierarchicalSwarm](#hierarchicalswarm) | `User`, the director's plan and orders, each worker's report |
+| [GroupChat](#groupchat) | `User`, then each message that wins a turn |
+| [MajorityVoting](#majorityvoting) | `user`, each voter, then `Consensus-Agent` |
+| [PlannerWorkerSwarm](#plannerworkerswarm) | `User`, the plan, each worker's result, the `CycleJudge` verdict |
+| [SwarmRouter](#swarmrouter) | Whatever the structure it builds posts |
+
+## SequentialWorkflow
+
+```python
+from swarms import Agent, FileChannel, SequentialWorkflow
+
+channel = FileChannel("runs/sequential.md")
+
+workflow = SequentialWorkflow(
+    agents=[
+        Agent(agent_name="Researcher", system_prompt="Gather the key facts as a short bullet list.", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Analyst", system_prompt="State the main risk in the facts above.", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Writer", system_prompt="Turn the conversation into a short brief.", model_name="gpt-5.4", max_loops=1),
+    ],
+    max_loops=1,
+    channel=channel,
+)
+workflow.run("Report on the EV battery market.")
+```
+
+```markdown
+## @User
+Report on the EV battery market.
+
+## @Researcher
+...
+
+## @Analyst
+...
+
+## @Writer
+...
+```
+
+Each agent also reads what the channel already held before the run, so a second run on the same file continues the conversation.
+
+## ConcurrentWorkflow
+
+```python
+from swarms import Agent, ConcurrentWorkflow, FileChannel
+
+channel = FileChannel("runs/concurrent.md")
+
+workflow = ConcurrentWorkflow(
+    agents=[
+        Agent(
+            agent_name=f"{angle.title().replace(' ', '-')}-Analyst",
+            system_prompt=f"Analyse the task from the {angle} angle only.",
+            model_name="gpt-5.4",
+            max_loops=1,
+        )
+        for angle in ["technology", "regulation", "supply chain"]
+    ],
+    channel=channel,
+)
+workflow.run("What will shape the EV battery market over the next five years?")
+```
+
+Each agent receives only the task. The channel records the three answers in agent order, not in the order they finished.
+
+## AgentRearrange
+
+```python
+from swarms import Agent, AgentRearrange, FileChannel
+
+channel = FileChannel("runs/rearrange.md")
+
+pipeline = AgentRearrange(
+    agents=[
+        Agent(agent_name="Planner", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Coder", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Reviewer", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Tester", model_name="gpt-5.4", max_loops=1),
+    ],
+    flow="Planner -> Coder -> Reviewer, Tester",
+    max_loops=1,
+    channel=channel,
+)
+pipeline.run("Write a Python function that validates email addresses.")
+```
+
+The channel records `User`, `Planner`, `Coder`, then `Reviewer` and `Tester` from the parallel step.
+
+## GraphWorkflow
+
+```python
+from swarms import Agent, FileChannel, GraphWorkflow
+
+channel = FileChannel("runs/graph.md")
+
+analyst = Agent(agent_name="Analyst", model_name="gpt-5.4", max_loops=1)
+writer = Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1)
+researcher = Agent(agent_name="Researcher", model_name="gpt-5.4", max_loops=1)
+editor = Agent(agent_name="Editor", model_name="gpt-5.4", max_loops=1)
+
+wf = GraphWorkflow(channel=channel)
+for agent in [analyst, writer, researcher, editor]:
+    wf.add_node(agent)  # The node id is the agent's name
+
+wf.add_edge("Analyst", "Writer")
+wf.add_edge("Analyst", "Researcher")
+wf.add_edge("Writer", "Editor")
+wf.add_edge("Researcher", "Editor")
+wf.set_entry_points(["Analyst"])
+wf.set_end_points(["Editor"])
+
+wf.run(task="Produce a short market report on AI chips.")
+```
+
+`GraphWorkflow` posts each node's output, layer by layer: `Analyst`, then `Writer` and `Researcher`, then `Editor`. It does not post the task.
+
+## MixtureOfAgents
+
+```python
+from swarms import Agent, FileChannel, MixtureOfAgents
+
+channel = FileChannel("runs/moa.md")
+
+moa = MixtureOfAgents(
+    agents=[
+        Agent(agent_name="Security", system_prompt="Review from a security angle.", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Reliability", system_prompt="Review from a reliability angle.", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Cost", system_prompt="Review from a cost angle.", model_name="gpt-5.4", max_loops=1),
+    ],
+    aggregator_agent=Agent(
+        agent_name="Lead-Reviewer",
+        system_prompt="Combine the reviews into one prioritised list.",
+        model_name="gpt-5.4",
+        max_loops=1,
+    ),
+    layers=2,
+    channel=channel,
+)
+print(moa.run("Review our plan to move the billing database to a managed Postgres service."))
+```
+
+```markdown
+## @User
+...
+## @Security (layer 1/2)
+...
+## @Reliability (layer 1/2)
+...
+## @Cost (layer 1/2)
+...
+## @Security (layer 2/2)
+...
+## @Lead-Reviewer
+...
+```
+
+## HierarchicalSwarm
+
+```python
+from swarms import Agent, FileChannel, HierarchicalSwarm
+
+channel = FileChannel("runs/hierarchical.md")
+
+swarm = HierarchicalSwarm(
+    agents=[
+        Agent(agent_name="DataWorker", agent_description="Finds and summarises data.", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="WritingWorker", agent_description="Writes clear prose from notes.", model_name="gpt-5.4", max_loops=1),
+    ],
+    director_model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+swarm.run("Produce a short competitive analysis of the AI chip market.")
+```
+
+The channel records the task, the director's plan and orders, and each worker's report under its name. Internal `System` notes stay out of the channel.
+
+## GroupChat
+
+```python
+from swarms import Agent, FileChannel, GroupChat
+
+channel = FileChannel("runs/groupchat.md")
+
+
+def speaker(name, stance):
+    return Agent(
+        agent_name=name,
+        system_prompt=f"You argue for {stance}. Keep each message short.",
+        model_name="gpt-5.4",
+        max_loops=1,
+    )
+
+
+chat = GroupChat(
+    agents=[
+        speaker("Optimist", "the benefits"),
+        speaker("Pessimist", "the risks"),
+        speaker("Realist", "a balanced view"),
+    ],
+    max_loops=6,
+    threshold=0.5,
+    channel=channel,
+)
+chat.run("Should hospitals adopt AI for triage?")
+```
+
+Only messages that win a turn are posted. The private bids each agent makes are not. `GroupChat` adds the `respond` tool the agents need to bid.
+
+## MajorityVoting
+
+```python
+from swarms import Agent, FileChannel, MajorityVoting
+
+channel = FileChannel("runs/vote.md")
+
+vote = MajorityVoting(
+    agents=[Agent(agent_name=f"Voter-{i}", model_name="gpt-5.4", max_loops=1) for i in range(1, 6)],
+    channel=channel,
+)
+vote.run("Is Python or Rust better for a high-throughput web server? Answer in one word, then one sentence.")
+```
+
+The channel records the task under `user`, each voter's answer, then the `Consensus-Agent`'s verdict.
+
+## PlannerWorkerSwarm
+
+```python
+from swarms import Agent, FileChannel
+from swarms.structs.planner_worker_swarm import PlannerWorkerSwarm
+
+channel = FileChannel("runs/planner_worker.md")
+
+swarm = PlannerWorkerSwarm(
+    agents=[
+        Agent(agent_name="Market-Worker", agent_description="Market sizing and competitors.", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Pricing-Worker", agent_description="Pricing and packaging.", model_name="gpt-5.4", max_loops=1),
+    ],
+    planner_model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+swarm.run("Draft a go-to-market plan for a B2B analytics product.")
+```
+
+The channel records the task, the planner's plan, each worker's result under its name, and the `CycleJudge` verdict.
+
+## SwarmRouter
+
+```python
+from swarms import Agent, FileChannel, SwarmRouter
+
+channel = FileChannel("runs/router.md")
+
+router = SwarmRouter(
+    agents=[
+        Agent(agent_name="Analyst", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Reviewer", model_name="gpt-5.4", max_loops=1),
+    ],
+    swarm_type="SequentialWorkflow",
+    max_loops=1,
+    channel=channel,
+)
+router.run("Write a short blog post about transformer architectures.")
+```
+
+`SwarmRouter` forwards the channel for these `swarm_type` values:
+
+| Forwards the channel | Ignores it |
+|---|---|
+| `SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange`, `MixtureOfAgents`, `HierarchicalSwarm`, `GroupChat`, `MajorityVoting`, `PlannerWorkerSwarm` | `HeavySwarm`, `CouncilAsAJudge`, `MultiAgentRouter`, `LLMCouncil`, `DebateWithJudge`, `RoundRobin` |
+
+## Next steps
+
+- [CommsChannel reference](/api/channels/overview): the run lifecycle, the message format and writing your own channel
+- [QueueChannel](/examples/channels/queue-channel): watch any of these structures live

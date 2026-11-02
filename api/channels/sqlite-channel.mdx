@@ -1,0 +1,194 @@
+---
+title: "SqliteChannel"
+description: "A comms channel stored as rows in a SQLite table, safe for concurrent threads and processes"
+icon: "database"
+---
+
+## Overview
+
+`SqliteChannel` keeps a conversation as rows in a SQLite database. One database file can hold many conversations, told apart by `name`. Writes are serialised by SQLite and by a lock on the connection, so a fan-out step can post from several threads at once, and several processes can share the file.
+
+```python
+from swarms import Agent, ConcurrentWorkflow, SqliteChannel
+
+channel = SqliteChannel("runs/channels.db", name="ev-batteries")
+
+workflow = ConcurrentWorkflow(
+    agents=[
+        Agent(agent_name="Technology-Analyst", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Regulation-Analyst", model_name="gpt-5.4", max_loops=1),
+    ],
+    channel=channel,
+)
+workflow.run("What will shape the EV battery market over the next five years?")
+
+for row in channel.fetch_messages():
+    print(row["id"], row["created_at"], row["agent_name"])
+```
+
+## Import
+
+```python
+from swarms import SqliteChannel
+```
+
+`sqlite3` is imported when a channel is created, not when `swarms` is imported.
+
+## Constructor
+
+```python
+SqliteChannel(path: str, name: str = "default")
+```
+
+<ParamField path="path" type="str" required>
+  The database file, created if missing. `":memory:"` keeps the conversation in this process only.
+</ParamField>
+
+<ParamField path="name" type="str" default="default">
+  Which conversation in the file this channel reads and writes. Channels with different names share the file without seeing each other's messages.
+</ParamField>
+
+The constructor opens one connection with `check_same_thread=False`, switches the database to WAL mode so readers never block writers, and creates the table and index if they do not exist.
+
+### Attributes
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `path` | `str` | The database file |
+| `name` | `str` | The conversation name |
+| `conn` | `sqlite3.Connection` | The open connection |
+
+### Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY,
+    channel TEXT NOT NULL,
+    agent_name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS messages_channel ON messages (channel, id);
+```
+
+`channel` holds the conversation name. `created_at` is SQLite's `CURRENT_TIMESTAMP`, in UTC, formatted `YYYY-MM-DD HH:MM:SS`. The table is ordinary SQLite, so any client or BI tool can query it.
+
+## Methods
+
+### post()
+
+Insert one row into this conversation.
+
+```python
+def post(self, agent_name: str, content: str) -> None
+```
+
+### messages()
+
+Return every message in this conversation, oldest first.
+
+```python
+def messages(self) -> List[Dict[str, Any]]
+```
+
+**Returns:** A list of `{"agent_name": ..., "content": ...}` dictionaries, ordered by `id`.
+
+### fetch_messages()
+
+Return rows with their ids and timestamps, optionally filtered by speaker and limited to the latest few.
+
+```python
+def fetch_messages(
+    self,
+    agent_name: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> List[Dict[str, Any]]
+```
+
+**Parameters:**
+- `agent_name` (str, optional): Only this speaker's rows.
+- `limit` (int, optional): At most this many of the latest rows. They are still returned oldest first.
+
+**Returns:** A list of `{"id": ..., "agent_name": ..., "content": ..., "created_at": ...}` dictionaries.
+
+```python
+# The Writer's last two answers, oldest first.
+channel.fetch_messages(agent_name="Writer", limit=2)
+```
+
+### list_conversations()
+
+A class method that lists every conversation name stored in a database file.
+
+```python
+@classmethod
+def list_conversations(cls, path: str) -> List[str]
+```
+
+**Returns:** Conversation names, in the order their first message arrived. Returns `[]` if the file has no `messages` table.
+
+```python
+SqliteChannel.list_conversations("runs/channels.db")
+# ['ev-batteries', 'q3-review', 'support-1042']
+```
+
+### clear()
+
+Delete every row in this conversation. Other conversations in the file are untouched.
+
+```python
+def clear(self) -> None
+```
+
+### close()
+
+Close the connection. The file keeps every message.
+
+```python
+def close(self) -> None
+```
+
+## Usage Examples
+
+### Many conversations in one file
+
+```python
+from swarms import Agent, SqliteChannel
+
+DB = "runs/support.db"
+
+for ticket in ["support-1042", "support-1043"]:
+    agent = Agent(
+        agent_name="Support-Agent",
+        model_name="gpt-5.4",
+        max_loops=1,
+        channel=SqliteChannel(DB, name=ticket),
+    )
+    agent.run(f"Draft a first reply for ticket {ticket}.")
+
+print(SqliteChannel.list_conversations(DB))
+```
+
+### Query the history with SQL
+
+```python
+import sqlite3
+
+rows = sqlite3.connect("runs/channels.db").execute(
+    "SELECT agent_name, COUNT(*) FROM messages WHERE channel = ? GROUP BY agent_name",
+    ("ev-batteries",),
+)
+for agent_name, count in rows:
+    print(agent_name, count)
+```
+
+More examples are in the [SqliteChannel quickstart](/examples/channels/sqlite-channel).
+
+## Notes
+
+- **One machine.** SQLite's locking needs a local file system. Use [`HttpChannel`](/api/channels/http-channel) to share a conversation across machines.
+- **WAL files.** WAL mode keeps `-wal` and `-shm` files next to the database while it is open. Copy all three, or close every connection first, when you move the database.
+
+## Source Code
+
+View the [source on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/sqlite_channel.py).

@@ -57,6 +57,7 @@ class GraphWorkflow:
         checkpoint_dir: Optional[str] = None,
         on_node_complete: Optional[Callable[[str, Any], None]] = None,
         max_parallel_nodes: Optional[int] = None,
+        channel: Optional[CommsChannel] = None,
     )
 ```
 
@@ -120,6 +121,10 @@ class GraphWorkflow:
 
 <ParamField path="max_parallel_nodes" type="Optional[int]" default="None">
   Maximum number of nodes to execute concurrently within a layer. When `None`, there is no cap and the run's thread pool is sized to the widest layer, so every node in a layer runs at once. When set, the pool is the smaller of this value and the widest layer.
+</ParamField>
+
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the workflow posts each node's output to as its layer completes. The task itself is not posted. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
 ## Methods

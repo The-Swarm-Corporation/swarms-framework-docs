@@ -1,0 +1,83 @@
+---
+title: "Comms Channels"
+description: "Give agents and swarms a shared conversation that lives in a file, a queue, a database, a server or an email thread"
+icon: "tower-broadcast"
+---
+
+A comms channel is a conversation that lives outside the agent. Every agent or swarm given the same channel reads what was said there before it runs and posts what it says after. Swap the channel and the same code keeps its conversation in a different place.
+
+```python
+from swarms import Agent, FileChannel
+
+channel = FileChannel("runs/ev_report.md")
+
+researcher = Agent(agent_name="Researcher", model_name="gpt-5.4", max_loops=1, channel=channel)
+writer = Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1, channel=channel)
+
+task = "Report on the EV battery market."
+researcher.run(task)
+writer.run(task)  # Reads the Researcher's answer from the file first
+```
+
+## Pick a channel
+
+<CardGroup cols={2}>
+  <Card title="FileChannel" icon="file-lines" href="/examples/channels/file-channel">
+    A markdown file you can read, edit and resume from.
+  </Card>
+  <Card title="QueueChannel" icon="list-ol" href="/examples/channels/queue-channel">
+    Watch every message the moment it is posted, without polling.
+  </Card>
+  <Card title="SqliteChannel" icon="database" href="/examples/channels/sqlite-channel">
+    Many conversations in one database, safe for concurrent writers.
+  </Card>
+  <Card title="HttpChannel" icon="globe" href="/examples/channels/http-channel">
+    One conversation shared by agents on different machines.
+  </Card>
+  <Card title="SmtpChannel" icon="envelope" href="/examples/channels/smtp-channel">
+    An email thread in your own mailbox that people can reply to.
+  </Card>
+  <Card title="AgentMailChannel" icon="envelopes-bulk" href="/examples/channels/agentmail-channel">
+    An email thread in an AgentMail inbox, through its API.
+  </Card>
+</CardGroup>
+
+## Channels with multi-agent structures
+
+Nine structures and `SwarmRouter` take a `channel` argument. The structure posts the task and each member's contribution under that member's name. See [Channels with every structure](/examples/channels/multi-agent-structures) for one example of each.
+
+```python
+from swarms import Agent, SequentialWorkflow, SqliteChannel
+
+workflow = SequentialWorkflow(
+    agents=[
+        Agent(agent_name="Researcher", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1),
+    ],
+    max_loops=1,
+    channel=SqliteChannel("runs/channels.db", name="ev-batteries"),
+)
+workflow.run("Report on the EV battery market.")
+```
+
+<Warning>
+Give the channel to the structure, not to its agents. A structure with a channel detaches any channel its member agents carry, with a warning, so that nothing is posted twice.
+</Warning>
+
+## What every channel does on a run
+
+1. The agent reads every earlier message and sends it to the model as prior turns.
+2. It posts the task under its `user_name` (default `Human`), unless the same task is already there.
+3. It runs.
+4. It posts its final answer under its `agent_name`. A failed run posts nothing.
+
+The full behaviour, the message format and how to write your own channel are in the [CommsChannel reference](/api/channels/overview).
+
+## Prerequisites
+
+```bash
+pip install -U swarms
+export OPENAI_API_KEY="sk-..."
+```
+
+The examples use `gpt-5.4`. Any model name LiteLLM accepts works.

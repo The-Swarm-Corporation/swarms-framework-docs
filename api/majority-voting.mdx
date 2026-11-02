@@ -99,6 +99,10 @@ graph TD
   Additional keyword arguments passed to the consensus agent's `Agent` constructor.
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the vote posts to: the task as `user`, each voter's answer, then the consensus agent's answer. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
 <Note>
   The constructor validates the configuration and raises `ValueError` if `agents` is empty or `None`, or if `max_loops` is `0` or less.
 </Note>

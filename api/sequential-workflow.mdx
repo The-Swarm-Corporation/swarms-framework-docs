@@ -46,6 +46,7 @@ class SequentialWorkflow:
         drift_threshold: float = 0.75,
         drift_model: str = "claude-sonnet-4-5",
         drift_max_retries: int = 3,
+        channel: Optional[CommsChannel] = None,
         *args,
         **kwargs,
     )
@@ -129,6 +130,10 @@ class SequentialWorkflow:
   warning. `0` disables reruns, so the output is scored but never regenerated.
   Used only when `drift_detection=True`. Must be `>= 0`; a negative value
   raises `ValueError`.
+</ParamField>
+
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the workflow posts to: the task as `User`, then each agent's answer in order. Agents also read what the channel already holds, so a later run on the same channel continues the conversation. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
 ## Methods

@@ -1,0 +1,171 @@
+---
+title: "FileChannel Quickstart"
+description: "Keep an agent conversation in a markdown file you can read, edit and resume from"
+icon: "file-lines"
+---
+
+`FileChannel` writes the conversation to a `.md` or `.txt` file, one `## @agent_name` section per message. Open the file at any point to see what every agent said. Edit it between runs and the next run continues from your edit.
+
+Reference: [FileChannel](/api/channels/file-channel).
+
+## Two agents, one file
+
+```python
+from swarms import Agent, FileChannel
+
+channel = FileChannel("runs/ev_conversation.md")
+
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="You gather facts and figures. Answer in a short bullet list.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="You turn the facts in the conversation into a short report.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+
+task = "Report on the EV battery market."
+researcher.run(task)
+writer.run(task)
+
+print(channel.path.read_text())
+```
+
+The file holds the task once, then each answer:
+
+```markdown
+## @Human
+
+Report on the EV battery market.
+
+## @Researcher
+
+- Global EV battery demand ...
+
+## @Writer
+
+The EV battery market ...
+```
+
+The Writer never receives the Researcher's answer as an argument. It reads it from the file as a prior turn.
+
+## A SequentialWorkflow in a file
+
+Give the channel to the workflow. It posts the task as `User`, then each agent's answer in order.
+
+```python
+from swarms import Agent, FileChannel, SequentialWorkflow
+
+channel = FileChannel("runs/sequential.md")
+
+workflow = SequentialWorkflow(
+    agents=[
+        Agent(
+            agent_name="Researcher",
+            system_prompt="Gather the key facts as a short bullet list.",
+            model_name="gpt-5.4",
+            max_loops=1,
+        ),
+        Agent(
+            agent_name="Analyst",
+            system_prompt="Weigh the facts in the conversation and state the main risk.",
+            model_name="gpt-5.4",
+            max_loops=1,
+        ),
+        Agent(
+            agent_name="Writer",
+            system_prompt="Turn the conversation into a three-paragraph brief.",
+            model_name="gpt-5.4",
+            max_loops=1,
+        ),
+    ],
+    max_loops=1,
+    channel=channel,
+)
+workflow.run("Report on the EV battery market.")
+
+print(channel.path.read_text())
+```
+
+## Resume and steer from the file
+
+Every run reads the file first, so a later run, even in a new process, continues from what the file holds. Run the workflow above, then open `runs/sequential.md` and add a section of your own at the end:
+
+```markdown
+## @Editor
+
+The brief is too long. Keep the risk paragraph and cut the rest to one sentence each.
+```
+
+Then run a follow-up against the same file:
+
+```python
+from swarms import Agent, FileChannel, SequentialWorkflow
+
+editor = Agent(
+    agent_name="Reviser",
+    system_prompt="Apply the editor's notes to the brief in the conversation.",
+    model_name="gpt-5.4",
+    max_loops=1,
+)
+
+channel = FileChannel("runs/sequential.md")
+
+SequentialWorkflow(agents=[editor], max_loops=1, channel=channel).run(
+    "Revise the brief using the editor's note."
+)
+
+print(channel.path.read_text())
+```
+
+The Reviser sees the original task, every earlier answer and your note, and its answer is appended under `## @Reviser`.
+
+You can also delete a weak answer, correct a figure, or remove whole sections before the next run. What is in the file is what the agents see.
+
+## AgentRearrange with a parallel step
+
+```python
+from swarms import Agent, AgentRearrange, FileChannel
+
+planner = Agent(agent_name="Planner", model_name="gpt-5.4", max_loops=1)
+coder = Agent(agent_name="Coder", model_name="gpt-5.4", max_loops=1)
+reviewer = Agent(agent_name="Reviewer", model_name="gpt-5.4", max_loops=1)
+tester = Agent(agent_name="Tester", model_name="gpt-5.4", max_loops=1)
+
+channel = FileChannel("runs/rearrange.md")
+
+pipeline = AgentRearrange(
+    agents=[planner, coder, reviewer, tester],
+    flow="Planner -> Coder -> Reviewer, Tester",
+    max_loops=1,
+    channel=channel,
+)
+pipeline.run("Write a Python function that validates email addresses.")
+
+print(channel.path.read_text())
+```
+
+The file records `User`, then `Planner`, then `Coder`, then the Reviewer's and Tester's answers from the parallel step.
+
+## Start over
+
+```python
+channel.clear()  # Deletes the file
+```
+
+## Tips
+
+- Use one file per conversation. Two unrelated runs on the same file see each other's messages.
+- Keep `## @` at the start of a line for headers only. A message body that contains such a line is split into two messages when read back.
+- Check the file into git to keep a reviewable history of what your agents said.
+
+## Next steps
+
+- [Channels with every structure](/examples/channels/multi-agent-structures)
+- [SqliteChannel](/examples/channels/sqlite-channel), when several processes write at once

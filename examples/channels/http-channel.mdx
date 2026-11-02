@@ -1,0 +1,188 @@
+---
+title: "HttpChannel Quickstart"
+description: "Share one agent conversation across processes and machines through a small HTTP server"
+icon: "globe"
+---
+
+`HttpChannel` keeps the conversation on a server and reaches it with `GET`, `POST` and `DELETE` on one URL. Agents in different processes, or on different machines, that point at the same URL share one conversation.
+
+Reference: [HttpChannel](/api/channels/http-channel), including the server contract.
+
+## 1. Start a server
+
+Save this as `channel_server.py` and run it in its own terminal. It keeps each conversation in memory, keyed by the URL path.
+
+```python
+import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+conversations = {}
+
+
+class Handler(BaseHTTPRequestHandler):
+    def _reply(self, status, body=None):
+        data = json.dumps(body).encode() if body is not None else b""
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        self._reply(200, conversations.get(self.path, []))
+
+    def do_POST(self):
+        row = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        conversations.setdefault(self.path, []).append(
+            {"agent_name": row["agent_name"], "content": row["content"]}
+        )
+        self._reply(201, row)
+
+    def do_DELETE(self):
+        conversations.pop(self.path, None)
+        self._reply(204)
+
+
+if __name__ == "__main__":
+    print("Serving channels on http://127.0.0.1:8765")
+    ThreadingHTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
+```
+
+```bash
+python channel_server.py
+```
+
+## 2. Two agents in two processes
+
+Run the Researcher in one terminal:
+
+```python
+# researcher.py
+from swarms import Agent, HttpChannel
+
+URL = "http://127.0.0.1:8765/channels/ev-report"
+
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="You gather facts and figures. Answer in a short bullet list.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=HttpChannel(URL),
+)
+researcher.run("Report on the EV battery market.")
+```
+
+Then the Writer in another. It reads the task and the Researcher's answer from the server before it runs:
+
+```python
+# writer.py
+from swarms import Agent, HttpChannel
+
+URL = "http://127.0.0.1:8765/channels/ev-report"
+
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="You turn the facts in the conversation into a short report.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=HttpChannel(URL),
+)
+print(writer.run("Report on the EV battery market."))
+```
+
+Both agents run the same task, so the server holds it once. Read the conversation from anywhere:
+
+```bash
+curl http://127.0.0.1:8765/channels/ev-report
+```
+
+## A HierarchicalSwarm on a shared server
+
+A director plans, workers report, and every step lands on the server, where a dashboard or another team's agents can read it.
+
+```python
+from swarms import Agent, HierarchicalSwarm, HttpChannel
+
+workers = [
+    Agent(
+        agent_name="DataWorker",
+        agent_description="Finds and summarises data.",
+        model_name="gpt-5.4",
+        max_loops=1,
+    ),
+    Agent(
+        agent_name="WritingWorker",
+        agent_description="Writes clear prose from notes.",
+        model_name="gpt-5.4",
+        max_loops=1,
+    ),
+]
+
+channel = HttpChannel("http://127.0.0.1:8765/channels/ai-chips")
+
+swarm = HierarchicalSwarm(
+    agents=workers,
+    director_model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+swarm.run("Produce a short competitive analysis of the AI chip market.")
+
+for message in channel.messages():
+    print(f"\n## {message['agent_name']}\n{message['content'][:300]}")
+
+channel.close()
+```
+
+The server receives the task under `User`, the director's plan and orders, and each worker's report under its name.
+
+## SwarmRouter: switch architectures, keep the URL
+
+`SwarmRouter` forwards the channel to the structure it builds, so changing `swarm_type` does not change where the conversation lives.
+
+```python
+from swarms import Agent, HttpChannel, SwarmRouter
+
+agents = [
+    Agent(agent_name="Analyst", model_name="gpt-5.4", max_loops=1),
+    Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1),
+    Agent(agent_name="Reviewer", model_name="gpt-5.4", max_loops=1),
+]
+
+router = SwarmRouter(
+    agents=agents,
+    swarm_type="SequentialWorkflow",  # Or "ConcurrentWorkflow", "MixtureOfAgents", "GroupChat", ...
+    max_loops=1,
+    channel=HttpChannel("http://127.0.0.1:8765/channels/transformers-post"),
+)
+router.run("Write a short blog post about transformer architectures.")
+```
+
+## Authenticate
+
+Pass headers to send with every call:
+
+```python
+import os
+
+from swarms import HttpChannel
+
+channel = HttpChannel(
+    "https://agents.yourco.com/channels/research",
+    headers={"Authorization": f"Bearer {os.environ['CHANNEL_TOKEN']}"},
+    timeout=10,
+)
+```
+
+A non-2xx reply raises `httpx.HTTPStatusError`, so a bad token fails the first read instead of running the agent without context.
+
+## Start over
+
+```python
+channel.clear()  # DELETE on the URL
+```
+
+## Next steps
+
+- [Channels with every structure](/examples/channels/multi-agent-structures)
+- [Write your own channel](/api/channels/overview#writing-your-own-channel), for a store the server contract does not fit

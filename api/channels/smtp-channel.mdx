@@ -1,0 +1,242 @@
+---
+title: "SmtpChannel"
+description: "A comms channel kept as one email thread in a mailbox you already run, sent over SMTP and read over IMAP"
+icon: "envelope"
+---
+
+## Overview
+
+`SmtpChannel` keeps a conversation as one email thread. Each post is emailed to the people in `to`, who can read and reply from their own mail client. A copy also goes to `from_address`, and `messages()` reads that mailbox over IMAP. A person's reply joins the conversation under their email address, with the quoted history below it removed.
+
+It works with any provider that accepts a password over SMTP and IMAP. For a hosted inbox with an API instead, see [`AgentMailChannel`](/api/channels/agentmail-channel).
+
+```python
+from swarms import Agent, SmtpChannel
+
+channel = SmtpChannel(
+    from_address="agents@yourco.com",
+    to="you@yourco.com",
+    smtp_host="smtp.yourco.com",
+    imap_host="imap.yourco.com",
+    subject="EV battery market report",
+)  # Reads SMTP_PASSWORD
+
+agent = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+agent.run("Report on the EV battery market.")
+# you@yourco.com receives two emails in one thread: the task and the answer.
+```
+
+## Import
+
+```python
+from swarms import SmtpChannel
+```
+
+## Environment variables
+
+| Variable | Used for |
+|---|---|
+| `SMTP_PASSWORD` | The password, when `password` is not passed. Required one way or the other |
+| `SMTP_USERNAME` | The login, when `username` is not passed. Falls back to `from_address` |
+
+## Constructor
+
+```python
+SmtpChannel(
+    from_address: str,
+    to: Union[str, List[str]],
+    smtp_host: str,
+    imap_host: str,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    smtp_port: int = 587,
+    imap_port: int = 993,
+    mailbox: str = "INBOX",
+    subject: str = "Swarms conversation",
+    thread_id: Optional[str] = None,
+    timeout: float = 30.0,
+)
+```
+
+<ParamField path="from_address" type="str" required>
+  The mailbox the agents send as and read from.
+</ParamField>
+
+<ParamField path="to" type="str | List[str]" required>
+  Who receives each post and can reply.
+</ParamField>
+
+<ParamField path="smtp_host" type="str" required>
+  The SMTP server, such as `smtp.gmail.com`.
+</ParamField>
+
+<ParamField path="imap_host" type="str" required>
+  The IMAP server, such as `imap.gmail.com`.
+</ParamField>
+
+<ParamField path="username" type="str" default="None">
+  The login for both servers. Defaults to `SMTP_USERNAME`, then `from_address`.
+</ParamField>
+
+<ParamField path="password" type="str" default="None">
+  The password for both servers. Defaults to `SMTP_PASSWORD`.
+</ParamField>
+
+<ParamField path="smtp_port" type="int" default="587">
+  `465` uses implicit TLS. Any other port uses STARTTLS. Plain, unencrypted SMTP is not supported.
+</ParamField>
+
+<ParamField path="imap_port" type="int" default="993">
+  IMAP over TLS.
+</ParamField>
+
+<ParamField path="mailbox" type="str" default="INBOX">
+  The IMAP folder that holds the thread.
+</ParamField>
+
+<ParamField path="subject" type="str" default="Swarms conversation">
+  The thread's subject line.
+</ParamField>
+
+<ParamField path="thread_id" type="str" default="None">
+  The `Message-ID` of a thread's first message, to join an existing thread. Must look like `<id@domain>`. When omitted, the first post starts a new thread.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Seconds to wait on each server.
+</ParamField>
+
+**Raises:** `ValueError` if no password is passed or set, if the mailbox, username, password or thread id contains a NUL, CR or LF character, or if `thread_id` does not look like `<id@domain>`.
+
+### Attributes
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `thread_id` | `str` or `None` | The `Message-ID` of the thread's first message. Set by the first post. Save it to rejoin the thread later |
+| `from_address` | `str` | The sending and reading mailbox |
+| `to` | `List[str]` | The recipients |
+| `subject` | `str` | The thread's subject |
+
+## How messages are sent and read
+
+Each `post()` sends one plain-text email:
+
+- **From** `from_address`, **To** every address in `to`, with a BCC-style copy delivered to `from_address` so the mailbox holds the whole thread.
+- **Subject** `subject`, with `In-Reply-To` and `References` headers that keep it in one thread in every mail client.
+- An **`X-Swarms-Agent`** header names the speaker.
+- The body is the exact text, base64-encoded as UTF-8, so it reads back byte for byte.
+
+`messages()` logs into IMAP, finds every message in `mailbox` whose `Message-ID` or `References` names the thread, and returns them oldest first by their `Date` header:
+
+| Email | `agent_name` | `content` |
+|---|---|---|
+| Sent by a channel (has `X-Swarms-Agent`) | The `X-Swarms-Agent` header | The body, exactly as posted |
+| A person's reply | Their `From` address, such as `you@yourco.com` | The reply text, with quoted history (`On ... wrote:`, `>` lines, `From: ... Sent:` blocks, `-- Original Message --`) removed |
+
+## Methods
+
+### post()
+
+Email one message to the thread. The first post starts the thread and sets `thread_id`.
+
+```python
+def post(self, agent_name: str, content: str) -> None
+```
+
+A recipient the server refuses is logged as a warning. Other SMTP errors raise.
+
+### messages()
+
+Read the thread over IMAP, oldest first. Returns `[]` before the first post when no `thread_id` was given.
+
+```python
+def messages(self) -> List[Dict[str, Any]]
+```
+
+Posts made through this instance are included at once, before the mailbox receives them.
+
+### clear()
+
+Delete the thread's messages from `mailbox`, and start a new thread on the next post.
+
+```python
+def clear(self) -> None
+```
+
+**Raises:** `imaplib.IMAP4.error` if the server lacks the `UIDPLUS` extension, which lets it expunge only the thread's messages. Emails already delivered to the people in `to` stay in their mailboxes.
+
+### close()
+
+Does nothing. Each read and each post opens and closes its own connection.
+
+```python
+def close(self) -> None
+```
+
+## Usage Examples
+
+### Wait for a person's reply, then continue
+
+```python
+import time
+
+from swarms import Agent, SmtpChannel
+
+channel = SmtpChannel(
+    from_address="agents@yourco.com",
+    to="you@yourco.com",
+    smtp_host="smtp.yourco.com",
+    imap_host="imap.yourco.com",
+    subject="Press release draft",
+)
+
+drafter = Agent(agent_name="Drafter", model_name="gpt-5.4", max_loops=1, channel=channel)
+drafter.run("Draft a press release for our Q3 product launch.")
+
+# Reply to the email from your own mail client, then:
+while not any(m["agent_name"] == "you@yourco.com" for m in channel.messages()):
+    time.sleep(30)
+
+drafter.run("Revise the draft using the reply in the thread.")
+```
+
+### Rejoin a thread from another process
+
+```python
+from swarms import SmtpChannel
+
+first = SmtpChannel(from_address="agents@yourco.com", to="you@yourco.com",
+                    smtp_host="smtp.yourco.com", imap_host="imap.yourco.com")
+first.post("Researcher", "Kick-off notes ...")
+saved = first.thread_id  # For example "<swarms-3f2a...@yourco.com>"
+
+later = SmtpChannel(from_address="agents@yourco.com", to="you@yourco.com",
+                    smtp_host="smtp.yourco.com", imap_host="imap.yourco.com",
+                    thread_id=saved)
+later.messages()  # Reads the thread from the mailbox
+```
+
+More examples are in the [SmtpChannel quickstart](/examples/channels/smtp-channel).
+
+## Provider notes
+
+| Provider | Settings |
+|---|---|
+| Gmail and Google Workspace | `smtp.gmail.com`, `imap.gmail.com`. Use an [app password](https://support.google.com/accounts/answer/185833). If posts do not appear in the inbox, set `mailbox="[Gmail]/All Mail"`, because Gmail can keep mail you send to yourself out of the inbox |
+| Fastmail | `smtp.fastmail.com`, `imap.fastmail.com`, with an app password |
+| Microsoft 365 and Outlook.com | Not supported: they no longer accept passwords over IMAP |
+
+## Notes
+
+- **Other instances see a post after delivery.** Another `SmtpChannel` on the same thread, in this process or another, sees a post only once the mailbox has received its copy. Until then it can miss an answer, and an agent there can post its task again.
+- **Every read is an IMAP login.** An agent reads the channel on every run, so a busy loop logs in often. Keep agent runs on an email channel coarse.
+- **Mail can be read by anyone on the thread.** Do not post secrets, and treat replies as untrusted input.
+
+## Source Code
+
+View the [source on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/smtp_channel.py).

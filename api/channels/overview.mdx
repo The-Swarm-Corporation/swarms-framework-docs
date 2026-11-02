@@ -1,0 +1,241 @@
+---
+title: "CommsChannel"
+description: "The base class for comms channels: shared places where agents read what others said and post what they say"
+icon: "tower-broadcast"
+---
+
+## Overview
+
+A comms channel is a conversation that lives outside the agent. It can be a markdown file, a queue, a SQLite table, a remote server or an email thread. Every agent or structure given the same channel reads what was said there before it runs and posts what it says after.
+
+`CommsChannel` is the abstract base class. Swarms ships six implementations:
+
+| Channel | Stored in | Shared across | Use it when |
+|---|---|---|---|
+| [`FileChannel`](/api/channels/file-channel) | A `.md` or `.txt` file | Anything that can read the file | You want a transcript you can read, edit and resume from |
+| [`QueueChannel`](/api/channels/queue-channel) | A `queue.Queue` (or `multiprocessing.Queue`) | Threads, or processes with a shared queue | A consumer should block on each new message instead of polling |
+| [`SqliteChannel`](/api/channels/sqlite-channel) | A table in a SQLite database | Threads and processes on one machine | Many conversations, concurrent writers, or SQL queries over the history |
+| [`HttpChannel`](/api/channels/http-channel) | A server you run | Machines | Agents on different hosts share one conversation |
+| [`SmtpChannel`](/api/channels/smtp-channel) | One email thread in your own mailbox | People and machines | People should read and reply from their own mail client, using a mailbox you already run |
+| [`AgentMailChannel`](/api/channels/agentmail-channel) | One email thread in an AgentMail inbox | People and machines | The same as `SmtpChannel`, through the AgentMail API instead of SMTP and IMAP |
+
+```python
+from swarms import Agent, FileChannel
+
+channel = FileChannel("runs/ev_report.md")
+
+researcher = Agent(
+    agent_name="Researcher",
+    system_prompt="Gather the key facts as a short bullet list.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="Turn the facts in the conversation into a short report.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+
+task = "Report on the EV battery market."
+researcher.run(task)
+writer.run(task)  # Sees the task once and the Researcher's answer as prior turns
+```
+
+`runs/ev_report.md` then holds the whole conversation:
+
+```markdown
+## @Human
+
+Report on the EV battery market.
+
+## @Researcher
+
+- Global demand grew ...
+
+## @Writer
+
+The EV battery market ...
+```
+
+For runnable walkthroughs of every channel, see the [Comms Channels examples](/examples/channels/overview).
+
+## Import
+
+```python
+from swarms import (
+    CommsChannel,
+    FileChannel,
+    QueueChannel,
+    SqliteChannel,
+    HttpChannel,
+    SmtpChannel,
+    AgentMailChannel,
+)
+```
+
+All seven names are also exported from `swarms.structs`. The base class lives in `swarms.structs.comms_channel`.
+
+## Message shape
+
+Every channel stores and returns messages as plain dictionaries, oldest first:
+
+```python
+{"agent_name": "Researcher", "content": "Global demand grew ..."}
+```
+
+| Key | Type | Meaning |
+|---|---|---|
+| `agent_name` | `str` | Who spoke: an agent's `agent_name`, the user name that posted the task, or, for email channels, a person's address |
+| `content` | `str` | The message text |
+
+Some channels return more through their own methods. For example, [`SqliteChannel.fetch_messages()`](/api/channels/sqlite-channel) adds `id` and `created_at`.
+
+## Abstract methods
+
+### post()
+
+Append one message.
+
+```python
+@abstractmethod
+def post(self, agent_name: str, content: str) -> None
+```
+
+**Parameters:**
+- `agent_name` (str): Who is speaking, such as an agent name or the user name.
+- `content` (str): The message text.
+
+### messages()
+
+Return every message so far, oldest first.
+
+```python
+@abstractmethod
+def messages(self) -> List[Dict[str, Any]]
+```
+
+**Returns:** A list of `{"agent_name": ..., "content": ...}` dictionaries.
+
+### clear()
+
+Remove every message. Optional: the base class raises `NotImplementedError`, and every built-in channel overrides it.
+
+```python
+def clear(self) -> None
+```
+
+**Raises:** `NotImplementedError` on a subclass that does not override it.
+
+<Note>
+The base class has no `close()` method. The built-in channels that hold a connection (`SqliteChannel`, `HttpChannel`, `AgentMailChannel`) add one, and `QueueChannel.close()` means something different: it ends a consumer's iteration. Agents and structures never call `close()`, so call it yourself when you are done.
+</Note>
+
+## How an Agent uses a channel
+
+Pass the channel as `Agent(channel=...)`. On each `run(task)`:
+
+1. **Read.** The agent calls `channel.messages()` and sends every earlier message to the model as prior turns, under the speaker's name.
+2. **Post the task once.** It posts the task under the agent's `user_name` (default `"Human"`), unless that exact message is already in the channel. Several agents sharing a channel and running the same task therefore record it once.
+3. **Run.** The agent runs as usual.
+4. **Post the answer.** After a successful run it posts its final answer under its `agent_name`. A run that raises posts nothing. The answer is the agent's last message, not the whole transcript that `output_type` may return.
+
+```python
+agent.run("Summarise the thread.")                 # reads, posts task, runs, posts answer
+agent.run("Summarise the thread.", messages=[...]) # posts only the answer
+```
+
+When you pass `messages=` yourself, you are managing the transcript, so the agent skips steps 1 and 2. It still posts its answer.
+
+Because each run reads the channel first, a channel that already holds a conversation (a file from yesterday, a database row set, an email thread) becomes the context the next run continues from.
+
+## How a Conversation uses a channel
+
+[`Conversation(channel=...)`](/api/conversation) seeds its history from `channel.messages()` when it is constructed. After that, every `add()` is also posted to the channel, except messages whose role is `System` or `system` and messages with `None` content.
+
+```python
+from swarms import SqliteChannel
+from swarms.structs.conversation import Conversation
+
+channel = SqliteChannel("runs/chat.db", name="support-1042")
+
+conversation = Conversation(channel=channel)  # Loads what support-1042 already holds
+conversation.add("Customer", "My invoice is wrong.")  # Stored and posted
+conversation.add("System", "Escalation policy v3")    # Stored, not posted
+```
+
+## How multi-agent structures use a channel
+
+Nine structures take a `channel` argument. Each one posts to the channel through its own conversation: the task once at the start, then each member's contribution under that member's name.
+
+| Structure | What it posts | Task posted as |
+|---|---|---|
+| [`SequentialWorkflow`](/api/sequential-workflow) | The task, then each agent's answer in order | `User` |
+| [`AgentRearrange`](/api/agent-rearrange) | The task, then each agent's answer as its step of the flow completes | `User` |
+| [`ConcurrentWorkflow`](/api/concurrent-workflow) | The task, then every agent's answer in agent order once the step completes | `User` |
+| [`GraphWorkflow`](/api/graph-workflow) | Each node's output as its layer completes. It does not post the task | Not posted |
+| [`MixtureOfAgents`](/api/mixture-of-agents) | The task, each worker's answer per layer (named like `Analyst (layer 1/3)`), then the aggregator's answer | `User` |
+| [`HierarchicalSwarm`](/api/hierarchical-swarm) | The task, the director's plan and orders, each worker's report, and the director's feedback | `User` |
+| [`GroupChat`](/api/group-chat) | The task, then each message that wins a turn | `User` |
+| [`MajorityVoting`](/api/majority-voting) | The task, each voter's answer, then the consensus agent's answer | `user` |
+| [`PlannerWorkerSwarm`](/api/planner-worker-swarm) | The task, the planner's plan, each worker's result, and the cycle judge's verdict | `User` |
+
+[`SwarmRouter(channel=...)`](/api/swarm-router) forwards the channel to the structure it builds for these `swarm_type` values: `SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange`, `MixtureOfAgents`, `HierarchicalSwarm`, `GroupChat`, `MajorityVoting` and `PlannerWorkerSwarm`. Other swarm types ignore it.
+
+<Warning>
+**The structure owns the channel.** When a structure has a channel, it detaches the channel from each member agent, sets that agent's `channel` to `None` and logs a warning. Without this, every message would be posted twice: once by the structure and once by the agent. The detachment is permanent, so give the channel to the structure, not to its agents.
+</Warning>
+
+Agents in `SequentialWorkflow` and `AgentRearrange` see what the channel already holds before their run, so you can resume or steer a pipeline by editing its channel between runs. In `ConcurrentWorkflow` each agent gets only the task; the channel records the answers but does not feed earlier history back to the agents.
+
+## Writing your own channel
+
+Subclass `CommsChannel` and implement `post()` and `messages()`. Implement `clear()` if your medium can delete. Anything that can append and list messages works: Redis, a Slack thread, a Postgres table, a message bus.
+
+```python
+import json
+
+import redis
+
+from swarms import Agent, CommsChannel
+
+
+class RedisChannel(CommsChannel):
+    """A conversation kept as a Redis list, shared by every process that can reach Redis."""
+
+    def __init__(self, key: str, url: str = "redis://localhost:6379/0"):
+        self.key = key
+        self.client = redis.Redis.from_url(url)
+
+    def post(self, agent_name: str, content: str) -> None:
+        row = {"agent_name": agent_name, "content": str(content)}
+        self.client.rpush(self.key, json.dumps(row))
+
+    def messages(self):
+        return [json.loads(raw) for raw in self.client.lrange(self.key, 0, -1)]
+
+    def clear(self) -> None:
+        self.client.delete(self.key)
+
+
+agent = Agent(
+    agent_name="Analyst",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=RedisChannel("research:ev-batteries"),
+)
+agent.run("What changed in the EV battery market this quarter?")
+```
+
+Keep these points in mind:
+
+- **Return exact text.** An agent decides whether its task is already posted by comparing `{"agent_name": user_name, "content": task}` with the rows `messages()` returns. A channel that changes whitespace or encoding posts the task again on every run.
+- **Be safe for concurrent posts.** `ConcurrentWorkflow`, `MixtureOfAgents` and other fan-out structures can call `post()` from several threads.
+- **`messages()` is called on every run.** Keep it cheap, or cache it.
+
+## Source Code
+
+- [`comms_channel.py`](https://github.com/kyegomez/swarms/blob/master/swarms/structs/comms_channel.py)
+- [Channel examples on GitHub](https://github.com/kyegomez/swarms/tree/master/examples/channel_examples)

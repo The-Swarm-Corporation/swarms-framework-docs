@@ -74,6 +74,10 @@ from swarms import MixtureOfAgents
   </Warning>
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the mixture posts to: the task as `User`, each worker's answer per layer under a name like `Analyst (layer 1/3)`, then the aggregator's answer. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
 ## Methods
 
 ### `reliability_check()`

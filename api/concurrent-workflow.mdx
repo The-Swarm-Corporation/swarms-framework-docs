@@ -42,6 +42,7 @@ class ConcurrentWorkflow:
         verbose: bool = False,
         on_error: str = "store",
         max_workers: Optional[int] = None,
+        channel: Optional[CommsChannel] = None,
     )
 ```
 
@@ -93,6 +94,10 @@ class ConcurrentWorkflow:
 
 <ParamField path="verbose" type="bool" default="False">
   Whether to enable verbose logging
+</ParamField>
+
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the workflow posts to: the task as `User`, then every agent's answer in agent order once the step completes. Each agent still receives only the task. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
 ## Methods

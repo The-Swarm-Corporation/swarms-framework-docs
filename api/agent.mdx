@@ -247,6 +247,10 @@ Each collaborator is independently documented. Reach for it directly when you wa
   Ordered list of models to use. When set, it replaces `model_name`: the first entry is the primary model and the rest are tried in order if a run fails. See [Fallback model helpers](#fallback-model-helpers).
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A shared conversation such as a [`FileChannel`](/api/channels/file-channel) or [`SqliteChannel`](/api/channels/sqlite-channel). When `run()` gets no `messages`, the agent reads the channel as prior turns and posts the task under `user_name`, unless that task is already there. After a successful run it posts its final answer under `agent_name`. When you pass `messages`, only the answer is posted. A structure given a channel detaches this one with a warning. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
 <ParamField path="retry_attempts" type="Optional[int]" default="3">
   Attempts per loop iteration for the LLM call. When every attempt fails, the run raises `AgentLLMError`, and `run()` then moves on to the next fallback model if one is configured. See [Error Handling](#error-handling).
 </ParamField>

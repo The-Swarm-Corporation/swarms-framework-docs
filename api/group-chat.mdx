@@ -44,6 +44,7 @@ GroupChat(
     output_type: str = "str-all-except-first",
     verbose: bool = False,
     auto_equip: bool = True,
+    channel: Optional[CommsChannel] = None,
 )
 ```
 
@@ -89,6 +90,10 @@ GroupChat(
 
 <ParamField path="auto_equip" type="bool" default="True">
   When `True` (default), the `RESPOND_TOOL` schema is automatically injected into any agent that does not already carry it, and that agent's LLM client is rebuilt so the forced tool call works. Set to `False` only if you equip every agent with `RESPOND_TOOL` yourself.
+</ParamField>
+
+<ParamField path="channel" type="CommsChannel" default="None">
+  A comms channel the chat posts to: the task as `User`, then each message that wins a turn. Bids are not posted. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
 ## The `respond` tool

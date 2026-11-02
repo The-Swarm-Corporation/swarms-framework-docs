@@ -114,6 +114,10 @@ from swarms import Conversation
   Chat-format messages (`{"role": ..., "content": ...}`) added after the system prompt and rules, through `add_messages()`. `Agent(messages=...)` uses this to seed `short_memory`.
 </ParamField>
 
+<ParamField path="channel" type="Optional[CommsChannel]" default="None">
+  A [comms channel](/api/channels/overview). Its messages are loaded into the history at construction, then every later `add()` is also posted to it, except messages with the role `System` or `system` and messages whose content is `None`.
+</ParamField>
+
 ## Construction and resume
 
 The constructor runs these steps in order:

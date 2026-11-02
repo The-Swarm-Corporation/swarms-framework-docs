@@ -1,0 +1,155 @@
+---
+title: "FileChannel"
+description: "A comms channel kept as a markdown or text file, one section per message"
+icon: "file-lines"
+---
+
+## Overview
+
+`FileChannel` keeps a conversation in a `.md` or `.txt` file. Each message is a section that starts with a `## @agent_name` line. The file is the whole state, so you can read it, edit it, commit it to git or hand it to the next run.
+
+```markdown
+## @Human
+
+Write a market report.
+
+## @Researcher
+
+The market grew 31% last year ...
+```
+
+- The speaker's name is everything after `@` on the header line, so names with spaces work.
+- The body is the text up to the next header line, kept as written. Markdown headings inside a message (`#`, `###`) survive, because only a line that starts with `## @` begins a new message.
+- Each post is appended to the end of the file. Nothing is rewritten.
+
+```python
+from swarms import Agent, FileChannel
+
+agent = Agent(
+    agent_name="Researcher",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=FileChannel("runs/research.md"),
+)
+agent.run("Summarise the state of solid-state batteries.")
+```
+
+## Import
+
+```python
+from swarms import FileChannel
+```
+
+## Constructor
+
+```python
+FileChannel(path: str)
+```
+
+<ParamField path="path" type="str" required>
+  A `.md` or `.txt` file. The extension check ignores case. The file and its parent directories are created on the first `post()`, so the path need not exist yet.
+</ParamField>
+
+**Raises:** `ValueError` if the path has any other extension.
+
+### Attributes
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `path` | `pathlib.Path` | The file this channel reads and appends to |
+| `HEADER` | `re.Pattern` | The header regex, `^## @(.+?)[ \t]*$`, matched per line |
+| `EXTENSIONS` | `tuple` | `(".md", ".txt")` |
+
+## Methods
+
+### post()
+
+Append one message to the end of the file.
+
+```python
+def post(self, agent_name: str, content: str) -> None
+```
+
+**Parameters:**
+- `agent_name` (str): Who is speaking. Written after `## @`.
+- `content` (str): The message text. Leading and trailing whitespace is stripped.
+
+The file is written as UTF-8 and the parent directory is created if missing.
+
+### messages()
+
+Parse the file into messages, oldest first.
+
+```python
+def messages(self) -> List[Dict[str, Any]]
+```
+
+**Returns:** A list of `{"agent_name": ..., "content": ...}` dictionaries. Returns `[]` if the file does not exist. Any text before the first header is ignored.
+
+The file is read on every call, so edits made between runs, by a person or another program, are what the next run sees.
+
+### clear()
+
+Delete the file. Does nothing if it does not exist.
+
+```python
+def clear(self) -> None
+```
+
+## Usage Examples
+
+### Steer a run by editing the file
+
+Because each run reads the file first, you can edit it between runs. Delete a weak answer, add a note under your own header, or correct a fact, and the next run continues from the edited version.
+
+```python
+from swarms import Agent, FileChannel
+
+channel = FileChannel("runs/brief.md")
+
+writer = Agent(
+    agent_name="Writer",
+    system_prompt="Write and revise the brief in the conversation.",
+    model_name="gpt-5.4",
+    max_loops=1,
+    channel=channel,
+)
+
+writer.run("Draft a one-page brief on sodium-ion batteries.")
+
+# Open runs/brief.md and append, for example:
+#
+#   ## @Editor
+#
+#   Cut the history section and add a cost comparison.
+
+writer.run("Revise the brief using the editor's note.")
+```
+
+### Give a structure a file
+
+```python
+from swarms import Agent, FileChannel, SequentialWorkflow
+
+workflow = SequentialWorkflow(
+    agents=[
+        Agent(agent_name="Researcher", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1),
+    ],
+    max_loops=1,
+    channel=FileChannel("runs/sequential.md"),
+)
+workflow.run("Report on the EV battery market.")
+```
+
+More examples are in the [FileChannel quickstart](/examples/channels/file-channel).
+
+## Notes
+
+- **One process at a time.** Posts are plain appends with no lock, so two processes writing the same file at the same moment can interleave. Use [`SqliteChannel`](/api/channels/sqlite-channel) for concurrent writers across processes.
+- **A body cannot contain a `## @` line.** A line inside a message that starts with `## @` is read back as the start of a new message.
+- **`messages()` reads the whole file.** For very long conversations, prefer `SqliteChannel`.
+
+## Source Code
+
+View the [source on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/file_channel.py).

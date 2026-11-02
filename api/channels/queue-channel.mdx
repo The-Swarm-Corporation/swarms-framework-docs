@@ -1,0 +1,171 @@
+---
+title: "QueueChannel"
+description: "A comms channel whose consumers block on each new message instead of polling"
+icon: "list-ol"
+---
+
+## Overview
+
+`QueueChannel` puts every post on a queue as well as in an in-memory history. Agents read `messages()` as they would any channel. A consumer, usually another thread, calls `wait()` or iterates the channel to receive each message the moment it is posted.
+
+Use it to drive a UI, a log, a websocket or any other live view of a run without polling.
+
+```python
+import threading
+
+from swarms import Agent, QueueChannel, SequentialWorkflow
+
+channel = QueueChannel()
+
+workflow = SequentialWorkflow(
+    agents=[
+        Agent(agent_name="Researcher", model_name="gpt-5.4", max_loops=1),
+        Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1),
+    ],
+    max_loops=1,
+    channel=channel,
+)
+
+
+def produce():
+    try:
+        workflow.run("Report on the EV battery market.")
+    finally:
+        channel.close()  # Ends the loop below
+
+
+threading.Thread(target=produce, daemon=True).start()
+
+for message in channel:
+    print(f"[{message['agent_name']}] {message['content'][:80]}")
+```
+
+## Import
+
+```python
+from swarms import QueueChannel
+```
+
+## Constructor
+
+```python
+QueueChannel(q: Optional[Any] = None)
+```
+
+<ParamField path="q" type="queue.Queue | multiprocessing.Queue | Any" default="queue.Queue()">
+  The queue each post is put on. Anything with `put`, `get` and `get_nowait` works. Defaults to a new `queue.Queue`.
+</ParamField>
+
+### Attributes
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `queue` | queue-like | The queue posts are put on and `wait()` reads from |
+
+## Methods
+
+### post()
+
+Record one message in the history and put it on the queue.
+
+```python
+def post(self, agent_name: str, content: str) -> None
+```
+
+The message put on the queue is the same dictionary `messages()` returns: `{"agent_name": ..., "content": ...}`. `content` is converted with `str()`.
+
+### messages()
+
+Return a copy of every message posted through this instance, oldest first. It reads the history, not the queue, so it is unaffected by consumers taking messages off the queue.
+
+```python
+def messages(self) -> List[Dict[str, Any]]
+```
+
+### wait()
+
+Block until the next message is on the queue, and take it.
+
+```python
+def wait(self, timeout: Optional[float] = None) -> Optional[Dict[str, Any]]
+```
+
+**Parameters:**
+- `timeout` (float, optional): Seconds to wait. `None` waits forever.
+
+**Returns:** The next message, or `None` when the channel was closed or the timeout passed.
+
+### Iteration
+
+`for message in channel` calls `wait()` with no timeout until it returns `None`, so the loop ends when the producer calls `close()`.
+
+```python
+def __iter__(self) -> Iterator[Dict[str, Any]]
+```
+
+### close()
+
+Put a `None` sentinel on the queue. This wakes the waiting consumer and ends its iteration. It does not close the queue, and later posts still go on it.
+
+```python
+def close(self) -> None
+```
+
+### clear()
+
+Empty the history and drain every message waiting on the queue.
+
+```python
+def clear(self) -> None
+```
+
+## Usage Examples
+
+### Wait with a timeout
+
+```python
+message = channel.wait(timeout=5)
+if message is None:
+    print("Nothing posted in the last 5 seconds, or the channel was closed.")
+```
+
+### Share the queue across processes
+
+Pass a `multiprocessing.Queue` to receive posts in another process. Only the queue is shared: each process's `messages()` holds only what that process posted.
+
+```python
+import multiprocessing as mp
+
+from swarms import Agent, QueueChannel
+
+
+def run_agent(q):
+    agent = Agent(
+        agent_name="Researcher",
+        model_name="gpt-5.4",
+        max_loops=1,
+        channel=QueueChannel(q),
+    )
+    agent.run("List three facts about perovskite solar cells.")
+    q.put(None)  # Ends the consumer's loop
+
+
+if __name__ == "__main__":
+    q = mp.Queue()
+    mp.Process(target=run_agent, args=(q,)).start()
+
+    for message in QueueChannel(q):
+        print(f"[{message['agent_name']}] {message['content']}")
+```
+
+More examples are in the [QueueChannel quickstart](/examples/channels/queue-channel).
+
+## Notes
+
+- **The history is in memory.** Nothing is written to disk. When the process exits, the conversation is gone. Use [`FileChannel`](/api/channels/file-channel) or [`SqliteChannel`](/api/channels/sqlite-channel) to keep it.
+- **One consumer per sentinel.** `close()` puts one `None` on the queue, which ends one consumer's loop. With several consumers, call `close()` once for each.
+- **Every message is delivered once.** A message taken by one consumer is gone from the queue. To give several consumers every message, fan it out yourself from a single consumer.
+
+## Source Code
+
+View the [source on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/queue_channel.py).
