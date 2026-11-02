@@ -487,7 +487,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="workspace_dir" type="str">
-  Not a constructor argument — any value passed here is ignored. The workspace root is read from the `WORKSPACE_DIR` environment variable; set it explicitly (e.g. via a `.env` file — `.env.example` uses `agent_workspace`). When it is unset, `agent.workspace_dir` resolves to `None` and an error is logged; the workspace manager behind `agent.workspace` then falls back to `{cwd}/agent_workspace` the first time it needs a directory. Each agent gets its own subdirectory at `{workspace}/agents/{agent-name}-{id12}/`, where `id12` is the last 12 characters of `agent.id`. Read the resolved path from `agent.workspace.dir`.
+  Not a constructor argument — any value passed here is ignored. The workspace root is read from the `WORKSPACE_DIR` environment variable; set it explicitly (e.g. via a `.env` file — `.env.example` uses `agent_workspace`). When it is unset, `import swarms` sets it to `{cwd}/agent_workspace`; nothing is created until something writes there. Each agent gets its own subdirectory at `{workspace}/agents/{agent-name}-{id12}/`, where `id12` is the last 12 characters of `agent.id`. Read the resolved path from `agent.workspace.dir`.
 </ParamField>
 
 <ParamField path="load_state_path" type="str" default="None">

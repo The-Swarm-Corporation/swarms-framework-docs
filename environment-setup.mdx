@@ -184,8 +184,7 @@ The workspace directory is where agents store their state, logs, and autosave fi
 
 ```
 agent_workspace/
-├── error.txt                        # errors from standard-library loggers
-├── logs/
+├── logs/                            # only with SWARMS_LOG_FILES=True
 │   ├── swarms_YYYY-MM-DD.log        # combined log, rotated daily, kept 10 days
 │   └── <module>.log                 # one file per swarms module that logs, e.g. agent.log
 ├── agents/
@@ -208,7 +207,7 @@ You can customize the workspace location:
 ```python
 import os
 
-# Set it before importing swarms, which resolves and caches the workspace on import
+# WORKSPACE_DIR is read each time a path is needed, so setting it after import also works
 os.environ["WORKSPACE_DIR"] = "/path/to/custom/workspace"
 
 from swarms import Agent
@@ -225,6 +224,8 @@ agent = Agent(model_name="gpt-5.4")
 </Note>
 
 ## Loading Environment Variables
+
+`import swarms` loads a `.env` file for you. It searches upward from the current working directory for the nearest `.env` and loads it without overriding variables already set in the environment. The methods below are for loading a file somewhere else, or before something other than swarms reads the variables.
 
 There are several ways to load your environment variables:
 

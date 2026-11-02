@@ -46,7 +46,7 @@ graph TD
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `agent_name` | `str` | `"gkp-agent"` | Name identifier for the agent. Components are named `<agent_name>-knowledge-generator`, `<agent_name>-reasoner` and `<agent_name>-coordinator` |
-| `model_name` | `str` | `"openai/o1"` | LLM model to use for all components |
+| `model_name` | `str` | `"gpt-5.4"` | LLM model to use for all components |
 | `num_knowledge_items` | `int` | `6` | Number of knowledge snippets to generate per query |
 
 | Method | Parameters | Returns |
@@ -77,7 +77,7 @@ Each query and its final answer are also added to `agent.conversation`.
 |-----------|------|---------|-------------|
 | `agent_name` | `str` | `"knowledge-generator"` | Name identifier |
 | `description` | `str` | `"Generates factual, relevant knowledge to assist with answering queries"` | Accepted but not used |
-| `model_name` | `str` | `"openai/o1"` | Model for knowledge generation |
+| `model_name` | `str` | `"gpt-5.4"` | Model for knowledge generation |
 | `num_knowledge_items` | `int` | `2` | Number of knowledge items to generate per query |
 
 | Method | Parameters | Returns |
@@ -89,7 +89,7 @@ Each query and its final answer are also added to `agent.conversation`.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `agent_name` | `str` | `"knowledge-reasoner"` | Name identifier |
-| `model_name` | `str` | `"openai/o1"` | Model for reasoning |
+| `model_name` | `str` | `"gpt-5.4"` | Model for reasoning |
 
 | Method | Parameters | Returns |
 |--------|------------|---------|

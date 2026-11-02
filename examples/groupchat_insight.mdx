@@ -306,10 +306,8 @@ paths:
    `break`s immediately, regardless of how far `message_count` is from the
    cap.
 
-`idle_timeout` plays no role in either path. The constructor keeps the
-parameter and documents it as "Deprecated/unused — the chat now ends on a
-bidding lull rather than a wall-clock timeout. Kept for compatibility." It is
-never read anywhere in `_run_async`, `_select_speaker`, or `_post`.
+There is no wall-clock timeout. The old `idle_timeout` parameter was
+removed in v17, and passing it raises `TypeError`.
 
 **How `recency_penalty` can trigger termination condition 2 on its own.**
 Because the bar in `_select_speaker` is applied to the *adjusted* score, a
@@ -370,7 +368,6 @@ is likely to fire first for a given configuration.
 | `threshold` | `0.5` | Minimum recency-adjusted score required to take the floor. |
 | `recency_penalty` | `0.3` | Subtracted from the bid of an agent that spoke within the last `recency_window` turns. `0.0` disables it. |
 | `recency_window` | `1` | How many recent speakers are penalized. Effective minimum is `1` regardless of a lower value. |
-| `idle_timeout` | `8.0` | **Deprecated/unused.** Accepted for backward compatibility only; has no effect on when the chat stops. |
 | `output_type` | `"str-all-except-first"` | Passed through to `history_output_formatter`. |
 | `verbose` | `False` | Log internal messages and print each posted message as a panel. |
 | `auto_equip` | `True` | Auto-inject `RESPOND_TOOL` into any agent that doesn't already carry it. |
@@ -399,8 +396,8 @@ before the next `run()` if you need it.
   `RESPOND_TOOL` in `tools_list_dictionary` will bid `(0.0, "")` every turn —
   permanently silent — because `_extract_args` can't parse a non-tool-call
   response into a decision.
-- **`idle_timeout` does nothing.** Don't tune it expecting to control when
-  the chat stops; only `max_loops` and the bidding lull do that.
+- **Only `max_loops` and the bidding lull end a chat.** `idle_timeout` was
+  removed in v17; passing it raises `TypeError`.
 - **`max_loops` counts the seed.** A chat configured with `max_loops=10` gets
   at most 9 agent turns.
 - **Raise `threshold` for a more selective, shorter-running room; raise
@@ -587,9 +584,9 @@ one turn's bids in parallel via `asyncio.to_thread` before the single
 coroutine driving `_run_async` posts at most one winner (`_select_speaker`,
 a strict recency-adjusted argmax over non-empty bids). The loop is bounded
 deterministically by `max_loops` and can end earlier at any bidding lull
-where no adjusted score clears `threshold`; `idle_timeout` is accepted for
-compatibility but does nothing. `threshold` and `recency_penalty` jointly
+where no adjusted score clears `threshold`. `threshold` and `recency_penalty` jointly
 shape both who gets to speak and how likely a lull is on any given turn,
 including the case where the penalty alone turns a would-be winner into a
-lull. `run_batch` runs tasks sequentially, and each run clears
-`self.conversation` first, so batched tasks never share transcript context.
+lull. `run_batch` runs tasks sequentially, and each run starts a
+new `self.conversation` (seeded from the `channel` when one is set), so batched
+tasks never share transcript context unless they share a channel.

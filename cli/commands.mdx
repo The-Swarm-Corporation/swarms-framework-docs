@@ -29,12 +29,12 @@ swarms init [--dir <path>]
 2. Prompts for a `WORKSPACE_DIR` location (default: `<project_dir>/workspace`) and creates it
 3. Shows a table of nine providers (OpenAI, Anthropic, Google, Groq, Mistral, Together AI, Cohere, xAI, OpenRouter). Enter their numbers separated by commas, `all`, or press Enter to skip, then paste each key at a hidden prompt
 4. Optionally collects a `SWARMS_API_KEY`, needed for `--marketplace-prompt-id`
-5. Writes `.env` to the project directory: `WORKSPACE_DIR`, the keys you entered, and commented-out placeholders for the rest
+5. Writes `.env` to the project directory: `WORKSPACE_DIR`, the keys you entered, and commented-out placeholders for the rest. If a `.env` already exists, it is updated in place: only `WORKSPACE_DIR` and the keys you typed are set, and every other line is kept
 6. Validates the result: at least one provider key, the workspace directory, and the `.env` file
 
-<Warning>
-  `swarms init` overwrites an existing `.env` in the project directory. Keys already exported in your shell are reported but are only written to the new file if you type them again.
-</Warning>
+<Note>
+  Keys already exported in your shell are reported but are only written to `.env` if you type them again.
+</Note>
 
 **Example:**
 ```bash
@@ -288,9 +288,10 @@ Load from a single file:
 swarms load-markdown --markdown-path ./agent.md
 ```
 
-<Warning>
-  In Swarms 15.0.3, passing a directory to `--markdown-path` fails with `Unsupported file type`, because the CLI hands the directory string to a loader that expects a list of files. Pass one `.md` file at a time, or load a folder from Python with `AgentLoader`.
-</Warning>
+Load every `.md` file in a directory:
+```bash
+swarms load-markdown --markdown-path ./agents/ --concurrent
+```
 
 **Markdown Format:**
 ```markdown
@@ -581,6 +582,8 @@ Many commands support these common flags:
 - `--max-loops` — Set iteration limits (integer or `auto`)
 
 ## Error Recovery
+
+An unknown command prints the available commands, with a suggestion when one is close, and exits with status 2.
 
 If a command fails, the CLI classifies the error and prints targeted recovery hints. For example:
 

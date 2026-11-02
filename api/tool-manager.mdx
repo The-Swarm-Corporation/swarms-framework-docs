@@ -84,7 +84,7 @@ Each loop of `Agent.run` with an integer `max_loops` sends one request, then han
 
 <Steps>
   <Step title="Parse the reply">
-    `parse_response` turns the raw reply into text or a list of tool-call dicts. The agent adds it to `short_memory` and records the assistant turn in the run transcript.
+    `parse_response` turns the raw reply into text or a list of tool-call dicts. The agent records it in `short_memory` as the assistant turn, with `Conversation.record_assistant()`.
   </Step>
   <Step title="Run tool searches">
     When `agent.tool_loader` is set, `tool_search` calls run first. Each result is recorded and removed from the batch. If nothing else is left, the turn ends here.
@@ -99,7 +99,7 @@ Each loop of `Agent.run` with an integer `max_loops` sends one request, then han
     When `agent.mcp_enabled` is true, `mcp_tool_handling` sends the reply to the agent's [MCPManager](/api/mcp-manager), which routes each call to the server that exposes it.
   </Step>
   <Step title="Answer every call">
-    Every tool call recorded in the transcript gets exactly one tool result. A call with no recorded result gets a `(no result recorded for <name>)` placeholder, because a gap makes the next request invalid.
+    Every tool call recorded in `short_memory` gets exactly one tool result. A call with no recorded result gets a `(no result recorded for <name>)` placeholder, because a gap makes the next request invalid.
   </Step>
 </Steps>
 
@@ -372,13 +372,12 @@ Normalize one main-loop reply before it is recorded. Dumps a Pydantic reply when
 def handle_tool_calls(
     response: Any,
     loop_count: int,
-    transcript: Optional[Transcript] = None,
     turn_calls: Optional[list] = None,
     turn_results: Optional[dict] = None,
 ) -> None
 ```
 
-Run every tool call in one parsed reply, in the order described in [How a tool call runs](#how-a-tool-call-runs), and answer each call in the transcript.
+Run every tool call in one parsed reply, in the order described in [How a tool call runs](#how-a-tool-call-runs), and answer each call in `short_memory`.
 
 <ParamField path="response" type="Any" required>
   The parsed model reply.
@@ -388,12 +387,8 @@ Run every tool call in one parsed reply, in the order described in [How a tool c
   The current loop number, used in logs and panels.
 </ParamField>
 
-<ParamField path="transcript" type="Optional[Transcript]" default="None">
-  The run's transcript. `None` when the agent uses `transforms`.
-</ParamField>
-
 <ParamField path="turn_calls" type="Optional[list]" default="None">
-  The tool calls recorded in the transcript this turn.
+  The tool calls recorded this turn.
 </ParamField>
 
 <ParamField path="turn_results" type="Optional[dict]" default="None">

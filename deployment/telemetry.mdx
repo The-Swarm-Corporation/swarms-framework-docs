@@ -159,6 +159,7 @@ Classes not in this list, such as `ReasoningDuo` or `TreeOfThoughts`, emit no sp
 | `OTEL_SERVICE_NAME` | `swarms` | Service name attached to every span |
 | `SWARMS_OTEL_TIMEOUT` | `8` | Export timeout in seconds |
 | `SWARMS_OTEL_EXPORT_DELAY_MS` | `500` | How long finished spans wait before they are sent. They leave while the run is in flight, so the exit flush has little left to send |
+| `SWARMS_OTEL_EXIT_TIMEOUT` | `1` | Seconds the process waits at exit to flush spans still queued, so a short script is not held up by a slow collector |
 | `SWARMS_OTEL_MAX_CHARS` | `16000` | Max characters per input/output attribute |
 | `SWARMS_OTEL_MAX_CONFIG_CHARS` | `65536` | Max characters for a captured `init` config |
 
@@ -186,7 +187,7 @@ if telemetry.ready:
 
 ## Instrumenting your own components
 
-The same primitives are available for custom structures.
+The same primitives are available for custom structures. `SwarmTelemetry`, `capture_init`, `trace_run` and `ContextThreadPoolExecutor` can also be imported from `swarms` directly; the examples below import them from `swarms.telemetry.otel`.
 
 ### The decorator
 

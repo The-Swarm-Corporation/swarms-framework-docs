@@ -10,8 +10,8 @@ The `ModelRouter` is an intelligent routing system that automatically selects an
 
 Each step makes two LLM calls:
 
-1. A routing call to `gpt-4o` with `response_format=ModelOutput`. The reply is parsed into a `ModelOutput` that names the model, provider, rewritten task, `max_tokens`, `temperature`, and `system_prompt` to use.
-2. An execution call to `{provider}/{model}` through LiteLLM, using the settings from that reply.
+1. A routing call to `model_name` (default `gpt-5.4`) with `response_format=ModelOutput`. The reply is parsed into a `ModelOutput` that names the model, provider, rewritten task, `max_tokens`, `temperature`, and `system_prompt` to use.
+2. An execution call to `{provider}/{model}` through LiteLLM, using the settings from that reply. When the provider is `anthropic`, no temperature is sent, because current Claude models reject one.
 
 ## Key Features
 
@@ -34,7 +34,8 @@ pip install -U swarms
 ```bash
 OPENAI_API_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
-GOOGLE_API_KEY=your_google_api_key
+GEMINI_API_KEY=your_gemini_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
 # Add more API keys as needed following litellm format
 ```
 
@@ -48,8 +49,8 @@ GOOGLE_API_KEY=your_google_api_key
   Stored as `router.max_tokens` and shown in `repr()`. Neither LLM call reads it: the execution call uses the `max_tokens` from the routing reply.
 </ParamField>
 
-<ParamField path="temperature" type="float" default="0.5">
-  Temperature for the routing call. The execution call uses the `temperature` from the routing reply.
+<ParamField path="temperature" type="Optional[float]" default="None">
+  Temperature for the routing call. Unset sends none. The execution call uses the `temperature` from the routing reply, except for Anthropic models, which get none.
 </ParamField>
 
 <ParamField path="max_workers" type="int | str" default="10">
@@ -58,6 +59,10 @@ GOOGLE_API_KEY=your_google_api_key
 
 <ParamField path="api_key" type="str" default="None">
   Accepted but unused. Set provider keys as environment variables instead.
+</ParamField>
+
+<ParamField path="model_name" type="str" default="gpt-5.4">
+  The model that makes the routing call and picks the route for each task. Any LiteLLM model name works.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
@@ -143,29 +148,20 @@ def concurrent_run(self, tasks: list) -> list
 
 ### async_run()
 
-<Warning>
-`async_run()` is currently broken and should not be used. Its implementation is `return asyncio.create_task(self.run(task, *args, **kwargs))`, but `run()` is a plain **sync** `def` -- so `self.run(...)` executes eagerly (blocking the event loop) and returns a plain `str` before `asyncio.create_task()` ever sees it. Passing that string to `create_task()` raises `TypeError: a coroutine was expected`, which `async_run()` catches and re-raises as `RuntimeError: Async execution failed: ...`. Every `await router.async_run(...)` call site fails. Use the synchronous `run()` (optionally wrapped in `asyncio.to_thread()` from an async context) or `concurrent_run()` / `batch_run()` for parallel execution instead.
-</Warning>
-
-Documented (broken) signature:
+Run a task in a worker thread without blocking the event loop.
 
 ```python
-async def async_run(self, task: str) -> asyncio.Task
+async def async_run(self, task: str) -> str
 ```
 
-**Working alternative from an async context:**
+It awaits `asyncio.to_thread(self.run, task)`, so it returns the same output as `run()` and raises whatever `run()` raises.
 
 ```python
 import asyncio
 from swarms import ModelRouter
 
 router = ModelRouter()
-
-async def run_task(task: str):
-    # Keeps the blocking run() call off the event loop.
-    return await asyncio.to_thread(router.run, task)
-
-result = asyncio.run(run_task("Analyze the sentiment in this feedback"))
+result = asyncio.run(router.async_run("Analyze the sentiment in this feedback"))
 ```
 
 ## Usage Examples
@@ -242,7 +238,7 @@ for task, result in zip(analysis_tasks, results):
 
 ### Asynchronous Execution
 
-`async_run()` is currently broken (see the [Warning above](#async_run)). To call `ModelRouter` from an async context without blocking the event loop, offload the synchronous `run()` to a thread with `asyncio.to_thread()`:
+`async_run()` runs each task in a worker thread, so several can be gathered at once:
 
 ```python
 import asyncio
@@ -252,7 +248,7 @@ async def process_data_stream():
     router = ModelRouter()
     tasks = []
     async for data in data_stream:
-        tasks.append(asyncio.to_thread(router.run, f"Process data: {data}"))
+        tasks.append(router.async_run(f"Process data: {data}"))
 
     results = await asyncio.gather(*tasks)
     return results
@@ -354,9 +350,8 @@ class MedicalDataProcessor:
             """
             analysis_tasks.append(task)
 
-        # async_run() is broken, so offload the synchronous run() to a thread.
         results = await asyncio.gather(*[
-            asyncio.to_thread(self.router.run, task) for task in analysis_tasks
+            self.router.async_run(task) for task in analysis_tasks
         ])
 
         return [self._parse_medical_analysis(r) for r in results]
@@ -437,19 +432,20 @@ The default routing prompt embeds these recommendations. The routing model can s
 
 | Model | Provider | Best for |
 |-------|----------|----------|
-| gpt-5.4 | openai | Simple queries, basic text generation, quick responses |
-| gpt-4-turbo | openai | Complex tasks, up-to-date knowledge, long context |
-| gpt-3.5-turbo | openai | Chat applications, content generation, basic assistance |
-| o3-mini | groq | Basic completion, simple classification, constrained environments |
-| deepseek-reasoner | deepseek | Complex problem solving, logical reasoning, mathematical analysis |
-| claude-3-5-sonnet | anthropic | Creative writing, detailed analysis, nuanced responses |
-| claude-3-opus | anthropic | Research, complex analysis, technical writing, code generation |
-| gemini-pro | google | Multimodal tasks, code generation, creative content |
-| mistral-large | mistral | General purpose tasks, code assistance, content generation |
+| `gpt-5.4` | openai | Complex reasoning, coding and debugging, multi-step agentic tasks |
+| `gpt-5.4-mini` | openai | Everyday tasks, quick responses, high-volume workloads |
+| `openai/gpt-oss-120b` | groq | Low-latency responses, simple classification, cost-sensitive workloads |
+| `claude-fable-5-1` | anthropic | Hardest reasoning tasks, long agentic coding, large refactors |
+| `claude-opus-5-5` | anthropic | Research, complex analysis, technical writing, code generation |
+| `claude-sonnet-5-5` | anthropic | Everyday coding, detailed analysis, agentic tool use |
+| `claude-haiku-5-5` | anthropic | Classification, summarization, simple queries |
+| `gemini-2.5-pro` | gemini | Multimodal tasks, code generation, very long documents |
+| `deepseek-v4-pro` | deepseek | Complex problem solving, logical reasoning, mathematical analysis |
+| `mistral-large-latest` | mistral | General purpose tasks, code assistance, content generation |
+| `minimax/minimax-m3` | openrouter | Long-horizon agentic tasks, coding, very long documents |
+| `z-ai/glm-5.3` | openrouter | Complex software engineering, long-horizon agent tasks, step-by-step reasoning |
 
-<Warning>
-  Most of these are older model names. If your provider no longer serves the model the router picks, the execution call fails. Pass a `system_prompt` that lists the models you can call.
-</Warning>
+The prompt tells the routing model to name one of these exactly, with that entry's provider. To route among other models, pass a `system_prompt` that lists them.
 
 ## Provider Capabilities
 
@@ -461,6 +457,7 @@ The default routing prompt embeds these recommendations. The routing model can s
 | Groq | High-speed inference | Real-time applications | Optimized for specific models |
 | DeepSeek | Specialized reasoning | Scientific computing | Custom API integration |
 | Mistral | Open source flexibility | General applications | Self-hosted options available |
+| OpenRouter | One gateway to many providers | MiniMax and Z.ai GLM models | Requires `OPENROUTER_API_KEY` |
 
 ## Performance Optimization Tips
 

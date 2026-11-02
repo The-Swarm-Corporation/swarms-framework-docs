@@ -45,7 +45,7 @@ graph TD
 | `agent_name` | `str` | `"Agent Judge"` | Name of the agent judge |
 | `description` | `str` | `"You're an expert AI agent judge..."` | Description of the agent's role, passed to the internal agent as `agent_description` |
 | `system_prompt` | `str` | `None` | Custom system instructions (uses the built-in evaluation prompt if None) |
-| `model_name` | `str` | `"openai/o1"` | LLM model for evaluation |
+| `model_name` | `str` | `"gpt-5.4"` | LLM model for evaluation |
 | `max_loops` | `int` | `1` | Number of evaluation iterations in `run()` |
 | `verbose` | `bool` | `False` | Stored on the instance |
 | `evaluation_criteria` | `Optional[Dict[str, float]]` | `None` | Criteria and weights, appended to the system prompt and to every evaluation request |

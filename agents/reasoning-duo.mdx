@@ -24,12 +24,12 @@ Task Input → Reasoning Agent → Structured Analysis → Main Agent → Final 
 | `model_names` | `list[str]` | `["gpt-5.4", "gpt-5.4"]` | `model_names[1]` is the main agent's model. `model_names[0]` is used for the reasoning agent only when `reasoning_model_name` is `None` |
 | `system_prompt` | `str` | `"You are a helpful..."` | System prompt for the main agent. The reasoning agent always uses the built-in `REASONING_PROMPT` |
 | `output_type` | `OutputType` | `"dict-all-except-first"` | Format of the value returned by `run()` |
-| `reasoning_model_name` | `Optional[str]` | `"gpt-4o"` | Model used by the reasoning agent; if `None`, falls back to `model_names[0]` |
+| `reasoning_model_name` | `Optional[str]` | `None` | Model used by the reasoning agent. `None` runs it on `model_names[0]`, or on `model_name` when `model_names` is not given, so a duo built on one provider stays on it |
 | `max_loops` | `int` | `1` | Number of reasoning/main-agent loop iterations in `run()` |
 | `*args`, `**kwargs` | | | Extra `Agent` arguments applied to both internal agents |
 
 <Warning>
-`reasoning_model_name` defaults to `"gpt-4o"`, so `model_names[0]` is ignored unless you set `reasoning_model_name=None`. Set `reasoning_model_name` to choose the reasoning agent's model.
+`reasoning_model_name` defaults to `None`, which runs the reasoning agent on `model_names[0]` (or on `model_name` when `model_names` is not given). Set it to put the reasoning agent on a different model.
 </Warning>
 
 ### Methods
