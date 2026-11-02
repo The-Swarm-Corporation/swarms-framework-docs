@@ -112,10 +112,6 @@ results = workflow.run(
   Output format for results. The default returns each agent's message as a `{"role", "content"}` dict, without the user's task.
 </ParamField>
 
-<ParamField path="auto_generate_prompts" type="bool" default="False">
-  Accepted and stored, but never read. Setting it has no effect.
-</ParamField>
-
 <ParamField path="autosave" type="bool" default="True">
   Automatically save conversation history to the workflow workspace directory after each run
 </ParamField>
