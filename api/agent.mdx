@@ -747,16 +747,6 @@ def run_concurrent_tasks(
   Every task runs on the same agent and shares its `short_memory`. For isolated runs, give each task its own agent.
 </Note>
 
-### bulk_run
-
-Generate responses for multiple input sets, one after another. Each input is a dict of kwargs forwarded to `run`. If any run raises, the error is logged and `bulk_run` returns `None`.
-
-```python
-def bulk_run(
-    inputs: List[Dict[str, Any]],
-) -> List[str]
-```
-
 ### save
 
 Save the agent's current state to a JSON file via `SafeStateManager`, writing atomically through a temporary file. A relative `file_path` is resolved inside the agent workspace (`agent.workspace.dir`); an absolute path is used as-is. `.json` is appended when missing. With no argument, `saved_state_path` is used. `long_term_memory`, when set, is saved alongside as `{name}_memory.json`.
@@ -1058,7 +1048,6 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `arun_stream(task, img)` | Async streaming generator over `run` | `async for t in agent.arun_stream("Task"): ...` |
 | `run_batched(tasks, imgs)` | Run multiple tasks sequentially | `agent.run_batched(["Task 1", "Task 2"])` |
 | `run_concurrent_tasks(tasks)` | Run multiple tasks concurrently | `agent.run_concurrent_tasks(["T1", "T2"])` |
-| `bulk_run(inputs)` | Run `run(**input)` for each input dict, in order | `agent.bulk_run([{"task": "T1"}])` |
 | `call_llm(task, img, imgs, current_loop, streaming_callback)` | Make one LLM call through `LLMManager`, with the selected skills attached | `agent.call_llm("Generate text")` |
 | `plan(task)` | Add an LLM-generated plan to the conversation | `agent.plan("Analyze trends")` |
 | `add_memory(message)` | Add a message to short-term memory | `agent.add_memory("Important info")` |
@@ -2100,7 +2089,7 @@ tasks = [
     {"task": "Task 2", "img": "path/to/image.jpg"},
     {"task": "Task 3"}
 ]
-responses = agent.bulk_run(tasks)
+responses = [agent.run(**item) for item in tasks]
 
 # Run multiple tasks in order
 task_list = ["Analyze data", "Generate report", "Create summary"]
