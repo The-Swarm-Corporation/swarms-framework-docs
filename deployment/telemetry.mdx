@@ -156,6 +156,7 @@ Classes not in this list, such as `ReasoningDuo` or `TreeOfThoughts`, emit no sp
 | `SWARMS_TELEMETRY_ON` | unset (**on**) | Master switch; set to `false` to opt out |
 | `OTEL_SERVICE_NAME` | `swarms` | Service name attached to every span |
 | `SWARMS_OTEL_TIMEOUT` | `8` | Export timeout in seconds |
+| `SWARMS_OTEL_EXPORT_DELAY_MS` | `500` | How long finished spans wait before they are sent. They leave while the run is in flight, so the exit flush has little left to send |
 | `SWARMS_OTEL_MAX_CHARS` | `16000` | Max characters per input/output attribute |
 | `SWARMS_OTEL_MAX_CONFIG_CHARS` | `65536` | Max characters for a captured `init` config |
 
