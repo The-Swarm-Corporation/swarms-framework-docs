@@ -150,10 +150,6 @@ moa_result = moa.run(task)
   Stored on the router but not passed to the swarm. After each run, `router.conversation` points at the swarm's own conversation.
 </ParamField>
 
-<ParamField path="agents_config" type="Dict[Any, Any]">
-  Stored on the router. No swarm factory reads it.
-</ParamField>
-
 <ParamField path="verbose" type="bool" default="False">
   Emit info / debug logs (reliability check, cache hits, swarm creation).
 </ParamField>
