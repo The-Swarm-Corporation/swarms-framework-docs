@@ -184,6 +184,16 @@ All output below is gated on `agent.print_on`. With `print_on=False`, the manage
 | MCP tools fetched | A one-line panel with the number of MCP tools integrated. |
 | `complete_task` call | A `Task Completion Summary` panel. |
 
+## Listing tools
+
+### list_tools
+
+```python
+def list_tools(self) -> List[str]
+```
+
+Names of every tool the agent can call. `Agent.list_tools()` returns the same list. Local tools from `tools=` and `tools_list_dictionary=` come first, then MCP tools, then the built-ins: `handoff_task`, `tool_search` and the autonomous-loop tools. Tools deferred behind `tool_search` are included, since the agent can load and call them. MCP schemas are fetched at most once per agent; if no server can be reached, the error is logged and the other names are still returned. Names are deduplicated and in a stable order.
+
 ## Setup
 
 ### setup_tools

@@ -179,6 +179,16 @@ def __call__(self, task: str) -> Union[List[Agent], List[Dict[str, str]]]
 
 Alias for `run()`. Follows `return_dict`.
 
+---
+
+### `usage`
+
+```python
+builder.usage  # property
+```
+
+Provider token usage summed over every `build_configs()` call, which every `run()` and `build_agents()` goes through. A dict with `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`, the same keys as [`Agent.usage`](/agents/token-usage). It counts the builder's own calls, not the agents it builds.
+
 ## Output shapes
 
 ```python

@@ -310,6 +310,25 @@ def parse_markdown_file(self, file_path: str) -> AgentConfig
 
 Returns the parsed [`AgentConfig`](#agentconfig). Raises `FileNotFoundError` when the file is missing and `ValueError` when it has no frontmatter or fails validation.
 
+### parse_yaml_frontmatter()
+
+Lowest-level: split Markdown text into its YAML frontmatter and the body below it.
+
+```python
+def parse_yaml_frontmatter(self, content: str) -> Dict[str, Any]
+```
+
+**Returns:** `{"frontmatter": dict, "content": str}`. When the text does not start with a `---` line, has no closing `---`, or its YAML fails to parse (logged as a warning), `frontmatter` is `{}` and `content` is the whole text unchanged.
+
+```python
+from swarms import AgentLoader
+
+parts = AgentLoader().parse_yaml_frontmatter(
+    "---\nname: Researcher\nmodel_name: gpt-5.4\n---\nYou research topics thoroughly."
+)
+# {"frontmatter": {"name": "Researcher", "model_name": "gpt-5.4"}, "content": "You research topics thoroughly."}
+```
+
 ## Usage Examples
 
 ### Auto-Dispatch on Extension

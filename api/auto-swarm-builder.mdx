@@ -292,6 +292,16 @@ Called once from `__init__`. Call it again yourself if you change `max_agents` o
 
 ---
 
+### `usage`
+
+```python
+builder.usage  # property
+```
+
+Provider token usage summed over everything the builder has run: every boss LLM call that designed a swarm, plus the [`SwarmRouter.usage`](/api/swarm-router) of every router the builder executed. A dict with `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`, the same keys as [`Agent.usage`](/agents/token-usage).
+
+---
+
 ### `list_types()`
 
 ```python
