@@ -17,10 +17,10 @@ Based on the research paper: [Self-Consistency Improves Chain of Thought Reasoni
 | `name` | `str` | `"Self-Consistency-Agent"` | Name of the agent |
 | `description` | `str` | `"An agent that uses self consistency..."` | Description of the agent's purpose |
 | `system_prompt` | `str` | `CONSISTENCY_SYSTEM_PROMPT` | System prompt for the reasoning agent |
-| `model_name` | `str` | `"gpt-5.4"` | The underlying language model to use |
+| `model_name` | `str` | `"gpt-5.4"` | The model each sample and the aggregator run on |
 | `num_samples` | `int` | `5` | Number of independent responses to generate |
 | `max_loops` | `int` | `1` | Maximum number of reasoning loops per sample |
-| `majority_voting_prompt` | `Optional[str]` | `majority_voting_prompt` | Stored on the instance. `run()` does not pass it to the aggregator, which always uses the module's default majority voting prompt |
+| `majority_voting_prompt` | `Optional[str]` | `majority_voting_prompt` | The prompt `run()` gives the aggregator. `None` uses the module's default majority voting prompt |
 | `eval` | `bool` | `False` | Enable evaluation mode for answer validation |
 | `output_type` | `OutputType` | `"dict"` | Format of the output |
 | `random_models_on` | `bool` | `False` | Enable random model selection for diversity |
@@ -34,7 +34,7 @@ Based on the research paper: [Self-Consistency Improves Chain of Thought Reasoni
 | `check_responses_for_answer(responses, answer)` | Checks if `answer` appears as a substring of any response | `bool` |
 | `batched_run(tasks, *args, **kwargs)` | Calls `run` on each task in order | `list` of `run` results |
 
-`aggregation_agent(responses, prompt?, model_name?)` is a module-level helper function (not a method on `SelfConsistencyAgent`) used internally to synthesize the final answer via majority voting. Import it separately as `from swarms.agents.consistency_agent import aggregation_agent` if you need it directly. `run()` calls it with its defaults, so the aggregator always runs on `"gpt-5.4"`, whatever `model_name` you set.
+`aggregation_agent(responses, prompt?, model_name?)` is a module-level helper function (not a method on `SelfConsistencyAgent`) used internally to synthesize the final answer via majority voting. Import it separately as `from swarms.agents.consistency_agent import aggregation_agent` if you need it directly. `run()` calls it with the agent's `majority_voting_prompt` and `model_name`, so the aggregator runs on the model you set.
 
 ## Examples
 
