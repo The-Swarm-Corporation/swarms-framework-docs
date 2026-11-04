@@ -185,6 +185,20 @@ results = moa.run_concurrently(tasks)
   Every task runs on the same instance, conversation and worker agents, so concurrent tasks can overwrite each other's state. Prefer `run_batched()`, or one `MixtureOfAgents` per task, when results must stay isolated.
 </Warning>
 
+### arun()
+
+Await the mixture from async code. It returns what `run()` returns. Layers run in order, and the workers in a layer run together, up to `max_concurrency` at once. `max_concurrency` defaults to `max_workers`, or every worker when that is unset.
+
+```python
+import asyncio
+
+result = asyncio.run(
+    moa.arun("Analyze investment opportunity", max_concurrency=2)
+)
+```
+
+A failing worker's error is recorded as that worker's answer, and the other workers carry on. A failing aggregator raises.
+
 ## Use Cases
 
 ### Investment Analysis
