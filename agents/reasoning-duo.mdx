@@ -18,8 +18,8 @@ Task Input → Reasoning Agent → Structured Analysis → Main Agent → Final 
 |-----------|------|---------|-------------|
 | `id` | `str` | `generate_id("reasoning-duo")` | Unique identifier for the duo (`<prefix>-<32 hex chars>`) |
 | `agent_name` | `str` | `"reasoning-agent-01"` | Base name for the two internal agents, which are suffixed `-reasoning` and `-main` |
-| `agent_description` | `str` | `"A highly intelligent..."` | Stored on the instance. It is handed to both internal agents as `description`, which `Agent` does not use |
-| `model_name` | `str` | `"gpt-5.4"` | Stored on the instance; not currently used to configure either internal agent |
+| `agent_description` | `str` | `"A highly intelligent..."` | Description given to both internal agents as their `agent_description` |
+| `model_name` | `str` | `"gpt-5.4"` | Model for the main agent when `model_names` is not given, and for the reasoning agent too unless `reasoning_model_name` is set |
 | `description` | `str` | `"A highly intelligent..."` | Stored on the instance; not used by either internal agent |
 | `model_names` | `list[str]` | `["gpt-5.4", "gpt-5.4"]` | `model_names[1]` is the main agent's model. `model_names[0]` is used for the reasoning agent only when `reasoning_model_name` is `None` |
 | `system_prompt` | `str` | `"You are a helpful..."` | System prompt for the main agent. The reasoning agent always uses the built-in `REASONING_PROMPT` |
