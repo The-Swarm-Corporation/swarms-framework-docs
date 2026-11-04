@@ -570,7 +570,6 @@ from swarms.structs.cron_job import (
     CronJobConfigError,
     CronJobError,
     CronJobExecutionError,
-    CronJobScheduleError,
 )
 ```
 
@@ -587,17 +586,6 @@ try:
     cron = CronJob(agent=None, interval="10minutes")
 except CronJobConfigError as e:
     print(f"Configuration error: {e}")
-```
-
-### CronJobScheduleError
-
-Defined for scheduling errors, but `CronJob` does not currently raise it. An invalid interval raises `CronJobConfigError`:
-
-```python
-try:
-    cron = CronJob(agent=agent, interval="invalid_format")
-except CronJobConfigError as e:
-    print(f"Invalid interval: {e}")
 ```
 
 ### CronJobExecutionError
