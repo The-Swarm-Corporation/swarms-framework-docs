@@ -9,7 +9,7 @@ Swarms gives you two token numbers for an agent:
 - `agent.usage` is what the provider billed. It sums the token counts the provider reports on every call the agent has made.
 - `agent.input_tokens` is an estimate of the next request. It counts what the agent is about to send, before you run it.
 
-`SwarmRouter`, `GraphWorkflow`, `HeavySwarm` and `TreeOfThoughts` expose a `usage` property with the same keys, summed over the agents they run.
+`SwarmRouter`, `GraphWorkflow`, `HeavySwarm`, `LLMCouncil` and `TreeOfThoughts` expose a `usage` property with the same keys, summed over the agents they run.
 
 ## agent.usage
 
@@ -242,6 +242,18 @@ swarm.run("What are the main risks of building a data center in a hot climate?")
 print(swarm.usage)
 ```
 
+### LLMCouncil.usage
+
+`council.usage` adds up `Agent.usage` for every council member and the Chairman. Each member is called twice per run, once to answer and once to rank the anonymized answers. It grows across `run()` and `batched_run()` calls.
+
+```python
+from swarms import LLMCouncil
+
+council = LLMCouncil(verbose=False)
+council.run("Should we move our API from REST to gRPC?")
+print(council.usage)
+```
+
 ### TreeOfThoughts.usage
 
 `TreeOfThoughts` runs each model call on a single-use agent and folds its usage into the search. `tot.usage` is the total over every search the instance has run. `tot.last_result.usage` holds the latest search alone, next to `last_result.llm_calls` and `last_result.nodes_expanded`. See [Tree of Thoughts](/agents/tree-of-thoughts).
@@ -281,6 +293,7 @@ Or run them through a `SwarmRouter` and read `router.usage`.
 | `router.usage` | `agents` plus `Agent` attributes of the swarms it built | Never; derived from agent totals |
 | `workflow.usage` (`GraphWorkflow`) | Agent nodes, including nested subgraphs | Never; derived from agent totals |
 | `swarm.usage` (`HeavySwarm`) | Question generation plus every agent in `swarm.agents` | Never |
+| `council.usage` (`LLMCouncil`) | Every council member plus the Chairman | Never; derived from agent totals |
 | `tot.usage` (`TreeOfThoughts`) | Every search; `last_result.usage` holds the latest one | Never; `last_result` is replaced each run |
 
 ## Reference
@@ -290,5 +303,6 @@ Or run them through a `SwarmRouter` and read `router.usage`.
 - `SwarmRouter.usage`: `swarms/structs/swarm_router.py`
 - `GraphWorkflow.usage`: `swarms/structs/graph_workflow.py`
 - `HeavySwarm.usage`: `swarms/structs/heavy_swarm.py`
+- `LLMCouncil.usage`: `swarms/structs/llm_council.py`
 - `TreeOfThoughts.usage`: `swarms/agents/tree_of_thoughts.py`
 - Runnable examples: `examples/single_agent/utils/agent_usage.py` and `examples/multi_agent/swarm_router/swarm_router_usage.py`
