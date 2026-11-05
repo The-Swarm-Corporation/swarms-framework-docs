@@ -1,6 +1,6 @@
 ---
 title: "AgentMailChannel Quickstart"
-description: "Run agents in an AgentMail email thread that people can read and reply to"
+description: "Run agents in an email thread, on AgentMail or Resend, that people can read and reply to"
 icon: "envelopes-bulk"
 ---
 
@@ -159,6 +159,39 @@ later.messages()
 ```
 
 For the EU region, pass `base_url="https://api.agentmail.eu"`.
+
+## Run it on Resend
+
+Teams that already send through [Resend](https://resend.com) can run the same thread from their own domain, without an AgentMail account.
+
+1. In Resend, add and verify a domain for sending. A subdomain such as `agents.example.com` keeps its MX record away from the mail you already receive.
+2. On the domain's page, turn on **Enable Receiving**, add the MX record it shows at your DNS host, and wait for it to verify. People's replies reach the channel through this record.
+3. Create an API key with **Full access** (a sending-only key cannot read replies) and export it:
+
+```bash
+export RESEND_API_KEY="re_..."
+```
+
+4. Pass `backend="resend"` and send from any address on the domain:
+
+```python
+from swarms import Agent, AgentMailChannel
+
+channel = AgentMailChannel(
+    inbox_id="research@agents.example.com",
+    to="you@example.com",
+    subject="EV battery market report",
+    backend="resend",
+)
+
+Agent(agent_name="Researcher", model_name="gpt-5.4", max_loops=1, channel=channel).run(
+    "Report on the EV battery market."
+)
+```
+
+Each email comes from `Researcher <research@agents.example.com>`. When you reply, the agents read your answer on their next run, without the quoted history.
+
+On Resend, `clear()` only forgets the thread locally, and a thread rejoined with `thread_id` shows people's replies and the posts made through that channel instance. See [Resend backend](/api/channels/agentmail-channel#resend-backend).
 
 ## Tips
 
