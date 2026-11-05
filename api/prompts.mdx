@@ -72,18 +72,6 @@ The default `id` is generated once, when the module is imported, so every `Promp
   Folder path within WORKSPACE_DIR for autosaving
 </ParamField>
 
-<ParamField path="auto_generate_prompt" type="bool" default="False">
-  Stored on the model but not used by any `Prompt` method
-</ParamField>
-
-<ParamField path="parent_folder" type="str" default="WORKSPACE_DIR">
-  Defaults to the workspace directory. Stored only; autosave always writes under `WORKSPACE_DIR`
-</ParamField>
-
-<ParamField path="llm" type="Any" default="None">
-  Stored on the model but not used by any `Prompt` method
-</ParamField>
-
 ### Methods
 
 #### edit_prompt
@@ -176,10 +164,6 @@ schema = BaseTool(tools=[double]).convert_tool_into_openai_schema()
 prompt.edit_prompt(prompt.get_prompt() + "\n\n" + json.dumps(schema, indent=2))
 ```
 </Warning>
-
-#### save_to_storage and load_from_storage
-
-Placeholders for a storage backend. Both raise `NotImplementedError`; use `autosave` or `return_json()` to persist a prompt.
 
 ## Pre-built Prompt Templates
 
