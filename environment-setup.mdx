@@ -93,6 +93,7 @@ Only needed if you use the email [comms channels](/api/channels/overview):
 | `SMTP_USERNAME` | [`SmtpChannel`](/api/channels/smtp-channel) login, when `username` is not passed. Falls back to `from_address` |
 | `SMTP_PASSWORD` | `SmtpChannel` password, when `password` is not passed. For Gmail, use an app password |
 | `AGENTMAIL_API_KEY` | [`AgentMailChannel`](/api/channels/agentmail-channel), when `api_key` is not passed |
+| `RESEND_API_KEY` | `AgentMailChannel(backend="resend")`, when `api_key` is not passed. Needs Full access |
 
 ### LLM Provider API Keys
 
@@ -162,6 +163,7 @@ SWARMS_API_KEY="your-swarms-key" # only for the Swarms marketplace
 SMTP_USERNAME=""
 SMTP_PASSWORD=""
 AGENTMAIL_API_KEY=""
+RESEND_API_KEY=""
 ```
 
 <Note>

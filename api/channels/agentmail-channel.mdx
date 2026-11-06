@@ -1,6 +1,6 @@
 ---
 title: "AgentMailChannel"
-description: "A comms channel kept as one email thread in an AgentMail inbox that people can reply to"
+description: "A comms channel kept as one email thread, on AgentMail or Resend, that people can reply to"
 icon: "envelopes-bulk"
 ---
 
@@ -8,7 +8,7 @@ icon: "envelopes-bulk"
 
 `AgentMailChannel` keeps a conversation as one email thread in an [AgentMail](https://agentmail.to) inbox. Each post is an email from the inbox to the people in `to`: the first starts the thread and the rest reply in it. People on the thread can reply from their own mail client, and their replies join the conversation under their email address.
 
-It talks to the AgentMail REST API over HTTPS, so there is no SMTP or IMAP server to configure. To use a mailbox you already run instead, see [`SmtpChannel`](/api/channels/smtp-channel).
+It talks to the AgentMail REST API over HTTPS, so there is no SMTP or IMAP server to configure. With `backend="resend"`, the same thread runs on [Resend](https://resend.com) from your own verified domain instead (see [Resend backend](#resend-backend)). To use a mailbox you already run, see [`SmtpChannel`](/api/channels/smtp-channel).
 
 ```python
 from swarms import Agent, AgentMailChannel
@@ -53,13 +53,14 @@ AgentMailChannel(
     subject: str = "Swarms conversation",
     thread_id: Optional[str] = None,
     api_key: Optional[str] = None,
-    base_url: str = "https://api.agentmail.to",
+    base_url: Optional[str] = None,
     timeout: float = 30.0,
+    backend: Literal["agentmail", "resend"] = "agentmail",
 )
 ```
 
 <ParamField path="inbox_id" type="str" required>
-  The inbox the agents send from, such as `research@agentmail.to`.
+  The inbox the agents send from, such as `research@agentmail.to`. On Resend, the address to send from, on a domain with sending and receiving verified.
 </ParamField>
 
 <ParamField path="to" type="str | List[str]" required>
@@ -71,28 +72,32 @@ AgentMailChannel(
 </ParamField>
 
 <ParamField path="thread_id" type="str" default="None">
-  An existing AgentMail thread to join instead of starting one. The first post then replies to the thread's newest message.
+  An existing AgentMail thread to join instead of starting one. The first post then replies to the thread's newest message. On Resend, the `thread_id` a channel saved earlier.
 </ParamField>
 
 <ParamField path="api_key" type="str" default="None">
-  An AgentMail API key. Defaults to the `AGENTMAIL_API_KEY` environment variable.
+  The backend's API key. Defaults to `AGENTMAIL_API_KEY`, or to `RESEND_API_KEY` on Resend.
 </ParamField>
 
-<ParamField path="base_url" type="str" default="https://api.agentmail.to">
-  The API host. Use `https://api.agentmail.eu` for the EU region.
+<ParamField path="base_url" type="str" default="None">
+  The API host. Defaults to `https://api.agentmail.to` (use `https://api.agentmail.eu` for the EU region), or `https://api.resend.com` on Resend.
 </ParamField>
 
 <ParamField path="timeout" type="float" default="30.0">
   Seconds to wait for each call.
 </ParamField>
 
-**Raises:** `ValueError` if no API key is passed or set.
+<ParamField path="backend" type="str" default="agentmail">
+  `"agentmail"` or `"resend"`.
+</ParamField>
+
+**Raises:** `ValueError` if `backend` is unknown, or if no API key is passed or set. The message names the variable to set.
 
 ### Attributes
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `thread_id` | `str` or `None` | The AgentMail thread id. Set by the first post. Save it to rejoin the thread later |
+| `thread_id` | `str` or `None` | The AgentMail thread id, or on Resend the id every post carries in `References`. Set by the first post. Save it to rejoin the thread later |
 | `inbox_id` | `str` | The sending inbox |
 | `to` | `str` or `List[str]` | The recipients |
 | `client` | `httpx.Client` | The connection pool every call goes through |
@@ -114,6 +119,31 @@ AgentMail adds its own footer and the quoted thread to each email body. So that 
 | A person's reply | Their `From` address | AgentMail's `extracted_text`: the reply without the history it quotes |
 
 The two headers are trusted only on mail the inbox sent. A reply that sets `X-Swarms-Agent` itself is still attributed to its `From` address.
+
+## Resend backend
+
+```python
+channel = AgentMailChannel(
+    inbox_id="research@agents.example.com",
+    to="you@example.com",
+    subject="EV report",
+    backend="resend",
+)  # Reads RESEND_API_KEY
+```
+
+The key needs **Full access**: a "Sending access" key can send but gets `401 restricted_api_key` when `messages()` reads received mail. `inbox_id`'s domain must be verified in Resend for sending, with receiving turned on (see the [quickstart](/examples/channels/agentmail-channel#run-it-on-resend)).
+
+Resend has no thread object, so the channel builds the thread itself:
+
+| | How it works on Resend |
+|---|---|
+| `post()` | `POST /emails` from `"<agent name>" <inbox_id>`, with an `Idempotency-Key`, `X-Swarms-Agent`, and `References: <thread_id>`. Resend replaces any custom `Message-ID`, but replies copy `References`, so that header ties the thread together |
+| `messages()` | This instance's posts, exactly as sent, plus each email someone else sent to `inbox_id` whose `References` contains `thread_id`, under its `From` address with the quoted history removed. Oldest first |
+| `clear()` | Forgets the thread locally, so the next post starts a new one. Resend cannot delete sent mail, so nothing is deleted anywhere |
+
+- **Joining a thread** with `thread_id=` from another process shows people's replies and only the posts made through this instance.
+- **Requests per read:** one call per 100 received emails on the account, plus one call for each new email to `inbox_id`. Each email is fetched once per channel.
+- **Replies are matched by `References`.** Mail clients such as Gmail copy it into a reply. A client that leaves it out is not read.
 
 ## Methods
 
@@ -139,7 +169,7 @@ def messages(self) -> List[Dict[str, Any]]
 
 ### clear()
 
-Delete the thread from the inbox, so the next post starts a new one. Emails already delivered stay in the recipients' mailboxes.
+Delete the thread from the inbox, so the next post starts a new one. Emails already delivered stay in the recipients' mailboxes. On Resend, the thread is only forgotten locally: nothing is deleted.
 
 ```python
 def clear(self) -> None
