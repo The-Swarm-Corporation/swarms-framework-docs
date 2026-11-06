@@ -87,6 +87,21 @@ def batched_run(self, tasks: List[str]) -> list
 
 **Returns:** List of formatted outputs
 
+### usage
+
+```python
+@property
+def usage(self) -> dict
+```
+
+Provider token usage summed over every council member and the Chairman. Each member is called twice per run, once to answer and once to rank, and the Chairman once. Keys are `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`. The total grows across `run()` and `batched_run()` calls, and each read returns a new dict. See [Token usage](/agents/token-usage).
+
+```python
+council = LLMCouncil(verbose=False)
+council.run("Should we move our API from REST to gRPC?")
+print(council.usage["total_tokens"])
+```
+
 ## Usage Examples
 
 ### Basic Usage with Default Council
