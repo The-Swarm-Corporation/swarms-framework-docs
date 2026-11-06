@@ -28,13 +28,9 @@ prompt = Prompt(
 
 ### Constructor
 
-<ParamField path="id" type="str" default="uuid.uuid4().hex">
-  Identifier for the prompt, also used in the autosave file name
+<ParamField path="id" type="str" default="generate_id('prompt')">
+  Identifier for the prompt, also used in the autosave file name. Each prompt created without an `id` gets a new one of the form `prompt-<32 hex chars>`
 </ParamField>
-
-<Warning>
-The default `id` is generated once, when the module is imported, so every `Prompt` created without an explicit `id` shares the same value. With `autosave=True` those prompts overwrite each other's file. Pass your own `id` (for example `uuid.uuid4().hex`) for each prompt you autosave.
-</Warning>
 
 <ParamField path="name" type="str" default="prompt">
   Name of your prompt
@@ -380,7 +376,6 @@ prompt = get_evaluation_prompt(
 ```python
 import json
 import os
-import uuid
 
 # Set before importing swarms, which resolves WORKSPACE_DIR on import
 os.environ["WORKSPACE_DIR"] = "./workspace"
@@ -389,7 +384,6 @@ from swarms import BaseTool, Prompt
 
 # Create a prompt with autosave
 prompt = Prompt(
-    id=uuid.uuid4().hex,
     name="market_analysis",
     description="Financial market analysis prompt",
     content="""You are a financial analyst. Analyze the following:
@@ -454,7 +448,6 @@ print(json_export)
 4. **Add context**: Include detailed descriptions to document the prompt's purpose
 5. **Organize by folder**: Use the `autosave_folder` parameter to organize prompts by category
 6. **Regular rollbacks**: Test different prompt versions using rollback functionality
-7. **Unique IDs**: Pass an explicit `id` to every prompt you autosave
 
 ## Thread safety
 
