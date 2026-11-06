@@ -33,10 +33,6 @@ The swarm follows a cycle-based workflow:
 3. **Evaluation**: A judge agent evaluates the combined results and decides: complete, fill gaps, or fresh start
 4. **Iteration**: If not complete, the planner receives judge feedback and produces new tasks for the next cycle
 
-<Note>
-`PlannerWorkerSwarm` is not exported from the top-level `swarms` package. Import it from `swarms.structs.planner_worker_swarm`.
-</Note>
-
 `PlannerWorkerSwarm` emits OpenTelemetry spans: one when it is constructed, and one for each `run()` call. Worker threads carry the tracing context, so each worker's `Agent.run` span nests under the swarm run. See [Telemetry](/deployment/telemetry) to turn tracing off.
 
 ## Installation
@@ -151,8 +147,7 @@ def get_status(self) -> Dict[str, Any]
 ### Quick Start
 
 ```python
-from swarms import Agent
-from swarms.structs.planner_worker_swarm import PlannerWorkerSwarm
+from swarms import Agent, PlannerWorkerSwarm
 
 swarm = PlannerWorkerSwarm(
     agents=[
@@ -173,8 +168,7 @@ print(result)
 Set `max_loops > 1` so the judge can request additional planning cycles when the goal is not yet achieved:
 
 ```python
-from swarms import Agent
-from swarms.structs.planner_worker_swarm import PlannerWorkerSwarm
+from swarms import Agent, PlannerWorkerSwarm
 
 workers = [
     Agent(
