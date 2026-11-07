@@ -18,7 +18,7 @@ pip install -U swarms
 
 ```mermaid
 graph TD
-    A[DebateWithJudge System] --> B[Brief Pro, Con, and Judge on Their Roles]
+    A[DebateWithJudge System] --> B[Reset Pro, Con, and Judge]
     B --> C[Start with Initial Topic]
     C --> D[Round Loop: max_loops]
     D --> E[Pro Agent Presents Argument]
@@ -161,17 +161,17 @@ def run(self, task: str) -> Union[str, List, dict]
 **Process Flow:**
 
 1. **Task Validation**: Validates that the task is a non-empty string
-2. **Fresh Conversation**: Clears the conversation, so each run starts empty
-3. **Agent Briefing**: Runs each of the three agents once on an introduction prompt that names its role, its opponents, and the task. These briefings are not recorded in the conversation
-4. **Multi-Round Execution**: For each round (up to `max_loops`):
+2. **Fresh Start**: Clears the conversation and resets the Pro, Con and Judge agents, so a reused debate doesn't send the previous run's arguments to the model
+3. **Multi-Round Execution**: For each round (up to `max_loops`):
+   - In the first round, each agent's prompt opens with an introduction that names its role, its opponents, and the task
    - Pro agent presents an argument in favor. From round 2 on, it is asked to improve on the judge's previous evaluation
    - Con agent presents a counter-argument to Pro's argument
    - Judge agent evaluates both arguments and provides synthesis. In the last round it is told this is the final evaluation
    - Each agent's final answer, not its whole transcript, is recorded under its name and passed on
    - Judge's synthesis becomes the topic for the next round
-5. **Result Formatting**: Returns the conversation formatted according to `output_type`
+4. **Result Formatting**: Returns the conversation formatted according to `output_type`
 
-A run makes `3 + 3 * max_loops` agent calls: three briefings, then three calls per round.
+A run makes `3 * max_loops` agent calls: Pro, Con and Judge once per round.
 
 **Raises:**
 - `ValueError`: If task is None or empty. (Invalid agent configuration or `max_loops < 1` raise `ValueError` at construction time, in `__init__`, not in `run()`.)
@@ -500,7 +500,7 @@ print(result)
 </Info>
 
 <Warning>
-**Performance**: Batch processing is sequential -- consider parallel execution for large batches. Each run makes 3 briefing calls plus 3 agent calls per round (Pro, Con, Judge). Memory usage scales with conversation history length.
+**Performance**: Batch processing is sequential -- consider parallel execution for large batches. Each run makes 3 agent calls per round (Pro, Con, Judge). Memory usage scales with conversation history length.
 </Warning>
 
 ## Troubleshooting
