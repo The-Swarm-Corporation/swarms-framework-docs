@@ -67,6 +67,7 @@ swarms onboarding --verbose
 - Python version (requires 3.10+)
 - Swarms version (the installed version; no update check)
 - API keys: passes if at least one of `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `COHERE_API_KEY` is set
+- Swarms API key: shows whether `SWARMS_API_KEY` is set. The key is optional, so this row never fails
 - Dependencies: tries to import `torch`, `transformers`, `litellm`, and `rich`. `torch` and `transformers` are not Swarms dependencies, so this row warns unless you installed them yourself
 - Environment file: a non-empty `.env` in the current directory
 - Workspace directory: `WORKSPACE_DIR` is set and exists. Importing Swarms creates `./agent_workspace` and sets the variable when it is unset, so this check normally passes
@@ -111,24 +112,6 @@ swarms get-api-key
 ```
 
 This opens `https://swarms.world/platform/api-keys` in your default browser.
-
----
-
-### check-login
-
-Writes a local login marker and reports success. It does not contact the Swarms platform or validate any key: the first run writes `logged_in` to `~/.cache/swarms/auth` (mode `0600`), and later runs find that file and print "Authentication verified". Use `swarms setup-check` to see which API keys are set.
-
-**Usage:**
-```bash
-swarms check-login
-```
-
-**Parameters:** None
-
-**Example:**
-```bash
-swarms check-login
-```
 
 ---
 
@@ -551,7 +534,7 @@ This executes: `pip install --upgrade swarms`, using whichever `pip` is first on
 
 | Category | Commands |
 |----------|----------|
-| Setup | `init`, `onboarding`, `setup-check`, `get-api-key`, `check-login` |
+| Setup | `init`, `onboarding`, `setup-check`, `get-api-key` |
 | Agent Operations | `agent`, `chat`, `run-agents`, `load-markdown` |
 | Swarm Operations | `autoswarm`, `heavy-swarm`, `llm-council` |
 | Discovery | `models`, `tips` |
