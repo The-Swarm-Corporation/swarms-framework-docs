@@ -563,13 +563,15 @@ This executes: `pip install --upgrade swarms`, using whichever `pip` is first on
 
 ```bash
 swarms --help              # full command and flag reference
+swarms                     # the banner, then the same reference
+swarms --version           # prints swarms <version>, without the banner
 ```
 
 The CLI uses a single flat argument parser (not per-command subparsers), so `swarms <command> --help` prints the same full reference table rather than a filtered, command-specific view.
 
 The `--help` table is hand-written and lags the parser: it omits the `tips` and `models` commands and their flags (`--count`, `--category`, `--all`, `--search`, `--info`, `--provider`) as well as the autoswarm flags `-o`, `-d`, and `--no-run`, and it lists stale defaults for `--model-name` and `--interactive`. This page reflects the parser. Every flag is accepted by every command, but each command only reads the flags documented for it here.
 
-Running `swarms` with no command prints the banner followed by an argparse usage error.
+Running `swarms` with no command prints the banner and the help screen, and exits with status 0. `swarms --version` prints only `swarms <version>`, such as `swarms 16.0.2`, and exits with status 0, so scripts can read it.
 
 ## Common Flags
 
