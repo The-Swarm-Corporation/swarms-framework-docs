@@ -14,11 +14,10 @@ Command reference: [CLI Commands](/cli/commands). Tutorial walkthrough: [CLI Tut
 swarms --help
 swarms onboarding
 swarms get-api-key
-swarms check-login
 swarms setup-check
 ```
 
-`setup-check` validates Python version, package install, API keys, dependencies, and workspace configuration. The checks are local: they confirm a key is set, not that the provider accepts it. `check-login` only writes a local marker file and always reports success.
+`setup-check` validates Python version, package install, API keys, dependencies, and workspace configuration. The checks are local: they confirm a key is set, not that the provider accepts it. It also shows whether `SWARMS_API_KEY` is set. That key is optional, so the row never fails.
 
 ## Single-agent examples
 
