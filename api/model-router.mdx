@@ -444,6 +444,7 @@ The default routing prompt embeds these recommendations. The routing model can s
 | `mistral-large-latest` | mistral | General purpose tasks, code assistance, content generation |
 | `minimax/minimax-m3` | openrouter | Long-horizon agentic tasks, coding, very long documents |
 | `z-ai/glm-5.3` | openrouter | Complex software engineering, long-horizon agent tasks, step-by-step reasoning |
+| `z-ai/glm-5.3-flash` | openrouter | Low-cost coding, high-volume agent tasks, long documents on a budget |
 
 The prompt tells the routing model to name one of these exactly, with that entry's provider. To route among other models, pass a `system_prompt` that lists them.
 
