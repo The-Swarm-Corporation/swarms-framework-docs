@@ -759,7 +759,7 @@ If `WORKSPACE_DIR` is unset, the manager sets it to `./agent_workspace` before c
 | `save_json(filename, data)` | Write `data` as JSON into the directory |
 | `save_text(filename, content)` | Write text into the directory atomically |
 | `save_conversation(conversation=None, filename="conversation_history.json")` | Write conversation history. Defaults to `owner.conversation`; pass it explicitly when the swarm keeps it elsewhere |
-| `save_config(additional_metadata=None)` | Write the owner's configuration to `config.json` |
+| `save_config(additional_metadata=None, exclude=())` | Write the owner's configuration to `config.json`, leaving out the top-level keys in `exclude` |
 | `save_state(state_data=None)` | Write a state snapshot to `state.json` |
 | `save_metadata(execution_result=None, execution_metadata=None)` | Write run metadata to `metadata.json` |
 | `save_all(conversation=None, execution_result=None)` | Write config, state, metadata and conversation. Returns a dict of the written paths |

@@ -243,7 +243,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="False">
-  Save agent state during execution: `save()` at the start and end of each run and on errors, plus a `config.json` snapshot in the agent workspace at each loop step. See [Autosave](#autosave).
+  Save agent state during execution: `save()` and `conversation_history.json` at the start and end of each run and on errors, plus a `config.json` snapshot of the settings in the agent workspace once per loop. See [Autosave](#autosave).
 </ParamField>
 
 <ParamField path="dashboard" type="bool" default="False">
@@ -2053,7 +2053,10 @@ restored.run("Continue with the task")
 
 ### Autosave
 
-When `autosave=True`, the agent saves its configuration at each loop step to `{workspace}/agents/{agent-name}-{id12}/config.json` via its `WorkspaceManager`. Files are written atomically to prevent corruption.
+When `autosave=True`, the agent writes two files to `{workspace}/agents/{agent-name}-{id12}/` via its `WorkspaceManager`, atomically to prevent corruption:
+
+- `config.json`: the agent's settings, once per loop. It leaves out the conversation, so its size doesn't grow with the run.
+- `conversation_history.json`: the conversation, at the start and end of each run and on errors.
 
 ```python
 from swarms import Agent
@@ -2070,6 +2073,10 @@ response = agent.run("Complete a complex multi-step task")
 
 workspace = agent.workspace.dir
 print(f"Files saved to: {workspace}")
+
+# Restore the conversation into another agent
+restored = Agent(model_name="gpt-5.4", agent_name="autosave-demo")
+restored.short_memory.load(f"{workspace}/conversation_history.json")
 ```
 
 The workspace root comes from the `WORKSPACE_DIR` environment variable. Autosave goes through `WorkspaceManager`, which falls back to `{cwd}/agent_workspace` (and sets `WORKSPACE_DIR` to it) when the variable is unset. Other readers are stricter: `agent.workspace_dir`, resolved during construction, is `None` when the variable was unset at that moment. Set `WORKSPACE_DIR` explicitly rather than relying on the fallback.
