@@ -624,16 +624,42 @@ def __call__(
 
 ### arun
 
-Async version of `run`. It runs `run` in a worker thread with `asyncio.to_thread`, passing positional arguments in `run`'s order.
+Async version of `run`, with the same parameters and the same behaviour. It runs on the event loop: model calls, token streaming and MCP tool calls are awaited, so many agents can run concurrently without holding a thread each.
 
 ```python
 async def arun(
     task: Optional[str] = None,
     img: Optional[str] = None,
+    imgs: Optional[List[str]] = None,
+    streaming_callback: Optional[Callable[[str], Any]] = None,
+    messages: Optional[List[Dict[str, Any]]] = None,
     *args,
     **kwargs,
 ) -> Any
 ```
+
+<ParamField path="streaming_callback" type="Callable[[str], Any]" default="None">
+  A sync or async function that receives each token as the provider sends it. Defaults to the agent's own `streaming_callback`.
+</ParamField>
+
+```python
+import asyncio
+from swarms import Agent
+
+agent = Agent(agent_name="Writer", model_name="gpt-5.4", max_loops=1)
+
+async def on_token(token: str) -> None:
+    print(token, end="", flush=True)
+
+async def main():
+    await agent.arun("Write a haiku.", streaming_callback=on_token)
+
+asyncio.run(main())
+```
+
+<Note>
+  Blocking work still runs on worker threads so it does not stall the loop: callable Python tools, handoffs, context compression and the autonomous loop used when `max_loops="auto"`. An `llm` object without an `arun` method has its `run` called in a worker thread.
+</Note>
 
 ### run_batched
 
@@ -1055,9 +1081,9 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 |--------|-------------|---------------|
 | `run(task, img, imgs, streaming_callback, messages)` | Run the agent loop, or the autonomous loop when `max_loops="auto"` | `agent.run("Generate a report")` |
 | `__call__(task, img)` | Alternative way to call `run` | `agent("Generate a report")` |
-| `arun(task, img)` | Async version of `run` | `await agent.arun("Task")` |
+| `arun(task, img, imgs, streaming_callback, messages)` | Async version of `run`, awaited on the event loop | `await agent.arun("Task")` |
 | `run_stream(task, img)` | Sync streaming generator over `run` | `for t in agent.run_stream("Task"): ...` |
-| `arun_stream(task, img)` | Async streaming generator over `run` | `async for t in agent.arun_stream("Task"): ...` |
+| `arun_stream(task, img)` | Async streaming generator over `arun`; closing it early cancels the run | `async for t in agent.arun_stream("Task"): ...` |
 | `run_batched(tasks, imgs)` | Run multiple tasks sequentially | `agent.run_batched(["Task 1", "Task 2"])` |
 | `run_concurrent_tasks(tasks)` | Run multiple tasks concurrently | `agent.run_concurrent_tasks(["T1", "T2"])` |
 | `call_llm(task, img, imgs, current_loop, streaming_callback)` | Make one LLM call through `LLMManager`, with the selected skills attached | `agent.call_llm("Generate text")` |
