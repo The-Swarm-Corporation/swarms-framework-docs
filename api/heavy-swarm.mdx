@@ -27,7 +27,7 @@ from swarms import HeavySwarm
 </ParamField>
 
 <ParamField path="timeout" type="int" default="900">
-  Seconds passed to each worker future's `result()` call. Results are read as each worker finishes, so this does not interrupt a worker that is still running
+  Seconds to wait for the worker agents in each loop. A worker still running when it passes gets the result `Timeout after N seconds`, the other workers' results are kept, and the swarm moves on to synthesis. The stuck worker's thread can't be stopped, so it finishes in the background. Question generation and synthesis aren't covered by this limit
 </ParamField>
 
 <ParamField path="question_agent_model_name" type="str" default="gpt-5.4">
@@ -447,7 +447,7 @@ All dashboard elements use Swarms-inspired red/black styling with professional f
 
 - **Parallel Execution**: The active variant's specialized agents run concurrently
 - **Thread Pool**: Workers run across a pool sized to 95% of the host's CPU cores (at least one thread)
-- **Timeout**: `timeout` is applied when each finished worker's result is read; it does not stop a running worker
+- **Timeout**: the swarm waits at most `timeout` seconds for the workers in each loop, then marks any still running as timed out and continues without them
 
 ## Source Code
 
