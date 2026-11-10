@@ -93,7 +93,7 @@ def step(self, tasks: List[str])
 
 ### run()
 
-Run the batched grid workflow with the given tasks for `max_loops` iterations. Every loop re-sends the same original tasks; outputs are not fed back in as new tasks, though each agent keeps its own conversation memory between loops. This is the main entry point that includes error handling (logs and re-raises any exception).
+Run the batched grid workflow with the given tasks for `max_loops` iterations. Every loop re-sends the same original tasks; outputs are not fed back in as new tasks, though each agent keeps its own conversation memory between loops. Each call starts every `Agent` from a clean history, so that memory carries over between the loops of one run but not from an earlier `run()`. History you add to an agent by hand before `run()` is dropped, as it is in [`ConcurrentWorkflow`](/api/concurrent-workflow). This is the main entry point that includes error handling (logs and re-raises any exception).
 
 ```python
 def run(self, tasks: List[str]) -> List[List[Any]]
