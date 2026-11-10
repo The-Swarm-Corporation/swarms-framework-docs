@@ -92,7 +92,7 @@ Expected CSV format:
 agent_name,description,system_prompt,task,model_name,max_loops
 ```
 
-`agent_name`, `description`, `system_prompt` and `task` are required. The `description` column sets the agent's `agent_description`. `model_name` defaults to `"openai/gpt-4o"` when the column is missing. `max_loops` is read as an integer, or as `auto`, and defaults to `1` when the column is missing or empty. Optional `user_name` and `stopping_token` columns are also read. Errors while loading are logged, not raised.
+`agent_name` and `task` are required. The agents are built by [`AgentLoader`](/api/agent-loader), so every other column is optional and any `AgentLoader` field can be a column, for example `temperature`, `context_length` or `stopping_token`. `description` sets the agent's `agent_description`. A missing column or a blank cell leaves that setting at the `Agent` default, so an agent with no `model_name` runs on the default model and one with no `max_loops` runs one loop. `max_loops` is an integer or `auto`. Columns that are not `AgentLoader` fields, such as `docs`, are ignored. A row that fails validation is skipped, and other errors while loading are logged, not raised.
 
 ### export_to_json()
 
