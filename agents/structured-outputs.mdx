@@ -6,10 +6,59 @@ icon: 'code'
 
 Structured outputs enable agents to return responses in a specific format, such as JSON objects, lists, or Pydantic models. This is essential for integrating agents into applications and workflows.
 
-There are two separate controls:
+There are three separate controls:
 
+- `output_schema` makes `agent.run()` return a validated instance of a Pydantic model.
 - `output_type` decides how `agent.run()` formats the conversation it returns.
 - A function-calling schema in `tools_list_dictionary` makes the model answer with arguments that match your schema.
+
+## Validated Pydantic Output
+
+Pass a Pydantic model as `output_schema`, and `run()` and `arun()` return an instance of it:
+
+```python
+from pydantic import BaseModel
+
+from swarms import Agent
+
+
+class Report(BaseModel):
+    title: str
+    score: float
+
+
+agent = Agent(
+    agent_name="Analyst",
+    model_name="gpt-5.4",
+    max_loops=1,
+    output_schema=Report,
+)
+
+report = agent.run("Rate this plan: ship the beta on Friday.")
+print(report.title, report.score)
+```
+
+On each run:
+
+- The model class is sent as the request's `response_format`, so a provider with native structured output answers in that shape.
+- The agent's last reply is parsed with `Report.model_validate_json`.
+- If it doesn't validate, the validation error goes back to the model as a new user turn that asks for JSON matching the schema. This repeats up to `output_schema_retries` times (default 2).
+- If the reply is still invalid after that, `run()` raises `AgentOutputSchemaError`. Its `raw_output` is the last reply, and `validation_error` is the Pydantic error.
+
+```python
+from swarms import AgentOutputSchemaError
+
+try:
+    report = agent.run("Rate this plan.")
+except AgentOutputSchemaError as error:
+    print("Last reply:", error.raw_output)
+```
+
+With `output_schema` set, the return value is the model instance and `output_type` is not used. Each retry's error and reply stay in `agent.short_memory`. The schema reaches the model only through `response_format`, so use a model that supports structured outputs, or use a function-calling schema as described below.
+
+<Note>
+  `output_schema` is not supported with `max_loops="auto"` yet. Setting both raises `ValueError` at construction.
+</Note>
 
 ## Output Types
 
@@ -27,7 +76,7 @@ Swarms supports multiple output formats through the `output_type` parameter. `ou
 - `"dict-final"` — the content of the last message, as a `(content, content)` tuple
 
 <Warning>
-  The `"xml"` output type was removed. `"basemodel"` is still accepted by the type hint, but the formatter does not handle it: a run with `output_type="basemodel"` raises `ValueError` after the model has answered. Use `"final"` and validate with Pydantic yourself, as shown below.
+  The `"xml"` output type was removed. `"basemodel"` is still accepted by the type hint, but the formatter does not handle it: a run with `output_type="basemodel"` raises `ValueError` after the model has answered. Use [`output_schema`](#validated-pydantic-output) instead.
 </Warning>
 
 ```python

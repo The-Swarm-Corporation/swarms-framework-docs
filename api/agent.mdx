@@ -242,6 +242,14 @@ Each collaborator is independently documented. Reach for it directly when you wa
   How the run's result is formatted. See [Output Types](#output-types) for all 14 accepted values.
 </ParamField>
 
+<ParamField path="output_schema" type="Optional[Type[BaseModel]]" default="None">
+  A Pydantic model. It is sent as the request's `response_format`, and `run` and `arun` return a validated instance of it instead of output shaped by `output_type`. A reply that fails validation is sent back to the model with the error, up to `output_schema_retries` times, and then `AgentOutputSchemaError` is raised. Not supported with `max_loops="auto"`: setting both raises `ValueError`. See [Structured Outputs](/agents/structured-outputs#validated-pydantic-output).
+</ParamField>
+
+<ParamField path="output_schema_retries" type="int" default="2">
+  How many times a reply that fails `output_schema` validation is sent back to the model before `AgentOutputSchemaError` is raised. With the default, the model gets at most three tries.
+</ParamField>
+
 <ParamField path="autosave" type="bool" default="False">
   Save agent state during execution: `save()` at the start and end of each run and on errors, plus a `config.json` snapshot in the agent workspace at each loop step. See [Autosave](#autosave).
 </ParamField>
@@ -567,9 +575,10 @@ Extra keyword arguments are forwarded to the model request and override the agen
 |-----------------------|-----------------|---------------------------------------------------------|
 | Single task           | Per `output_type` | The conversation shaped by `output_type` (a string by default) |
 | `max_loops="auto"`    | Per `output_type` | Shaped by `output_type` on every path, including when the model ends with `complete_task` |
+| `output_schema` set   | The schema's model | A validated instance; `output_type` is not used |
 | Streaming             | Per `output_type` | The complete result after streaming completes          |
 
-**Raises:** `ValueError` for an empty task outside interactive mode. `AgentLLMError`, chained from the provider error, once the last model in `fallback_models` (or the only model) has failed. See [Error Handling](#error-handling).
+**Raises:** `ValueError` for an empty task outside interactive mode. `AgentLLMError`, chained from the provider error, once the last model in `fallback_models` (or the only model) has failed. `AgentOutputSchemaError` when `output_schema` is set and the reply is still invalid after `output_schema_retries` retries. See [Error Handling](#error-handling).
 
 **Examples:**
 
@@ -2212,6 +2221,7 @@ except AgentError as e:
 | Exception | Raised by | Reaches your code |
 |---|---|---|
 | `AgentLLMError` | `call_llm`, wrapping any failed model call (after the client's `retry_attempts` retries), chained to the provider's error | Yes, once every fallback model has also failed |
+| `AgentOutputSchemaError` | `run` and `arun` with `output_schema`, when the last reply still fails validation after `output_schema_retries` retries. It also extends `ValueError`, and has `raw_output` and `validation_error` | Yes |
 | `AgentInitializationError` | The constructor, for an invalid `max_loops` or a missing `context_length`, and for `publish_to_marketplace=True` without `use_cases` | Yes, at construction |
 | `AgentToolExecutionError` | `ToolManager`, when a callable tool fails every retry | No. `run` catches it, records the failure in the conversation, and lets the model react |
 | `AgentRunError` | Nothing in the current source | No |
@@ -2220,7 +2230,7 @@ except AgentError as e:
 When the primary model fails, `run` moves to the next model in `fallback_models` (see [Fallback models](#fallback-models)). Once the list is exhausted, the last model's `AgentLLMError` is raised; read the provider's own exception from `error.__cause__`. Provider errors such as an authentication failure are wrapped the same way, so they also move `run` to the next model. Errors raised outside the model call, such as a bug in your stopping function, raise at once without trying another model.
 
 <Warning>
-  The classes are not all importable from the same place. `swarms.structs.agent` re-exports only `AgentInitializationError`, `AgentLLMError`, `AgentRunError`, and `AgentToolExecutionError`. `from swarms.structs.agent import AgentError` raises `ImportError`. Import from `swarms` or `swarms.schemas` instead.
+  The classes are not all importable from the same place. `swarms.structs.agent` re-exports only `AgentInitializationError`, `AgentLLMError`, `AgentOutputSchemaError`, `AgentRunError`, and `AgentToolExecutionError`. `from swarms.structs.agent import AgentError` raises `ImportError`. Import from `swarms` or `swarms.schemas` instead.
 </Warning>
 
 MCP failures use a separate hierarchy in `swarms.schemas.agent_mcp_errors`: `AgentMCPError`, `AgentMCPConnectionError`, and `AgentMCPToolError`. These extend `Exception`, not `AgentError`, and are also re-exported from `swarms.schemas`.
