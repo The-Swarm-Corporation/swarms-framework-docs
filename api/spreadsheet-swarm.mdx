@@ -29,7 +29,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="agents" type="List[Agent]" default="None">
-  The agents participating in the swarm. Required — the constructor runs a reliability check before any CSV loading happens, so a non-empty `agents` list must be supplied even if `load_path` is also set
+  The agents participating in the swarm. Optional when `load_path` is set; pass at least one of the two, or the constructor raises `ValueError("No agents are provided.")`
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="True">
@@ -45,7 +45,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="load_path" type="str" default="None">
-  Path to a CSV file of agent configurations. Call `load_from_csv()` explicitly after construction to build agents and per-agent tasks from it before calling `run_from_config()`
+  Path to a CSV file of agent configurations. When no `agents` are passed, `run()` and `run_from_config()` load it on first use. When `agents` are passed too, call `load_from_csv()` yourself to add the CSV's agents and tasks
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -92,7 +92,7 @@ Expected CSV format:
 agent_name,description,system_prompt,task,model_name,max_loops
 ```
 
-`agent_name`, `description`, `system_prompt` and `task` are required. The `description` column must be present but is not applied to the agent's `agent_description`. `model_name` defaults to `"openai/gpt-4o"` when the column is missing, and `max_loops` defaults to `1`. Optional `user_name` and `stopping_token` columns are also read. Errors while loading are logged, not raised.
+`agent_name`, `description`, `system_prompt` and `task` are required. The `description` column sets the agent's `agent_description`. `model_name` defaults to `"openai/gpt-4o"` when the column is missing. `max_loops` is read as an integer, or as `auto`, and defaults to `1` when the column is missing or empty. Optional `user_name` and `stopping_token` columns are also read. Errors while loading are logged, not raised.
 
 ### export_to_json()
 
@@ -152,8 +152,6 @@ print(result)
 ### Load from CSV Configuration
 
 <Warning>
-  `agents` must be provided at construction. The constructor runs a reliability check before any CSV loading occurs, so calling `SpreadSheetSwarm(load_path="agents_config.csv", ...)` without `agents` raises `ValueError("No agents are provided.")`. Pass real `Agent` instances in `agents`, then call `load_from_csv()` explicitly.
-
   `load_from_csv()` builds a new agent for every CSV row and appends it to `agents`. It does not reuse the agents you passed. If a passed agent shares an `agent_name` with a CSV row, `run_from_config()` runs both the passed agent and the new one on that row's task.
 </Warning>
 
@@ -164,23 +162,17 @@ Research-Agent,Research specialist,You are a research agent,Research quantum com
 Analysis-Agent,Data analyst,You are an analysis agent,Analyze the research findings
 ```
 
-Then construct with a seed agent, load the CSV, and run:
+Then construct the swarm from the CSV alone and run it:
 ```python
-from swarms import Agent, SpreadSheetSwarm
-
-# Satisfies the constructor check; it has no CSV task, so run_from_config() skips it
-seed = Agent(agent_name="Seed-Agent", model_name="gpt-5.4", max_loops=1)
+from swarms import SpreadSheetSwarm
 
 swarm = SpreadSheetSwarm(
     name="CSV-Swarm",
-    agents=[seed],
     load_path="agents_config.csv",
     max_loops=1
 )
 
-# Builds one Agent per row and records each row's task
-swarm.load_from_csv()
-
+# With no agents passed, this loads the CSV first: one Agent per row, each with its row's task
 result = swarm.run_from_config()
 ```
 
