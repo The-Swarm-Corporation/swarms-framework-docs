@@ -427,7 +427,7 @@ asyncio.run(main())
 ### State Management
 
 <ParamField path="autosave" type="bool" default="False">
-  Save agent state with `save()` and the conversation to `conversation_history.json` at the start and end of each run and on errors. Also write a `config.json` snapshot of the settings, without the conversation, to the agent workspace before the first loop, after each loop and at the end, so `max_loops=n` writes it n+2 times. Interactive runs also save the conversation after each loop. `max_loops="auto"` doesn't autosave. Off by default, so a run writes nothing to disk.
+  Save agent state with `save()` at the start and end of each run and on errors, and the conversation to `conversation_history.json` at the end of each run and on errors. Also write a `config.json` snapshot of the settings, without the conversation, to the agent workspace before the first loop, after each loop and at the end, so `max_loops=n` writes it n+2 times. `max_loops="auto"` doesn't autosave. Off by default, so a run writes nothing to disk.
   
   ```python
   agent = Agent(autosave=True)

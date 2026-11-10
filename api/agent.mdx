@@ -243,7 +243,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="False">
-  Save agent state during execution: `save()` and `conversation_history.json` at the start and end of each run and on errors, plus a `config.json` snapshot of the settings in the agent workspace before the first loop, after each loop and at the end. Interactive runs also save the conversation after each loop, and `max_loops="auto"` doesn't autosave. See [Autosave](#autosave).
+  Save agent state during execution: `save()` at the start and end of each run and on errors, `conversation_history.json` at the end of each run and on errors, and a `config.json` snapshot of the settings in the agent workspace before the first loop, after each loop and at the end. `max_loops="auto"` doesn't autosave. See [Autosave](#autosave).
 </ParamField>
 
 <ParamField path="dashboard" type="bool" default="False">
@@ -2056,7 +2056,7 @@ restored.run("Continue with the task")
 When `autosave=True`, the agent writes two files to `{workspace}/agents/{agent-name}-{id12}/` via its `WorkspaceManager`, atomically to prevent corruption:
 
 - `config.json`: the agent's settings, before the first loop, after each loop and at the end, so `max_loops=3` writes it 5 times. It leaves out the conversation, so its size doesn't grow with the run.
-- `conversation_history.json`: the conversation, at the start and end of each run and on errors. With `interactive=True` it's also written after each loop, so a session killed mid-REPL keeps everything up to the agent's last reply.
+- `conversation_history.json`: the conversation, at the end of each run and on errors.
 
 Autosave doesn't run for `max_loops="auto"`. The autonomous loop never calls it, so it writes neither file at the start, between steps or at the end.
 
