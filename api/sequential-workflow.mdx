@@ -199,7 +199,7 @@ Executes a batch of tasks through the agents concurrently on a thread pool sized
 
 ### `run_stream(task, img=None, with_events=False, **kwargs)`
 
-Stream tokens from each agent in pipeline order, in real time. Each agent's tokens are yielded the moment the LLM produces them; once an agent finishes, its full output is handed off to the next agent — the same hand-off as `run()`, just streamed.
+Stream tokens from each agent in pipeline order, in real time. Each agent's tokens are yielded the moment the LLM produces them. When an agent's model stream ends, its full output goes to the next agent, which starts right away while the previous agent finishes its post-processing (autosave, channel post) in the background. Answers are still recorded in agent order.
 
 Delegates to `AgentRearrange.run_stream` internally.
 
@@ -245,7 +245,7 @@ When called with `with_events=True`, both methods yield three event types:
 |---|---|---|
 | `agent_start` | `agent` | Right before an agent begins streaming |
 | `token` | `agent`, `token` | For every token the agent emits |
-| `agent_end` | `agent`, `output` | After the agent finishes; carries the full output |
+| `agent_end` | `agent`, `output` | When the agent's model stream ends; carries the full output |
 
 ```python
 async for evt in workflow.arun_stream(task, with_events=True):
