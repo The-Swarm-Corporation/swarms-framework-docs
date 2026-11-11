@@ -41,9 +41,8 @@ print(report.title, report.score)
 On each run:
 
 - The model class is sent as the request's `response_format`, so a provider with native structured output answers in that shape.
-- The agent's last reply is parsed with `Report.model_validate_json`.
-- If it doesn't validate, the validation error goes back to the model as a new user turn that asks for JSON matching the schema. This repeats up to `output_schema_retries` times (default 2).
-- If the reply is still invalid after that, `run()` raises `AgentOutputSchemaError`. Its `raw_output` is the last reply, and `validation_error` is the Pydantic error.
+- The agent's last reply is parsed once with `Report.model_validate_json`.
+- If it doesn't validate, `run()` raises `AgentOutputSchemaError`. Its `raw_output` is the reply, and `validation_error` is the Pydantic error. The model is not asked again.
 
 ```python
 from swarms import AgentOutputSchemaError
@@ -54,7 +53,7 @@ except AgentOutputSchemaError as error:
     print("Last reply:", error.raw_output)
 ```
 
-With `output_schema` set, the return value is the model instance and `output_type` is not used. Each retry's error and reply stay in `agent.short_memory`. The schema reaches the model only through `response_format`, so use a model that supports structured outputs, or use a function-calling schema as described below.
+With `output_schema` set, the return value is the model instance and `output_type` is not used. The schema reaches the model only through `response_format`, so use a model that supports structured outputs, or use a function-calling schema as described below.
 
 <Note>
   `output_schema` is not supported with `max_loops="auto"` yet. Setting both raises `ValueError` at construction.
