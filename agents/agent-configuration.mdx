@@ -343,7 +343,7 @@ asyncio.run(main())
 </ParamField>
 
 <ParamField path="dynamic_context_window" type="bool" default="True">
-  Automatically manage context window to prevent overflow.
+  Keep each request within `context_length`. When the history is larger, the oldest turns are left out of the request, keeping the system prompt and the newest turn; the stored history is not changed. The budget is `context_length` minus `max_tokens`, so the reply has room, or the whole `context_length` when `max_tokens` is the larger of the two. Applies to runs with an integer `max_loops`. Set `False` to send the whole history.
   
   ```python
   agent = Agent(dynamic_context_window=True)

@@ -199,6 +199,7 @@ def to_messages(
     agent_name: Optional[str] = None,
     start: int = 0,
     prefix: Sequence[Dict[str, Any]] = (),
+    max_tokens: Optional[int] = None,
 ) -> List[Dict[str, Any]]
 ```
 
@@ -206,6 +207,7 @@ def to_messages(
 - `agent_name` (Optional[str]): The role whose rows become `assistant` turns
 - `start` (int): Index of the first stored message to include
 - `prefix` (Sequence[Dict[str, Any]]): Rows placed ahead of the history from `start`
+- `max_tokens` (Optional[int]): Token budget for the result. When the messages exceed it, the oldest turns are dropped until the rest fit. `None` (the default) returns every turn
 
 **Returns:** A list of chat messages, built row by row:
 - A row recorded by `record_assistant()` with tool calls becomes an `assistant` message carrying `tool_calls`, followed by one `tool` message per call. A call with no recorded result gets `(no result recorded for <tool name>)`.
@@ -213,6 +215,8 @@ def to_messages(
 - Any other row becomes `assistant` when its role equals `agent_name` and `user` otherwise, with its content as a string. Rows whose role is `System` or `Tool Executor`, or whose content is `None`, are skipped.
 
 Because `System` rows are skipped, the system prompt row and the `MEMORY.md` preload are not part of the result.
+
+With `max_tokens` set, turns are dropped oldest first. Lower-case `system` messages and the newest turn are always kept, so the result can still exceed the budget when those alone are larger than it. An `assistant` message with tool calls is dropped together with its `tool` results, so no result is left without its call.
 
 ### compact()
 
