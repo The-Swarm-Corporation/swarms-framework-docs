@@ -319,6 +319,7 @@
               "examples/model-providers/anthropic",
               "examples/model-providers/openai",
               "examples/model-providers/gemini",
+              "examples/model-providers/gemini-decision-model",
               "examples/model-providers/claude-fable-5",
               "examples/model-providers/groq",
               "examples/model-providers/cerebras",

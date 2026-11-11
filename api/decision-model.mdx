@@ -151,6 +151,8 @@ urgent = model.noul(
 )
 ```
 
+A full walkthrough is in the [Gemini decision model example](/examples/model-providers/gemini-decision-model).
+
 Answers come back in the shared shape. Gemini reports usage as `total_input_tokens` and `total_output_tokens`; `DecisionModel` adds `input_tokens` and `output_tokens` beside them, so `usage` and `calculate_cost()` work as for the other providers. The response has no `model` field. A request blocked by Gemini's input safety filters is an HTTP `400`, raised as `httpx.HTTPStatusError`.
 </Tab>
 <Tab title="Any other endpoint">
@@ -723,6 +725,9 @@ Rates answers from several models on several criteria in one request, and compar
 </Card>
 <Card title="Screening funnel" icon="filter" href="https://github.com/kyegomez/swarms/blob/master/examples/decision_models/decision_screening_funnel.py">
 Screens 500 resumes with `arun()`, then sends a shortlist to agents
+</Card>
+<Card title="Gemini return request" icon="box-open" href="/examples/model-providers/gemini-decision-model">
+Decides a return request with `gemini-decision-1`, then checks an attached photo
 </Card>
 <Card title="Ticket triage" icon="ticket" href="https://github.com/kyegomez/swarms/blob/master/examples/decision_models/typesafe_ticket_triage.py">
 Asks choice, score and yes/no questions about one ticket in a single request
