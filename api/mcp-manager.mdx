@@ -209,6 +209,21 @@ Nothing raises per call. An unknown tool name or a failed session becomes an env
 
 Async form: `await manager.aexecute_tool_calls(...)`. To re-render results you already hold, use the static `MCPManager.format_results(results, output_type)`.
 
+### Sessions
+
+Outside a run, each call opens a session to its server, runs the MCP `initialize` handshake, and closes it. Between `open()` and `close()`, the manager keeps one initialized session per server and reuses it for every call. `Agent.run` and `Agent.arun` do this for you, so an agent connects to each server once per run.
+
+```python
+manager.open()
+try:
+    for response in responses:
+        manager.execute_tool_calls(response)
+finally:
+    manager.close()
+```
+
+`open()` calls are counted: concurrent runs of one agent share the sessions, and the last `close()` shuts them. When a call on a session raises, that session is closed once its other calls finish, and the next call reconnects. The failed call is not retried, because the tool may already have acted.
+
 ### What `result` holds
 
 `result` is a native Python value; swarms never encodes it:
