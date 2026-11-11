@@ -211,7 +211,7 @@ Async form: `await manager.aexecute_tool_calls(...)`. To re-render results you a
 
 ### Sessions
 
-Outside a run, each call opens a session to its server, runs the MCP `initialize` handshake, and closes it. Between `open()` and `close()`, the manager keeps one initialized session per server and reuses it for every call. `Agent.run` and `Agent.arun` do this for you, so an agent connects to each server once per run.
+Outside a run, each call opens a session to its server, runs the MCP `initialize` handshake, and closes it. Between `open()` and `close()`, the manager keeps one initialized session per server and reuses it for every call, sync or async. `Agent.run` and `Agent.arun` do this for you, so an agent connects to each server once per run.
 
 ```python
 manager.open()
@@ -222,7 +222,11 @@ finally:
     manager.close()
 ```
 
-`open()` calls are counted: concurrent runs of one agent share the sessions, and the last `close()` shuts them. When a call on a session raises, that session is closed once its other calls finish, and the next call reconnects. The failed call is not retried, because the tool may already have acted.
+So within a run a server sees one session, not one per tool turn. A stdio server runs as one process for the whole run, and state the server holds for the connection, such as a login or an open file, carries from one turn to the next. The next run starts a new session.
+
+`open()` calls are counted: concurrent runs of one agent share the sessions, and the last `close()` shuts them. `close()` waits up to the manager's `timeout` for the servers to shut down, or 30 seconds when it is unset, then leaves them so the run can return.
+
+When the connection fails mid-call, that session takes no new calls and closes once its other calls finish, and the next call reconnects. A dropped connection, a timeout and a server restart all count. The failed call is not retried, because the tool may already have acted. An error the server reports in the tool result, bad arguments included, comes back with `is_error: True` and the session stays open.
 
 ### What `result` holds
 
