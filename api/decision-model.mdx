@@ -29,7 +29,7 @@ urgency = model.noul(
 print(f"Urgency: {urgency:.2f}")
 ```
 
-TypeSafe's `jev-latest` is the default model. Set `model_name` to `"clef"` or `"clef-flash"` to use Cloudflare's Clef models on Workers AI, or to `"gpt-6-luna"` to use OpenAI's Decisions API. Questions and answers have the same shape for every provider, so switching provider is a model-name change.
+TypeSafe's `jev-latest` is the default model. Set `model_name` to `"clef"` or `"clef-flash"` to use Cloudflare's Clef models on Workers AI, to `"gpt-6-luna"` to use OpenAI's Decisions API, or to `"gemini-decision-1"` to use Gemini's Decisions API. Questions and answers have the same shape for every provider, so switching provider is a model-name change.
 
 ### When to use it
 
@@ -57,18 +57,18 @@ All three names are also exported from `swarms.structs`. The module is `swarms.s
 
 ## Providers
 
-The model name picks the provider. A name that starts with `clef` goes to Cloudflare, and a name that starts with `gpt-6-luna` goes to OpenAI. Every other name goes to TypeSafe, including names that start with `jev` and gateway ids such as `~typesafe/jev-latest`.
+The model name picks the provider. A name that starts with `clef` goes to Cloudflare, a name that starts with `gpt-6-luna` goes to OpenAI, and a name that starts with `gemini-decision` goes to Google. Every other name goes to TypeSafe, including names that start with `jev` and gateway ids such as `~typesafe/jev-latest`.
 
-| | TypeSafe | Cloudflare Workers AI | OpenAI |
-|---|---|---|---|
-| **Model names** | Starting with `jev`, or anything not matched by another provider | Starting with `clef` | Starting with `gpt-6-luna` |
-| **Built-in names** | `jev-latest`, `jev-preview`, `jev-1.13.0` | `clef`, `clef-flash` | `gpt-6-luna` |
-| **Base URL** | `https://api.typesafe.ai` | `https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run` | `https://api.openai.com/v1` |
-| **Endpoint** | `/v1/systemone` | `/@cf/cloudflare/{model_name}` | `/decisions` |
-| **API key variable** | `TYPESAFE_API_KEY` | `CLOUDFLARE_AUTH_TOKEN` | `OPENAI_API_KEY` |
-| **Other variables** | None | `CLOUDFLARE_ACCOUNT_ID`, filled into the base URL | None |
+| | TypeSafe | Cloudflare Workers AI | OpenAI | Google Gemini |
+|---|---|---|---|---|
+| **Model names** | Starting with `jev`, or anything not matched by another provider | Starting with `clef` | Starting with `gpt-6-luna` | Starting with `gemini-decision` |
+| **Built-in names** | `jev-latest`, `jev-preview`, `jev-1.13.0` | `clef`, `clef-flash` | `gpt-6-luna` | `gemini-decision-1` |
+| **Base URL** | `https://api.typesafe.ai` | `https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run` | `https://api.openai.com/v1` | `https://generativelanguage.googleapis.com/v1beta` |
+| **Endpoint** | `/v1/systemone` | `/@cf/cloudflare/{model_name}` | `/decisions` | `/decisions` |
+| **API key variable** | `TYPESAFE_API_KEY` | `CLOUDFLARE_AUTH_TOKEN` | `OPENAI_API_KEY` | `GEMINI_API_KEY` |
+| **Other variables** | None | `CLOUDFLARE_ACCOUNT_ID`, filled into the base URL | None | None |
 
-Every request is a `POST` to the base URL plus the endpoint, with an `Authorization: Bearer <key>` header. For TypeSafe and Cloudflare the JSON body is `model`, `state` and `questions`; it carries `model` for Cloudflare too, even though the endpoint already names the model. OpenAI uses its own wire format, which `DecisionModel` converts to and from (see the OpenAI tab below).
+Every request is a `POST` to the base URL plus the endpoint, with an `Authorization: Bearer <key>` header, or an `x-goog-api-key: <key>` header for Google. For TypeSafe and Cloudflare the JSON body is `model`, `state` and `questions`; it carries `model` for Cloudflare too, even though the endpoint already names the model. OpenAI and Google each use their own wire format, which `DecisionModel` converts to and from (see their tabs below).
 
 <Tabs>
 <Tab title="TypeSafe">
@@ -121,6 +121,38 @@ The client calls the HTTP API with `httpx`, so there is no `openai` dependency. 
 
 A string state is sent as is and a dict or list state as JSON text. A list of messages that all have `role: "user"` passes through unchanged, so `input_image` parts work. The answers are converted back and keyed by question id: a predicate becomes a `noul` answer, and `choice` and `score` answers get the same `probabilities`, `legend` and `confidence` fields as the other providers. A `refusal` answer raises `RuntimeError`, so every question still gets an answer of its own type.
 </Tab>
+<Tab title="Google Gemini">
+```bash
+export GEMINI_API_KEY="..."
+```
+
+```python
+from swarms import DecisionModel
+
+model = DecisionModel(model_name="gemini-decision-1")
+```
+
+The client calls the HTTP API with `httpx`, so there is no `google-genai` dependency. The request body is `model`, `input` and `questions`. The questions keep their ids and shape, with two changes:
+
+| Your question | Sent to Gemini |
+|---|---|
+| `noul` criteria | The keys `true` and `false` become `true_description` and `false_description` |
+| `instructions` | Sent as text; a structured object is JSON-encoded |
+
+A string state is sent as is and a dict or list state as JSON text. A list of content blocks, each with a `type` of `text`, `image`, `audio`, `video` or `document`, passes through unchanged, so images, audio, video and PDFs work:
+
+```python
+urgent = model.noul(
+    state=[
+        {"type": "text", "text": "Customer photo for return request #8821."},
+        {"type": "image", "data": "<BASE64_IMAGE_DATA>", "mime_type": "image/jpeg"},
+    ],
+    instructions="Does the photo show physical damage to the device?",
+)
+```
+
+Answers come back in the shared shape. Gemini reports usage as `total_input_tokens` and `total_output_tokens`; `DecisionModel` adds `input_tokens` and `output_tokens` beside them, so `usage` and `calculate_cost()` work as for the other providers. The response has no `model` field. A request blocked by Gemini's input safety filters is an HTTP `400`, raised as `httpx.HTTPStatusError`.
+</Tab>
 <Tab title="Any other endpoint">
 Point the client at another gateway or provider that speaks the same wire format with `base_url`, `endpoint` and `api_key_env`:
 
@@ -140,7 +172,7 @@ For a provider with a different wire format, subclass and override the [extensio
 </Tabs>
 
 <Tip>
-Importing `swarms` loads a `.env` file, found by searching upward from the current working directory. Variables already set in your environment are not overridden. You can keep `TYPESAFE_API_KEY`, `CLOUDFLARE_AUTH_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` there.
+Importing `swarms` loads a `.env` file, found by searching upward from the current working directory. Variables already set in your environment are not overridden. You can keep `TYPESAFE_API_KEY`, `CLOUDFLARE_AUTH_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `OPENAI_API_KEY` and `GEMINI_API_KEY` there.
 </Tip>
 
 ## Constructor
@@ -168,7 +200,7 @@ DecisionModel(
 </ParamField>
 
 <ParamField path="api_key_env" type="Optional[str]" default="None">
-  The environment variable that holds the API key. Defaults to the provider's: `TYPESAFE_API_KEY` or `CLOUDFLARE_AUTH_TOKEN`.
+  The environment variable that holds the API key. Defaults to the provider's: `TYPESAFE_API_KEY`, `CLOUDFLARE_AUTH_TOKEN`, `OPENAI_API_KEY` or `GEMINI_API_KEY`.
 </ParamField>
 
 <ParamField path="base_url" type="Optional[str]" default="None">
@@ -290,7 +322,7 @@ Each question has three keys:
 
 An answer can also carry its `type`, which `parse_response()` checks against the question. The shipped examples read `score` as a position on the `0` to `len(criteria) - 1` scale; with three levels, `2.0` is the top.
 
-The **state** is the content the questions are about. It can be a string, a JSON object or a list, and it is sent unchanged to TypeSafe and Cloudflare (OpenAI conversion is described under [Providers](#providers)). The shipped examples pass an object, such as `{"job": ..., "resume": ...}`, and name its fields in their instructions.
+The **state** is the content the questions are about. It can be a string, a JSON object or a list, and it is sent unchanged to TypeSafe and Cloudflare (OpenAI and Gemini conversion is described under [Providers](#providers)). The shipped examples pass an object, such as `{"job": ..., "resume": ...}`, and name its fields in their instructions.
 
 ## Methods
 
@@ -480,7 +512,7 @@ def parse_response(
 ) -> Dict[str, Any]
 ```
 
-Check the decoded response and return it. By default it unwraps a Cloudflare `result` envelope when `answers` is not at the top level, and for an OpenAI model converts the list of answers into a dict keyed by question id. It then raises `RuntimeError` if any question has no answer, or if an answer's `type` differs from its question's. An answer without a `type` is accepted.
+Check the decoded response and return it. By default it unwraps a Cloudflare `result` envelope when `answers` is not at the top level, for an OpenAI model converts the list of answers into a dict keyed by question id, and for a Gemini model adds `input_tokens` and `output_tokens` to `usage`. It then raises `RuntimeError` if any question has no answer, or if an answer's `type` differs from its question's. An answer without a `type` is accepted.
 
 ```python
 from swarms import DecisionModel
@@ -516,8 +548,9 @@ List the decision models from every provider. **Returns** the built-in names, me
 - **TypeSafe**: when `TYPESAFE_API_KEY` is set, `GET https://api.typesafe.ai/v1/models`.
 - **Cloudflare**: when `CLOUDFLARE_AUTH_TOKEN` is set, `GET https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/models/search?search=clef`. The `@cf/cloudflare/` prefix is stripped from each name.
 - **OpenAI**: when `OPENAI_API_KEY` is set, `GET https://api.openai.com/v1/models`.
+- **Google**: when `GEMINI_API_KEY` is set, `GET https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000`. The `models/` prefix is stripped from each name.
 
-Each request sends the key as a bearer token, with a 10 second timeout. Only live names that start with the provider's prefix (`jev`, `clef` or `gpt-6-luna`) are kept. Names are de-duplicated and keep their order: TypeSafe's built-in then live names, then Cloudflare's, then OpenAI's.
+Each request sends the key as a bearer token, or in the `x-goog-api-key` header for Google, with a 10 second timeout. Only live names that start with the provider's prefix (`jev`, `clef`, `gpt-6-luna` or `gemini-decision`) are kept. Names are de-duplicated and keep their order: TypeSafe's built-in then live names, then Cloudflare's, then OpenAI's, then Google's.
 
 The function never raises. A failed request, a malformed body, or a missing `CLOUDFLARE_ACCOUNT_ID` logs a warning and leaves that provider's built-in names in place. With no credentials set, it returns the built-ins without a network call:
 
@@ -525,7 +558,7 @@ The function never raises. A failed request, a malformed body, or a missing `CLO
 from swarms import get_decision_models
 
 print(get_decision_models())
-# ['jev-latest', 'jev-preview', 'jev-1.13.0', 'clef', 'clef-flash', 'gpt-6-luna']
+# ['jev-latest', 'jev-preview', 'jev-1.13.0', 'clef', 'clef-flash', 'gpt-6-luna', 'gemini-decision-1']
 ```
 
 Results are not cached, so each call with credentials set makes fresh requests. `OPENAI_API_KEY` is often set for agents too, in which case every call also queries OpenAI's model list.
@@ -544,6 +577,7 @@ List the price of every decision model. **Returns** model names mapped to `{"inp
 | `clef` | 0.24 | 0.0 | Built in, replaced by Cloudflare's listed price when `CLOUDFLARE_AUTH_TOKEN` is set |
 | `clef-flash` | 0.09 | 0.0 | Built in, replaced by Cloudflare's listed price when `CLOUDFLARE_AUTH_TOKEN` is set |
 | `gpt-6-luna` | 0.10 | 0.0 | Built in |
+| `gemini-decision-1` | 0.10 | 0.0 | Built in |
 
 Only Cloudflare reports prices, through the same model search request `get_decision_models()` makes, so live Clef models without a built-in price are added too. Like `get_decision_models()`, it never raises: a failed request leaves the built-in prices in place.
 
@@ -551,7 +585,7 @@ Only Cloudflare reports prices, through the same model search request `get_decis
 from swarms import get_decision_model_prices
 
 print(get_decision_model_prices())
-# {'jev-latest': {'input': 0.042, 'output': 0.0}, ..., 'clef': {'input': 0.24, 'output': 0.0}, ..., 'gpt-6-luna': {'input': 0.1, 'output': 0.0}}
+# {'jev-latest': {'input': 0.042, 'output': 0.0}, ..., 'clef': {'input': 0.24, 'output': 0.0}, ..., 'gpt-6-luna': {'input': 0.1, 'output': 0.0}, 'gemini-decision-1': {'input': 0.1, 'output': 0.0}}
 ```
 
 ## Retries
