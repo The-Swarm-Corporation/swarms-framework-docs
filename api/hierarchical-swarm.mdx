@@ -103,7 +103,7 @@ from swarms import HierarchicalSwarm
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
-  Thread pool size used when `parallel_execution` is `True`. Defaults to 95% of available CPU cores. Must be greater than zero if provided.
+  The most orders that run at once when `parallel_execution` is `True`. When unset, every order in a loop runs at once. Must be greater than zero if provided.
 </ParamField>
 
 <ParamField path="agent_as_judge" type="bool" default="False">
