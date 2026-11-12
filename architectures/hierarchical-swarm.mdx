@@ -205,7 +205,7 @@ Example output:
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
-  Thread pool size used when `parallel_execution` is `True`. Defaults to 95% of available CPU cores. Must be greater than zero if provided.
+  The most orders that run at once when `parallel_execution` is `True`. When unset, every order in a loop runs at once. Must be greater than zero if provided.
 </ParamField>
 
 <ParamField path="interactive" type="bool" default="False">
@@ -579,7 +579,7 @@ except Exception as e:
 
 ### Parallel Order Execution
 
-`execute_orders` runs all orders for a loop simultaneously when `parallel_execution=True`. Each order goes to a thread pool of `max_workers` threads (95% of CPU cores by default) and runs with its own retries.
+`execute_orders` runs all orders for a loop simultaneously when `parallel_execution=True`. Each order gets its own thread, up to `max_workers` when set, and runs with its own retries.
 
 ### Conversation context
 
