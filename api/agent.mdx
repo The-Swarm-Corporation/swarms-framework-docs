@@ -707,7 +707,7 @@ async def arun_stream(
 ```
 
 <ParamField path="on_stream_end" type="Callable[[], Any]" default="None">
-  Called once the last token has been yielded, while the run is still finishing its post-processing (autosave, channel post). The generator itself ends only when the run does. `SequentialWorkflow` and `AgentRearrange` use it to start the next agent early.
+  Called once the last token has been yielded, while the run is still finishing its post-processing, such as autosave. The generator itself ends only when the run does. It is not called when `max_loops` is `"auto"`, when a stopping condition or stopping function ends the run before its last loop, or when the agent has a channel, so that its post comes before the next agent's. `SequentialWorkflow` and `AgentRearrange` use it to start the next agent early, and otherwise start it when the run ends.
 </ParamField>
 
 ```python

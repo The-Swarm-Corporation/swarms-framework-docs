@@ -301,7 +301,7 @@ Get a string describing the complete sequential flow structure (step-by-step bre
 
 Sync generator that streams tokens from each agent in flow order as they are generated. Sequential segments stream one agent at a time; parallel (comma) segments interleave tokens fairly across concurrent agents.
 
-In a sequential segment the next agent starts as soon as the previous agent's model stream ends, while the previous agent finishes its post-processing (autosave, channel post) in the background. Answers are still recorded in flow order, and an agent that appears twice in the flow waits for its earlier run to finish.
+In a sequential segment the next agent starts as soon as the previous agent's model stream ends, while the previous agent finishes its post-processing, such as autosave, in the background. An agent with a channel hands over after its post, so posts stay in flow order. Answers are still recorded in flow order, and an agent that appears twice in the flow waits for its earlier run to finish. An error in post-processing after an early handover raises later, when that agent's next step starts or the stream ends.
 
 <ParamField path="task" type="str" default="None">
   Initial task fed into the first agent in the flow
