@@ -307,7 +307,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="saved_state_path" type="str" default="Auto-generated">
-  Path that `save()` writes to when called with no argument. When unset, falls back to an auto-generated `{api_key}_state.json` filename inside the agent workspace.
+  Path that `save()` writes to when called with no argument. When unset, falls back to an auto-generated `agent-{32 hex characters}_state.json` filename inside the agent workspace.
 </ParamField>
 
 <ParamField path="rules" type="str" default="None">
