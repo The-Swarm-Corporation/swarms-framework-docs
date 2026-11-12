@@ -59,7 +59,7 @@ from swarms import Agent
 
 ## Architecture
 
-`Agent` delegates its larger subsystems to dedicated collaborator objects, each built during `__init__` and reachable as an attribute.
+`Agent` delegates its larger subsystems to dedicated collaborator objects, each reachable as an attribute. `__init__` builds all of them except `agent.autonomous_loop`, which the agent builds the first time something reads it.
 
 | Attribute | Class | Owns |
 |---|---|---|
@@ -981,6 +981,7 @@ print(get_autonomous_loop_tool_names())
 | `agent.usage` | `dict` | Provider-reported token usage summed over every LLM call the agent's clients have made. See [Token usage](#token-usage). |
 | `agent.input_tokens` | `int` | Estimated tokens the next request would carry. See [Token usage](#token-usage). |
 | `agent.workspace` | `WorkspaceManager` | The agent's workspace manager, created on first access and rooted at `{workspace}/agents/{name}-{id12}`. Read the resolved path from `agent.workspace.dir`. |
+| `agent.autonomous_loop` | `AutonomousAgentLoop` | The loop behind `max_loops="auto"`, created on first access. See [Autonomous mode](/agents/autonomous-mode). |
 | `agent.mcp_enabled` | `bool` | Whether at least one MCP server is configured. Backed by [`MCPManager`](/api/mcp-manager), which normalizes `mcp_url`, `mcp_urls`, `mcp_config`, and `mcp_configs` into one list of connections. |
 | `agent.skills_dir` | `Optional[Union[str, List[str]]]` | Reads and writes through to `agent.skills`. Setting it discards cached skills. |
 | `agent.skills_metadata` | `List[Dict[str, str]]` | Metadata for the skills loaded so far. |
@@ -991,7 +992,7 @@ Notable attributes, all set during construction:
 |---|---|
 | `agent.llm` | The LiteLLM client (or the `llm` you passed). Rebuild it with `agent.llm_handling()`. |
 | `agent.short_memory` | The agent's `Conversation`. |
-| `agent.llm_manager`, `agent.tool_manager`, `agent.mcp_manager`, `agent.skills`, `agent.marketplace`, `agent.autonomous_loop` | The collaborators listed under [Architecture](#architecture). |
+| `agent.llm_manager`, `agent.tool_manager`, `agent.mcp_manager`, `agent.skills`, `agent.marketplace` | The collaborators listed under [Architecture](#architecture). |
 | `agent.tool_struct` | The `BaseTool` executor built from `tools`. |
 | `agent.tool_loader` | The `DynamicToolLoader` when `dynamic_tools` applies, else `None`. |
 
