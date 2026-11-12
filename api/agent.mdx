@@ -243,7 +243,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="False">
-  Save agent state during execution: `save()` at the start and end of each run and on errors, `conversation_history.json` at the end of each run and on errors, and a `config.json` snapshot of the settings in the agent workspace before the first loop, after each loop and at the end. `max_loops="auto"` doesn't autosave. See [Autosave](#autosave).
+  Save agent state during execution: `save()` at the start and end of each run and on errors, plus a `config.json` snapshot of the settings and the conversation in `conversation_history.json`, both in the agent workspace before the first loop, after each loop, at the end and on errors. `max_loops="auto"` doesn't autosave. See [Autosave](#autosave).
 </ParamField>
 
 <ParamField path="dashboard" type="bool" default="False">
@@ -2053,10 +2053,10 @@ restored.run("Continue with the task")
 
 ### Autosave
 
-When `autosave=True`, the agent writes two files to `{workspace}/agents/{agent-name}-{id12}/` via its `WorkspaceManager`, atomically to prevent corruption:
+When `autosave=True`, the agent writes two files to `{workspace}/agents/{agent-name}-{id12}/` via its `WorkspaceManager`, atomically to prevent corruption. It writes both before the first loop, after each loop, at the end and on errors, so `max_loops=3` writes each 5 times:
 
-- `config.json`: the agent's settings, before the first loop, after each loop and at the end, so `max_loops=3` writes it 5 times. It leaves out the conversation, so its size doesn't grow with the run.
-- `conversation_history.json`: the conversation, at the end of each run and on errors.
+- `config.json`: the agent's settings. It leaves out the conversation, so its size doesn't grow with the run.
+- `conversation_history.json`: the conversation. A process killed mid-run leaves the conversation as of its last finished loop.
 
 Autosave doesn't run for `max_loops="auto"`. The autonomous loop never calls it, so it writes neither file at the start, between steps or at the end.
 
