@@ -27,7 +27,7 @@ from swarms import HeavySwarm
 </ParamField>
 
 <ParamField path="timeout" type="int" default="900">
-  Seconds to wait for the worker agents in each loop. A worker still running when it passes gets the result `Timeout after N seconds`, the other workers' results are kept, and the swarm moves on to synthesis. The stuck worker's thread can't be stopped, so it finishes in the background. Question generation and synthesis aren't covered by this limit
+  Seconds to wait for the worker agents in each loop. It's one budget for the whole batch, counted from when the workers are submitted, so on a host with fewer threads than workers the ones waiting for a thread spend it too. A worker still running when it passes gets the result `Timeout after N seconds`, the other workers' results are kept, and the swarm moves on to synthesis. The stuck worker's thread can't be stopped, so it finishes in the background, and later loops skip that agent until it returns. Worker threads aren't daemon threads, so a hung worker also keeps the Python process from exiting. Question generation and synthesis aren't covered by this limit
 </ParamField>
 
 <ParamField path="question_agent_model_name" type="str" default="gpt-5.4">
@@ -447,7 +447,7 @@ All dashboard elements use Swarms-inspired red/black styling with professional f
 
 - **Parallel Execution**: The active variant's specialized agents run concurrently
 - **Thread Pool**: Workers run across a pool sized to 95% of the host's CPU cores (at least one thread)
-- **Timeout**: the swarm waits at most `timeout` seconds for the workers in each loop, then marks any still running as timed out and continues without them
+- **Timeout**: the swarm waits at most `timeout` seconds for the workers in each loop, counted from when they're submitted, then marks any still running as timed out and continues without them
 
 ## Source Code
 
