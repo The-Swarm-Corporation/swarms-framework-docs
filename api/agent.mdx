@@ -178,12 +178,12 @@ Each collaborator is independently documented. Reach for it directly when you wa
   Sampling temperature. Left unset, it is omitted from requests and the provider's default applies. Some models (for example recent Claude models) reject an explicit temperature with HTTP 400, which is why the default is `None`.
 </ParamField>
 
-<ParamField path="max_tokens" type="Optional[int]" default="None">
-  Maximum number of tokens in the LLM response. A positive value you pass is kept and forwarded to the LLM. Leave it as `None` (or pass `0`/a negative number) and the agent resolves the model's own maximum output-token limit, falling back to `16000` when that lookup fails.
+<ParamField path="max_tokens" type="Optional[int]" default="16384">
+  Maximum number of tokens in the LLM response. The default of 16,384 is accepted by almost every current model and needs no lookup. A positive value you pass is kept and forwarded to the LLM. Pass `None` and the agent looks up the model's own maximum output-token limit, falling back to `16000` when that lookup fails. Zero or a negative number raises `AgentInitializationError`.
 </ParamField>
 
-<ParamField path="context_length" type="int" default="None">
-  Effective context window in tokens. When `context_compression=True`, the agent compresses memory once usage crosses 90% of this limit. Leave as `None` to derive the window from the model's input limit, falling back to `16000` when that lookup fails.
+<ParamField path="context_length" type="Optional[int]" default="128000">
+  Effective context window in tokens. When `context_compression=True`, the agent compresses memory once usage crosses 90% of this limit. The default of 128,000 is the most common window and needs no lookup. Pass `None` to derive the window from the model's input limit, falling back to `16000` when that lookup fails. Zero or a negative number raises `AgentInitializationError`.
 </ParamField>
 
 <ParamField path="top_p" type="float" default="None">
@@ -2213,7 +2213,7 @@ except AgentError as e:
 | Exception | Raised by | Reaches your code |
 |---|---|---|
 | `AgentLLMError` | `call_llm`, wrapping any failed model call (after the client's `retry_attempts` retries), chained to the provider's error | Yes, once every fallback model has also failed |
-| `AgentInitializationError` | The constructor, for an invalid `max_loops` or a missing `context_length`, and for `publish_to_marketplace=True` without `use_cases` | Yes, at construction |
+| `AgentInitializationError` | The constructor, for an invalid `max_loops`, or a zero or negative `max_tokens` or `context_length`, and for `publish_to_marketplace=True` without `use_cases` | Yes, at construction |
 | `AgentToolExecutionError` | `ToolManager`, when a callable tool fails every retry | No. `run` catches it, records the failure in the conversation, and lets the model react |
 | `AgentRunError` | Nothing in the current source | No |
 | `AgentLLMInitializationError` | Nothing in the current source | No |

@@ -52,7 +52,7 @@ def aggregate(
 </ParamField>
 
 <ParamField path="aggregator_model_name" type="str" default='"claude-sonnet-5"'>
-  Model used by the synthesizing aggregator agent. The aggregator sets no `max_tokens`, `temperature` or `top_p`, so it uses the model's own output limit and the provider's sampling defaults.
+  Model used by the synthesizing aggregator agent. The aggregator sets no `max_tokens`, `temperature` or `top_p`, so it uses the Agent default of 16,384 output tokens and the provider's sampling defaults.
 </ParamField>
 
 **Raises:** `ValueError` if `task` is `None`, `workers` is `None`, or `workers` is not a list of callables.
