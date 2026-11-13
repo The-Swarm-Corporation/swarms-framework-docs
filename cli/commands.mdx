@@ -119,7 +119,7 @@ This opens `https://swarms.world/platform/api-keys` in your default browser.
 
 ### agent
 
-Create and run a custom agent with specified parameters. The task parameter is optional - if not provided, the CLI creates the agent and prints its configuration without running it (it does not start an interactive REPL). Use `swarms chat` if you want a live interactive session.
+Create a custom agent and run it on a task. `--task` is required: without it, the command exits with status 1 before building the agent. For a live interactive session, use `swarms chat`.
 
 **Usage:**
 ```bash
@@ -127,7 +127,7 @@ swarms agent \
   --name <agent_name> \
   --description <description> \
   --system-prompt <prompt> \
-  [--task <task>] \
+  --task <task> \
   [OPTIONS]
 ```
 
@@ -135,13 +135,13 @@ swarms agent \
 - `--name` - Name of the agent
 - `--description` - Description of the agent's purpose
 - `--system-prompt` - System prompt defining agent behavior (can use `--marketplace-prompt-id` instead)
+- `--task` - Task for the agent to run
 
 **Optional Parameters:**
-- `--task` - Task to execute (if omitted, the agent is created but not run)
 - `--model-name` - LLM model to use (default: "gpt-5.4", the `Agent` class default; the `--help` table's "default: gpt-4" is out of date)
 - `--temperature` - Temperature setting (0.0-2.0)
 - `--max-loops` - Maximum loops (integer or "auto" for autonomous). Any other value exits with an error
-- `--interactive` - After the first response to `--task`, keep prompting you for follow-up input (default: off, despite the `--help` text)
+- `--interactive` - After the first response to `--task`, keep prompting you for follow-up input (default: off)
 - `--no-interactive` - Disable interactive mode (already the default)
 - `--verbose` - Enable verbose output
 - `--streaming-on` - Stream tokens to the terminal
@@ -170,14 +170,6 @@ swarms agent \
   --task "Analyze the current market trends for tech stocks" \
   --model-name "gpt-5.4" \
   --temperature 0.1
-```
-
-Create an agent without running it (no task; the CLI prints its configuration and exits):
-```bash
-swarms agent \
-  --name "Assistant" \
-  --description "General purpose assistant" \
-  --system-prompt "You are a helpful assistant"
 ```
 
 With autonomous loops:
