@@ -701,9 +701,14 @@ Async generator version of `run_stream`. `run` executes in a background thread w
 async def arun_stream(
     task: str,
     img: Optional[str] = None,
+    on_stream_end: Optional[Callable[[], Any]] = None,
     **kwargs,
 ) -> AsyncIterator[str]
 ```
+
+<ParamField path="on_stream_end" type="Callable[[], Any]" default="None">
+  Called once the last token has been yielded, while the run is still finishing its post-processing, such as autosave. The generator itself ends only when the run does. It is not called when `max_loops` is `"auto"`, when a stopping condition or stopping function ends the run before its last loop, or when the agent has a channel, so that its post comes before the next agent's. `SequentialWorkflow` and `AgentRearrange` use it to start the next agent early, and otherwise start it when the run ends.
+</ParamField>
 
 ```python
 import asyncio
