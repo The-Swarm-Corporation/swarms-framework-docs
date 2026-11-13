@@ -197,7 +197,7 @@ router = SwarmRouter(
 </ParamField>
 
 <ParamField path="heavy_swarm_timeout" type="int" default="900">
-  Per-worker wall-clock cap (seconds) for HeavySwarm.
+  Seconds `HeavySwarm` waits for its workers in each loop before marking the ones still running as timed out.
 </ParamField>
 
 <ParamField path="worker_tools" type="List[Callable]">
