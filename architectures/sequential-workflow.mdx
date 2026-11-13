@@ -194,7 +194,7 @@ result = asyncio.run(main())
 
 ### run_concurrent()
 
-Run multiple tasks concurrently. Each task runs on its own copy of the flow, so tasks never share a conversation or agent memory. Results come back in completion order, not input order.
+Run multiple tasks concurrently. Each task runs on its own copy of the flow, so tasks never share a conversation or agent memory. Results come back in the same order as the tasks, and the event loop stays free while they run.
 
 ```python
 import asyncio
