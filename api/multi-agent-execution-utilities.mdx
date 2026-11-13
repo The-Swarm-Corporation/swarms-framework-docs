@@ -82,7 +82,7 @@ async def run_agent_async(agent: AgentType, task: str) -> Any
 **Returns:** Agent execution result. The function awaits `agent.arun(task)`. An object without an `arun` method has its `run()` called in a worker thread via `asyncio.to_thread` instead, so it does not block the event loop
 
 <Note>
-`Agent.arun` itself currently runs `Agent.run` in a worker thread, so each in-flight `Agent` still holds a thread while it waits on the model.
+`Agent.arun` awaits the model on the event loop, so an in-flight `Agent` holds no thread while it waits. Callable tools, handoffs and `max_loops="auto"` runs still use worker threads.
 </Note>
 
 ```python
