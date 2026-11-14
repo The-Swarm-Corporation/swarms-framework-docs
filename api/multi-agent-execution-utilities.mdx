@@ -331,7 +331,7 @@ def batch_agent_execution(
     agents: List[Union[Agent, Callable]],
     tasks: Optional[List[str]] = None,
     imgs: Optional[List[str]] = None,
-    max_workers: int = max(1, int(os.cpu_count() * 0.9)),
+    max_workers: Optional[int] = None,
 )
 ```
 
@@ -339,7 +339,7 @@ def batch_agent_execution(
 - `agents` (List[Agent | Callable]): Agents to run. An object with a `run` method is called as `agent.run(task, img)`; any other callable is called as `agent(task, img)`.
 - `tasks` (List[str]): One task per agent. Must have the same length as `agents`. Required in practice: passing `None` fails.
 - `imgs` (List[str], optional): One image input per agent. Must be the same length as `agents` when provided. When `None`, every call receives `img=None`.
-- `max_workers` (int): Thread pool size. Defaults to ~90% of CPU cores.
+- `max_workers` (int, optional): Thread pool size. Defaults to `None`, which uses one thread per agent, so the whole batch runs at once. Pass a number to cap how many agents run at the same time.
 
 **Returns:** List of results in agent order, so `results[i]` is `agents[i]`'s. A failed call is logged and leaves `None` in its slot.
 
