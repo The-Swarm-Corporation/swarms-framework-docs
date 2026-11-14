@@ -62,14 +62,6 @@ pip install -U swarms
   Number of candidate responses to generate overall; must be at least 2
 </ParamField>
 
-<ParamField path="enable_logging" type="bool" default="True">
-  Stored on the instance but not read. Logging is controlled by `verbose`
-</ParamField>
-
-<ParamField path="log_level" type="str" default="INFO">
-  Stored on the instance but not read
-</ParamField>
-
 <ParamField path="verbose" type="bool" default="True">
   When True, logs progress and the final result through `loguru`, and turns on verbose output for the proposer and aggregator agents. When False, nothing is logged
 </ParamField>
