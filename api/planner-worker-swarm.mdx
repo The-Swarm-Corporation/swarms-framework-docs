@@ -84,7 +84,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="max_workers" type="Optional[int]" default="None">
-  Max concurrent worker threads. Defaults to `min(len(agents), os.cpu_count() or 4)`.
+  Max concurrent worker threads. Defaults to `len(agents)`, one thread per worker agent.
 </ParamField>
 
 <ParamField path="output_type" type="OutputType" default="dict-all-except-first">
