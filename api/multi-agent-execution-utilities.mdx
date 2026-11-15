@@ -169,7 +169,7 @@ def run_agents_concurrently(
 - `agents` (List[AgentType]): List of Agent instances to run concurrently
 - `task` (str): Task string to execute
 - `img` (Optional[str]): Optional image data to pass to agent `run()` if supported. Only passed when not `None`
-- `max_workers` (Optional[int]): Maximum number of threads in the executor. Defaults to 95% of CPU cores
+- `max_workers` (Optional[int]): Maximum number of threads in the executor. Defaults to `None`, which uses one thread per agent, so every agent runs at once. Pass a number to cap how many run at the same time
 - `return_agent_output_dict` (bool): If True, returns a dict mapping agent names to outputs. Keys use `agent_name`, then `name`, then `str(agent)`
 
 **Returns:**
@@ -279,7 +279,7 @@ def batched_grid_agent_execution(
 **Parameters:**
 - `agents` (List[AgentType]): List of agent instances
 - `tasks` (List[str]): List of tasks, one for each agent
-- `max_workers` (int): Maximum number of threads to use. Defaults to 95% of CPU cores
+- `max_workers` (int, optional): Maximum number of threads to use. Defaults to `None`, which uses one thread per agent
 
 **Returns:** List of results in input order, so `results[i]` is `agents[i]`'s. A failed agent's slot holds the exception it raised
 
@@ -382,7 +382,7 @@ def run_agents_with_different_tasks(
 **Parameters:**
 - `agent_task_pairs` (List[tuple[AgentType, str]]): List of (agent, task) tuples
 - `batch_size` (int): Number of agents to run in parallel in each batch. Batches run one after another. Default: 10
-- `max_workers` (int): Maximum number of threads per batch. Defaults to 95% of CPU cores
+- `max_workers` (int, optional): Maximum number of threads per batch. Defaults to `None`, which uses one thread per agent in the batch, so `batch_size` alone sets how many run at once
 
 **Returns:** List of outputs from each agent, in the same order as input pairs. A failed agent's slot holds the exception it raised. An empty input returns `[]`
 
@@ -626,7 +626,7 @@ except Exception as e:
 |-----------|---------------------------|
 | **ThreadPoolExecutor** | Best for I/O-bound work such as LLM calls, supports image processing and flexible output formats |
 | **Batch Processing** | Prevents system overload with large numbers of agents, maintains order with grid execution |
-| **Resource Monitoring** | Adjust worker counts based on system capabilities (defaults to 95% of CPU cores) |
+| **Resource Monitoring** | Pass `max_workers` to cap concurrent agents, for example under a provider rate limit (defaults to one thread per agent) |
 | **Async/Await** | Use async functions for better concurrency control and platform optimizations |
 | **Image Support** | Pass image data to agents that support multimodal processing for enhanced capabilities |
 | **Dictionary Output** | Use `return_agent_output_dict=True` for structured results with agent name mapping |
