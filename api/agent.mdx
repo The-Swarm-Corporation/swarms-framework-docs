@@ -745,7 +745,7 @@ for token in agent.run_stream("Plan a three-step study schedule for linear algeb
 
 ### run_concurrent_tasks
 
-Run a batch of tasks concurrently on a call-scoped thread pool (`os.cpu_count()` workers). Results come back in the order the tasks were given. A failure is logged and re-raised.
+Run a batch of tasks concurrently on a call-scoped thread pool with one worker per task. Each task runs on its own [`clone`](#clone) of the agent, so no task sees another's turns. Results come back in the order the tasks were given. A failure is logged and re-raised.
 
 ```python
 def run_concurrent_tasks(
@@ -756,7 +756,7 @@ def run_concurrent_tasks(
 ```
 
 <Note>
-  Every task runs on the same agent and shares its `short_memory`. For isolated runs, give each task its own agent.
+  The clones are discarded when the call returns. The agent's own `short_memory` does not record the tasks or their answers, so keep the returned results if you need them. Token usage from every clone is added to `agent.usage`.
 </Note>
 
 ### save
@@ -911,6 +911,21 @@ Start the agent over on a fresh conversation. `short_memory` is rebuilt the way 
 def reset() -> None
 ```
 
+### clone
+
+Build a copy of the agent with the same configuration and a fresh conversation. The copy has its own `id`, its own `short_memory`, its own `saved_state_path`, and its own LiteLLM client. Any other client passed in as `llm=` is shared. The copy sends the same system prompt and tool schemas as the original, and its `usage` starts at zero.
+
+```python
+def clone() -> Agent
+```
+
+```python
+worker = agent.clone()
+worker.run("Summarize the report.")  # agent.short_memory is unchanged
+```
+
+A subclass is rebuilt through its own constructor, so it must accept the settings it was created with.
+
 ### plan
 
 Ask the LLM for a step-by-step plan for `task` (using `planning_prompt` when set) and add the plan to the conversation. Nothing is executed and nothing is returned.
@@ -1064,6 +1079,7 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `call_llm(task, img, imgs, current_loop, streaming_callback)` | Make one LLM call through `LLMManager`, with the selected skills attached | `agent.call_llm("Generate text")` |
 | `plan(task)` | Add an LLM-generated plan to the conversation | `agent.plan("Analyze trends")` |
 | `add_memory(message)` | Add a message to short-term memory | `agent.add_memory("Important info")` |
+| `clone()` | Build a copy with the same configuration and a fresh conversation | `worker = agent.clone()` |
 | `reset()` | Start over on a fresh conversation, keeping the system prompt, seeded `messages`, and `usage` | `agent.reset()` |
 | `save(file_path)` | Save agent state to JSON | `agent.save("state.json")` |
 | `load(file_path)` | Load agent state from JSON | `agent.load("/abs/path/state.json")` |
