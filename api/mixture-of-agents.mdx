@@ -194,7 +194,7 @@ Runs the mixture of agents for a batch of tasks sequentially.
 def run_concurrently(self, tasks: List[str]) -> List[str]
 ```
 
-Runs the mixture of agents for a batch of tasks concurrently using ThreadPoolExecutor.
+Runs the mixture of agents for a batch of tasks concurrently, on a thread pool with one thread per task.
 
 **Parameters:**
 
