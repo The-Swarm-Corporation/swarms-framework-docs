@@ -474,10 +474,10 @@ Each loop:
 1. From the second loop on, the director's task is the previous loop's result plus the original task
 2. Director issues orders (possibly to different agents or with different tasks)
 3. Workers execute
-4. Results — and any feedback/judge output — are appended to the conversation, followed by a `--- Loop N/M completed ---` marker
+4. Results — and any feedback/judge output — are appended to the conversation
 5. The next loop's director receives the messages it has not seen yet
 
-A loop that raises is marked `--- Loop N/M failed: <error> ---`, and the next loop still runs.
+No loop marker is written to the conversation. A loop that raises is logged and the next loop still runs; if every loop raises, `run()` raises the last error. A worker that fails after its retries is still recorded as a `[WORKER UNAVAILABLE]` system message.
 
 ## Order Execution
 
