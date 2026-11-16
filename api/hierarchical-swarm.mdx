@@ -87,7 +87,7 @@ from swarms import HierarchicalSwarm
 </Note>
 
 <ParamField path="planning_enabled" type="bool" default="False">
-  Whether to run a separate planning pass before the director writes orders. The plan is recorded in the shared conversation under the director's name
+  Whether to run a separate planning pass before the director writes orders. The plan is recorded in the shared conversation under the role `Planner`, and the director receives it together with the worker roster before it writes orders
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="False">
@@ -161,7 +161,11 @@ Executes the hierarchical swarm for the specified number of feedback loops.
 </ParamField>
 
 <ParamField path="img" type="str" optional>
-  Optional image input for the agents
+  Optional image input. It is given to the director and to every worker whose `run` accepts `img`
+</ParamField>
+
+<ParamField path="**kwargs" type="Any" optional>
+  Extra keyword arguments, passed to every worker's `run`
 </ParamField>
 
 **Returns:**
@@ -173,9 +177,9 @@ Executes the hierarchical swarm for the specified number of feedback loops.
 **Workflow:**
 1. Starts a new conversation and clears every agent's delivery cursor, then adds the worker roster and the task, so each call starts clean. With a `channel`, the new conversation is first seeded with what the channel already holds
 2. Director distributes orders to agents (after an optional planning pass)
-3. Agents execute tasks and report back to director
+3. Agents execute tasks and report back to director. Different agents run in parallel; an agent given several orders in one step runs them one after another
 4. Failed workers are retried up to `max_agent_retries`
-5. Exhausted workers are marked unavailable in shared context
+5. Exhausted workers are marked unavailable in shared context. An order that names an agent not in the swarm is not retried: it is recorded as `[UNKNOWN AGENT]` with the valid names and goes straight to reassignment
 6. Director reassigns failed tasks to healthy workers, up to `max_reassignment_attempts`
 7. Director evaluates results and issues new orders if needed (up to `max_loops`). Each later loop gets the previous loop's result and the original task
 8. Records a `--- Loop N/M completed ---` or `--- Loop N/M failed: <error> ---` marker after every loop
@@ -294,8 +298,10 @@ Executes the hierarchical swarm for multiple tasks, calling `run()` once per tas
 
 Each task starts from a clean conversation and delivery cursor, because `run()` resets both.
 
+With `max_workers` set, each task runs on its own copy of the swarm, with its own conversation and delivery cursors, so concurrent tasks do not write into each other's transcript. Token usage from the copies is added back to this swarm's agents.
+
 <Warning>
-  All tasks share this one instance. With `max_workers` set, concurrent tasks clear and write the same conversation. Keep the default sequential mode unless you use one swarm per task.
+  An agent is copied through its `clone()` method when it has one, and otherwise with `copy.deepcopy`. An agent that cannot be copied is shared between the concurrent tasks, so its own memory is still shared. Keep the default sequential mode when that matters.
 </Warning>
 
 ---

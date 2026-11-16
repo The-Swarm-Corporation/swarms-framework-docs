@@ -337,7 +337,7 @@ swarm = HierarchicalSwarm(
 With `planning_enabled=True`:
 
 1. A planning agent, using `DIRECTOR_PLANNING_PROMPT` or `director_settings["planning_system_prompt"]`, writes a text plan without orders
-2. The plan is added to the conversation under the director's name
+2. The plan is added to the conversation under the role `Planner`
 3. Director then emits concrete orders
 4. Workers whose `run()` accepts `messages` see the plan in their message history
 
