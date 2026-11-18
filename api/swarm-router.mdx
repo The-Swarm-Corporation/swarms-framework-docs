@@ -106,7 +106,7 @@ SwarmRouter(
 </ParamField>
 
 <ParamField path="agents" type="List[Union[Agent, Callable]]" default="[]">
-  Agents the router will pass to the selected swarm. Some swarm types require a specific minimum count (e.g. `DebateWithJudge` needs at least three).
+  Agents the router will pass to the selected swarm. `DebateWithJudge` needs exactly three (pro, con, judge), whether it is the `swarm_type` or a fallback; any other count raises `SwarmRouterConfigError` at construction. `HeavySwarm` and `CouncilAsAJudge` build their own agents, so the router logs a warning when `agents` is given for them.
 </ParamField>
 
 <ParamField path="swarm_type" type="SwarmType" default="SequentialWorkflow">
@@ -386,10 +386,10 @@ Internal helper. Points `self.conversation` at the underlying swarm's conversati
 | `HierarchicalSwarm` | `agents` (workers); director is created automatically |
 | `GroupChat` | `agents` (≥2; turn-based bidding, no speaker function) |
 | `MajorityVoting` | `agents` (≥3 recommended) |
-| `CouncilAsAJudge` | `council_judge_model_name` (builds its own agents; `agents` is not passed) |
+| `CouncilAsAJudge` | `council_judge_model_name` (builds its own agents; `agents` is not passed, and a warning is logged if given) |
 | `LLMCouncil` | `agents` (council members), `chairman_model` |
-| `DebateWithJudge` | `agents` (≥3: pro, con, judge) |
-| `HeavySwarm` | `heavy_swarm_worker_model_name`, `heavy_swarm_question_agent_model_name`, `heavy_swarm_variant` |
+| `DebateWithJudge` | `agents` (exactly 3: pro, con, judge) |
+| `HeavySwarm` | `heavy_swarm_worker_model_name`, `heavy_swarm_question_agent_model_name`, `heavy_swarm_variant` (builds its own agents; a warning is logged if `agents` is given) |
 | `RoundRobin` | `agents` (≥2) |
 | `MultiAgentRouter` | `agents` |
 | `PlannerWorkerSwarm` | `agents` (workers); planner is created automatically |
