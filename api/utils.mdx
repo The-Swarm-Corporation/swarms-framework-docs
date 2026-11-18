@@ -100,8 +100,8 @@ formatter.print_panel(
   Panel title
 </ParamField>
 
-<ParamField path="style" type="str" default="bold blue">
-  Border style when markdown is enabled. With `md=False`, the border gets a random color and `style` is not used
+<ParamField path="style" type="str" default="None">
+  Border style. When `None`, markdown panels use `"bold blue"` and plain panels (`md=False`) a random color
 </ParamField>
 
 ##### print_markdown
