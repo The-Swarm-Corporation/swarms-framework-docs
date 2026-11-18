@@ -136,7 +136,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="llm_args" type="dict" default="None">
-  Extra keyword arguments forwarded to the underlying LiteLLM client.
+  Extra keyword arguments forwarded to the underlying LiteLLM client. A `tool_choice` key replaces the default `"auto"` sent with the agent's tools.
 </ParamField>
 
 <ParamField path="prompt_caching" type="bool" default="False">

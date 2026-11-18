@@ -329,7 +329,7 @@ agent = Agent(
 </ParamField>
 
 <Note>
-  `tool_choice` is **not** an `Agent` constructor parameter. Whenever `tools` (or MCP tools) are configured, the agent always sends `tool_choice="auto"` to the underlying LLM call — passing `tool_choice=...` to `Agent(...)` is silently absorbed into `**kwargs` and has no effect.
+  `tool_choice` is **not** an `Agent` constructor parameter. Whenever `tools` (or MCP tools) are configured, the agent sends `tool_choice="auto"` to the underlying LLM call, and passing `tool_choice=...` to `Agent(...)` is silently absorbed into `**kwargs` and has no effect. To send another choice, put it in `llm_args`, for example `llm_args={"tool_choice": {"type": "function", "function": {"name": "get_weather"}}}`. Some models reject a forced choice, among them models running with reasoning or extended thinking.
 </Note>
 
 <ParamField path="dynamic_tools" type="bool" default="False">
