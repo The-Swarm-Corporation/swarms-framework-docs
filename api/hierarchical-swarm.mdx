@@ -178,8 +178,7 @@ Executes the hierarchical swarm for the specified number of feedback loops.
 5. Exhausted workers are marked unavailable in shared context
 6. Director reassigns failed tasks to healthy workers, up to `max_reassignment_attempts`
 7. Director evaluates results and issues new orders if needed (up to `max_loops`). Each later loop gets the previous loop's result and the original task
-8. Records a `--- Loop N/M completed ---` or `--- Loop N/M failed: <error> ---` marker after every loop
-9. Returns final output formatted per swarm-level `output_type`, and saves the conversation when `autosave=True`
+8. Returns final output formatted per swarm-level `output_type`, and saves the conversation when `autosave=True`
 
 <Warning>
   A loop that raises, for example because the director is unreachable or its output cannot be parsed, is recorded as failed and the next loop still runs. If every loop fails, `run()` re-raises the last error instead of returning a transcript.
