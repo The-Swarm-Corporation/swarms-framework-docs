@@ -1,0 +1,168 @@
+---
+title: 'Gemini Decision Model'
+description: 'Decide a return request with gemini-decision-1: one request, four typed questions, probabilities back instead of text'
+icon: 'google'
+---
+
+`DecisionModel` asks typed questions about a state and gets calibrated probabilities back, with no generated text to parse. This example uses Google's `gemini-decision-1` to decide what to do with a customer's return request, then checks an attached photo.
+
+## Setup
+
+```bash
+pip install -U swarms
+export GEMINI_API_KEY="..."
+```
+
+The model name picks the provider: any name that starts with `gemini-decision` goes to Gemini's Decisions API. There is no `google-genai` dependency, since the client calls the HTTP API directly.
+
+## The example
+
+```python
+import base64
+from pathlib import Path
+
+from swarms import DecisionModel
+
+# Reads GEMINI_API_KEY and calls Gemini's /v1beta/decisions endpoint.
+model = DecisionModel(model_name="gemini-decision-1")
+
+request = {
+    "message": (
+        "The blue mug I ordered on Monday arrived cracked on Wednesday. "
+        "I'd like a replacement, not a refund."
+    ),
+    "order": {"id": "8821", "age_days": 2, "total_usd": 24.0},
+    "customer": {"tier": "Gold", "returns_last_90_days": 0},
+}
+
+result = model.run(
+    state=request,
+    questions={
+        "resolution": {
+            "type": "choice",
+            "instructions": "Which resolution fits this return request?",
+            "criteria": {
+                "replace": "Send the same item again.",
+                "refund": "Return the payment to the customer.",
+                "reject": "The request is outside the return policy.",
+                "other": "Anything outside these outcomes.",
+            },
+        },
+        "severity": {
+            "type": "score",
+            "instructions": "How badly is the item affected?",
+            "criteria": [
+                "Cosmetic: the item works as intended.",
+                "Impaired: the item works with a workaround.",
+                "Unusable: the item cannot be used.",
+            ],
+        },
+        "is_damaged": {
+            "type": "noul",
+            "instructions": "Did the item arrive damaged?",
+            "criteria": {
+                "true": "The item itself is broken or faulty.",
+                "false": "A preference, sizing, shipping or pricing complaint.",
+            },
+        },
+        "within_window": {
+            "type": "noul",
+            "instructions": "Is order.age_days 30 or less?",
+        },
+    },
+)
+
+answers = result["answers"]
+resolution = answers["resolution"]
+
+print(
+    f"Resolution: {resolution['choice']} "
+    f"(confidence {resolution['confidence']:.2f})"
+)
+print(f"Severity: {answers['severity']['score']:.2f} on a 0-2 scale")
+print(f"Damaged: {answers['is_damaged']['noul']:.2f}")
+print(f"Within window: {answers['within_window']['noul']:.2f}")
+
+approved = (
+    resolution["confidence"] >= 0.7
+    and resolution["choice"] in ("replace", "refund")
+    and answers["is_damaged"]["noul"] >= 0.8
+    and answers["within_window"]["noul"] >= 0.8
+)
+print(
+    f"Action: {resolution['choice']} automatically"
+    if approved
+    else "Action: send to a human"
+)
+
+# A list of content blocks carries text, images, audio, video and PDFs.
+image_path = Path(__file__).parents[2] / "images" / "new_logo.png"
+image_base64 = base64.b64encode(image_path.read_bytes()).decode(
+    "ascii"
+)
+
+has_logo = model.noul(
+    state=[
+        {"type": "text", "text": "Photo attached to request #8821."},
+        {
+            "type": "image",
+            "data": image_base64,
+            "mime_type": "image/png",
+        },
+    ],
+    instructions="Does the photo show a company logo?",
+)
+print(f"Photo shows a logo: {has_logo:.2f}")
+
+print(f"Cost of both requests: {model.calculate_cost()}")
+```
+
+## How it works
+
+1. **One request, four questions.** `run()` sends the request and all four questions together. Each question is answered on its own against the same state, so adding a question does not change the other answers.
+2. **Structured state.** The state is a dict, which is sent to Gemini as JSON text. Instructions can name its fields by key path, as `within_window` does with `order.age_days`.
+3. **Three question types.** `choice` picks one option, `score` rates the state against ordered levels, and `noul` returns the probability that a statement is true.
+4. **Yes/no descriptions.** The `true` and `false` criteria on `is_damaged` say what each side means. `DecisionModel` renames them to the keys Gemini expects.
+5. **Thresholds in code.** The request is approved automatically only when the resolution is confident and both policy checks pass. Everything else goes to a person.
+6. **Media.** A list of content blocks passes through to Gemini unchanged, so the second call sends a text block and a base64 image. The same shape works for audio, video and PDFs.
+7. **Cost.** `calculate_cost()` prices the tokens of both requests. Gemini bills input tokens only.
+
+## Output
+
+The values depend on the model. The shape is:
+
+```text
+Resolution: replace (confidence 0.97)
+Severity: 1.85 on a 0-2 scale
+Damaged: 0.98
+Within window: 0.99
+Action: replace automatically
+Photo shows a logo: 0.96
+Cost of both requests: {'input_tokens': 612, 'output_tokens': 0, 'input_cost': 6.12e-05, 'output_cost': 0.0, 'total_cost': 6.12e-05}
+```
+
+<Note>
+Yes/no probabilities from Gemini fall between 0.01 and 0.99, so a threshold above 0.99 never matches.
+</Note>
+
+## Switching provider
+
+The questions and answers have the same shape for every provider, so the text part of this example runs on another decision model by changing the name:
+
+```python
+model = DecisionModel(model_name="gpt-6-luna")  # OpenAI, reads OPENAI_API_KEY
+model = DecisionModel()  # TypeSafe jev-latest, reads TYPESAFE_API_KEY
+```
+
+The list of content blocks is Gemini's format. OpenAI takes images as a list of user messages instead; see the [reference](/api/decision-model#providers).
+
+## Related
+
+<CardGroup cols={2}>
+<Card title="DecisionModel reference" icon="scale-balanced" href="/api/decision-model">
+Every provider, method and question type
+</Card>
+<Card title="Source" icon="github" href="https://github.com/kyegomez/swarms/blob/master/examples/decision_models/gemini_return_request.py">
+The example file in the swarms repo
+</Card>
+</CardGroup>

@@ -198,7 +198,7 @@ def run_concurrently(self, tasks: List[str], *args, **kwargs) -> Union[List[Any]
 
 **Parameters:**
 - `tasks` (List[str]): List of tasks or questions to be processed
-- `max_workers` (int, keyword): Number of threads. Defaults to `os.cpu_count()`
+- `max_workers` (int, keyword): Number of threads. Defaults to one per task
 - `*args`, `**kwargs`: Forwarded to each task's `run` call
 
 **Returns:** List of consensus results in **input order**, so element *i* is the vote for `tasks[i]`
@@ -552,7 +552,7 @@ results = swarm.run_concurrently(questions)
 | Consideration | Description |
 |---|---|
 | Sequential Processing (`batch_run`) | Tasks are processed one after another, not in parallel |
-| Concurrent Processing (`run_concurrently`) | Tasks run in a thread pool, one thread per CPU core by default (`max_workers`) |
+| Concurrent Processing (`run_concurrently`) | Tasks run in a thread pool, one thread per task by default (`max_workers`) |
 | Independent Conversation History | Each task starts from its own fresh conversation |
 | Shared Agents | Concurrent tasks share the same voter agents, so each voter may serve several tasks at once |
 | Memory Usage | Scales with the number of tasks and the length of each conversation |

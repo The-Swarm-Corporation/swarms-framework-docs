@@ -117,7 +117,7 @@ The conversation is created once in the constructor and never cleared. A second 
 
 ### batched_run()
 
-Calls `run()` for every task concurrently in a thread pool of `os.cpu_count() * 2` workers.
+Calls `run()` for every task concurrently in a thread pool with one thread per task.
 
 ```python
 def batched_run(self, tasks: List[str]) -> List[str]

@@ -33,10 +33,6 @@ from swarms.structs.agent_router import AgentRouter
   The embedding model to use for generating embeddings. Supports various models like `text-embedding-3-small`, `text-embedding-3-large`, `cohere/embed-english-v3.0`, `huggingface/microsoft/codebert-base`, etc.
 </ParamField>
 
-<ParamField path="n_agents" type="int" default="1">
-  Stored as `router.n_agents` but not read. `find_best_agent()` always returns the single best match.
-</ParamField>
-
 <ParamField path="api_key" type="Optional[str]" default="None">
   API key for the embedding service. If not provided, will use environment variables.
 </ParamField>
@@ -140,7 +136,6 @@ from swarms.structs.agent_router import AgentRouter
 # Initialize the router
 agent_router = AgentRouter(
     embedding_model="text-embedding-ada-002",
-    n_agents=1,
     agents=[
         Agent(
             agent_name="Symptom Checker",
@@ -234,7 +229,6 @@ from swarms.structs.agent_router import AgentRouter
 # Use a different embedding model
 router = AgentRouter(
     embedding_model="text-embedding-3-large",  # OpenAI's newer model
-    n_agents=1,
     api_key="your-api-key",  # Optional: specify API key
 )
 

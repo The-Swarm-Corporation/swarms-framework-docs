@@ -110,7 +110,7 @@ class ConcurrentWorkflow:
 
 Execute all agents concurrently on the given task.
 
-Each call starts with a fresh conversation, so a reused workflow returns only this task's messages. Each agent's final answer is recorded, not its whole transcript, and answers are collected in the order of `agents`, not completion order. With `on_error="store"`, a failed agent is recorded with `"Error: ..."` as its content, under the role `"<agent_name> (failed)"` (or its plain name in dashboard mode). With `autosave=True`, the conversation is saved after the run, even when it fails.
+Each call starts with a fresh conversation and calls `reset()` on every `Agent`, so a reused workflow neither sends earlier tasks to the model nor returns them. Each agent's final answer is recorded, not its whole transcript, and answers are collected in the order of `agents`, not completion order. With `on_error="store"`, a failed agent is recorded with `"Error: ..."` as its content, under the role `"<agent_name> (failed)"` (or its plain name in dashboard mode). With `autosave=True`, the conversation is saved after the run, even when it fails.
 
 <ParamField path="task" type="str" required>
   The task to be executed by all agents

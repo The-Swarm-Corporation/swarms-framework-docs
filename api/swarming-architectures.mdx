@@ -14,21 +14,19 @@ The topologies live in four modules. Every name below is exported from the top-l
 
 | Module | Contents |
 |---|---|
-| `swarms/structs/swarming_architectures.py` | `circular_swarm`, `grid_swarm`, `star_swarm`, `mesh_swarm`, `pyramid_swarm` |
+| `swarms/structs/swarming_architectures.py` | `circular_swarm`, `grid_swarm`, `pyramid_swarm` |
 | `swarms/structs/one_to_one.py` | `one_to_one` function and `OneToOne` class |
 | `swarms/structs/broadcast.py` | `broadcast` async function and `Broadcast` class |
 | `swarms/structs/one_to_three.py` | `one_to_three` function and `OneToThree` class |
 
 <Note>
-`one_to_one` and `broadcast` no longer live in `swarming_architectures.py`, and the old `various_alt_swarms.py` module is gone. Import every name from `swarms`. `from swarms.structs.swarming_architectures import broadcast` now raises `ImportError`.
+`one_to_one` and `broadcast` no longer live in `swarming_architectures.py`, and the old `various_alt_swarms.py` module is gone. Import every name from `swarms`. `from swarms.structs.swarming_architectures import broadcast` now raises `ImportError`. `star_swarm` and `mesh_swarm` were removed; use `AgentRearrange` with a flow such as `"Hub -> A, B"` when one agent should answer first, and `run_agents_with_different_tasks` to spread tasks over a pool of agents.
 </Note>
 
 | Name | Topology | Call shape |
 |---|---|---|
 | `circular_swarm` | Ring. Every agent answers every task, in order, on one shared conversation | `circular_swarm(agents, tasks)` |
 | `grid_swarm` | Agents laid out in a √N×√N grid; one task per cell | `grid_swarm(agents, tasks)` |
-| `star_swarm` | `agents[0]` is the hub and answers each task first; every other agent then answers the same task | `star_swarm(agents, tasks)` |
-| `mesh_swarm` | Agents take turns pulling the next task from a shared FIFO queue until it is empty | `mesh_swarm(agents, tasks)` |
 | `pyramid_swarm` | Agents arranged in triangular levels; one task per cell | `pyramid_swarm(agents, tasks)` |
 | `one_to_one`, `OneToOne` | Sender and receiver alternate for `max_loops` exchanges | `one_to_one(sender, receiver, task)` |
 | `broadcast`, `Broadcast` | One sender speaks, then every receiver replies in turn | `await broadcast(sender, agents, task)` |
@@ -46,8 +44,8 @@ pip install -U swarms
 
 Every call starts a fresh shared `Conversation` and returns its history. The topologies differ in what each agent reads.
 
-- **Reads the shared conversation:** every agent in `circular_swarm`, `one_to_one`, `broadcast` and `one_to_three`, plus the hub in `star_swarm`. The agent receives the conversation as typed chat turns: its own messages as `assistant` turns, everyone else's as `user` turns labelled with the speaker's name. Its final answer, not its whole transcript, is recorded under its `agent_name`.
-- **Gets only its task:** every agent in `grid_swarm`, `mesh_swarm` and `pyramid_swarm`, plus the non-hub agents in `star_swarm`. These call `agent.run(task)` and record whatever it returns.
+- **Reads the shared conversation:** every agent in `circular_swarm`, `one_to_one`, `broadcast` and `one_to_three`. The agent receives the conversation as typed chat turns: its own messages as `assistant` turns, everyone else's as `user` turns labelled with the speaker's name. Its final answer, not its whole transcript, is recorded under its `agent_name`.
+- **Gets only its task:** every agent in `grid_swarm` and `pyramid_swarm`. These call `agent.run(task)` and record whatever it returns.
 
 <Tip>
 `Agent.run` returns according to the agent's `output_type`, which defaults to `"str-all-except-first"` (the agent's whole conversation). For the "only its task" topologies, set `output_type="final"` on your agents if you want just the answer recorded.
@@ -114,34 +112,6 @@ Best when `len(agents)` is a perfect square and `len(tasks)` matches the cell co
 <Warning>
 `grid_swarm` pops tasks off the list you pass, so after the call it holds only the unprocessed tasks. Pass a copy (`tasks=list(my_tasks)`) if you need the original. It does not validate empty inputs.
 </Warning>
-
-## star_swarm()
-
-`agents[0]` is the hub. For each task, the task is posted as a `User` message and the hub answers it on the shared conversation. Every other agent then runs the same task on its own; it does not see the hub's answer.
-
-```python
-def star_swarm(
-    agents: AgentListType,
-    tasks: List[str],
-    output_type: OutputType = "dict",
-) -> Union[Dict[str, Any], List[str]]
-```
-
-**Raises:** `ValueError` if `agents` or `tasks` is empty.
-
-## mesh_swarm()
-
-Posts the full task list as one `User` message, copies it into a FIFO queue, then loops over `agents`, each taking the next task off the front of the queue, until the queue is empty. Despite the name, assignment is deterministic, not random. Your `tasks` list is not modified.
-
-```python
-def mesh_swarm(
-    agents: AgentListType,
-    tasks: List[str],
-    output_type: OutputType = "dict",
-) -> Union[Dict[str, Any], List[str]]
-```
-
-**Raises:** `ValueError` if `agents` or `tasks` is empty.
 
 ## pyramid_swarm()
 
@@ -549,8 +519,6 @@ More runnable scripts live in the swarms repo under [`examples/multi_agent/one_t
 |---|---|
 | `circular_swarm` | Each agent should see every task and the accumulating discussion |
 | `grid_swarm` | Tasks map cleanly to a 2D layout you already have |
-| `star_swarm` | One agent should weigh in first on every task, then the rest answer on their own |
-| `mesh_swarm` | A pool of interchangeable agents should drain a shared task queue |
 | `pyramid_swarm` | Tasks map cleanly to a triangular layout you already have |
 | `one_to_one`, `OneToOne` | Two-agent loops: writer and editor, generator and critic, proposer and judge |
 | `broadcast`, `Broadcast` | One message that many agents should react to, each seeing the replies before theirs |

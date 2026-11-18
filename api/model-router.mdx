@@ -57,10 +57,6 @@ OPENROUTER_API_KEY=your_openrouter_api_key
   Thread count for `concurrent_run()`. Use `"auto"` for `os.cpu_count()`.
 </ParamField>
 
-<ParamField path="api_key" type="str" default="None">
-  Accepted but unused. Set provider keys as environment variables instead.
-</ParamField>
-
 <ParamField path="model_name" type="str" default="gpt-5.4">
   The model that makes the routing call and picks the route for each task. Any LiteLLM model name works.
 </ParamField>
@@ -444,6 +440,7 @@ The default routing prompt embeds these recommendations. The routing model can s
 | `mistral-large-latest` | mistral | General purpose tasks, code assistance, content generation |
 | `minimax/minimax-m3` | openrouter | Long-horizon agentic tasks, coding, very long documents |
 | `z-ai/glm-5.3` | openrouter | Complex software engineering, long-horizon agent tasks, step-by-step reasoning |
+| `z-ai/glm-5.3-flash` | openrouter | Low-cost coding, high-volume agent tasks, long documents on a budget |
 
 The prompt tells the routing model to name one of these exactly, with that entry's provider. To route among other models, pass a `system_prompt` that lists them.
 

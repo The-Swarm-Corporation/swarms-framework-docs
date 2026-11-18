@@ -220,7 +220,7 @@ agent = Agent(
 )
 ```
 
-`temperature` defaults to `None`, which leaves it out of the request so the provider's own default applies. `max_tokens` defaults to the model's own output limit.
+`temperature` defaults to `None`, which leaves it out of the request so the provider's own default applies. `max_tokens` defaults to 16,384; pass `max_tokens=None` to use the model's own output limit.
 
 ### Dynamic Model Selection
 
