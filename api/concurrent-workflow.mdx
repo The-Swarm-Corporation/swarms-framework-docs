@@ -89,7 +89,7 @@ class ConcurrentWorkflow:
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
-  Thread pool size. Defaults to `len(agents)`, with no upper cap, so every agent runs at once. Agent calls are network-bound, so this is sized by agent count rather than CPU cores. Set it to throttle a large roster, for example to stay under a provider's rate limit.
+  Most agents running at once. Defaults to `len(agents)`, with no upper cap, so every agent runs at once. Agent calls are network-bound, so this is sized by agent count rather than CPU cores. Set it to throttle a large roster, for example to stay under a provider's rate limit.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -109,6 +109,8 @@ class ConcurrentWorkflow:
 ### `run(task, img=None, imgs=None, streaming_callback=None)`
 
 Execute all agents concurrently on the given task.
+
+Agents are awaited on one event loop, so a model call holds no thread while it waits. See [Performance Considerations](#performance-considerations) for when a run uses one thread per agent instead.
 
 Each call starts with a fresh conversation, so a reused workflow returns only this task's messages. Each agent's final answer is recorded, not its whole transcript, and answers are collected in the order of `agents`, not completion order. With `on_error="store"`, a failed agent is recorded with `"Error: ..."` as its content, under the role `"<agent_name> (failed)"` (or its plain name in dashboard mode). With `autosave=True`, the conversation is saved after the run, even when it fails.
 
@@ -216,7 +218,7 @@ Display real-time dashboard showing agent status and outputs.
 | `agent_statuses` | dict | Status (`"pending"`, `"running"`, `"completed"`, `"error"`) and output of each agent, updated in dashboard mode |
 | `conversation` | Conversation | The latest run's conversation; replaced at the start of every `run()` |
 | `on_error` | str | Failure policy, `"store"` or `"raise"` |
-| `max_workers` | Optional[int] | Thread pool size override |
+| `max_workers` | Optional[int] | Most agents running at once |
 | `workspace` | WorkspaceManager | Owns the autosave directory |
 | `swarm_workspace_dir` | Optional[str] | Autosave directory; `None` when `autosave=False` |
 
@@ -453,8 +455,9 @@ When `show_dashboard=True`, you'll see real-time updates like:
 
 ## Performance Considerations
 
-- **Concurrency**: One thread per agent by default, with no upper cap, so a 100-agent workflow runs all 100 at once. Agent calls are network-bound, so this does not derive from CPU core count. Pass `max_workers` to throttle.
-- **Concurrent Execution**: All agents run truly concurrently using ThreadPoolExecutor
+- **Concurrency**: Every agent runs at once by default, with no upper cap, so a 100-agent workflow runs all 100 together. Agent calls are network-bound, so this does not derive from CPU core count. Pass `max_workers` to throttle.
+- **Concurrent Execution**: `run()` awaits every agent on one event loop, so a model call holds no thread while it waits. A blocking step inside an agent, such as a callable tool, still gets a worker thread.
+- **Thread fallback**: `run()` uses one thread per agent instead when `show_dashboard=True`, when it is called from code already running inside an event loop (a notebook cell or an `async` function), or when an agent is not a plain `Agent`: a custom class, a subclass that overrides `run`, or an agent whose `run` was replaced. Results and their order are the same on both paths.
 - **Memory Usage**: Each agent maintains its own context, consider memory for many agents
 - **API Rate Limits**: Be aware of rate limits when using cloud-based LLMs
 
