@@ -91,6 +91,10 @@ GroupChat(
   When `True` (default), the `RESPOND_TOOL` schema is automatically injected into any agent that does not already carry it, and that agent's LLM client is rebuilt so the forced tool call works. Set to `False` only if you equip every agent with `RESPOND_TOOL` yourself.
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A shared channel, such as `FileChannel("runs/q3.md")`. The chat seeds its conversation from the channel, then posts the task and every agent's answer to it under the speaker's name. Member agents' own `channel` settings are detached with a warning, so only the chat posts. See [Comms Channel](/agents/comms-channel#multi-agent-structures).
+</ParamField>
+
 ## The `respond` tool
 
 Every agent must carry `RESPOND_TOOL` so the chat can force a structured speaking decision instead of parsing free-form text. With `auto_equip=True` this is handled for you; otherwise add it explicitly:

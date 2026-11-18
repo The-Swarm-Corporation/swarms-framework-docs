@@ -122,6 +122,10 @@ class GraphWorkflow:
   Maximum number of nodes to execute concurrently within a layer. Defaults to `max(1, int(cpu_cores * 0.95))` when `None`. The run's thread pool is also capped at the size of the widest layer.
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A shared channel, such as `FileChannel("runs/q3.md")`. The workflow seeds its conversation from the channel, then posts the task and every agent's answer to it under the speaker's name. Member agents' own `channel` settings are detached with a warning, so only the workflow posts. See [Comms Channel](/agents/comms-channel#multi-agent-structures).
+</ParamField>
+
 ## Methods
 
 ### Graph Construction

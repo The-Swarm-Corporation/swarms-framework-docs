@@ -126,6 +126,10 @@ from swarms import HierarchicalSwarm
   Maximum number of recovery rounds in which the director can reassign failed tasks to healthy workers. The swarm continues running when recovery cannot complete a task. Must be greater than or equal to `0`.
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A shared channel, such as `FileChannel("runs/q3.md")`. The swarm seeds its conversation from the channel, then posts the task and every agent's answer to it under the speaker's name. Member agents' own `channel` settings are detached with a warning, so only the swarm posts. See [Comms Channel](/agents/comms-channel#multi-agent-structures).
+</ParamField>
+
 <ParamField path="print_on" type="bool" default="True">
   Whether to print the director's orders, and its plan when it returns one, to the console at each step. Orders are shown in full, and the panel is titled with the director's name. This is separate from `verbose`, which controls logging
 </ParamField>

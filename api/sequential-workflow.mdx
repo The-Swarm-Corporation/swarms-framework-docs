@@ -131,6 +131,10 @@ class SequentialWorkflow:
   raises `ValueError`.
 </ParamField>
 
+<ParamField path="channel" type="CommsChannel" default="None">
+  A shared channel, such as `FileChannel("runs/q3.md")`. The workflow seeds its conversation from the channel, then posts the task and every agent's answer to it under the speaker's name. Member agents' own `channel` settings are detached with a warning, so only the workflow posts. See [Comms Channel](/agents/comms-channel#multi-agent-structures).
+</ParamField>
+
 ## Methods
 
 ### `run(task, img=None, imgs=None, *args, **kwargs)`
