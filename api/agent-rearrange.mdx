@@ -210,7 +210,7 @@ Process multiple tasks concurrently on a thread pool. Each task runs on an isola
 </ParamField>
 
 <ParamField path="max_workers" type="Optional[int]" default="None">
-  Maximum number of worker threads. Defaults to `os.cpu_count()` when `None`.
+  Maximum number of worker threads. Defaults to one thread per task when `None`.
 </ParamField>
 
 <ResponseField name="results" type="List[str]">

@@ -230,7 +230,7 @@ The prompt carries a `Time:` line with the current date and time. It is built wh
 
 ## Streaming
 
-`run_stream()` and `arun_stream()` go through `run()`, so an agent with `max_loops="auto"` enters the autonomous loop when streamed. You receive the text tokens of every model call in the loop: planning, each subtask iteration and the summary.
+`run_stream()` goes through `run()` and `arun_stream()` through `arun()`, so an agent with `max_loops="auto"` enters the autonomous loop when streamed. You receive the text tokens of every model call in the loop: planning, each subtask iteration and the summary.
 
 ```python
 from swarms import Agent

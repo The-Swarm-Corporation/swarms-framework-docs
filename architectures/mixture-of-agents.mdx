@@ -128,7 +128,7 @@ After the last layer, the aggregator reads every labelled answer from every laye
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
-  Cap on how many worker agents run concurrently within a single layer. Forwarded to `run_agents_concurrently()`. When omitted, the pool uses 95% of the available CPU cores.
+  Cap on how many worker agents run concurrently within a single layer. Forwarded to `run_agents_concurrently()`. When omitted, every worker in the layer gets its own thread.
 </ParamField>
 
 <ParamField path="aggegrator_args" type="Dict[str, Any]" default="None">

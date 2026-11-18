@@ -85,6 +85,7 @@ The core settings include:
 - `base_url` and `api_key`, from the agent's `llm_base_url` and `llm_api_key`.
 - `retries`, from the agent's `retry_attempts`.
 - `stop`, set to `[agent.stopping_token]` when the agent has a `stopping_token`, so the provider stops generating there. `llm_args` can override it.
+- `tool_choice`, sent with the tool list. It is `"auto"` unless `llm_args` has a `tool_choice` key.
 
 MCP tool schemas come from the agent's [ToolManager](/api/tool-manager). With dynamic tool loading on, they are deferred into the tool catalog (`agent.tool_manager.defer_mcp_tools()`). Otherwise they are fetched with `agent.tool_manager.add_mcp_tools_to_memory()` and sent with every request.
 

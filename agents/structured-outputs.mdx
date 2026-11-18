@@ -166,7 +166,7 @@ else:
 ```
 
 <Note>
-  The request is sent with `tool_choice="auto"`, so the model may still answer in plain text. Name the function in your task or system prompt, and check whether the result is a list before parsing it. Keep `max_loops=1`. No callable runs the function, so a later loop only sees a `(no result recorded ...)` placeholder for the call.
+  The request is sent with `tool_choice="auto"`, so the model may still answer in plain text. Name the function in your task or system prompt, and check whether the result is a list before parsing it. To require the call instead, name the function in `llm_args`, as in `llm_args={"tool_choice": {"type": "function", "function": {"name": "CompanyAnalysis"}}}`; models running with reasoning or extended thinking can reject a forced choice. Keep `max_loops=1`. No callable runs the function, so a later loop only sees a `(no result recorded ...)` placeholder for the call.
 </Note>
 
 ### Multiple Output Schemas

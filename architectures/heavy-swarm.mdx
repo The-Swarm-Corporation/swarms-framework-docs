@@ -18,7 +18,7 @@ The `HeavySwarm` is a multi-agent orchestration system inspired by X.AI's Grok H
 - Intelligent question generation tailored to each agent role, with its own decomposer per variant
 - Image-aware decomposition: pass `img` and the questions are written from what the image shows
 - Three preset variants — `default` (5 agents), `medium` (4 Grok-style agents), `heavy` (16 agents)
-- Parallel execution on a thread pool; each worker runs the [autonomous loop](/agents/autonomous-mode) on its question
+- Parallel execution on a thread pool; each worker runs the [autonomous loop](/agents/autonomous-mode) on its question, with the loop's planning tools and `worker_tools` only
 - Synthesis agent that integrates expert outputs into a final answer
 - Token usage summed across question generation and every agent, via `usage`
 - Optional real-time `rich` dashboard
@@ -182,7 +182,7 @@ swarm = HeavySwarm(variant="heavy")
 </ParamField>
 
 <ParamField path="worker_tools" type="Optional[tool_type]">
-  Tools made available to every agent the variant builds.
+  Tools made available to every agent the variant builds. Workers get these and the autonomous loop's planning tools (`create_plan`, `subtask_done`, `complete_task`, `respond_to_user`). The loop's file, shell and sub-agent tools are not attached.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">

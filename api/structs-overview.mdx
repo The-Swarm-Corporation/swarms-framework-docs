@@ -23,6 +23,7 @@ pip install -U swarms
 | [RoundRobinSwarm](/api/round-robin-swarm) | Equal turn distribution | Cycles through agents in a fixed order, once each per loop, on a shared conversation |
 | [Mixture of Agents](/api/mixture-of-agents) | Complex problem solving | Combines diverse expert agents for comprehensive analysis |
 | [GroupChat](/api/group-chat) | Collaborative discussions | Agents bid to speak each turn; the highest bid above a threshold takes the floor |
+| [SelfOrganizingSwarm](/api/self-organizing-swarm) | Leaderless collaboration | Identical agents with one shared objective coordinate through asynchronous messages, with no leader, roles or turn order |
 | [SpreadSheetSwarm](/api/spreadsheet-swarm) | Bulk runs as a table | Runs agents concurrently and saves every output to CSV; can load agents and per-agent tasks from a CSV |
 | [SwarmRouter](/api/swarm-router) | One interface for every architecture | Builds and runs the structure named by `swarm_type`, with optional fallbacks |
 | [MultiAgentRouter](/api/multi-agent-router) | Task routing | A boss agent routes each task to the specialist agent(s) best suited to it |

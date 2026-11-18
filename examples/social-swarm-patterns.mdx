@@ -1,6 +1,6 @@
 ---
 title: "Social Swarm Patterns"
-description: "Broadcast, circular, mesh, grid, star, pyramid, one-to-one, one-to-three, and aggregate communication patterns"
+description: "Broadcast, circular, grid, pyramid, one-to-one, one-to-three, and aggregate communication patterns"
 icon: "diagram-project"
 ---
 
@@ -57,23 +57,6 @@ pip install -U swarms
     ```
   </Tab>
 
-  <Tab title="Mesh">
-    Shared task queue; workers drain tasks in round-robin order:
-
-    ```python
-    from swarms import Agent, mesh_swarm
-
-    agents = [
-        Agent(agent_name=f"Worker-{i}", model_name="claude-sonnet-4-6", max_loops=1)
-        for i in range(3)
-    ]
-    tasks = ["Task A", "Task B", "Task C", "Task D"]
-
-    results = mesh_swarm(agents=agents, tasks=tasks)
-    print(results)
-    ```
-  </Tab>
-
   <Tab title="Grid">
     Agents in a square grid (list length should be a perfect square, e.g. 4 or 9):
 
@@ -85,23 +68,6 @@ pip install -U swarms
         for i in range(4)
     ]
     result = grid_swarm(agents=agents, tasks=["Grid task 1", "Grid task 2"])
-    print(result)
-    ```
-  </Tab>
-
-  <Tab title="Star">
-    First agent is the hub; it processes each task before the others:
-
-    ```python
-    from swarms import Agent, star_swarm
-
-    agents = [
-        Agent(agent_name="Hub", model_name="claude-sonnet-4-6", max_loops=1),
-        Agent(agent_name="Spoke-1", model_name="claude-sonnet-4-6", max_loops=1),
-        Agent(agent_name="Spoke-2", model_name="claude-sonnet-4-6", max_loops=1),
-    ]
-
-    result = star_swarm(agents=agents, tasks=["Coordinate subtasks and merge."])
     print(result)
     ```
   </Tab>
@@ -177,9 +143,7 @@ pip install -U swarms
 | --- | --- |
 | Broadcast | One announcement, then replies from many agents in turn |
 | Circular | Sequential refinement with shared history |
-| Mesh | Many independent tasks, worker pool |
 | Grid | One task per agent, laid out as a square |
-| Star | A lead answer on every task, plus independent answers from the rest |
 | Pyramid | One task per agent, laid out in triangular levels |
 | One-to-one | Back-and-forth between two agents |
 | One-to-three | One message reviewed by a fixed panel of three |

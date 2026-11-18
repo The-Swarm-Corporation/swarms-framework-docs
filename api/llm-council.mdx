@@ -70,6 +70,8 @@ def run(self, task: str)
 
 **Raises:** `ValueError` if `task` is not a string, is empty, or contains only whitespace
 
+If a council member fails while answering or ranking, `run` raises that member's error, such as `AgentLLMError`, and the Chairman doesn't run.
+
 <Note>
   The `query` alias was removed. Call `run(task=...)` or pass the task positionally.
 </Note>
