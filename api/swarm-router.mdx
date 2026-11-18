@@ -322,7 +322,7 @@ results = router.batch_run([
 
 ### `concurrent_run(tasks, imgs=None, *args, **kwargs)`
 
-Execute `tasks` through `run()` in parallel on a thread pool sized to `os.cpu_count()`. The concurrent counterpart to `batch_run()`. The tracing context follows each task into its worker thread.
+Execute `tasks` through `run()` in parallel on a thread pool with one thread per task. The concurrent counterpart to `batch_run()`. The tracing context follows each task into its worker thread.
 
 <ParamField path="tasks" type="List[str]" required>
   Tasks to execute in parallel.
