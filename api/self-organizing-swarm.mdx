@@ -1,0 +1,254 @@
+---
+title: "SelfOrganizingSwarm"
+description: "A leaderless swarm of identical agents that share one objective and coordinate only through asynchronous messages"
+icon: "circle-nodes"
+---
+
+## Overview
+
+`SelfOrganizingSwarm` runs N copies of one model as a team with **no leader, no roles and no turn order**. Every member gets the same task, its own history and, optionally, its own private input and its own copy of any task tools. Members decide for themselves when to talk, using three messaging tools.
+
+It is an inference-only port of the harness from s³, "Simple Scaling of Swarms via Cooperative Multi-agent RL" (Jha, Faria, Li, Geng et al., 2026, [scalingswarms.com](https://scalingswarms.com)). The paper trains the coordination with RL. This class keeps the harness and the shared objective and leaves out the training, so any tool-calling model can run in it.
+
+How one run works:
+
+1. **Build.** Every member gets a fresh `Agent`, a random public name such as `agent_17`, and a shuffled list of teammates. Agents are rebuilt on every `run()`, so runs never share history.
+2. **Work.** Each member runs in its own thread and carries on as soon as its own tool call returns. No member waits for a slower one.
+3. **Notify.** When a message arrives, the recipient gets a notice between its model calls listing unread counts by sender. The notice never includes message contents. The member calls `read_messages` to read them.
+4. **Idle.** A member that ends a response without a tool call becomes idle and spends nothing. A new message wakes it.
+5. **Finish.** A member answers with a line that starts with `####`. The work phase ends when an answer passes the verifier, when a task tool calls `solve()`, when every member is idle or finished, or when the token allowance or `timeout` runs out.
+6. **Final answers.** Members that have not answered are asked once for a final answer. In this phase the last non-empty line of the reply counts as the answer if it has no `####` line.
+
+Every member is told the team is scored as one: it succeeds if any member is right, and there is no bonus for being the one who answers.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Constructor
+
+<ParamField path="name" type="str" default="SelfOrganizingSwarm">
+  Name of the swarm
+</ParamField>
+
+<ParamField path="description" type="str" default="Leaderless swarm that coordinates through asynchronous messages.">
+  What the swarm is for
+</ParamField>
+
+<ParamField path="num_agents" type="int" default="4">
+  Team size N. Must be at least 1, or `ValueError` is raised
+</ParamField>
+
+<ParamField path="model_name" type="str" default="gpt-5.4">
+  Model for every member. The model must support tool calling when `communication=True` or when you pass `task_tools`
+</ParamField>
+
+<ParamField path="communication" type="bool" default="True">
+  `False` gives members no messaging tools and a solo prompt, so the run is N independent attempts. Use it as the best-of-N baseline for the same task
+</ParamField>
+
+<ParamField path="max_tokens_per_agent" type="Optional[int]" default="8192">
+  Generation allowance L for each member, counted from the provider's reported output tokens. A member that reaches it stops working and is asked for a final answer. `None` removes the limit
+</ParamField>
+
+<ParamField path="token_cost" type="float" default="0.25">
+  λ in the team reward. `0` turns the cost term off
+</ParamField>
+
+<ParamField path="max_loops_per_wake" type="int" default="100">
+  Safety cap on model calls between two idle periods. The token allowance and `timeout` are the real limits
+</ParamField>
+
+<ParamField path="timeout" type="float" default="900.0">
+  Wall-clock limit for the work phase, in seconds. It is checked between model calls and while members are idle, so a model call already in progress is allowed to finish
+</ParamField>
+
+<ParamField path="stop_on_success" type="bool" default="True">
+  End the run as soon as an answer passes the verifier
+</ParamField>
+
+<ParamField path="seed" type="Optional[int]" default="None">
+  Seeds the member names and teammate order
+</ParamField>
+
+<ParamField path="agent_kwargs" type="Optional[Dict[str, Any]]" default="None">
+  Extra keyword arguments for every member's `Agent`. By default members are built with `print_on=False`, `reasoning_prompt_on=False`, `persistent_memory=False` and `tool_retry_attempts=1`; values in `agent_kwargs` override these
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Log every message as it is sent
+</ParamField>
+
+## run()
+
+```python
+def run(
+    self,
+    task: str,
+    private_inputs: Optional[List[str]] = None,
+    verifier: Optional[Callable[[str], bool]] = None,
+    task_tools: Optional[Callable[[str, Callable[..., None]], List[Callable]]] = None,
+    rules: str = "",
+    final_prompt: Optional[str] = DEFAULT_FINAL_PROMPT,
+) -> Dict[str, Any]
+```
+
+<ParamField path="task" type="str" required>
+  The problem, shown to every member as its first message
+</ParamField>
+
+<ParamField path="private_inputs" type="Optional[List[str]]" default="None">
+  One string per member, appended to that member's first message. The length must equal `num_agents`, or `ValueError` is raised
+</ParamField>
+
+<ParamField path="verifier" type="Optional[Callable[[str], bool]]" default="None">
+  Returns `True` for a correct final answer. It enables `success`, early stopping and the team reward. A verifier that raises counts as `False`
+</ParamField>
+
+<ParamField path="task_tools" type="Optional[Callable]" default="None">
+  A factory called once per member as `task_tools(agent_name, solve)`. It returns that member's private list of tool functions. Calling `solve(answer)` from a tool marks the team as solved and ends the run
+</ParamField>
+
+<ParamField path="rules" type="str" default="&quot;&quot;">
+  Task-specific rules added to every member's system prompt
+</ParamField>
+
+<ParamField path="final_prompt" type="Optional[str]" default="DEFAULT_FINAL_PROMPT">
+  Asked of every member without an answer when the work phase ends. `None` skips the final-answer phase
+</ParamField>
+
+### Messaging tools
+
+With `communication=True`, every member gets:
+
+| Tool | What it does |
+|---|---|
+| `message(to, text)` | Delivers `text` at once to one teammate, or to every teammate with `to="all"`. An unknown name returns an error listing the valid ones |
+| `read_messages()` | Returns up to 16 unread messages as JSON, each with `from`, `to` and `text` |
+| `check_notifications()` | Returns unread counts by sender without reading the messages |
+
+A tool that raises returns its error as text instead, so the agent's tool retry never resends a message.
+
+### Result
+
+`run()` returns a dict:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `answer` | `Optional[str]` | The team answer: the first answer that passed the verifier, else the most common submitted answer, else `None` |
+| `success` | `Optional[bool]` | Whether the team solved the task. `None` when there is no verifier and no tool called `solve()` |
+| `solved_by` | `Optional[str]` | Name of the member whose answer passed, or whose tool called `solve()` |
+| `answers` | `Dict[str, str]` | Each member's first submitted answer |
+| `team_reward` | `Optional[float]` | `S * (1 - token_cost * min(1, total_tokens / (N * L)))`, where S is 1 on success and 0 otherwise. `None` when `success` is `None`. The cost term is 0 when `max_tokens_per_agent` is `None` |
+| `tokens` | `Dict[str, int]` | Output tokens per member |
+| `total_tokens` | `int` | Sum of `tokens` |
+| `message_calls` | `int` | Number of messages sent |
+| `broadcasts` | `int` | Number of messages sent to `"all"` |
+| `messages` | `List[dict]` | Every message, with `t` (seconds since start), `from`, `to` and `text` |
+| `agents` | `List[str]` | The member names used in this run |
+| `communication` | `bool` | The `communication` setting |
+| `elapsed_seconds` | `float` | Wall-clock time of the run |
+
+## Examples
+
+### Private information
+
+Three members each hold one number and have to message each other to submit all three sorted.
+
+```python
+import json
+
+from swarms import SelfOrganizingSwarm
+
+numbers = [7, 42, 19]
+
+
+def is_correct(answer: str) -> bool:
+    try:
+        return json.loads(answer) == sorted(numbers)
+    except ValueError:
+        return False
+
+
+swarm = SelfOrganizingSwarm(
+    num_agents=len(numbers),
+    model_name="gpt-5.4",
+    max_tokens_per_agent=2048,
+    timeout=120.0,
+    verbose=True,
+)
+
+result = swarm.run(
+    task=(
+        "Each agent has one private number. Collect every number and "
+        "submit them sorted ascending as #### followed by a JSON array, "
+        "e.g. #### [1, 2, 3]"
+    ),
+    private_inputs=[f"Your private number is {n}." for n in numbers],
+    verifier=is_correct,
+    rules="Submit only when you have one number from every agent.",
+)
+
+print(result["success"], result["answer"], result["team_reward"])
+print(result["message_calls"], "messages,", result["total_tokens"], "tokens")
+```
+
+### Best-of-N baseline
+
+Run the same task with `communication=False` to compare the swarm with N independent attempts at the same cost settings.
+
+```python
+swarm_result = SelfOrganizingSwarm(num_agents=4).run(task, verifier=check)
+solo_result = SelfOrganizingSwarm(num_agents=4, communication=False).run(
+    task, verifier=check
+)
+
+print(swarm_result["team_reward"], solo_result["team_reward"])
+```
+
+### Task tools that end the run
+
+Give each member its own copy of an environment. A tool calls `solve()` when the goal is reached, which marks the team as solved and stops every member.
+
+```python
+def maze_tools(agent_name, solve):
+    position = {"cell": 0}
+
+    def move(direction: str) -> str:
+        """Move one cell north, south, east or west.
+
+        Args:
+            direction: north, south, east or west.
+
+        Returns:
+            Where you are now.
+        """
+        position["cell"] += 1
+        if position["cell"] == 5:
+            solve(f"exit found by {agent_name}")
+            return "You reached the exit."
+        return f"You are in cell {position['cell']}."
+
+    return [move]
+
+
+result = SelfOrganizingSwarm(num_agents=3).run(
+    "Find the exit of the maze.",
+    task_tools=maze_tools,
+)
+print(result["success"], result["solved_by"])
+```
+
+## When to choose SelfOrganizingSwarm
+
+- The task splits naturally but you don't want to hard-code who does what.
+- Members hold different private information that only helps once shared.
+- You want to measure whether communication helps, with `communication=False` as the matched baseline.
+
+When the split is known ahead of time, `HierarchicalSwarm` or `PlannerWorkerSwarm` is more predictable. When the members don't need each other's work, `ConcurrentWorkflow` or `MajorityVoting` is cheaper.
+
+## Source code
+
+View the [source code on GitHub](https://github.com/kyegomez/swarms/blob/master/swarms/structs/self_organize.py)

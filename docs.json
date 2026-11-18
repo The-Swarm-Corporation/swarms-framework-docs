@@ -199,6 +199,7 @@
               "api/round-robin-swarm",
               "api/forest-swarm",
               "api/self-moa-seq",
+              "api/self-organizing-swarm",
               "api/advisor-swarm",
               "api/planner-worker-swarm",
               "api/orchestration-methods",
