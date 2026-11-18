@@ -48,11 +48,11 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="max_tokens" type="int" default="None">
+<ParamField path="max_tokens" type="Optional[int]" default="16384">
   Maximum number of tokens to generate in a single response.
 
   <Note>
-    When left unset (or set to `0` or less), `max_tokens` resolves during `__init__` to the model's own maximum output tokens from LiteLLM's model registry, falling back to `16000` only if that lookup fails. Pass `max_tokens` explicitly to override the resolved value. For OpenAI's o1/o3/o4 and gpt-5/gpt-6 families the value is sent as `max_completion_tokens`, the key those models accept.
+    The default of 16,384 is accepted by almost every current model, so building an agent needs no model lookup. Pass `None` and `max_tokens` resolves during `__init__` to the model's own maximum output tokens from the model registry, falling back to `16000` only if that lookup fails. Zero or less raises `AgentInitializationError`. For OpenAI's o1/o3/o4 and gpt-5/gpt-6 families the value is sent as `max_completion_tokens`, the key those models accept.
   </Note>
 
   ```python
@@ -60,11 +60,11 @@ The `Agent` class provides extensive configuration options to customize behavior
   ```
 </ParamField>
 
-<ParamField path="context_length" type="int" default="None">
+<ParamField path="context_length" type="Optional[int]" default="128000">
   Maximum context window size, used as the denominator for the `ContextCompressor` threshold check (see [Agent Memory](/agents/agent-memory)).
 
   <Note>
-    The value you pass is respected: `self.context_length` is only replaced by a model-derived default when you leave it as `None`. (An earlier release did overwrite it unconditionally; that is fixed.)
+    The default of 128,000 is the most common context window and needs no model lookup. Pass `None` to use the model's own input limit instead, falling back to `16000` if that lookup fails. Zero or less raises `AgentInitializationError`; any positive value is kept as given.
   </Note>
 
   ```python

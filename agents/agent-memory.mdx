@@ -209,7 +209,7 @@ Compression can run when all of these are true:
 The default threshold is `0.9`, so compression starts when the active prompt reaches about 90% of the context window.
 
 <Note>
-  `context_length` accepts `None` as its constructor default, but the agent never runs with an actual `None` value: during `__init__`, an unset `context_length` is resolved to a model-derived value (or `16000` as a fallback), so compression always has a real denominator to measure against. Pass `context_length` explicitly only to override that resolved default — for example, to match a larger context window.
+  `context_length` defaults to 128,000. Pass `None` and `__init__` resolves it to the model's own input limit (or `16000` as a fallback), so compression always has a real denominator to measure against. Pass a number to match a larger or smaller window.
 </Note>
 
 The compressor is checked for both `max_loops="auto"` and integer `max_loops` runs. The `context_compression` flag is the gate.
