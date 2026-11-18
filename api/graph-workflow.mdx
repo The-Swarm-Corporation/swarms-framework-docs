@@ -228,7 +228,7 @@ Run the workflow graph with optimized parallel agent execution. The graph is com
 
 By default, a node that raises does not stop the run: its output becomes an `"[ERROR] Agent <name> failed: ..."` string, and downstream nodes still run. Set [`on_error`](#parameters) to change this. A subgraph node's output is the inner workflow's results joined as `[node_id]: output` blocks.
 
-An agent node's result is whatever that agent's `run()` returns, so it follows the agent's own `output_type`. The `Agent` default, `"str-all-except-first"`, is the agent's transcript rather than its last answer; give the agents `output_type="final"` to collect answers only. Every node's output is also appended to `workflow.conversation`, which is not reset between runs.
+An agent node's result is that agent's final answer, its last message, whatever the agent's `output_type`. Downstream nodes receive the same answer, so running the workflow again doesn't pass on the earlier runs' turns. Every node's output is also appended to `workflow.conversation`, which is not reset between runs.
 
 <ParamField path="task" type="Optional[str]">
   Task to execute. Uses self.task if not provided.
