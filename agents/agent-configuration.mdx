@@ -284,7 +284,7 @@ for token in agent.run_stream("Write a short poem about distributed systems."):
 
 #### `agent.arun_stream(task) -> AsyncIterator[str]`
 
-Async generator. Same semantics as `run_stream`, but the agent loop runs in a thread executor while tokens are forwarded through an `asyncio.Queue`, so the caller's event loop is never blocked.
+Async generator. Same semantics as `run_stream`, but the agent runs on the caller's event loop through `arun` and each token is yielded as the provider sends it. Closing the generator early cancels the run.
 
 ```python
 import asyncio

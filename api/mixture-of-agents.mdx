@@ -252,7 +252,7 @@ Runs the same workflow as `run()` on the event loop, awaiting each agent's `arun
 </Note>
 
 <Note>
-  `Agent.arun` still calls `Agent.run` through `asyncio.to_thread`, so each running worker holds a thread from asyncio's default executor.
+  `Agent.arun` awaits the model on the event loop, so a running worker holds no thread while it waits. Callable tools, handoffs and `max_loops="auto"` runs still use worker threads.
 </Note>
 
 ## Usage Example
