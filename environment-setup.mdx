@@ -76,6 +76,10 @@ The fastest way to get started is to create a `.env` file in your project root:
   Write log files to `{WORKSPACE_DIR}/logs`. Off by default, so Swarms writes no log files unless you set it. `True`, `1`, `yes` and `on` enable it.
 </ParamField>
 
+<ParamField path="SWARMS_GLOBAL_LOGGER_ON" type="bool" default="True">
+  Master switch for Swarms logging. Set it to `False` to turn every Swarms log off: nothing is printed to the console and no log files are written, whatever `SWARMS_LOG_FILES` says. Your own Loguru calls keep working. Read once, when `swarms` is imported.
+</ParamField>
+
 <ParamField path="SWARMS_STRICT_MODEL_CHECK" type="bool" default="False">
   Check each agent's model against the model catalog when it is built, and warn about an unknown model, a `max_tokens` above the model's limit, or tools on a model without function calling. Only the value `true` (any case) enables it.
 </ParamField>
@@ -156,6 +160,7 @@ XAI_API_KEY="your-xai-key"
 SWARMS_TELEMETRY_ON="false"      # opt out of OpenTelemetry tracing, which is on by default
 SWARMS_LLM_BACKEND=""            # "litellm" or "routehub"; unset picks RouteHub when installed
 SWARMS_LOG_FILES="False"         # write log files to WORKSPACE_DIR/logs
+SWARMS_GLOBAL_LOGGER_ON="True"   # False turns every Swarms log off
 SWARMS_STRICT_MODEL_CHECK="False" # warn about unknown models and over-limit max_tokens
 SWARMS_API_KEY="your-swarms-key" # only for the Swarms marketplace
 
@@ -167,7 +172,7 @@ RESEND_API_KEY=""
 ```
 
 <Note>
-  Provider keys are read by LiteLLM, so any variable LiteLLM documents for a provider works here. Swarms' own settings are `WORKSPACE_DIR`, `SWARMS_LLM_BACKEND`, `SWARMS_LOG_FILES`, `SWARMS_STRICT_MODEL_CHECK`, the telemetry variables described in [Telemetry](/deployment/telemetry), the email channel credentials, and `SWARMS_API_KEY` (for the [marketplace](/integrations/marketplace)). Other variables, such as `LOG_LEVEL` or `MAX_WORKERS`, are not read by Swarms.
+  Provider keys are read by LiteLLM, so any variable LiteLLM documents for a provider works here. Swarms' own settings are `WORKSPACE_DIR`, `SWARMS_LLM_BACKEND`, `SWARMS_LOG_FILES`, `SWARMS_GLOBAL_LOGGER_ON`, `SWARMS_STRICT_MODEL_CHECK`, the telemetry variables described in [Telemetry](/deployment/telemetry), the email channel credentials, and `SWARMS_API_KEY` (for the [marketplace](/integrations/marketplace)). Other variables, such as `LOG_LEVEL` or `MAX_WORKERS`, are not read by Swarms.
 </Note>
 
 <Warning>
