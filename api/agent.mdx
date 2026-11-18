@@ -1127,7 +1127,6 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `pretty_print(response, loop_count)` | Print a response panel when `print_on` is set | `agent.pretty_print("Done", 1)` |
 | `print_dashboard()` | Display dashboard | `agent.print_dashboard()` |
 | `showcase_config()` | Display config table | `agent.showcase_config()` |
-| `stream_response(response, delay)` | Sleep `delay` seconds per word of `response`; prints nothing | `agent.stream_response("Response", 0.001)` |
 | `setup_config()` | Apply `dynamic_loops` and `preset_stopping_token` (called by `__init__`) | `agent.setup_config()` |
 | `short_memory_init()` | Build the `Conversation` used as `short_memory` (called by `__init__`) | `agent.short_memory_init()` |
 | `reliability_check()` | Validate configuration; raises `AgentInitializationError` (called by `__init__`) | `agent.reliability_check()` |
