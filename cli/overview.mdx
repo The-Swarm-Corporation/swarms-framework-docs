@@ -66,7 +66,7 @@ swarms agent \
   --task "Summarize the latest AI trends"
 ```
 
-If `--task` is omitted, the CLI creates the agent and prints its configuration without running it — it does not drop you into a REPL. Use `swarms chat` for an interactive session.
+`--task` is required: without it, the command exits with status 1. Use `swarms chat` for an interactive session.
 
 ## Available Commands
 
