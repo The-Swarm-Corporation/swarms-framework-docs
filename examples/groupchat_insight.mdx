@@ -368,7 +368,7 @@ is likely to fire first for a given configuration.
 | `threshold` | `0.5` | Minimum recency-adjusted score required to take the floor. |
 | `recency_penalty` | `0.3` | Subtracted from the bid of an agent that spoke within the last `recency_window` turns. `0.0` disables it. |
 | `recency_window` | `1` | How many recent speakers are penalized. Effective minimum is `1` regardless of a lower value. |
-| `output_type` | `"str-all-except-first"` | Passed through to `history_output_formatter`. |
+| `output_type` | `"str"` | Passed through to `history_output_formatter`. |
 | `verbose` | `False` | Log internal messages and print each posted message as a panel. |
 | `auto_equip` | `True` | Auto-inject `RESPOND_TOOL` into any agent that doesn't already carry it. |
 
