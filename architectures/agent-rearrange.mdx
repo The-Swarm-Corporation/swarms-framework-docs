@@ -139,7 +139,7 @@ The nested swarm receives the shared conversation so far as one task string, and
 </ParamField>
 
 <ParamField path="flow" type="str" required>
-  Flow pattern defining agent execution (e.g., "agent1 -> agent2, agent3")
+  Flow pattern defining agent execution (e.g., "agent1 -> agent2, agent3"). A leading or trailing `->` leaves an empty step, which raises `ValueError` at construction.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
@@ -435,7 +435,7 @@ rearrange_list = AgentRearrange(
 
 ## Flow Validation
 
-Construction only checks that `flow` is a non-empty string — it does **not** verify that every agent name in the flow is registered. Call `validate_flow()` explicitly (or `explain()`, which calls it internally) to catch typos before running:
+Construction checks that `flow` is non-empty and has no empty step, such as a leading or trailing `->`. It does **not** verify that every agent name in the flow is registered, so a flow can name an agent you add later with `add_agent()`. Call `validate_flow()` explicitly (or `explain()`, which calls it internally) to catch typos before running:
 
 ```python
 rearrange = AgentRearrange(

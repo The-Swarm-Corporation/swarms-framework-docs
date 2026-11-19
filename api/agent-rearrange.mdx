@@ -72,6 +72,7 @@ class AgentRearrange:
 <ParamField path="flow" type="str" required>
   Flow pattern defining agent execution order. Uses `->` for sequential and `,` for concurrent execution.
   Example: `"agent1 -> agent2, agent3 -> agent4"`
+  A leading or trailing `->` leaves an empty step, which raises `ValueError` at construction. A trailing comma is allowed.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
