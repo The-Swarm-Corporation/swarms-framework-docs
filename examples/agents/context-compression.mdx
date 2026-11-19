@@ -16,7 +16,7 @@ Long-running agents accumulate transcripts that eventually exceed the model's co
 
 Compression runs when **all** of the following hold:
 
-- `context_compression=True` on the agent
+- Compression is on: `context_compression=True`, or left at its default with `max_loops="auto"`
 - Token usage of `agent.short_memory` ≥ `threshold * context_length`
 - The agent is at a check point: the top of each subtask iteration with `max_loops="auto"`, or the top of each loop with an integer `max_loops`
 
@@ -24,7 +24,7 @@ The default `threshold` is `0.9` — compression fires at ~90% of the context wi
 
 ## Default behavior
 
-Compression is enabled by default. Just construct the agent normally:
+Compression is on by default when `max_loops="auto"`. With an integer `max_loops` it is off unless you pass `context_compression=True`.
 
 ```python
 from swarms import Agent
@@ -34,7 +34,7 @@ agent = Agent(
     model_name="claude-sonnet-4-6",
     max_loops="auto",
     context_length=32000,
-    context_compression=True,  # default
+    context_compression=True,  # default for max_loops="auto"
 )
 
 agent.run("Research low-latency cloud data warehouses, then dive deep on GCP.")

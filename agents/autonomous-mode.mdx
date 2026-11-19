@@ -212,7 +212,7 @@ The marker tells the model how much it is missing so it can narrow the search. `
 
 ## Context compression between subtasks
 
-With `context_compression=True` (the default), the loop checks the agent's `ContextCompressor` at the top of every subtask iteration. That is the one point where every tool call has been answered, so the transcript can be replaced safely.
+Compression is on by default with `max_loops="auto"`: `context_compression` defaults to `None`, which turns it on for autonomous runs. The loop checks the agent's `ContextCompressor` at the top of every subtask iteration. That is the one point where every tool call has been answered, so the transcript can be replaced safely.
 
 When the conversation reaches 90% of `context_length`, the compressor:
 
