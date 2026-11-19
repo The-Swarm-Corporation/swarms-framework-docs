@@ -181,8 +181,8 @@ Disk writes are serialized with a per-conversation lock. The system prompt and r
 
 Without compression, a long-running agent could eventually exceed the model's context window. Swarms can attach a `ContextCompressor` that summarizes the current transcript and compacts the active memory.
 
-<ParamField path="context_compression" type="bool" default="True">
-  Enables automatic compression when memory approaches the configured context limit.
+<ParamField path="context_compression" type="Optional[bool]" default="None">
+  Enables automatic compression when memory approaches the configured context limit. `None` turns it on when `max_loops="auto"` and leaves it off for integer `max_loops`, so an integer-loop agent like the one below needs `context_compression=True`.
 
   ```python
   from swarms import Agent
@@ -201,7 +201,7 @@ Without compression, a long-running agent could eventually exceed the model's co
 
 Compression can run when all of these are true:
 
-- `context_compression=True`
+- Compression is on: `context_compression=True`, or left at `None` with `max_loops="auto"`
 - `context_length` is set to a non-zero value
 - The history's token count, from `short_memory.count_history_tokens()`, is greater than or equal to `threshold * context_length`
 - The agent is at a check point: the top of each loop iteration with an integer `max_loops`, or the top of each subtask iteration with `max_loops="auto"`
@@ -212,7 +212,7 @@ The default threshold is `0.9`, so compression starts when the active prompt rea
   `context_length` defaults to 128,000. Pass `None` and `__init__` resolves it to the model's own input limit (or `16000` as a fallback), so compression always has a real denominator to measure against. Pass a number to match a larger or smaller window.
 </Note>
 
-The compressor is checked for both `max_loops="auto"` and integer `max_loops` runs. The `context_compression` flag is the gate.
+The compressor is checked for both `max_loops="auto"` and integer `max_loops` runs once it is on. Only the default differs: on for `"auto"`, off for integers.
 
 In autonomous runs it is checked before every model call in the subtask phase, but not during planning or the final summary. When it fires, the loop rebuilds its request as the summary plus the prompt for the subtask in progress, so the next request really is smaller. See [Autonomous Mode](/agents/autonomous-mode#context-compression-between-subtasks).
 
@@ -462,7 +462,7 @@ Swap the dictionary lookup for a real vector store, SQL query, or HTTP call and 
 ## Best practices
 
 - Use stable, descriptive `agent_name` values for agents that should remember previous work.
-- Keep `context_compression=True` and set `context_length` for autonomous or long-running agents.
+- Set `context_length` for autonomous or long-running agents. Compression is on by default for `max_loops="auto"`; turn it on with `context_compression=True` for long integer-loop runs.
 - Tune `ContextCompressor.threshold` lower for agents with large tool outputs or long responses.
 - Compact manually after major milestones to preserve the important state and reduce prompt size.
 - Use a retrieval tool for external knowledge. Do not rely on `MEMORY.md` as a document database.

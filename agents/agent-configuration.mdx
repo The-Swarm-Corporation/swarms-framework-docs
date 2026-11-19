@@ -370,8 +370,8 @@ asyncio.run(main())
   Read and append to `{workspace}/agents/{agent_name}/MEMORY.md` so context survives process restarts. Off by default. See [Agent Memory](/agents/agent-memory).
 </ParamField>
 
-<ParamField path="context_compression" type="bool" default="True">
-  Summarize the conversation when it crosses 90% of `context_length`. Applies to integer `max_loops` and `"auto"` alike. See [Agent Memory](/agents/agent-memory).
+<ParamField path="context_compression" type="Optional[bool]" default="None">
+  Summarize the conversation when it crosses 90% of `context_length`. `None` turns it on when `max_loops="auto"` and leaves it off for integer `max_loops`. Pass `True` or `False` to choose either way. See [Agent Memory](/agents/agent-memory).
 </ParamField>
 
 ### Advanced Features

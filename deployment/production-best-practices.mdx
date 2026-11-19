@@ -505,7 +505,7 @@ agent = Agent(
     agent_name="Memory-Managed-Agent",
     model_name="claude-sonnet-4-6",
     context_length=8000,       # Context window size
-    context_compression=True,  # Auto-summarize when nearing the limit (default)
+    context_compression=True,  # Auto-summarize near the limit (default only for max_loops="auto")
 )
 
 # Manual compaction: collapse history into a single summary message.
