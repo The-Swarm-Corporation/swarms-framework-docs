@@ -158,6 +158,30 @@ moa_result = moa.run(task)
   A comms channel forwarded to the swarm the router builds, for `SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange`, `MixtureOfAgents`, `HierarchicalSwarm`, `GroupChat`, `MajorityVoting` and `PlannerWorkerSwarm`. Other swarm types ignore it. See [Comms Channels](/api/channels/overview).
 </ParamField>
 
+<ParamField path="model_name" type="Optional[str]" default="None">
+  Model for the agents a swarm type builds for itself, as opposed to the `agents` you pass in. A per-type setting from the table below wins over it. With neither set, each swarm keeps its own default.
+</ParamField>
+
+| Swarm type | Agents it builds for itself | Per-type setting that wins over `model_name` |
+|---|---|---|
+| `MultiAgentRouter` | routing agent | none |
+| `MajorityVoting` | consensus agent | none |
+| `PlannerWorkerSwarm` | planner, cycle judge | none |
+| `HierarchicalSwarm` | director, feedback director, judge | `director_model_name` (director only) |
+| `CouncilAsAJudge` | dimension judges, aggregator | `council_judge_model_name` (judges only) |
+| `HeavySwarm` | question agent, workers | `heavy_swarm_question_agent_model_name`, `heavy_swarm_worker_model_name` |
+| `LLMCouncil` | chairman | `chairman_model` |
+
+```python
+router = SwarmRouter(
+    swarm_type="MajorityVoting",
+    agents=agents,
+    model_name="gpt-5.4-mini",  # the consensus agent runs on gpt-5.4-mini too
+)
+```
+
+When `LLMCouncil` gets no `agents`, it builds its default council members on their own fixed models, and `model_name` does not change them.
+
 ## Swarm-Specific Parameters
 
 ### `AgentRearrange`
@@ -176,12 +200,12 @@ router = SwarmRouter(
 
 ### `HeavySwarm`
 
-<ParamField path="heavy_swarm_question_agent_model_name" type="str" default='"gpt-5.4"'>
-  Model for the HeavySwarm question agent.
+<ParamField path="heavy_swarm_question_agent_model_name" type="Optional[str]" default="None">
+  Model for the HeavySwarm question agent. `None` uses `model_name`, or HeavySwarm's default (`"gpt-5.4"`) when that is unset too.
 </ParamField>
 
-<ParamField path="heavy_swarm_worker_model_name" type="str" default='"gpt-5.4"'>
-  Model for HeavySwarm workers.
+<ParamField path="heavy_swarm_worker_model_name" type="Optional[str]" default="None">
+  Model for HeavySwarm workers. `None` uses `model_name`, or HeavySwarm's default (`"gpt-5.4"`) when that is unset too.
 </ParamField>
 
 <ParamField path="heavy_swarm_swarm_show_output" type="bool" default="True">
@@ -217,8 +241,8 @@ router = SwarmRouter(
 
 ### `HierarchicalSwarm`
 
-<ParamField path="director_model_name" type="str" default='"gpt-5.4"'>
-  Model used by the auto-created director agent.
+<ParamField path="director_model_name" type="Optional[str]" default="None">
+  Model used by the auto-created director agent. `None` uses `model_name`, or HierarchicalSwarm's default (`"gpt-5.4"`) when that is unset too. The feedback director and judge follow `model_name`.
 </ParamField>
 
 <ParamField path="director_settings" type="Dict[str, Any]">
@@ -249,14 +273,14 @@ router = SwarmRouter(
 
 ### `CouncilAsAJudge`
 
-<ParamField path="council_judge_model_name" type="str" default='"gpt-5.4"'>
-  Passed to `CouncilAsAJudge` as `model_name`, so it sets the model for every dimension judge. The aggregator keeps its own `aggregation_model_name` default (`"gpt-5.4"`).
+<ParamField path="council_judge_model_name" type="Optional[str]" default="None">
+  Passed to `CouncilAsAJudge` as `model_name`, so it sets the model for every dimension judge. `None` uses `model_name`, or CouncilAsAJudge's default (`"gpt-5.4"`) when that is unset too. The aggregator follows `model_name`, and otherwise keeps its own `aggregation_model_name` default (`"gpt-5.4"`).
 </ParamField>
 
 ### `LLMCouncil`
 
-<ParamField path="chairman_model" type="str" default='"gpt-5.1"'>
-  Chairman model for `LLMCouncil`.
+<ParamField path="chairman_model" type="Optional[str]" default="None">
+  Chairman model for `LLMCouncil`. `None` uses `model_name`, or LLMCouncil's default (`"gpt-5.1"`) when that is unset too.
 </ParamField>
 
 ## Advanced Features
