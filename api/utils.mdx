@@ -136,7 +136,6 @@ Display real-time streaming response with live updates.
 response = formatter.print_streaming_panel(
     streaming_response=llm_stream,
     title="Agent Response",
-    collect_chunks=True
 )
 ```
 
@@ -150,10 +149,6 @@ response = formatter.print_streaming_panel(
 
 <ParamField path="style" type="str" default="None">
   Border style. A random color is used when `None`
-</ParamField>
-
-<ParamField path="collect_chunks" type="bool" default="False">
-  Whether to collect individual chunks
 </ParamField>
 
 <ParamField path="on_chunk_callback" type="Callable" default="None">
