@@ -792,7 +792,7 @@ def run_concurrent_tasks(
 
 ### save
 
-Save the agent's current state to a JSON file via `SafeStateManager`, writing atomically through a temporary file. A relative `file_path` is resolved inside the agent workspace (`agent.workspace.dir`); an absolute path is used as-is. `.json` is appended when missing. With no argument, `saved_state_path` is used. `long_term_memory`, when set, is saved alongside as `{name}_memory.json`.
+Save the agent's current state to a JSON file, writing atomically through a temporary file. A relative `file_path` is resolved inside the agent workspace (`agent.workspace.dir`); an absolute path is used as-is. `.json` is appended when missing. With no argument, `saved_state_path` is used. The conversation in `agent.short_memory` is saved too, as a list of messages under the `short_memory` key. `long_term_memory`, when set, is saved alongside as `{name}_memory.json`.
 
 ```python
 def save(
@@ -802,7 +802,7 @@ def save(
 
 ### load
 
-Load agent state from a saved JSON file via `SafeStateManager`. If `file_path` is omitted, falls back to `load_state_path`, then `f"{saved_state_path}.json"`. Unlike `save`, a relative path is resolved against the current working directory, not the agent workspace, so pass an absolute path to load what `save` wrote.
+Load agent state from a saved JSON file via `SafeStateManager`. If `file_path` is omitted, falls back to `load_state_path`, then `f"{saved_state_path}.json"`. Unlike `save`, a relative path is resolved against the current working directory, not the agent workspace, so pass an absolute path to load what `save` wrote. The saved messages replace the agent's conversation. A file with no `short_memory` key, such as one written by an older version, leaves the conversation as it is.
 
 ```python
 def load(
