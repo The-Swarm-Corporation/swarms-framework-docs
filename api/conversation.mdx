@@ -329,7 +329,7 @@ def export_and_count_categories(self) -> Dict[str, int]
 | `save_as_json(force=True)` / `save_as_yaml(force=True)` | Write the history to `save_filepath`; with `force=False` and `autosave` off, only log a warning |
 | `load_from_json(filename)` / `load_from_yaml(filename)` | Format-specific forms of `load()` |
 | `export_conversation(filename)` | Write the history to `filename`: the full message list as indented JSON for a `.json` name, otherwise one `role: content` line per message. `save_filepath` is not used or changed |
-| `import_conversation(filename)` | Alias for `load_from_json(filename)` |
+| `import_conversation(filename)` | Calls `load_from_json(filename)`. Raises `ValueError` for a name that doesn't end in `.json`, since `export_conversation` writes those as text |
 | `search_keyword_in_conversation(keyword)` | Like `search()`, for string contents only |
 | `count_messages_by_role()` | Dict of message counts keyed by role. `system`, `user`, `assistant`, and `function` are always present; roles are case-sensitive |
 | `get_visible_messages(agent, turn)` | Messages whose `turn` is below `turn` and whose `visible_to` is `"all"` or includes the agent's name; requires those keys on every message |
