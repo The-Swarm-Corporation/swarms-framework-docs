@@ -187,14 +187,14 @@ Executes the specified task through the agents asynchronously, by running the in
 
 ### `async run_concurrent(tasks)`
 
-Executes a batch of tasks through the agents concurrently on a thread pool sized to `os.cpu_count()`. Each task runs on its own clone of the flow, so concurrent tasks never share a conversation or an agent's memory. This method is `async` and must be awaited, but it waits on the thread pool synchronously, so it blocks the event loop until every task finishes.
+Executes a batch of tasks through the agents concurrently. Each task runs on its own clone of the flow in a worker thread, so concurrent tasks never share a conversation or an agent's memory. This method is `async` and must be awaited. While it waits, the event loop stays free for other coroutines. The threads come from the event loop's default executor, which Python caps at 32 threads unless you set your own. If any task raises, the exception reaches the caller.
 
 <ParamField path="tasks" type="List[str]" required>
   A list of tasks for the agents to execute. Must be a non-empty list of strings.
 </ParamField>
 
 <ResponseField name="results" type="List[str]">
-  The final result for each task, in completion order rather than input order
+  The final result for each task, in the same order as `tasks`
 </ResponseField>
 
 ### `run_stream(task, img=None, with_events=False, **kwargs)`
