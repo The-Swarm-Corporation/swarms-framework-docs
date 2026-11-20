@@ -313,9 +313,9 @@ router = SwarmRouter(
 
 ## Methods
 
-### `run(task=None, img=None, tasks=None, ...)`
+### `run(task=None, img=None, ...)`
 
-Execute the configured swarm with a single task (or a list of tasks, when the underlying swarm accepts one).
+Execute the configured swarm with a single task. For a list of tasks, use `batch_run()` or `concurrent_run()` below.
 
 ```python
 result = router.run(

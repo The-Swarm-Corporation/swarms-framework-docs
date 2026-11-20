@@ -252,9 +252,9 @@ If the selected factory itself raises while building the swarm, the error is wra
 
 ## Methods
 
-### `run(task=None, img=None, tasks=None, *args, **kwargs)`
+### `run(task=None, img=None, *args, **kwargs)`
 
-Execute a single task using the configured swarm.
+Execute a single task using the configured swarm. To run a list of tasks, use `batch_run()` or `concurrent_run()` below.
 
 <ParamField path="task" type="str" optional>
   The task to be executed. Required for most `swarm_type` values.
@@ -262,10 +262,6 @@ Execute a single task using the configured swarm.
 
 <ParamField path="img" type="str" optional>
   Optional image input forwarded to vision-capable agents.
-</ParamField>
-
-<ParamField path="tasks" type="List[str]" optional>
-  Batch-style task list, forwarded as `tasks=` to the underlying swarm's `run()` in place of `task` when provided. Only meaningful for swarm types whose `run()` accepts a `tasks` argument.
 </ParamField>
 
 Extra `**kwargs` are forwarded to the underlying swarm's `run()`. `img` is forwarded only when it is set. Each call is recorded as a `SwarmRouter.run` trace span when [telemetry](/deployment/telemetry) is enabled.
