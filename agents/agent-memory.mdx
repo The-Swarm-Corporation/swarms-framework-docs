@@ -402,7 +402,7 @@ This stops future writes but does not retroactively delete `MEMORY.md`. Neither 
 | What | Path | Written when |
 | --- | --- | --- |
 | `MEMORY.md` and `archive/` | `$WORKSPACE_DIR/agents/{agent_name}/` | `persistent_memory=True` |
-| Agent working folder: autonomous-loop files, saved state, `config.json` | `$WORKSPACE_DIR/agents/{agent-name}-{id12}/` | On first use, for example a file tool, `agent.save()`, or `autosave=True` |
+| Agent working folder: autonomous-loop files, saved state, `config.json`, `conversation_history.json` | `$WORKSPACE_DIR/agents/{agent-name}-{id12}/` | On first use, for example a file tool, `agent.save()`, or `autosave=True` |
 | Conversation exports | `./conversations/conversation_{name}.json` | `export()` or `save_as_json()` on a `Conversation` |
 | Multi-agent autosave: `conversation_history.json`, `config.json` | `$WORKSPACE_DIR/swarms/{ClassName}/{name}-{timestamp}/` | `autosave=True` on structures such as `SequentialWorkflow`, `ConcurrentWorkflow` and `SwarmRouter` |
 | MCP OAuth tokens | `~/.swarms/mcp_auth/` | An MCP server's OAuth flow |
