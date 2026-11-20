@@ -34,7 +34,7 @@ description: Learn how to run a turn-based, self-selecting agent groupchat for d
 | `threshold` | Minimum recency-adjusted score (`0..1`) needed to take the floor. A turn where nobody clears it ends the chat. Default `0.5`. |
 | `recency_penalty` | Subtracted from the bid of an agent that spoke recently. Default `0.3`; `0.0` disables it. |
 | `recency_window` | How many of the most recent speakers the penalty applies to. Default `1`. |
-| `output_type` | History format. Default `"str-all-except-first"`. Use `"list"` or `"dict"` to iterate messages. |
+| `output_type` | History format. Default `"str"`, a `Name: message` transcript. Use `"list"` or `"dict"` to iterate messages. |
 | `verbose` | Log internals and print each posted message as a panel. Default `False`. |
 | `auto_equip` | Auto-inject the `respond` tool into agents that lack it. Default `True`. |
 
@@ -75,7 +75,7 @@ result = chat.run(
 print(result)
 ```
 
-By default `result` is a formatted string (`output_type="str-all-except-first"`). To iterate over individual messages, set `output_type="list"`:
+By default `result` is a `Name: message` transcript string (`output_type="str"`). To iterate over individual messages, set `output_type="list"`:
 
 ```python
 chat = GroupChat(
@@ -300,7 +300,7 @@ The default `0.3` makes the last speaker less likely to win the next turn. Raise
 
 ### 5. Choose the right `output_type`
 
-- `"str-all-except-first"` (default) — a single readable transcript string.
+- `"str"` (default) — a single readable transcript, each line named by its speaker.
 - `"list"` / `"dict"` — structured messages you can iterate (`role`, `content`).
 
 ## When to Use Group Chat

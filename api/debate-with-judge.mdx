@@ -69,8 +69,8 @@ graph TD
   Maximum number of debate rounds to execute.
 </ParamField>
 
-<ParamField path="output_type" type="str" default="str-all-except-first">
-  Format for the output conversation history.
+<ParamField path="output_type" type="str" default="str">
+  Format for the output conversation history. The default is a `Name: message` transcript that starts with the task.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="True">
@@ -195,14 +195,14 @@ The `output_type` parameter controls how the conversation history is formatted:
 
 | Value | Description |
 |---|---|
-| `"str-all-except-first"` | The content of every message except the first, joined without speaker names (default) |
-| `"str"` | Every message as a `Name: message` transcript |
+| `"str"` | Every message as a `Name: message` transcript, starting with the task (default) |
+| `"str-all-except-first"` | The content of every message after the task, joined without speaker names |
 | `"dict"` | The message list, one dict per message |
 | `"list"` | The message list as `{"role", "content"}` dicts |
 | `"final"` | Only the judge's last synthesis |
 
 <Note>
-  The task itself is not recorded in the conversation, so the first message is the Pro agent's opening argument. The default `"str-all-except-first"` therefore leaves that argument out. Use `"str"` or `"list"` to see the full debate, or `"final"` for just the final synthesis.
+  The conversation records the task first, as a `User` message, then each Pro argument, Con argument and judge synthesis. Use `"str-all-except-first"` for the answers without the task or speaker names, `"list"` to iterate messages, or `"final"` for just the final synthesis.
 </Note>
 
 The preset system prompts and every per-round prompt template live in `swarms.prompts.debate_with_judge_prompts`, for example `PRO_AGENT_SYSTEM_PROMPT`, `CON_AGENT_SYSTEM_PROMPT`, and `JUDGE_AGENT_SYSTEM_PROMPT`.
@@ -219,7 +219,6 @@ debate_system = DebateWithJudge(
     preset_agents=True,
     max_loops=3,
     model_name="gpt-5.4",
-    output_type="str-all-except-first",
     verbose=True,
 )
 
@@ -229,7 +228,7 @@ topic = (
     "Discuss the balance between innovation and safety."
 )
 
-# The default output omits Pro's opening argument; use output_type="str" for the full transcript.
+# The default output names the speaker of each turn, starting with the topic.
 result = debate_system.run(task=topic)
 print(result)
 ```
@@ -496,7 +495,7 @@ print(result)
 </Note>
 
 <Info>
-**Output Format**: Use `"str"` for the complete, labelled transcript, `"final"` for only the judge's last synthesis, and `"dict"` or `"list"` for structured inspection. The default `"str-all-except-first"` omits the Pro agent's opening argument.
+**Output Format**: The default `"str"` is the complete, labelled transcript. Use `"final"` for only the judge's last synthesis, and `"dict"` or `"list"` for structured inspection.
 </Info>
 
 <Warning>

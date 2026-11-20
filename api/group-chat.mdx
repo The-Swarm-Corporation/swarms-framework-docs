@@ -40,7 +40,7 @@ GroupChat(
     threshold: float = 0.5,
     recency_penalty: float = 0.3,
     recency_window: int = 1,
-    output_type: str = "str-all-except-first",
+    output_type: str = "str",
     verbose: bool = False,
     auto_equip: bool = True,
     channel: Optional[CommsChannel] = None,
@@ -75,8 +75,8 @@ GroupChat(
   How many of the most recent speakers are subject to `recency_penalty`.
 </ParamField>
 
-<ParamField path="output_type" type="str" default="str-all-except-first">
-  Format passed to `history_output_formatter`. Common values: `"str-all-except-first"`, `"str"`, `"list"`, `"dict"`, `"json"`, `"final"`. The default joins every reply after the task without speaker names; use `"str"` for a `Name: message` transcript, or `"list"` to iterate `role` / `content` pairs.
+<ParamField path="output_type" type="str" default="str">
+  Format passed to `history_output_formatter`. Common values: `"str"`, `"str-all-except-first"`, `"list"`, `"dict"`, `"json"`, `"final"`. The default is a `Name: message` transcript that starts with the task; use `"str-all-except-first"` for the replies without the task or speaker names, or `"list"` to iterate `role` / `content` pairs.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
