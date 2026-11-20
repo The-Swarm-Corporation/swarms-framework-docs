@@ -195,7 +195,6 @@ formatter.print_agent_dashboard(
 | `loading_status(message="Thinking...", spinner="dots", spinner_style="bold yellow")` | Return a Rich `Status` context manager that shows a spinner while a block runs |
 | `print_table(title, data)` | Print a two-column table from a `Dict[str, List[str]]` |
 | `print_progress(description, task_fn, *args, **kwargs)` | Show a spinner while `task_fn(*args, **kwargs)` runs, then return its result |
-| `print_panel_token_by_token(tokens, title="Output", style="bold cyan", delay=0.01, by_word=False)` | Replay a string into a live panel one character or word at a time |
 | `stop_dashboard()` | Stop the live dashboard started by `print_agent_dashboard` |
 | `print_plan_tree(task_description, steps, print_on=True)` | Render a plan as a tree. Each step dict carries `step_id`, `description`, `priority` and optional `dependencies` |
 | `display_hierarchy(director_name, director_model_name, agents, swarm_name)` | Render a director and its worker agents as a tree |
