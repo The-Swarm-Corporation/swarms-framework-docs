@@ -254,7 +254,7 @@ If the selected factory itself raises while building the swarm, the error is wra
 
 ### `run(task=None, img=None, tasks=None, *args, **kwargs)`
 
-Execute a single task using the configured swarm.
+Execute a single task using the configured swarm, or each task in `tasks` one after another.
 
 <ParamField path="task" type="str" optional>
   The task to be executed. Required for most `swarm_type` values.
@@ -265,17 +265,19 @@ Execute a single task using the configured swarm.
 </ParamField>
 
 <ParamField path="tasks" type="List[str]" optional>
-  Batch-style task list, forwarded as `tasks=` to the underlying swarm's `run()` in place of `task` when provided. Only meaningful for swarm types whose `run()` accepts a `tasks` argument.
+  Tasks to run one after another, exactly as `batch_run(tasks)` does: the swarm's `run()` is called once per task with `task=` set. When `tasks` is given, `task` is ignored and `img` is sent with every task.
 </ParamField>
 
 Extra `**kwargs` are forwarded to the underlying swarm's `run()`. `img` is forwarded only when it is set. Each call is recorded as a `SwarmRouter.run` trace span when [telemetry](/deployment/telemetry) is enabled.
 
-**Returns:** `Any` — shape depends on `output_type` and the underlying swarm.
+**Returns:** `Any` — shape depends on `output_type` and the underlying swarm. With `tasks`, a `List[Any]` with one result per task, in task order.
 
-**Raises:** the swarm's own exception, or `SwarmRouterRunError` when `fallback_swarms` is set and every swarm fails.
+**Raises:** the swarm's own exception, or `SwarmRouterRunError` when `fallback_swarms` is set and every swarm fails. With `tasks`, a failing task raises `RuntimeError`, as in `batch_run()`.
 
 ```python
 result = router.run("Analyse Q1 market trends.")
+
+results = router.run(tasks=["Analyse Q1 market trends.", "Analyse Q2 market trends."])
 ```
 
 ---
