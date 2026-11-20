@@ -66,7 +66,7 @@ class AgentRearrange:
 </ParamField>
 
 <ParamField path="agents" type="List[Any]" required>
-  The agents in the flow. A swarm that has a non-empty string `name` and a `run(task)` method, such as a `ConcurrentWorkflow`, `SequentialWorkflow` or another `AgentRearrange`, can stand in for an agent and is referenced in the flow by its `name`. Anything without an `agent_name` is treated as a swarm, so a plain function, which has no `name`, raises `ValueError`. See [Nested Swarms](#nested-swarms).
+  The agents in the flow. A swarm that has a non-empty string `name` and a `run(task)` method, such as a `ConcurrentWorkflow`, `SequentialWorkflow` or another `AgentRearrange`, can stand in for an agent and is referenced in the flow by its `name`. Anything without an `agent_name` is treated as a swarm, so a plain function, which has no `name`, raises `ValueError`. Each step finds its agent by name, so two different agents or swarms with the same name raise `ValueError` at construction. The same agent or swarm can still be listed twice. See [Nested Swarms](#nested-swarms).
 </ParamField>
 
 <ParamField path="flow" type="str" required>
