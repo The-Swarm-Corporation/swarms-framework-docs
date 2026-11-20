@@ -204,29 +204,6 @@ formatter.print_agent_dashboard(
 
 ## Data Structure Formatting
 
-### format_dict_to_string
-
-Recursively format a dictionary into a readable, multi-line string.
-
-```python
-from swarms import format_dict_to_string
-
-text = format_dict_to_string({"name": "Agent", "config": {"loops": 3}})
-print(text)
-```
-
-<ParamField path="data" type="dict" required>
-  The dictionary to format
-</ParamField>
-
-<ParamField path="indent_level" type="int" default="0">
-  Current indentation level for nested structures
-</ParamField>
-
-<ParamField path="use_colon" type="bool" default="True">
-  If `True`, use `"key: value"` formatting; if `False`, use `"key value"`
-</ParamField>
-
 ### format_data_structure
 
 Format any Python data structure (dict, list, tuple, set, or object) into a readable, indented, multi-line string.
