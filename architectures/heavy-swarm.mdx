@@ -154,7 +154,7 @@ swarm = HeavySwarm(variant="heavy")
 </ParamField>
 
 <ParamField path="timeout" type="int" default="900">
-  Seconds passed to each worker future's `result()` call. Results are read as workers finish, so it does not interrupt a running worker.
+  Seconds to wait for the worker agents in each loop, counted from when they're submitted. Workers waiting for a free thread spend the same budget. A worker still running when it passes gets the result `Timeout after N seconds`, and the swarm continues with the others.
 </ParamField>
 
 <ParamField path="question_agent_model_name" type="str" default="gpt-5.4">
@@ -387,11 +387,11 @@ report = swarm.run(
 All workers fan out on a thread pool that carries the tracing context into each thread. `self.max_workers` is set to `max(1, int(os.cpu_count() * 0.95))`, so a one-CPU host still gets a thread; it is not a constructor parameter.
 
 ```python
-with ContextThreadPoolExecutor(max_workers=self.max_workers) as executor:
-    future_to_agent = {
-        executor.submit(execute_agent, task): task[0]
-        for task in agent_tasks
-    }
+executor = ContextThreadPoolExecutor(max_workers=self.max_workers)
+future_to_agent = {
+    executor.submit(execute_agent, task): task[0]
+    for task in agent_tasks
+}
 ```
 
 ### Timeout
@@ -400,7 +400,7 @@ with ContextThreadPoolExecutor(max_workers=self.max_workers) as executor:
 swarm = HeavySwarm(timeout=900)
 ```
 
-The timeout is passed to `future.result()` after `as_completed()` has already returned that future, so it does not cut a slow worker short.
+The swarm waits at most `timeout` seconds for the workers in each loop. The clock starts when the workers are submitted, so on a host with fewer threads than workers, the ones still waiting for a thread spend the same budget. A worker still running then gets the result `Timeout after 900 seconds`, the others keep their answers, and synthesis runs without it. Python can't stop the stuck thread, so it finishes in the background, but `run()` doesn't wait for it. Later loops skip that agent until it returns, so one agent never runs twice at once. Worker threads aren't daemon threads, so a hung worker still keeps the Python process from exiting. Question generation and synthesis aren't covered by this limit.
 
 ### Verbose Logging
 
