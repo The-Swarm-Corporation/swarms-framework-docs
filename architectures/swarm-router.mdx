@@ -315,13 +315,15 @@ router = SwarmRouter(
 
 ### `run(task=None, img=None, tasks=None, ...)`
 
-Execute the configured swarm with a single task (or a list of tasks, when the underlying swarm accepts one).
+Execute the configured swarm with a single task. Pass `tasks` instead to run each task one after another, as `batch_run()` does; you get back a list with one result per task.
 
 ```python
 result = router.run(
     task="Analyze market trends",
     img=None,
 )
+
+results = router.run(tasks=["Analyze market trends", "Summarize competitors"])
 ```
 
 ### `__call__(task, img=None, imgs=None, ...)`
