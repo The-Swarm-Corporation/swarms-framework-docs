@@ -60,11 +60,12 @@ Each `run` starts from an empty conversation, so reusing a council for several t
 Execute the full LLM Council workflow.
 
 ```python
-def run(self, task: str)
+def run(self, task: str, img: Optional[str] = None)
 ```
 
 **Parameters:**
 - `task` (str): The user's task to process. Required.
+- `img` (Optional[str]): Image the members answer about and the Chairman sees: a file path, URL or base64 string. The ranking step compares the written answers only, so it isn't sent there. Defaults to `None`
 
 **Returns:** The conversation formatted according to `output_type`, containing the member responses, evaluations, and the Chairman's synthesis
 

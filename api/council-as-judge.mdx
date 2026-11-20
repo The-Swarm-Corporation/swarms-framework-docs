@@ -76,11 +76,12 @@ The council evaluates responses across six key dimensions:
 Run the evaluation process using parallel execution.
 
 ```python
-def run(self, task: str)
+def run(self, task: str, img: Optional[str] = None)
 ```
 
 **Parameters:**
 - `task` (str): Task containing the response to evaluate
+- `img` (Optional[str]): Image every judge and the aggregator see with the task: a file path, URL or base64 string. Defaults to `None`
 
 **Returns:** The conversation formatted according to `output_type`. With the default `"final"`, this is the aggregator's report as a string.
 
@@ -97,12 +98,18 @@ def run(self, task: str)
 Async version of `run()`. Each judge, and then the aggregator, is awaited through its own `Agent.arun()` on the event loop, so the council can run inside an existing `asyncio` application.
 
 ```python
-async def arun(self, task: str, max_concurrency: Optional[int] = None)
+async def arun(
+    self,
+    task: str,
+    max_concurrency: Optional[int] = None,
+    img: Optional[str] = None,
+)
 ```
 
 **Parameters:**
 - `task` (str): Task containing the response to evaluate
 - `max_concurrency` (Optional[int]): Most judges evaluating at once. `None` (the default) runs all six judges at once
+- `img` (Optional[str]): Image every judge and the aggregator see with the task, as in `run()`
 
 **Returns:** The conversation formatted according to `output_type`, as `run()` returns. Judge entries are recorded in dimension order, not the order the judges finished.
 
