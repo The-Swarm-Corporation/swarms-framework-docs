@@ -315,7 +315,7 @@ Cycle 2+ (if not complete):
 
 **Claim priority**: highest priority first, then oldest first, with dependency satisfaction required.
 
-**Judge Agent**: Created internally after workers complete. Its task holds the original goal and a status report of every task in the queue. The shared conversation reaches it as typed chat turns, not pasted into the task: its own earlier verdicts arrive as `assistant` turns and the planner's and workers' messages as labelled `user` turns, so in later cycles it can tell its own reasoning from theirs. It produces a `CycleVerdict`:
+**Judge Agent**: Created internally after workers complete. Its task holds a status report of every task in the queue: each task's status and title, plus the error for a task that has no result. The goal and each worker's result reach it once, in the shared conversation, which arrives as typed chat turns, not pasted into the task: its own earlier verdicts arrive as `assistant` turns and the planner's and workers' messages as labelled `user` turns, so in later cycles it can tell its own reasoning from theirs. It produces a `CycleVerdict`:
 
 | Field | Type | Description |
 |---|---|---|
