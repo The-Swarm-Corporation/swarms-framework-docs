@@ -104,7 +104,7 @@ graph TD
 </ParamField>
 
 <Note>
-  The constructor validates the configuration and raises `ValueError` if `agents` is empty or `None`, or if `max_loops` is `0` or less.
+  The constructor validates the configuration and raises `ValueError` if `agents` is empty or `None`, if `max_loops` is `0` or less, or if two voters share an `agent_name`. MajorityVoting keys each vote by name, so it also rejects the same `Agent` passed twice.
 </Note>
 
 ## Methods
@@ -214,6 +214,7 @@ def reliability_check(self) -> None
 **Raises:**
 - `ValueError`: If agents list is empty or None
 - `ValueError`: If `max_loops` is less than or equal to `0`
+- `ValueError`: If two voters share an `agent_name`, including the same `Agent` passed twice
 
 ## Consensus Agent
 
