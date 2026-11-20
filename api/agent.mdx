@@ -958,14 +958,6 @@ Display the agent's configuration dashboard.
 def print_dashboard() -> None
 ```
 
-### showcase_config
-
-Display the agent's configuration in a formatted table.
-
-```python
-def showcase_config() -> None
-```
-
 ### update_system_prompt / update_max_loops / update_loop_interval
 
 In-place setters for runtime reconfiguration. Each one only sets the attribute.
@@ -1131,7 +1123,6 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `list_output_types()` | Return the `OutputType` literal type | `typing.get_args(agent.list_output_types())` |
 | `pretty_print(response, loop_count)` | Print a response panel when `print_on` is set | `agent.pretty_print("Done", 1)` |
 | `print_dashboard()` | Display dashboard | `agent.print_dashboard()` |
-| `showcase_config()` | Display config table | `agent.showcase_config()` |
 | `setup_config()` | Apply `dynamic_loops` and `preset_stopping_token` (called by `__init__`) | `agent.setup_config()` |
 | `short_memory_init()` | Build the `Conversation` used as `short_memory` (called by `__init__`) | `agent.short_memory_init()` |
 | `reliability_check()` | Validate configuration; raises `AgentInitializationError` (called by `__init__`) | `agent.reliability_check()` |
