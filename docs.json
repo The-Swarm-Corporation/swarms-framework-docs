@@ -200,6 +200,7 @@
               "api/forest-swarm",
               "api/self-moa-seq",
               "api/self-assembling-swarm",
+              "api/team-formation-swarm",
               "api/self-organizing-swarm",
               "api/advisor-swarm",
               "api/planner-worker-swarm",
