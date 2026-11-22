@@ -1,0 +1,150 @@
+---
+title: "SelfAssemblingSwarm"
+description: "Agents bid on subtasks, form teams around them, and share results across teams"
+icon: "people-group"
+---
+
+## Overview
+
+`SelfAssemblingSwarm` lets a set of different agents organize themselves into teams for a task, instead of being wired into a fixed structure. You bring the agents. They decide which part of the work each one takes and who works with whom.
+
+How one run works:
+
+1. **Plan.** A coordinator splits the task into subtasks, at most one per agent.
+2. **Bid.** Every agent bids, at the same time, for the one subtask it suits best, with a score from 0 to 1 and a one-line reason.
+3. **Assemble.** Agents that chose the same subtask form a team. The highest bidder leads it.
+4. **Work.** Teams work at the same time for `max_loops` rounds. In each round the members add to their team's discussion in turn, and the leader speaks last and writes the team's result. Every team's result goes on a shared board that all teams read in the next round, so teams build on each other's work.
+5. **Combine.** The coordinator merges the team results into one answer.
+
+### How teams form
+
+Agents are placed highest score first:
+
+- An agent joins the team for the subtask it bid for.
+- If that team already has `max_team_size` members, or the bid named no valid subtask, the agent joins the smallest team.
+- A subtask nobody chose takes the lowest bidder from the largest team, so every subtask gets at least one agent.
+
+The coordinator never makes more subtasks than there are agents, so every team has a member.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Constructor
+
+<ParamField path="agents" type="List[Agent]" required>
+  The agents that assemble into teams. Each needs a unique `agent_name`. Give each a `system_prompt` that says what it is good at, since agents bid with it.
+</ParamField>
+
+<ParamField path="name" type="str" default="SelfAssemblingSwarm">
+  Name of the swarm
+</ParamField>
+
+<ParamField path="description" type="str" default="Agents bid on subtasks, form teams and share results across teams.">
+  What the swarm is for
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="1">
+  Rounds of team work. Each round ends with every team sharing its result, which the other teams read in the next round.
+</ParamField>
+
+<ParamField path="max_team_size" type="Optional[int]" default="None">
+  Most agents one team takes. An agent whose subtask is full joins the smallest team. `None` for no limit.
+</ParamField>
+
+<ParamField path="coordinator_model_name" type="str" default="gpt-5.4">
+  Model the coordinator uses to split the task and combine the results
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="final">
+  Format of the returned conversation. The default returns the combined answer. Any other [output type](/agents/structured-outputs) returns the whole conversation: the task, the subtasks, the team line-up, every member's turn and the final answer.
+</ParamField>
+
+The constructor raises `ValueError` when there are no agents, two agents share a name, `max_loops` is below 1, or `max_team_size` is below 1.
+
+## run()
+
+```python
+answer = swarm.run(task)
+```
+
+<ParamField path="task" type="str" required>
+  The task for the whole swarm
+</ParamField>
+
+**Returns:** the conversation in `output_type` format. By default, the coordinator's combined answer as a string.
+
+Each `run()` starts every agent on a fresh memory.
+
+### After a run
+
+| Attribute | What it holds |
+|---|---|
+| `swarm.teams` | One `Team` per subtask, with `name`, `subtask`, `members` and `leader` (the first member) |
+| `swarm.bids` | Each agent's bid by name: `subtask` (0-based index, or `None` when invalid), `score` and `reason` |
+| `swarm.conversation` | The full run as a `Conversation` |
+| `swarm.usage` | Token usage summed over the coordinator and every agent, bids included |
+
+`teams` and `bids` show the structure the agents settled on. That lets you compare structures across runs, or reuse one that worked well as a fixed workflow.
+
+### Notes
+
+- **Bids are separate calls.** Each bid is one model call with the agent's own `model_name` and `system_prompt`. It doesn't go through `agent.run`, so it leaves the agent's memory and tools untouched, and it works for agents that carry their own tools. Bid tokens still count in the agent's usage.
+- **A failing member doesn't stop the run.** Its turn is recorded as `Error: ...` in its team's discussion. An agent whose bid fails counts as having made no valid bid and is placed on the smallest team.
+- **Teams run concurrently, members in turn.** Within a team, members speak one after another so each can build on the last.
+
+## Example
+
+```python
+from swarms import Agent, SelfAssemblingSwarm
+
+specialists = [
+    ("Market-Researcher", "You size markets and find competitors."),
+    ("Data-Analyst", "You turn numbers into clear findings."),
+    ("Product-Strategist", "You turn findings into product bets."),
+    ("Copywriter", "You write crisp, persuasive prose."),
+]
+
+agents = [
+    Agent(
+        agent_name=name,
+        agent_description=prompt,
+        system_prompt=prompt,
+        model_name="gpt-5.4",
+        max_loops=1,
+    )
+    for name, prompt in specialists
+]
+
+swarm = SelfAssemblingSwarm(
+    agents=agents,
+    max_loops=2,
+    max_team_size=2,
+)
+
+answer = swarm.run(
+    "Write a one-page launch brief for an AI note-taking app for doctors."
+)
+
+for team in swarm.teams:
+    members = ", ".join(agent.agent_name for agent in team.members)
+    print(f"{team.name} ({team.subtask}): {members}")
+
+print(answer)
+```
+
+## When to choose SelfAssemblingSwarm
+
+| You want | Use |
+|---|---|
+| Different specialists to decide among themselves who does what | `SelfAssemblingSwarm` |
+| Identical agents coordinating with no leader through direct messages | [`SelfOrganizingSwarm`](/api/self-organizing-swarm) |
+| One director assigning work to fixed workers | [`HierarchicalSwarm`](/api/hierarchical-swarm) |
+| A planner, workers that claim steps, and a judge | [`PlannerWorkerSwarm`](/api/planner-worker-swarm) |
+| A fixed order you choose yourself | [`AgentRearrange`](/api/agent-rearrange) or [`GraphWorkflow`](/api/graph-workflow) |
+
+## Source code
+
+[self_assembling_swarm.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/self_assembling_swarm.py)
