@@ -56,7 +56,7 @@ GroupChat(
 </ParamField>
 
 <ParamField path="agents" type="Optional[List[Agent]]" required>
-  Agents participating in the conversation. **At least two are required** for a meaningful discussion. Fewer than two raises `ValueError`.
+  Agents participating in the conversation. **At least two are required** for a meaningful discussion. Fewer than two raises `ValueError`, and so do two agents with the same `agent_name`, because each would read the other's posts as its own. An `Agent` built without `agent_name` is named `swarm-worker-01`, so give each agent its own name.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="20">
