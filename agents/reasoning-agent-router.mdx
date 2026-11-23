@@ -47,7 +47,7 @@ graph TD
 | `num_knowledge_items` | `int` | `6` | Number of knowledge items for GKP agent |
 | `memory_capacity` | `int` | `6` | Long-term memory capacity for `ReflexionAgent` |
 | `eval` | `bool` | `False` | Enable evaluation mode for self-consistency |
-| `random_models_on` | `bool` | `False` | Enable random model selection for diversity |
+| `random_models_on` | `bool` | `False` | Not passed to any reasoning type, so it has no effect |
 | `majority_voting_prompt` | `Optional[str]` | `None` | Passed to `SelfConsistencyAgent`, which aggregates with it. `None` uses the default majority voting prompt |
 | `reasoning_model_name` | `Optional[str]` | `None` | Model for the reasoning agent in ReasoningDuo. `None` uses `model_name` |
 
@@ -60,7 +60,7 @@ The constructor raises `ReasoningAgentInitializationError` when `max_loops` is `
 | `swarm_type` | Builds | Router parameters it receives | Return value of `run()` |
 |--------------|--------|-------------------------------|-------------------------|
 | `"reasoning-duo"`, `"reasoning-agent"` | [`ReasoningDuo`](/agents/reasoning-duo) | `agent_name`, `description`, `system_prompt`, `output_type`, `reasoning_model_name`, `max_loops` | Formatted by `output_type` |
-| `"self-consistency"`, `"consistency-agent"` | [`SelfConsistencyAgent`](/agents/self-consistency-agent) | `agent_name`, `description`, `model_name`, `system_prompt`, `max_loops`, `num_samples`, `output_type`, `eval`, `random_models_on`, `majority_voting_prompt` | Formatted by `output_type` |
+| `"self-consistency"`, `"consistency-agent"` | [`SelfConsistencyAgent`](/agents/self-consistency-agent) | `agent_name`, `description`, `model_name`, `system_prompt`, `num_samples`, `output_type`, `eval`, `majority_voting_prompt` | Formatted by `output_type` |
 | `"ire"`, `"ire-agent"` | [`IterativeReflectiveExpansion`](/agents/iterative-agent) | `agent_name`, `description`, `model_name`, `system_prompt`, `output_type`, and `num_samples` as its `max_loops` | Formatted by `output_type` |
 | `"ReflexionAgent"` | [`ReflexionAgent`](/agents/reflexion-agent) | `agent_name`, `system_prompt`, `model_name`, `max_loops`, `memory_capacity` | A one-item `list` holding the best response |
 | `"GKPAgent"` | [`GKPAgent`](/agents/gkp-agent) | `agent_name`, `model_name`, `num_knowledge_items` | The final answer as a `str` |

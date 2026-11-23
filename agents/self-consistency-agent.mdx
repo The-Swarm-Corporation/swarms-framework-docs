@@ -19,12 +19,16 @@ Based on the research paper: [Self-Consistency Improves Chain of Thought Reasoni
 | `system_prompt` | `str` | `CONSISTENCY_SYSTEM_PROMPT` | System prompt for the reasoning agent |
 | `model_name` | `str` | `"gpt-5.4"` | The model each sample and the aggregator run on |
 | `num_samples` | `int` | `5` | Number of independent responses to generate |
-| `max_loops` | `int` | `1` | Maximum number of reasoning loops per sample |
 | `majority_voting_prompt` | `Optional[str]` | `majority_voting_prompt` | The prompt `run()` gives the aggregator. `None` uses the module's default majority voting prompt |
 | `eval` | `bool` | `False` | Enable evaluation mode for answer validation |
 | `output_type` | `OutputType` | `"dict"` | Format of the output |
-| `random_models_on` | `bool` | `False` | Enable random model selection for diversity |
+| `aggregator_agent` | `Optional[Agent]` | `None` | Your own agent that votes on the samples and writes the final answer. Needs `preset_agents=False` |
+| `preset_agents` | `bool` | `True` | Vote with the built-in majority voting agent. Set it to `False` to vote with `aggregator_agent` instead |
 | `**kwargs` | | | Extra `Agent` arguments applied to every sample's reasoning agent |
+
+The constructor raises `ValueError` when `num_samples` is `0`, when you pass `aggregator_agent` while `preset_agents` is `True`, or when `preset_agents` is `False` and `aggregator_agent` is not set.
+
+Each sample runs one loop. To change that, pass an `Agent` argument through `**kwargs`, such as `max_loops=3`.
 
 ### Methods
 
@@ -34,7 +38,7 @@ Based on the research paper: [Self-Consistency Improves Chain of Thought Reasoni
 | `check_responses_for_answer(responses, answer)` | Checks if `answer` appears as a substring of any response | `bool` |
 | `batched_run(tasks, *args, **kwargs)` | Calls `run` on each task in order | `list` of `run` results |
 
-`aggregation_agent(responses, prompt?, model_name?)` is a module-level helper function (not a method on `SelfConsistencyAgent`) used internally to synthesize the final answer via majority voting. Import it separately as `from swarms.agents.consistency_agent import aggregation_agent` if you need it directly. `run()` calls it with the agent's `majority_voting_prompt` and `model_name`, so the aggregator runs on the model you set.
+`aggregation_agent(responses, prompt?, model_name?)` is a module-level helper function (not a method on `SelfConsistencyAgent`) used internally to synthesize the final answer via majority voting. Import it separately as `from swarms.agents.consistency_agent import aggregation_agent` if you need it directly. `run()` calls it with the agent's `majority_voting_prompt` and `model_name`, so the aggregator runs on the model you set. With `preset_agents=False`, `run()` does not call it and votes with your `aggregator_agent` instead.
 
 ## Examples
 
@@ -46,7 +50,6 @@ from swarms import SelfConsistencyAgent
 agent = SelfConsistencyAgent(
     name="Math-Reasoning-Agent",
     model_name="claude-sonnet-4-6",
-    max_loops=1,
     num_samples=5
 )
 
@@ -74,21 +77,34 @@ else:
     print("Validation failed - expected answer not found")
 ```
 
-### Random Models for Diversity
+### Custom Aggregator
+
+Pass your own agent to do the voting. `run()` gives it every sample's answer as its task and returns its reply as the final answer.
 
 ```python
-from swarms import SelfConsistencyAgent
+from swarms import Agent, SelfConsistencyAgent
 
-agent = SelfConsistencyAgent(
-    name="Diverse-Reasoning-Agent",
+judge = Agent(
+    agent_name="Strict-Judge",
     model_name="claude-sonnet-4-6",
-    num_samples=5,
-    random_models_on=True
+    system_prompt="Pick the answer most of the samples agree on and state it in one sentence.",
+    max_loops=1,
 )
 
-result = agent.run("What are the benefits of renewable energy?")
-print("Diverse reasoning result:", result)
+agent = SelfConsistencyAgent(
+    name="Judged-Reasoning-Agent",
+    model_name="claude-sonnet-4-6",
+    num_samples=5,
+    preset_agents=False,
+    aggregator_agent=judge,
+    output_type="final",
+)
+
+result = agent.run("What is the 40th prime number?")
+print(result)
 ```
+
+Your agent's conversation is reset before each vote, so an earlier task's answers are not in the next one. `majority_voting_prompt` is not used: your agent's own system prompt decides how it votes. Only the tokens it spends while voting are added to the `SelfConsistencyAgent`'s usage, not what it spent before.
 
 ### Batch Processing
 
