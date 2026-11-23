@@ -53,7 +53,7 @@ except AgentOutputSchemaError as error:
     print("Last reply:", error.raw_output)
 ```
 
-With `output_schema` set, the return value is the model instance and `output_type` is not used. The schema reaches the model through `response_format`. When the model registry lists the model with tool calls but no structured output, and the agent has no other tools or MCP servers, the schema goes out instead as one tool the request forces, and the tool call's arguments are validated. A model the registry doesn't know gets `response_format`, so use one that supports structured outputs, or use a function-calling schema as described below.
+With `output_schema` set, the return value is the model instance and `output_type` is not used. The schema reaches the model through `response_format`. When the model registry lists the model with tool calls but no structured output, and the agent has no other tools or MCP servers, the schema goes out instead as one tool the request forces, and the tool call's arguments are validated. An agent with reasoning set gets `tool_choice="auto"` for that tool instead. A model the registry doesn't know gets `response_format`, so use one that supports structured outputs, or use a function-calling schema as described below.
 
 <Note>
   `output_schema` is not supported with `max_loops="auto"` yet. Setting both raises `ValueError` at construction.
