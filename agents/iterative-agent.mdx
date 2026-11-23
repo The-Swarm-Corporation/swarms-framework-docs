@@ -61,6 +61,12 @@ graph TD
 | `synthesize_solution(paths, memory_pool)` | `str` | Synthesizes a final solution from the promising paths and every earlier path |
 | `run(task)` | Formatted per `output_type` | Executes the full process and returns the conversation formatted by `output_type` |
 
+### Properties
+
+| Property | Returns | Description |
+|----------|---------|-------------|
+| `usage` | `dict` | Provider token usage summed over every call the internal agent has made, with the keys of [`Agent.usage`](/agents/token-usage): `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`. It starts at zero and grows across runs. Each read returns a new dict |
+
 ## How a run works
 
 1. `run()` generates the initial paths.
@@ -87,4 +93,5 @@ agent = IterativeReflectiveExpansion(
 
 solution = agent.run("What is the 40th prime number?")
 print(solution)
+print(agent.usage["total_tokens"])
 ```
