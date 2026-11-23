@@ -45,10 +45,10 @@ pip install -U swarms
 Every call starts a fresh shared `Conversation` and returns its history. The topologies differ in what each agent reads.
 
 - **Reads the shared conversation:** every agent in `circular_swarm`, `one_to_one`, `broadcast` and `one_to_three`. The agent receives the conversation as typed chat turns: its own messages as `assistant` turns, everyone else's as `user` turns labelled with the speaker's name. Its final answer, not its whole transcript, is recorded under its `agent_name`.
-- **Gets only its task:** every agent in `grid_swarm` and `pyramid_swarm`. These call `agent.run(task)` and record whatever it returns.
+- **Gets only its task:** every agent in `grid_swarm` and `pyramid_swarm`. These call `agent.run(task)`. `pyramid_swarm` records the agent's final answer under its `agent_name`; `grid_swarm` records whatever `run` returns.
 
 <Tip>
-`Agent.run` returns according to the agent's `output_type`, which defaults to `"str-all-except-first"` (the agent's whole conversation). For the "only its task" topologies, set `output_type="final"` on your agents if you want just the answer recorded.
+`Agent.run` returns according to the agent's `output_type`, which defaults to `"str-all-except-first"` (the agent's whole conversation). For `grid_swarm`, set `output_type="final"` on your agents if you want just the answer recorded.
 </Tip>
 
 ## Return shape
