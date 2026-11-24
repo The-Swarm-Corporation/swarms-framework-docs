@@ -178,7 +178,8 @@
               "api/channels/sqlite-channel",
               "api/channels/http-channel",
               "api/channels/smtp-channel",
-              "api/channels/agentmail-channel"
+              "api/channels/agentmail-channel",
+              "api/channels/message-board"
             ]
           },
           {
