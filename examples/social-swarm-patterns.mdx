@@ -1,6 +1,6 @@
 ---
 title: "Social Swarm Patterns"
-description: "Broadcast, circular, grid, pyramid, one-to-one, one-to-three, and aggregate communication patterns"
+description: "Broadcast, circular, grid, one-to-one, one-to-three, and aggregate communication patterns"
 icon: "diagram-project"
 ---
 
@@ -72,22 +72,6 @@ pip install -U swarms
     ```
   </Tab>
 
-  <Tab title="Pyramid">
-    Agents arranged in a pyramid; tasks flow level by level:
-
-    ```python
-    from swarms import Agent, pyramid_swarm
-
-    agents = [
-        Agent(agent_name="Director", model_name="claude-sonnet-4-6", max_loops=1),
-        Agent(agent_name="Worker-1", model_name="claude-sonnet-4-6", max_loops=1),
-        Agent(agent_name="Worker-2", model_name="claude-sonnet-4-6", max_loops=1),
-    ]
-    result = pyramid_swarm(agents=agents, tasks=["Planning task"])
-    print(result)
-    ```
-  </Tab>
-
   <Tab title="One-to-one">
     Sender and receiver alternate on a single task, `max_loops` times. `OneToOne` wraps the same logic in a reusable class:
 
@@ -144,7 +128,6 @@ pip install -U swarms
 | Broadcast | One announcement, then replies from many agents in turn |
 | Circular | Sequential refinement with shared history |
 | Grid | One task per agent, laid out as a square |
-| Pyramid | One task per agent, laid out in triangular levels |
 | One-to-one | Back-and-forth between two agents |
 | One-to-three | One message reviewed by a fixed panel of three |
 | Aggregate | Fan-in synthesis of parallel outputs |
