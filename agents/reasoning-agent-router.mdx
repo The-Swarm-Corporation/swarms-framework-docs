@@ -82,7 +82,7 @@ With `"ire"`, the router passes `num_samples`, not `max_loops`, as the number of
 |--------|-------------|
 | `select_swarm()` | Builds and returns a new agent of the selected type |
 | `run(task, *args, **kwargs)` | Builds the selected agent and runs it on `task`. Extra arguments are forwarded to that agent's `run()`. Any error is re-raised as `ReasoningAgentExecutorError` |
-| `batched_run(tasks, *args, **kwargs)` | Calls `run` on each task in order and returns a list of results. Extra arguments are not forwarded |
+| `batched_run(tasks, *args, **kwargs)` | Calls `run(task, *args, **kwargs)` on each task in order and returns a list of results |
 
 ## Examples
 
