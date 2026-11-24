@@ -86,6 +86,12 @@ With `"ire"`, the router passes `num_samples`, not `max_loops`, as the number of
 | `run(task, *args, **kwargs)` | Builds the selected agent and runs it on `task`. Extra arguments are forwarded to that agent's `run()`. Any error is re-raised as `ReasoningAgentExecutorError` |
 | `batched_run(tasks, *args, **kwargs)` | Calls `run(task, *args, **kwargs)` on each task in order and returns a list of results |
 
+### Properties
+
+| Property | Returns | Description |
+|----------|---------|-------------|
+| `usage` | `dict` | The `usage` of the reasoning agent that the latest `run()` built, with the keys of [`Agent.usage`](/agents/token-usage): `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`. Each `run()` builds a new agent and replaces the one before, so this covers only the latest run, and after `batched_run()` only the last task. If that run raised, it holds what the agent recorded before the error. A run that fails before it builds an agent leaves the previous one. Before the first run every key is 0 |
+
 ## Examples
 
 ### Basic Usage
@@ -101,6 +107,7 @@ router = ReasoningAgentRouter(
 )
 
 result = router.run("What is the best approach to solve this problem?")
+print(router.usage["total_tokens"])
 ```
 
 ### Self-Consistency with Evaluation

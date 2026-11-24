@@ -9,7 +9,7 @@ Swarms gives you two token numbers for an agent:
 - `agent.usage` is what the provider billed. It sums the token counts the provider reports on every call the agent has made.
 - `agent.input_tokens` is an estimate of the next request. It counts what the agent is about to send, before you run it.
 
-The reasoning agents `TreeOfThoughts`, `AgentJudge`, `ReasoningDuo`, `SelfConsistencyAgent`, `ReflexionAgent` and `GKPAgent`, and every multi-agent structure, from `SequentialWorkflow` to `HeavySwarm`, expose a `usage` property with the same keys, summed over the agents they run.
+The reasoning agents `TreeOfThoughts`, `AgentJudge`, `ReasoningDuo`, `SelfConsistencyAgent`, `ReflexionAgent` and `GKPAgent`, and every multi-agent structure, from `SequentialWorkflow` to `HeavySwarm`, expose a `usage` property with the same keys, summed over the agents they run. `ReasoningAgentRouter.usage` returns the `usage` of the reasoning agent its latest `run()` built.
 
 ## agent.usage
 
@@ -298,6 +298,7 @@ Like `agent.usage`, the totals grow across runs, and an agent shared with anothe
 | `agent.usage` | Every provider call by the agent's own model clients | Never; a new or loaded agent starts at zero |
 | `agent.input_tokens` | Estimated size of the next request | Recomputed on each access |
 | `router.usage` | `agents` plus `Agent` attributes of the swarms it built | Never; derived from agent totals |
+| `ReasoningAgentRouter.usage` | The reasoning agent the latest `run()` built | When a `run()` builds a new agent |
 | `workflow.usage` (`GraphWorkflow`) | Agent nodes, including nested subgraphs | Never; derived from agent totals |
 | `swarm.usage` (`HeavySwarm`) | Question generation plus every agent in `swarm.agents` | Never |
 | `council.usage` (`LLMCouncil`) | Every council member plus the Chairman | Never; derived from agent totals |
@@ -309,6 +310,7 @@ Like `agent.usage`, the totals grow across runs, and an agent shared with anothe
 - `Agent.usage`, `Agent.input_tokens`: `swarms/structs/agent.py`
 - Usage normalization and stream accounting: `empty_usage`, `usage_from_response` and `LiteLLM._track_streaming_usage` in `swarms/utils/litellm_wrapper.py`
 - `SwarmRouter.usage`: `swarms/structs/swarm_router.py`
+- `ReasoningAgentRouter.usage`: `swarms/agents/reasoning_agent_router.py`
 - `GraphWorkflow.usage`: `swarms/structs/graph_workflow.py`
 - `HeavySwarm.usage`: `swarms/structs/heavy_swarm.py`
 - `LLMCouncil.usage`: `swarms/structs/llm_council.py`
