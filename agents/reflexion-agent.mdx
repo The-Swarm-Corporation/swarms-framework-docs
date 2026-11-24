@@ -82,6 +82,12 @@ For each task, the first iteration acts, evaluates and reflects. Each later iter
 `run()` takes a list of tasks, not a single string. Wrap a single task in a list.
 </Note>
 
+## Properties
+
+| Property | Returns | Description |
+|----------|---------|-------------|
+| `usage` | `dict` | Provider token usage summed over the actor, evaluator and reflector across every iteration, with the keys of [`Agent.usage`](/agents/token-usage): `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`. It starts at zero and grows across runs. Each read returns a new dict |
+
 ## Example
 
 ```python
