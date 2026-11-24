@@ -908,7 +908,7 @@ def talk_to(
 
 ### talk_to_multiple_agents
 
-Run `talk_to` against several agents concurrently on a call-scoped thread pool.
+Run this agent on `task` once, then send its output to every agent in `agents` concurrently on a call-scoped thread pool. Each receiver gets the same `"From {agent_name}: Message: {output}"` message that `talk_to` sends.
 
 ```python
 def talk_to_multiple_agents(
@@ -919,7 +919,7 @@ def talk_to_multiple_agents(
 ) -> Any
 ```
 
-Returns one entry per agent, in the order the agents were given. An agent whose conversation raised contributes `None`.
+Returns one entry per agent, in the order the agents were given. A receiver whose run raised contributes `None`. If this agent's own run raises, the call raises before any message is sent.
 
 ### receive_message / send_agent_message
 
@@ -1105,7 +1105,7 @@ Every public method on `Agent`. Tool-handling methods now live on `agent.tool_ma
 | `remove_tool(tool)` | Remove from `agent.tools` | `agent.remove_tool(my_tool)` |
 | `remove_tools(tools)` | Remove several from `agent.tools` | `agent.remove_tools([t1, t2])` |
 | `talk_to(agent, task)` | Run a task, then send the output to another agent | `agent.talk_to(other, "Collaborate")` |
-| `talk_to_multiple_agents(agents, task)` | `talk_to` several agents concurrently | `agent.talk_to_multiple_agents([a1], "Task")` |
+| `talk_to_multiple_agents(agents, task)` | Run a task once, then send the output to several agents concurrently | `agent.talk_to_multiple_agents([a1], "Task")` |
 | `receive_message(agent_name, task)` | Run a message received from another agent through `run()` | `agent.receive_message("User", "Hello")` |
 | `send_agent_message(agent_name, message)` | Run `"To: {agent_name}: {message}"` through `run()` | `agent.send_agent_message("AgentX", "Done")` |
 | `update_system_prompt(system_prompt)` | Set `system_prompt` (rebuild with `llm_handling()`) | `agent.update_system_prompt("New prompt")` |
