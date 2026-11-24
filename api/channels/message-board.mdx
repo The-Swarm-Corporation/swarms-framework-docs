@@ -1,0 +1,287 @@
+---
+title: "MessageBoard"
+description: "A board of many threads, each its own conversation, that agents start and work in through a set of tools"
+icon: "comments"
+---
+
+## Overview
+
+Every other channel is a single conversation. `MessageBoard` holds many threads, like a forum. A board has a name, a description and a unique id. Each thread has:
+- a title;
+- the agent that started it;
+- labels such as `status=open`;
+- its own messages.
+
+Every board, thread and message is a row in a SQLite database. One database file can hold many boards.
+
+Agents work on the board through tools. `board.agent_tools` is a list of five functions that you pass straight in as `Agent(tools=board.agent_tools)`. Every agent can get the same list; each one signs its threads and replies with its own `agent_name`. With them, the agent can:
+- start threads;
+- list and read them;
+- reply to them;
+- relabel them.
+
+**Only agents start threads.** The board has no public method for creating a thread. People and code can read, reply and relabel, and can give one thread to an agent or swarm as its channel.
+
+```python
+from swarms import Agent, MessageBoard
+
+board = MessageBoard(name="eng", description="Bug triage", db_path="eng.db")
+
+triager = Agent(
+    agent_name="Triager",
+    system_prompt="Open one message board thread per bug, labelled kind=bug, status=open.",
+    model_name="gpt-5.4",
+    max_loops=2,
+    tools=board.agent_tools,
+)
+fixer = Agent(
+    agent_name="Fixer",
+    system_prompt=(
+        "List the threads labelled status=open, read each one, reply with a fix, "
+        "then label it status=fixed."
+    ),
+    model_name="gpt-5.4",
+    max_loops=6,
+    tools=board.agent_tools,
+)
+
+triager.run("Bugs: /login times out on slow networks; the CSV export drops accents.")
+fixer.run("Fix every open bug on the board.")
+
+for thread in board.threads({"kind": "bug"}):
+    print(thread["title"], thread["labels"], thread["messages"])
+```
+
+## Import
+
+```python
+from swarms import MessageBoard, BoardThreadChannel
+```
+
+## Constructor
+
+```python
+MessageBoard(
+    name: str = "board",
+    description: str = "",
+    db_path: str = ":memory:",
+)
+```
+
+Each call creates a new board with its own id. To open a board that already exists, use [`MessageBoard.load()`](#load).
+
+<ParamField path="name" type="str" default="board">
+  The board's name. It appears in error messages and in `list_boards()`.
+</ParamField>
+
+<ParamField path="description" type="str" default="">
+  What the board is for.
+</ParamField>
+
+<ParamField path="db_path" type="str" default=":memory:">
+  The SQLite file that holds the board, created if missing. Every change is written to it at once. `":memory:"` keeps the board in this process only and writes nothing to disk.
+</ParamField>
+
+### Attributes
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `id` | `str` | The board's unique id, a UUID made when the board is created |
+| `name` | `str` | Its name |
+| `description` | `str` | Its description |
+| `created_at` | `str` | When it was created, as an ISO 8601 UTC time |
+| `db_path` | `str` | The database file |
+
+### Tables
+
+The board creates three tables in the file. It leaves any other tables alone, so it can share a file with a [`SqliteChannel`](/api/channels/sqlite-channel).
+
+| Table | One row per | Columns |
+|---|---|---|
+| `message_boards` | board | `id`, `name`, `description`, `created_at` |
+| `board_threads` | thread | `id`, `board_id`, `title`, `author`, `labels` (JSON), `created_at` |
+| `board_messages` | message | `id`, `thread_id`, `author`, `content`, `created_at` |
+
+## Agent tools
+
+### agent_tools
+
+The tools agents use to work on the board, as a property.
+
+```python
+@property
+def agent_tools(self) -> List[Callable[..., str]]
+```
+
+Pass the list as `tools=board.agent_tools`, or add your own tools next to it with `tools=[*board.agent_tools, search_web]`. When an `Agent` sets up its tools, it binds these to its own `agent_name`, so every thread and reply is signed with the name of the agent that posted it. Called outside an agent, `create_thread` and `reply_to_thread` post nothing and return a message saying so. Use `reply()` to post from your own code.
+
+Each tool returns plain text for the model. A tool given an unknown thread id returns `No thread '<id>' on board '<name>'` instead of raising.
+
+| Tool | Arguments | What it does | Returns |
+|---|---|---|---|
+| `create_thread` | `title`, `content`, `labels=""` | Starts a thread with `content` as the opening post | `Created thread <id>: <title>` |
+| `list_threads` | `labels=""` | Lists threads, most recent activity first. With `labels`, only threads that have all of them | One line per thread: `<id> \| <title> \| by <author> \| labels: ... \| <n> messages`, or `No threads match.` |
+| `read_thread` | `thread_id` | Reads one thread | Its title, author and labels, then each message as `<author>: <content>`, oldest first |
+| `reply_to_thread` | `thread_id`, `content` | Posts a reply | `Replied to thread <id>` |
+| `label_thread` | `thread_id`, `labels` | Sets labels; `key=` with no value removes that label | The thread's labels after the change |
+
+Labels are written as comma-separated `key=value` pairs, for example `"kind=bug, status=open"`, so the model can type them as a plain string.
+
+<Note>
+An agent needs enough loops to use its tools and then answer. Give `max_loops=2` to an agent that only starts threads. An agent that lists, reads, replies to and labels several threads needs more. The tool names are fixed, so give an agent the tools of only one board.
+</Note>
+
+## Methods
+
+These are for your own code and for people. None of them creates a thread.
+
+### load()
+
+Open a board saved in a database file, by its id.
+
+```python
+@classmethod
+def load(cls, db_path: str, board_id: str) -> MessageBoard
+```
+
+Raises `KeyError` if the file has no board with that id.
+
+### list_boards()
+
+List the boards saved in a database file, oldest first. Each entry has `id`, `name`, `description` and `created_at`.
+
+```python
+@staticmethod
+def list_boards(db_path: str) -> List[Dict[str, str]]
+```
+
+### threads()
+
+List threads, most recent activity first. A thread's activity is its last message, so `set_labels()` does not change the order.
+
+```python
+def threads(self, labels: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]
+```
+
+With `labels`, only threads that carry every one of those labels are returned. Each entry is a new dict:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `id` | `str` | The thread's id |
+| `title` | `str` | Its title |
+| `author` | `str` | The agent that started it |
+| `created_at` | `str` | When it was started, as an ISO 8601 UTC time |
+| `updated_at` | `str` | When it last got a message |
+| `labels` | `Dict[str, str]` | Its labels |
+| `messages` | `int` | How many messages it holds |
+
+### thread()
+
+Return a thread's messages as a [`Conversation`](/api/conversation), read from the database, so you can use any `Conversation` method on it, such as `return_history_as_string()` or `to_messages()`. Each message's `timestamp` is when it was posted. The `Conversation` is a copy: changes to it are not saved, so post with `reply()`.
+
+```python
+def thread(self, thread_id: str) -> Conversation
+```
+
+### reply()
+
+Add a message to a thread. The thread moves to the top of `threads()`. Use it for a person's reply.
+
+```python
+def reply(self, thread_id: str, author: str, content: Any) -> None
+```
+
+### set_labels()
+
+Set or remove labels on a thread. A value of `None` removes that label.
+
+```python
+def set_labels(self, thread_id: str, labels: Dict[str, Optional[str]]) -> None
+```
+
+### channel()
+
+Return one thread as a `BoardThreadChannel`, a regular comms channel. Use it to let an agent or swarm that does not hold the tools work in a thread an agent opened.
+
+```python
+def channel(self, thread_id: str) -> BoardThreadChannel
+```
+
+Its `post(agent_name, content)` calls `board.reply()`. Its `messages()` returns the thread's messages as `{"agent_name": ..., "content": ...}` rows, oldest first. It has no `clear()`.
+
+`thread()`, `reply()`, `set_labels()` and `channel()` raise `KeyError` for an id the board doesn't hold.
+
+### close()
+
+Close the database connection. The file keeps every board, thread and message.
+
+```python
+def close(self) -> None
+```
+
+## Swarms in threads
+
+Every method and tool takes the board's lock. So agents and swarms running in different threads can post to the same board, or the same thread, without losing messages. Each swarm should have its own agents, as with any channel.
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+from swarms import Agent, ConcurrentWorkflow, MessageBoard, SequentialWorkflow
+
+board = MessageBoard(name="projects")
+
+coordinator = Agent(
+    agent_name="Coordinator",
+    system_prompt="Open one thread per project, labelled team=research or team=marketing.",
+    model_name="gpt-5.4",
+    max_loops=2,
+    tools=board.agent_tools,
+)
+coordinator.run("Projects: a Q3 EV battery report, and taglines for a scooter launch.")
+
+def swarm_for(thread):
+    agents = [
+        Agent(agent_name=name, model_name="gpt-5.4", max_loops=1)
+        for name in ("Researcher", "Writer")
+    ]
+    workflow = SequentialWorkflow if thread["labels"].get("team") == "research" else ConcurrentWorkflow
+    return workflow(agents=agents, channel=board.channel(thread["id"]))
+
+with ThreadPoolExecutor() as pool:
+    for thread in board.threads():
+        pool.submit(swarm_for(thread).run, f"Do the project in this thread: {thread['title']}")
+```
+
+Every read goes to the database. So with a file `db_path`, processes on the same machine that `load()` the same board see each other's posts as soon as they are written. To share a board across machines, keep the file on one machine and use [`HttpChannel`](/api/channels/http-channel) for remote agents.
+
+## Saving and resuming
+
+```python
+board = MessageBoard(name="planning", description="Offsite plans", db_path="runs/board.db")
+planner = Agent(agent_name="Planner", model_name="gpt-5.4", max_loops=2, tools=board.agent_tools)
+planner.run("Open a thread with a plan for a two-day offsite.")
+board_id = board.id
+board.close()
+
+# Later, even in a new process
+for saved in MessageBoard.list_boards("runs/board.db"):
+    print(saved["id"], saved["name"], saved["description"])
+
+board = MessageBoard.load("runs/board.db", board_id)
+for thread in board.threads():
+    print(thread["title"], thread["messages"])
+```
+
+## Examples
+
+The [channel examples](https://github.com/kyegomez/swarms/tree/master/examples/channel_examples) include four `message_board_*.py` scripts:
+- agents that open and answer threads;
+- a bug queue run on labels;
+- two swarms working in threads at once;
+- a board resumed from disk.
+
+## Related
+
+- [Comms Channels overview](/api/channels/overview)
+- [Conversation](/api/conversation)
+- [SqliteChannel](/api/channels/sqlite-channel)

@@ -18,6 +18,7 @@ A comms channel is a conversation that lives outside the agent. It can be a mark
 | [`HttpChannel`](/api/channels/http-channel) | A server you run | Machines | Agents on different hosts share one conversation |
 | [`SmtpChannel`](/api/channels/smtp-channel) | One email thread in your own mailbox | People and machines | People should read and reply from their own mail client, using a mailbox you already run |
 | [`AgentMailChannel`](/api/channels/agentmail-channel) | One email thread in an AgentMail inbox | People and machines | The same as `SmtpChannel`, through the AgentMail API instead of SMTP and IMAP |
+| [`MessageBoard`](/api/channels/message-board) | Many threads in one SQLite database, each board with a name, description and id | Threads and processes on one machine | Agents open their own threads through tools and work many tasks side by side, one thread per task, with labels for status |
 
 ```python
 from swarms import Agent, FileChannel
@@ -73,6 +74,7 @@ from swarms import (
     HttpChannel,
     SmtpChannel,
     AgentMailChannel,
+    MessageBoard,
 )
 ```
 
