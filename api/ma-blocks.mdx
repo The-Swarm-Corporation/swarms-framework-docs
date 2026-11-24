@@ -171,7 +171,7 @@ def return_all_agent_names(
 
 ## check_duplicate_agent_names()
 
-Raise `ValueError` when two agents in a list share a name. An agent's name is its `.agent_name`, or `.name` when `.agent_name` is missing or empty, as for a nested swarm. `MajorityVoting`, `AgentRearrange`, `SequentialWorkflow`, `MultiAgentRouter`, `HierarchicalSwarm`, `LLMCouncil`, `GroupChat` and `MixtureOfAgents` run this check on their agents when they are built.
+Raise `ValueError` when two agents in a list share a name. An agent's name is its `.agent_name`, or `.name` when it has no `.agent_name` attribute, as for a nested swarm. `MajorityVoting`, `AgentRearrange`, `SequentialWorkflow`, `MultiAgentRouter`, `HierarchicalSwarm`, `LLMCouncil`, `GroupChat` and `MixtureOfAgents` run this check on their agents when they are built.
 
 ```python
 def check_duplicate_agent_names(
