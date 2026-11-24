@@ -34,7 +34,6 @@ class ConcurrentWorkflow:
         name: str = "ConcurrentWorkflow",
         description: str = "Execution of multiple agents concurrently",
         agents: List[Union[Agent, Callable]] = None,
-        auto_save: bool = True,
         output_type: str = "dict-all-except-first",
         max_loops: int = 1,
         show_dashboard: bool = False,
@@ -62,10 +61,6 @@ class ConcurrentWorkflow:
 
 <ParamField path="agents" type="List[Union[Agent, Callable]]" required>
   List of agents to execute concurrently. Must not be None or empty.
-</ParamField>
-
-<ParamField path="auto_save" type="bool" default="True">
-  Accepted and stored, but never read. Setting it has no effect; use `autosave` to control saving.
 </ParamField>
 
 <ParamField path="output_type" type="str" default="dict-all-except-first">

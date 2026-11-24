@@ -116,10 +116,6 @@ results = workflow.run(
   Save the conversation to the workflow workspace directory after each run. Off by default, so a run writes nothing to disk.
 </ParamField>
 
-<Warning>
-  `ConcurrentWorkflow.__init__` accepts **two** similarly named parameters: `autosave` (default `False`) and `auto_save` (default `True`). Only `autosave` has any effect — it is the flag that enables the workspace writer. `auto_save` is stored on the instance and never read, so `auto_save=True` does **not** turn saving on. Always use `autosave`.
-</Warning>
-
 <ParamField path="verbose" type="bool" default="False">
   Emit debug-level logging for workspace and autosave operations
 </ParamField>
