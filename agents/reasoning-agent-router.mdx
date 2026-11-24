@@ -90,7 +90,7 @@ With `"ire"`, the router passes `num_samples`, not `max_loops`, as the number of
 
 | Property | Returns | Description |
 |----------|---------|-------------|
-| `usage` | `dict` | Provider token usage summed over every agent the router has built, with the keys of [`Agent.usage`](/agents/token-usage): `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`. `run()` builds a new agent each call and adds what it spent before dropping it, even when the run raises. It starts at zero and grows across `run()` and `batched_run()` calls. Each read returns a new dict |
+| `usage` | `dict` | Provider token usage summed over every agent that `run()` has built, with the keys of [`Agent.usage`](/agents/token-usage): `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`. When `run()` returns or raises, the router adds the agent's own `usage` and then drops the agent. It starts at zero and grows across `run()` and `batched_run()` calls. Each read returns a new dict |
 
 ## Examples
 
