@@ -6,7 +6,7 @@ icon: "layer-group"
 
 ## Overview
 
-The `ConcurrentWorkflow` class provides a framework for executing multiple agents concurrently on the same task, with optional dashboard monitoring, streaming callbacks, and various output formatting options. It uses ThreadPoolExecutor to manage concurrent execution and provides real-time status tracking for each agent.
+The `ConcurrentWorkflow` class provides a framework for executing multiple agents concurrently on the same task, with optional dashboard monitoring, streaming callbacks, and various output formatting options. It awaits the agents on one event loop, or runs them on a thread pool in the cases listed under [Performance Considerations](#performance-considerations), and provides real-time status tracking for each agent.
 
 ## Key Features
 
@@ -84,7 +84,7 @@ class ConcurrentWorkflow:
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
-  Thread pool size. Defaults to `len(agents)`, with no upper cap, so every agent runs at once. Agent calls are network-bound, so this is sized by agent count rather than CPU cores. Set it to throttle a large roster, for example to stay under a provider's rate limit.
+  Most agents running at once. Defaults to `len(agents)`, with no upper cap, so every agent runs at once. Agent calls are network-bound, so this is sized by agent count rather than CPU cores. Set it to throttle a large roster, for example to stay under a provider's rate limit.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
@@ -105,7 +105,9 @@ class ConcurrentWorkflow:
 
 Execute all agents concurrently on the given task.
 
-Each call starts with a fresh conversation and calls `reset()` on every `Agent`, so a reused workflow neither sends earlier tasks to the model nor returns them. Each agent's final answer is recorded, not its whole transcript, and answers are collected in the order of `agents`, not completion order. With `on_error="store"`, a failed agent is recorded with `"Error: ..."` as its content, under the role `"<agent_name> (failed)"` (or its plain name in dashboard mode). With `autosave=True`, the conversation is saved after the run, even when it fails.
+Agents are awaited on one event loop, so a call through the built-in LiteLLM client holds no thread while it waits. See [Performance Considerations](#performance-considerations) for when a run uses a thread pool instead.
+
+Each call starts with a fresh conversation and calls `reset()` on every `Agent`, so a reused workflow neither sends earlier tasks to the model nor returns them. Each agent's final answer is recorded, not its whole transcript, and answers are collected in the order of `agents`, not completion order. With `on_error="store"`, a failed agent is recorded with `"Error: ..."` as its content, under the role `"<agent_name> (failed)"`. With `autosave=True`, the conversation is saved after the run, even when it fails.
 
 <ParamField path="task" type="str" required>
   The task to be executed by all agents
@@ -211,7 +213,7 @@ Display real-time dashboard showing agent status and outputs.
 | `agent_statuses` | dict | Status (`"pending"`, `"running"`, `"completed"`, `"error"`) and output of each agent, updated in dashboard mode |
 | `conversation` | Conversation | The latest run's conversation; replaced at the start of every `run()` |
 | `on_error` | str | Failure policy, `"store"` or `"raise"` |
-| `max_workers` | Optional[int] | Thread pool size override |
+| `max_workers` | Optional[int] | Most agents running at once |
 | `workspace` | WorkspaceManager | Owns the autosave directory |
 | `swarm_workspace_dir` | Optional[str] | Autosave directory; `None` when `autosave=False` |
 
@@ -448,8 +450,9 @@ When `show_dashboard=True`, you'll see real-time updates like:
 
 ## Performance Considerations
 
-- **Concurrency**: One thread per agent by default, with no upper cap, so a 100-agent workflow runs all 100 at once. Agent calls are network-bound, so this does not derive from CPU core count. Pass `max_workers` to throttle.
-- **Concurrent Execution**: All agents run truly concurrently using ThreadPoolExecutor
+- **Concurrency**: Every agent runs at once by default, with no upper cap, so a 100-agent workflow runs all 100 together. Agent calls are network-bound, so this does not derive from CPU core count. Pass `max_workers` to throttle.
+- **Concurrent Execution**: `run()` awaits every agent on one event loop, so a call through the built-in LiteLLM client holds no thread while it waits. Blocking steps still get a worker thread: callable tools, handoffs, the `max_loops="auto"` loop, and a custom `llm` with no `arun`.
+- **Thread fallback**: `run()` runs the agents on a thread pool instead when `show_dashboard=True`, when it is called from code already running inside an event loop (a notebook cell or an `async` function), or when an agent is not a plain `Agent`: a custom class, a subclass that overrides `run` or `arun`, or an agent whose `run` or `arun` was replaced. The pool has one worker per agent unless `max_workers` is set. Results and their order are the same on both paths.
 - **Memory Usage**: Each agent maintains its own context, consider memory for many agents
 - **API Rate Limits**: Be aware of rate limits when using cloud-based LLMs
 
