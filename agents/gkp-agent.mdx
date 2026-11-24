@@ -55,6 +55,10 @@ graph TD
 | `run(task)` | `task: str` | `str` — the final answer to a single task |
 | `__call__(task)` | `task: str` | `str` — alias for `run(task)` |
 
+| Property | Returns | Description |
+|----------|---------|-------------|
+| `usage` | `dict` | Provider token usage summed over the knowledge generator, the reasoner and the coordinator, with the keys of [`Agent.usage`](/agents/token-usage): `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`. It starts at zero and grows across runs. Each read returns a new dict |
+
 `run()` only accepts a single task string (it internally calls the private `_run([task])[0]`). There is no public batch-processing method that accepts a list of tasks; process each task with a separate `run()` call if you need to handle multiple queries.
 
 `process(query)` makes one knowledge call, one reasoner call per knowledge item (one after another), and one coordinator call, so a query costs `num_knowledge_items + 2` model calls. It returns:
@@ -83,6 +87,7 @@ Each query and its final answer are also added to `agent.conversation`.
 | Method | Parameters | Returns |
 |--------|------------|---------|
 | `generate_knowledge(query)` | `query: str` | `List[str]` — generated knowledge statements |
+| `usage` (property) | | `dict`, the provider token usage of the generator's agent, with the same keys as `GKPAgent.usage` |
 
 ### Reasoner
 
@@ -94,6 +99,7 @@ Each query and its final answer are also added to `agent.conversation`.
 | Method | Parameters | Returns |
 |--------|------------|---------|
 | `reason_and_answer(query, knowledge)` | `query: str`, `knowledge: str` | `Dict[str, str]` — explanation, confidence, answer |
+| `usage` (property) | | `dict`, the provider token usage of the reasoner's agent, with the same keys as `GKPAgent.usage` |
 
 ## Example
 
@@ -112,6 +118,7 @@ result = agent.run(query)
 
 print(f"Query: {query}")
 print(f"Answer: {result}")
+print(agent.usage["total_tokens"])
 ```
 
 ## Best Practices
