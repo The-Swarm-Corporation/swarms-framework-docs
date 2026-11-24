@@ -90,6 +90,14 @@ results = judge.run_batched(tasks: List[str]) -> List[Union[str, int]]
 `judge.conversation` is not cleared between calls. Each `run()` result, including each `run_batched()` result, contains every earlier task and verdict from the same judge, and later evaluations see them as context. Create a new `AgentJudge` for each independent evaluation.
 </Warning>
 
+### usage
+
+```python
+totals = judge.usage
+```
+
+A `Dict[str, int]` of provider token usage summed over every call the judge has made, through `step()`, `run()` and `run_batched()`, including every loop of a multi-loop `run()`. The keys match `Agent.usage`: `input_tokens`, `output_tokens`, `cached_tokens`, `reasoning_tokens` and `total_tokens`. It is all zeros before the first call and keeps growing across runs. It returns a new dict, so changing it does not affect the judge. See [Token Usage](/agents/token-usage).
+
 ## Examples
 
 ### Basic Evaluation

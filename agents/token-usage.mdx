@@ -9,7 +9,7 @@ Swarms gives you two token numbers for an agent:
 - `agent.usage` is what the provider billed. It sums the token counts the provider reports on every call the agent has made.
 - `agent.input_tokens` is an estimate of the next request. It counts what the agent is about to send, before you run it.
 
-`TreeOfThoughts` and every multi-agent structure, from `SequentialWorkflow` to `HeavySwarm`, expose a `usage` property with the same keys, summed over the agents they run.
+The reasoning agents `TreeOfThoughts`, `AgentJudge`, `ReasoningDuo`, `SelfConsistencyAgent`, `ReflexionAgent` and `GKPAgent`, and every multi-agent structure, from `SequentialWorkflow` to `HeavySwarm`, expose a `usage` property with the same keys, summed over the agents they run.
 
 ## agent.usage
 
