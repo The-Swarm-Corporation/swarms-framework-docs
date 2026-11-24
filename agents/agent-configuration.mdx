@@ -464,7 +464,7 @@ asyncio.run(main())
 ### Reliability
 
 <ParamField path="fallback_models" type="List[str]" default="None">
-  Models to try in order. When set, the first entry is the primary model and `model_name` is not used. When a model call fails after the client's `retry_attempts` retries (an `AgentLLMError`), the agent drops that attempt's turns, switches to the next model, and runs the task again. Other errors raise at once. Every run starts from the primary model again. `fallback_model_name="..."` is a shorthand for `[model_name, fallback_model_name]`.
+  Models to try in order. An explicit `model_name` runs first, then each entry in order; without one, the first entry is the primary model. A model named twice runs once. When a model call fails after the client's `retry_attempts` retries (an `AgentLLMError`), the agent drops that attempt's turns, switches to the next model, and runs the task again. Other errors raise at once. Every run starts from the primary model again. `fallback_model_name="..."` is a shorthand for `[model_name, fallback_model_name]`.
   
   ```python
   agent = Agent(

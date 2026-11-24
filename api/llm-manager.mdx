@@ -60,7 +60,7 @@ except AgentLLMError as error:
 ```
 
 - **Retries belong to the client.** `retry_attempts` is passed to `LiteLLM` as `retries` and sent with every request as litellm's `num_retries`, so one model gets at most `retry_attempts + 1` calls.
-- **The first entry of `fallback_models` is the primary**, and `agent.model_name` is set to it. `fallback_model_name` is folded into `fallback_models` (as `[model_name, fallback_model_name]`) at construction.
+- **An explicit `model_name` is the primary**, and the `fallback_models` entries follow it in order. A model named twice runs once. Without one, the first entry is the primary and `agent.model_name` is set to it. `fallback_model_name` is folded into `fallback_models` (as `[model_name, fallback_model_name]`) at construction.
 - **Only an `AgentLLMError` moves to the next model.** `Agent.call_llm` wraps any error from `call()` in `AgentLLMError`, chained to the provider's error as `__cause__`. Any other exception, such as a bug in a tool, raises at once. After the last model fails, the `AgentLLMError` reaches the caller.
 - **Every run starts from the primary model again**, rebuilding `agent.llm` with `llm_handling()` whenever the model changes.
 

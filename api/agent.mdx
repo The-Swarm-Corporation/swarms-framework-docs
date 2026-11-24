@@ -63,7 +63,7 @@ from swarms import Agent
 
 | Attribute | Class | Owns |
 |---|---|---|
-| `agent.llm_manager` | [`LLMManager`](/api/llm-manager) | Model selection, LiteLLM construction, invocation, streaming, fallback rotation |
+| `agent.llm_manager` | [`LLMManager`](/api/llm-manager) | LiteLLM construction, capability checks, invocation, streaming |
 | `agent.tool_manager` | [`ToolManager`](/api/tool-manager) | Tool setup, dynamic tool loading, tool-call parsing and execution, retries, MCP execution, handoffs |
 | `agent.mcp_manager` | [`MCPManager`](/api/mcp-manager) | MCP server connections, tool discovery, tool-call routing |
 | `agent.skills` | [`SkillsManager`](/api/skills-manager) | Agent Skills discovery and prompt rendering |
@@ -132,7 +132,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="model_name" type="str" default="gpt-5.4">
-  The LiteLLM-compatible model identifier (e.g. `"gpt-5.4"`, `"claude-sonnet-4-6"`, `"groq/llama-3.3-70b-versatile"`). Ignored when `fallback_models` is set, since that list names the primary model.
+  The LiteLLM-compatible model identifier (e.g. `"gpt-5.4"`, `"claude-sonnet-4-6"`, `"groq/llama-3.3-70b-versatile"`). When `fallback_models` is also set, `model_name` runs first and the list follows it.
 </ParamField>
 
 <ParamField path="llm_args" type="dict" default="None">
@@ -259,7 +259,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="fallback_models" type="List[str]" default="None">
-  Ordered list of models to use. When set, it replaces `model_name`: the first entry is the primary model and the rest are tried in order when a model call fails. Every run starts from the primary again. See [Fallback models](#fallback-models).
+  Ordered list of models to use. An explicit `model_name` runs first and the entries follow it; without one, the first entry is the primary. A model named twice runs once. The next model is tried when a model call fails. Every run starts from the primary again. See [Fallback models](#fallback-models).
 </ParamField>
 
 <ParamField path="channel" type="CommsChannel" default="None">
@@ -2283,7 +2283,7 @@ Every constructor parameter, including the MCP, reasoning, memory, tool, and mar
 **Agent subsystems**
 
 - [ToolManager](/api/tool-manager) - Tool loading, execution, and retries
-- [LLMManager](/api/llm-manager) - Model selection, invocation, and fallback rotation
+- [LLMManager](/api/llm-manager) - LiteLLM construction, invocation, and streaming
 - [MCPManager](/api/mcp-manager) - MCP servers, tool discovery, and tool-call routing
 - [SkillsManager](/api/skills-manager) - Agent Skills loading and prompt rendering
 - [AgentMarketplaceHandler](/api/agent-marketplace-handler) - Marketplace fetch and publish
