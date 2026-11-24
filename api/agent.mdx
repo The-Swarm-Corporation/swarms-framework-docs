@@ -776,7 +776,7 @@ for token in agent.run_stream("Plan a three-step study schedule for linear algeb
 
 ### run_concurrent_tasks
 
-Run a batch of tasks concurrently on a call-scoped thread pool (`os.cpu_count()` workers). Results come back in the order the tasks were given. A failure is logged and re-raised.
+Run a batch of tasks concurrently on a call-scoped thread pool with one worker per task. Results come back in the order the tasks were given. A failure is logged and re-raised.
 
 ```python
 def run_concurrent_tasks(
