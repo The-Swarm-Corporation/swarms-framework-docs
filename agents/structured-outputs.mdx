@@ -72,10 +72,10 @@ Swarms supports multiple output formats through the `output_type` parameter. `ou
 - `"yaml"` — the conversation history as a YAML string
 - `"dict-all-except-first"` — every message after the system prompt and the first input, as a list of message dicts. This is the default `output_type` of several multi-agent harnesses (`HeavySwarm`, `HierarchicalSwarm`, `ConcurrentWorkflow`, `LLMCouncil`, `PlannerWorkerSwarm`, and others)
 - `"list-final"` — the content of the last message, wrapped in a single-item list
-- `"dict-final"` — the content of the last message, as a `(content, content)` tuple
+- `"dict-final"`: the last message as a dict with its `role`, `content`, `timestamp` and `message_id`
 
 <Warning>
-  The `"xml"` output type was removed. `"basemodel"` is still accepted by the type hint, but the formatter does not handle it: a run with `output_type="basemodel"` raises `ValueError` after the model has answered. Use [`output_schema`](#validated-pydantic-output) instead.
+  The `"xml"` and `"basemodel"` output types were removed. Neither is in `OutputType` any more, and a run with either one raises `ValueError: Invalid type: <type>` after the model has answered. Use [`output_schema`](#validated-pydantic-output) instead.
 </Warning>
 
 ```python

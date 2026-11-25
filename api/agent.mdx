@@ -227,7 +227,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="interactive" type="bool" default="False">
-  REPL-style mode. After each loop iteration the agent prompts you for input, and your reply is sent to the model as the next user turn. Each reply uses one loop, so set `max_loops` above 1 to hold a conversation. Typing `custom_exit_command`, or pressing Ctrl+C or Ctrl+D, ends the session. When `run()` gets no task, an interactive agent prompts for one instead of raising `ValueError`. Setting it turns `reasoning_prompt_on` off. It has no effect with `max_loops="auto"`, which always runs the autonomous loop.
+  REPL-style mode. After every loop except the last, the agent prompts you for input, and your reply is sent to the model as the next user turn. Each reply uses one loop, so a session takes at most `max_loops - 1` replies, there is no prompt after the final answer, and `max_loops=1` never prompts. Typing `custom_exit_command`, or pressing Ctrl+C or Ctrl+D, ends the session. When `run()` gets no task, an interactive agent prompts for one instead of raising `ValueError`. Setting it turns `reasoning_prompt_on` off. It has no effect with `max_loops="auto"`, which always runs the autonomous loop.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="False">
