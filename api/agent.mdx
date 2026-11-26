@@ -707,7 +707,7 @@ for i, (task, result) in enumerate(zip(tasks, batch_results)):
 
 ### run_stream
 
-Run the agent and yield response tokens one-by-one as a sync generator. It calls `run` in a background daemon thread with `streaming_on` switched on for the duration, so every `max_loops` value takes its normal path, and `max_loops="auto"` enters the autonomous loop. Tokens are forwarded to the caller the moment the LLM emits them. Extra `kwargs` go to `run`, and an exception raised by the run is re-raised after the stream ends.
+Run the agent and yield response tokens one-by-one as a sync generator. It calls `run` in a background daemon thread with `streaming_on` switched on for the duration, so every `max_loops` value takes its normal path, and `max_loops="auto"` enters the autonomous loop. Tokens are forwarded to the caller the moment the LLM emits them. Extra `kwargs` go to `run`, and an exception raised by the run is re-raised after the stream ends. Calling `close()` on the generator stops the run at its next token instead of letting it run every remaining loop, and `close()` returns once the run has ended. To stop early, call `close()`, for example through `contextlib.closing`. In CPython, breaking out of `for token in agent.run_stream(...)` also closes the generator, because the loop drops the last reference to it. If you keep a reference to the generator, call `close()` to stop the run early.
 
 ```python
 def run_stream(
