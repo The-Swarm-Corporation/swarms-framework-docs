@@ -86,7 +86,6 @@ SwarmRouter(
     autosave_use_timestamp: bool = True,
     director_model_name: str = "gpt-5.4",
     director_settings: Optional[Dict[str, Any]] = None,
-    *args,
     **kwargs,
 )
 ```
@@ -227,7 +226,7 @@ These are only consulted when the corresponding `swarm_type` is selected.
 
 ### Additional kwargs
 
-The constructor accepts arbitrary `*args` / `**kwargs` for forward-compatibility, but they are **not** stored on the router or forwarded to the underlying swarm — extra constructor kwargs are effectively ignored. Configure the underlying swarm through the router's explicit parameters listed above.
+The constructor accepts no extra positional arguments; passing one raises `TypeError`. Unknown keyword arguments are **not** stored on the router or forwarded to the underlying swarm: the router logs `SwarmRouter ignored unknown arguments: [...]` with their names and otherwise ignores them, so a misspelled `swarm_typ` leaves `swarm_type` at its default. Configure the underlying swarm through the router's explicit parameters listed above.
 
 For `MixtureOfAgents`, the aggregator is **not** passed as a kwarg; the **last agent** in `agents` is used as the aggregator automatically, and the agents before it are the workers. With a single agent, that agent is both the only worker and the aggregator:
 
