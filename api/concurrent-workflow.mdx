@@ -80,7 +80,7 @@ class ConcurrentWorkflow:
 </ParamField>
 
 <ParamField path="on_error" type="str" default="store">
-  How to handle an agent that raises. `"store"` records the error as that agent's output and lets the rest finish; `"raise"` propagates the first error and aborts the run.
+  How to handle an agent that raises. `"store"` records the error as that agent's output and lets the rest finish; `"raise"` propagates the first error and aborts the run. Under `"raise"`, agents that have not finished are cancelled and no answers are recorded for that run.
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
@@ -405,7 +405,7 @@ except Exception as e:
     print(f"Execution error: {e}")
 ```
 
-With the default `on_error="store"`, a failing agent does not raise: its error is recorded in the result and the other agents finish. Set `on_error="raise"` to abort the run on the first agent error instead.
+With the default `on_error="store"`, a failing agent does not raise: its error is recorded in the result and the other agents finish. Set `on_error="raise"` to abort the run on the first agent error instead. The first failure is raised as soon as it happens and the other agents' model calls are cancelled, so no answers are recorded for that run. When the workflow runs its agents on threads (the dashboard is on, an event loop is already running, or an agent is not a plain `Agent`), a call in progress cannot be interrupted: agents still waiting for a thread are dropped, and the error is raised once the running ones finish.
 
 ## Dashboard Output Example
 

@@ -121,7 +121,7 @@ results = workflow.run(
 </ParamField>
 
 <ParamField path="on_error" type="str" default="store">
-  How to handle an agent that raises. `"store"` records the error as that agent's output and lets the rest finish; `"raise"` propagates the first error and aborts the run.
+  How to handle an agent that raises. `"store"` records the error as that agent's output and lets the rest finish; `"raise"` propagates the first error and aborts the run. Under `"raise"`, agents that have not finished are cancelled and no answers are recorded for that run.
 </ParamField>
 
 <ParamField path="max_workers" type="int" default="None">
