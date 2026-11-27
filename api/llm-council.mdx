@@ -42,7 +42,7 @@ Each `run` starts from an empty conversation, so reusing a council for several t
 </ParamField>
 
 <ParamField path="chairman_model" type="str" default="gpt-5.1">
-  Model name for the Chairman agent that synthesizes responses. The Chairman runs with `temperature=0.7`.
+  Model name for the Chairman agent that synthesizes responses.
 </ParamField>
 
 <ParamField path="verbose" type="bool" default="True">
@@ -51,6 +51,10 @@ Each `run` starts from an empty conversation, so reusing a council for several t
 
 <ParamField path="output_type" type="HistoryOutputType" default="dict-all-except-first">
   Format for the output (`"list"`, `"dict"`, `"string"`, `"final"`, `"json"`, `"yaml"`, and so on). The default returns every message after the task as a list of message dicts. Use `"final"` for only the Chairman's answer.
+</ParamField>
+
+<ParamField path="council_models" type="Optional[List[str]]" default="None">
+  Optional list of four model names overriding `DEFAULT_COUNCIL_MODELS` for the preset GPT, Gemini, Claude, and Grok councilors when `council_members` is `None`. Raises `ValueError` if the list does not contain exactly four model names.
 </ParamField>
 
 ## Methods
@@ -123,6 +127,25 @@ result = council.run(
 )
 
 print(result)
+```
+
+### Overriding Preset Council Models
+
+Use `council_models` to replace the model names of the four preset councilors (in GPT, Gemini, Claude, Grok order) without building custom `Agent` instances:
+
+```python
+from swarms.structs.llm_council import DEFAULT_COUNCIL_MODELS, LLMCouncil
+
+models = list(DEFAULT_COUNCIL_MODELS)
+models[0] = "gpt-5.4"
+
+council = LLMCouncil(
+    council_models=models,
+    chairman_model="gpt-5.4",
+    output_type="final",
+)
+
+result = council.run(task="Compare REST and gRPC for internal microservices.")
 ```
 
 ### Custom Council Members
@@ -216,16 +239,16 @@ With `verbose=True`, the council logs one line per stage:
 
 ## Default Council Members
 
-When no custom members are provided, the default council includes:
+When no custom `council_members` are provided, `LLMCouncil` creates four preset councilors using `DEFAULT_COUNCIL_MODELS` (no `temperature` is set on the default councilors or the Chairman):
 
-| Agent name | Model | Temperature | Persona |
-|---|---|---|---|
-| `GPT-5.1-Councilor` | `gpt-5.1` | 0.7 | Analytical and comprehensive |
-| `Gemini-3-Pro-Councilor` | `gemini-2.5-flash` | 0.7 | Concise and well-structured |
-| `Claude-Sonnet-4.5-Councilor` | `anthropic/claude-sonnet-4-5` | 0.0 | Thoughtful and balanced |
-| `Grok-4-Councilor` | `xai/grok-4-1-fast-reasoning` | 0.8 | Creative and innovative |
+| Agent name | Default model | Persona |
+|---|---|---|
+| `GPT-Councilor` | `gpt-5.1` | Analytical and comprehensive |
+| `Gemini-Councilor` | `gemini/gemini-3.5-flash-lite` | Concise and well-structured |
+| `Claude-Councilor` | `anthropic/claude-sonnet-5-5` | Thoughtful and balanced |
+| `Grok-Councilor` | `xai/grok-4-1-fast-reasoning` | Creative and innovative |
 
-The agent names do not always match the model: the Gemini councilor runs on `gemini-2.5-flash`. The default council calls four providers, so you need credentials for OpenAI, Anthropic, xAI, and Google. LiteLLM routes the unprefixed `gemini-2.5-flash` to Vertex AI. If you only have API keys, pass your own `council_members`, for example with `gemini/gemini-2.5-flash`.
+The default council calls four providers, so you need credentials for OpenAI, Google Gemini, Anthropic, and xAI. Pass `council_models` to swap any of the four preset models, or pass `council_members` to supply your own `Agent` list.
 
 ## Prompts
 
