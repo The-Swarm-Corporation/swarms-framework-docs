@@ -73,6 +73,8 @@ def route_task(self, task: str) -> dict
 
 **Returns:** The formatted conversation history (shaped by `output_type`), containing the user task and the response(s) that were appended to it.
 
+**Raises:** `ValueError` when the boss selects no agent, or names an agent the router doesn't have.
+
 <Note>
   When the boss selects multiple agents, `handle_multiple_handoffs()` runs all of them concurrently but only appends the **first** selected agent's response to the conversation — every other agent's output is computed and then discarded. The boss's `reasoning` is never added to the conversation either (it is only printed to the console when `print_on=True`), so it is not present in the returned result.
 </Note>
