@@ -26,10 +26,6 @@ from swarms import HeavySwarm
   Description of the swarm's purpose and capabilities
 </ParamField>
 
-<ParamField path="timeout" type="int" default="900">
-  Seconds passed to each worker future's `result()` call. Results are read as each worker finishes, so this does not interrupt a worker that is still running
-</ParamField>
-
 <ParamField path="question_agent_model_name" type="str" default="gpt-5.4">
   Language model for question generation. The decomposer sends no temperature or top-p, so it runs on providers that reject the two together, such as Anthropic
 </ParamField>
@@ -259,7 +255,7 @@ Displays swarm configuration information in rich dashboard format.
 
 Does nothing unless `show_dashboard=True`. Shows:
 - Swarm identification (name, description)
-- Execution parameters (timeout, max workers)
+- Execution parameters (max workers)
 - Model configurations (question and worker models)
 
 ---
@@ -447,7 +443,6 @@ All dashboard elements use Swarms-inspired red/black styling with professional f
 
 - **Parallel Execution**: The active variant's specialized agents run concurrently
 - **Thread Pool**: Workers run across a pool sized to 95% of the host's CPU cores (at least one thread)
-- **Timeout**: `timeout` is applied when each finished worker's result is read; it does not stop a running worker
 
 ## Source Code
 

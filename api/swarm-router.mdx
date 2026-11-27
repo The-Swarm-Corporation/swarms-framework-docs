@@ -78,7 +78,6 @@ SwarmRouter(
     heavy_swarm_swarm_show_output: bool = True,
     heavy_swarm_variant: SwarmVariant = "default",
     heavy_swarm_max_loops: int = 1,
-    heavy_swarm_timeout: int = 900,
     council_judge_model_name: str = "gpt-5.4",
     verbose: bool = False,
     worker_tools: Optional[List[Callable]] = None,
@@ -192,10 +191,6 @@ These are only consulted when the corresponding `swarm_type` is selected.
 
 <ParamField path="heavy_swarm_max_loops" type="int" default="1">
   Number of iterative-refinement loops for `HeavySwarm`.
-</ParamField>
-
-<ParamField path="heavy_swarm_timeout" type="int" default="900">
-  Per-worker wall-clock cap, in seconds, for `HeavySwarm`.
 </ParamField>
 
 <ParamField path="worker_tools" type="List[Callable]" optional>
