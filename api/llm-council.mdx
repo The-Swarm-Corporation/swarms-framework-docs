@@ -39,6 +39,7 @@ Each `run` starts from an empty conversation, so reusing a council for several t
 
 <ParamField path="council_members" type="Optional[List[Agent]]" default="None">
   List of Agent instances representing council members. If None, creates the [default council](#default-council-members) of four members on OpenAI, Gemini, Anthropic, and xAI models.
+  Each member needs its own `agent_name`, because answers are stored by name. Two members that share one, including the same `Agent` passed twice, raise `ValueError` at construction. An `Agent` built without `agent_name` is named `swarm-worker-01`, so two unnamed members collide.
 </ParamField>
 
 <ParamField path="chairman_model" type="str" default="gpt-5.1">
