@@ -287,7 +287,7 @@ MCPManager(mcp_config=MCPConnection(url="https://api.example.com/mcp", oauth=MCP
 `MCPOAuthConfig` supports three modes:
 
 1. **Authorization code** (`grant_type="authorization_code"`, the default). The interactive browser flow with PKCE, run by the `mcp` SDK, which discovers the endpoints and registers the client dynamically (RFC 7591). A loopback listener on `redirect_uri` (default `http://127.0.0.1:8765/callback`) catches the redirect, and tokens are cached in `~/.swarms/mcp_auth/<server>.json` with `0600` permissions, so the browser step runs once.
-2. **Client credentials** (`grant_type="client_credentials"`). Headless. Needs `client_id`, and usually `client_secret`. The token endpoint is discovered from the server's well-known metadata unless `token_url` is set, and a new token is fetched shortly before the old one expires.
+2. **Client credentials** (`grant_type="client_credentials"`). Headless. Needs `client_id`, and usually `client_secret`. Unless `token_url` is set, the token endpoint is read from the OAuth or OpenID Connect metadata of each authorization server the MCP server lists in `/.well-known/oauth-protected-resource`, then from the MCP server's own origin, and a new token is fetched shortly before the old one expires.
 3. **Pre-issued token** (`access_token="..."`). No flow runs; the token is sent as a bearer credential.
 
 Other fields: `scopes`, `client_name` (default `"Swarms Agent"`) and `client_uri` for registration, `token_storage_path`, `use_token_cache` (default `True`; `False` keeps tokens in memory only), `open_browser` (default `True`; `False` logs the URL instead), and `callback_timeout` (default `300` seconds).
