@@ -113,7 +113,7 @@ class GraphWorkflow:
 </ParamField>
 
 <ParamField path="checkpoint_dir" type="Optional[str]" default="None">
-  Directory for per-layer checkpoints. After each layer finishes, its outputs are written to `{checkpoint_dir}/{task_key}_layer_{n}.json`, where `task_key` is a hash of the task string. Running the same task again skips every layer that already has a checkpoint. Subgraph nodes checkpoint under `{checkpoint_dir}/{node_id}` unless they set their own directory. Remove old files with `clear_checkpoints(task)`.
+  Directory for per-layer checkpoints. After each layer finishes, its outputs are written to `{checkpoint_dir}/{task_key}_loop_{loop}_layer_{n}.json`, where `task_key` is a hash of the task string and `loop` counts from 0. Running the same task again skips every layer of every loop that already has a checkpoint. Subgraph nodes checkpoint under `{checkpoint_dir}/{node_id}` unless they set their own directory. Remove a task's checkpoints with `clear_checkpoints(task)`. Files named `{task_key}_layer_{n}.json`, from versions before the loop was added to the name, aren't resumed or removed by `clear_checkpoints`, so delete them by hand.
 </ParamField>
 
 <ParamField path="on_node_complete" type="Optional[Callable[[str, Any], None]]" default="None">
