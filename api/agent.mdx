@@ -243,7 +243,7 @@ Each collaborator is independently documented. Reach for it directly when you wa
 </ParamField>
 
 <ParamField path="output_schema" type="Optional[Type[BaseModel]]" default="None">
-  A Pydantic model. It is sent as the request's `response_format`, and `run` and `arun` return a validated instance of it instead of output shaped by `output_type`. A reply that fails validation raises `AgentOutputSchemaError`. Not supported with `max_loops="auto"`: setting both raises `ValueError`. See [Structured Outputs](/agents/structured-outputs#validated-pydantic-output).
+  A Pydantic model. It is sent as the request's `response_format`, or, for a model the model registry lists with tool calls but no structured output, as one tool the request forces when the agent has no other tools or MCP servers. An agent with reasoning set gets `tool_choice="auto"` for that tool instead. `run` and `arun` return a validated instance of it instead of output shaped by `output_type`. A reply that fails validation raises `AgentOutputSchemaError`. Not supported with `max_loops="auto"`: setting both raises `ValueError`. See [Structured Outputs](/agents/structured-outputs#validated-pydantic-output).
 </ParamField>
 
 <ParamField path="autosave" type="bool" default="False">
