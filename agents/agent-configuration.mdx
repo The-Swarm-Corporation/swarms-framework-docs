@@ -267,7 +267,7 @@ In addition to the streaming flags above, the `Agent` exposes two streaming meth
 
 #### `agent.run_stream(task) -> Iterator[str]`
 
-Sync generator that yields tokens. The agent runs in a background thread; tokens are pushed onto a queue and yielded to the caller in order. Calling `close()` on the generator stops the run at its next token, and `close()` returns once the run has ended. To stop early, call `close()`, for example through `contextlib.closing`. In CPython, breaking out of `for token in agent.run_stream(...)` also closes the generator, because the loop drops the last reference to it. If you keep a reference to the generator, call `close()` to stop the run early.
+Sync generator that yields tokens. The agent runs in a background thread; tokens are pushed onto a queue and yielded to the caller in order. Calling `close()` on the generator stops the run at its next token, and `close()` waits up to half a second for it to stop. To stop early, call `close()`, for example through `contextlib.closing`. In CPython, breaking out of `for token in agent.run_stream(...)` also closes the generator, because the loop drops the last reference to it. If you keep a reference to the generator, call `close()` to stop the run early.
 
 ```python
 from swarms import Agent
