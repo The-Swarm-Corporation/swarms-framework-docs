@@ -207,7 +207,7 @@ result = council.run(task="Some query")
 With `verbose=True`, the council logs one line per stage:
 
 ```
-[LLM Council] Initialized with 4 members: GPT-5.1-Councilor, Gemini-3-Pro-Councilor, Claude-Sonnet-4.5-Councilor, Grok-4-Councilor
+[LLM Council] Initialized with 4 members: GPT-Councilor, Gemini-Councilor, Claude-Councilor, Grok-Councilor
 [LLM Council] Collecting responses from 4 members
 [LLM Council] Members ranking the anonymized responses
 [LLM Council] Chairman synthesizing the final answer
@@ -220,12 +220,12 @@ When no custom members are provided, the default council includes:
 
 | Agent name | Model | Temperature | Persona |
 |---|---|---|---|
-| `GPT-5.1-Councilor` | `gpt-5.1` | 0.7 | Analytical and comprehensive |
-| `Gemini-3-Pro-Councilor` | `gemini-2.5-flash` | 0.7 | Concise and well-structured |
-| `Claude-Sonnet-4.5-Councilor` | `anthropic/claude-sonnet-4-5` | 0.0 | Thoughtful and balanced |
-| `Grok-4-Councilor` | `xai/grok-4-1-fast-reasoning` | 0.8 | Creative and innovative |
+| `GPT-Councilor` | `gpt-5.1` | 0.7 | Analytical and comprehensive |
+| `Gemini-Councilor` | `gemini/gemini-3.5-flash-lite` | 0.7 | Concise and well-structured |
+| `Claude-Councilor` | `anthropic/claude-sonnet-5-5` | not sent | Thoughtful and balanced |
+| `Grok-Councilor` | `xai/grok-4-1-fast-reasoning` | 0.8 | Creative and innovative |
 
-The agent names do not always match the model: the Gemini councilor runs on `gemini-2.5-flash`. The default council calls four providers, so you need credentials for OpenAI, Anthropic, xAI, and Google. LiteLLM routes the unprefixed `gemini-2.5-flash` to Vertex AI. If you only have API keys, pass your own `council_members`, for example with `gemini/gemini-2.5-flash`.
+The names say which model family each member uses, not a version, so they stay true when the default models change. The default council calls four providers, so you need API keys for OpenAI, Gemini, Anthropic and xAI. To use other models, pass your own `council_members`.
 
 ## Prompts
 
@@ -291,14 +291,14 @@ The full conversation (for example with `output_type="dict"`) looks like this. T
 ```python
 [
     {"role": "User", "content": "Original query"},
-    {"role": "GPT-5.1-Councilor", "content": "Response..."},
-    {"role": "Gemini-3-Pro-Councilor", "content": "Response..."},
-    {"role": "Claude-Sonnet-4.5-Councilor", "content": "Response..."},
-    {"role": "Grok-4-Councilor", "content": "Response..."},
-    {"role": "GPT-5.1-Councilor-Evaluation", "content": "Evaluation..."},
-    {"role": "Gemini-3-Pro-Councilor-Evaluation", "content": "Evaluation..."},
-    {"role": "Claude-Sonnet-4.5-Councilor-Evaluation", "content": "Evaluation..."},
-    {"role": "Grok-4-Councilor-Evaluation", "content": "Evaluation..."},
+    {"role": "GPT-Councilor", "content": "Response..."},
+    {"role": "Gemini-Councilor", "content": "Response..."},
+    {"role": "Claude-Councilor", "content": "Response..."},
+    {"role": "Grok-Councilor", "content": "Response..."},
+    {"role": "GPT-Councilor-Evaluation", "content": "Evaluation..."},
+    {"role": "Gemini-Councilor-Evaluation", "content": "Evaluation..."},
+    {"role": "Claude-Councilor-Evaluation", "content": "Evaluation..."},
+    {"role": "Grok-Councilor-Evaluation", "content": "Evaluation..."},
     {"role": "Chairman", "content": "Final synthesized answer"}
 ]
 ```
