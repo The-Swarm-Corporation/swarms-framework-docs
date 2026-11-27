@@ -218,7 +218,7 @@ async def broadcast(
 **Raises:** `ValueError` if `sender`, `agents`, or `task` is empty.
 
 <Warning>
-`broadcast` is declared `async`, so you must await it, but the work inside is synchronous. Receivers run one after another, not in parallel, and each one also sees the replies of the receivers before it. Awaiting it blocks the event loop until every agent is done. For a parallel fan-out, use [ConcurrentWorkflow](/api/concurrent-workflow) or [run_agents_concurrently](/api/multi-agent-execution-utilities).
+`broadcast` is declared `async`, so you must await it, but the work inside is synchronous. Receivers run one after another, not in parallel, and each one also sees the replies of the receivers before it. Awaiting it runs those agent calls in a worker thread, so the event loop stays free and other coroutines keep running while the broadcast finishes. For a parallel fan-out, use [ConcurrentWorkflow](/api/concurrent-workflow) or [run_agents_concurrently](/api/multi-agent-execution-utilities).
 </Warning>
 
 ## Broadcast
