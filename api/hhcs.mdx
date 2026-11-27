@@ -111,9 +111,9 @@ def run(self, task: str, *args, **kwargs)
 
 **Raises:** `ValueError` if `task` is empty, if the router's reply is not a string or lacks `swarm_name` or `task_description`, or if no swarm has the selected name
 
-<Warning>
-The conversation is created once in the constructor and never cleared. A second `run()` on the same instance returns the earlier tasks and outputs too. Create a new `HybridHierarchicalClusterSwarm` when each task needs a clean history.
-</Warning>
+<Note>
+Each `run()` starts from a clean history. The returned conversation holds only that task and its swarm's output, and the router agent is reset before it routes, so it never sees earlier tasks or routes.
+</Note>
 
 ### batched_run()
 
@@ -131,7 +131,7 @@ def batched_run(self, tasks: List[str]) -> List[str]
 **Raises:** `ValueError` if `tasks` is empty
 
 <Note>
-All tasks in a batch write to the same conversation, so each result can include turns from the other tasks in the batch.
+Each task gets its own conversation, so a result holds only its own task and output. The tasks share one router agent, so their routing calls run one at a time while the selected swarms run concurrently.
 </Note>
 
 ### find_swarm_by_name()
