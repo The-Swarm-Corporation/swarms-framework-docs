@@ -232,7 +232,7 @@ Each judge provides:
 The council uses `ThreadPoolExecutor` to evaluate all dimensions simultaneously:
 
 - **Workers**: One thread per judge, or `max_workers` threads when set
-- **Concurrency**: All 6 dimensions evaluated in parallel
+- **Concurrency**: All 6 dimensions are evaluated in parallel by default; `run` evaluates at most `max_workers` at a time when it is set
 - **Error Handling**: If any dimension fails, `run` raises `EvaluationError` and no report is produced
 - **Performance**: Significantly faster than sequential evaluation
 
