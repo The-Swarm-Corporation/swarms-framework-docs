@@ -66,6 +66,10 @@ from swarms import HeavySwarm
   Which agent line-up to instantiate. See **Selecting a Variant** below. Passing an unknown variant raises `ValueError` during initialization, when the agents are built
 </ParamField>
 
+<ParamField path="max_workers" type="Optional[int]" default="None">
+  Most workers to run at once, for example to stay under a provider's rate limit. `None` gives every worker of the variant its own thread, so all of them run at once
+</ParamField>
+
 ## Selecting a Variant
 
 The `variant` parameter controls which agents are created and how many specialized questions the task is decomposed into.
@@ -446,7 +450,7 @@ All dashboard elements use Swarms-inspired red/black styling with professional f
 ## Performance Optimization
 
 - **Parallel Execution**: The active variant's specialized agents run concurrently
-- **Thread Pool**: Workers run across a pool sized to 95% of the host's CPU cores (at least one thread)
+- **Thread Pool**: Each worker gets its own thread, so the `"heavy"` variant's 15 workers run at once even on a one-core host. Set `max_workers` to run fewer at a time
 - **Timeout**: `timeout` is applied when each finished worker's result is read; it does not stop a running worker
 
 ## Source Code
