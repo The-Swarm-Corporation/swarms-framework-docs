@@ -185,7 +185,7 @@ Executes the hierarchical swarm for the specified number of feedback loops.
 8. Returns final output formatted per swarm-level `output_type`, and saves the conversation when `autosave=True`
 
 <Warning>
-  A loop that raises, for example because the director is unreachable or its output cannot be parsed, is recorded as failed and the next loop still runs. If every loop fails, `run()` re-raises the last error instead of returning a transcript.
+  A loop that raises, for example because the director is unreachable or its output cannot be parsed, is recorded in the conversation as a `System` message, `[LOOP FAILED] Loop 2 of 3 did not finish. Error: ...`, and the next loop still runs. The next loop's director sees it, and so does the default `output_type` when `run()` is given a task. If every loop fails, `run()` re-raises the last error instead of returning a transcript.
 </Warning>
 
 ---
