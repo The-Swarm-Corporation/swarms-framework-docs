@@ -29,7 +29,7 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="agents" type="List[Callable]" default="None">
-  A list of agents to be managed by the router
+  A list of agents to be managed by the router. The boss picks agents by `agent_name`, so two different agents with the same name raise `ValueError` at construction. The same agent can still be listed twice.
 </ParamField>
 
 <ParamField path="model" type="str" default="gpt-5.4">
