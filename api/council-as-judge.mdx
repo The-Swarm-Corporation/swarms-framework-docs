@@ -69,6 +69,10 @@ The council evaluates responses across six key dimensions:
   Model for every judge agent. When `None`, judges run on `model_name`.
 </ParamField>
 
+<ParamField path="max_workers" type="Optional[int]" default="None">
+  Most judges to run at once, for example to stay under a provider's rate limit. `None` runs all six judges at once. `arun` ignores it and takes its own `max_concurrency`.
+</ParamField>
+
 ## Methods
 
 ### run()
@@ -227,7 +231,7 @@ Each judge provides:
 
 The council uses `ThreadPoolExecutor` to evaluate all dimensions simultaneously:
 
-- **Workers**: Automatically configured based on CPU count (75% of cores)
+- **Workers**: One thread per judge, or `max_workers` threads when set
 - **Concurrency**: All 6 dimensions evaluated in parallel
 - **Error Handling**: If any dimension fails, `run` raises `EvaluationError` and no report is produced
 - **Performance**: Significantly faster than sequential evaluation
@@ -284,7 +288,7 @@ evaluation = council.run(task_response)
    - Use faster models (`gpt-5.4-mini`) for development and testing
 
 3. **Performance**:
-   - Council auto-configures workers based on CPU count
+   - All six judges run at once; set `max_workers` to run fewer at a time
    - Consider cache_size for repeated similar evaluations
    - Monitor costs when using multiple premium models
 

@@ -193,6 +193,10 @@ swarm = HeavySwarm(variant="heavy")
   Which agent line-up to instantiate. See **Selecting a Variant** above.
 </ParamField>
 
+<ParamField path="max_workers" type="Optional[int]" default="None">
+  Most workers to run at once, for example to stay under a provider's rate limit. `None` gives every worker of the variant its own thread, so all of them run at once.
+</ParamField>
+
 ## Methods
 
 ### `run(task, img=None)`
@@ -384,10 +388,12 @@ report = swarm.run(
 
 ### Parallel Execution
 
-All workers fan out on a thread pool that carries the tracing context into each thread. `self.max_workers` is set to `max(1, int(os.cpu_count() * 0.95))`, so a one-CPU host still gets a thread; it is not a constructor parameter.
+All workers fan out on a thread pool that carries the tracing context into each thread. The pool has one thread per worker unless you pass `max_workers`, so the number of CPU cores doesn't limit how many workers run at once.
 
 ```python
-with ContextThreadPoolExecutor(max_workers=self.max_workers) as executor:
+with ContextThreadPoolExecutor(
+    max_workers=self.max_workers or len(agent_tasks)
+) as executor:
     future_to_agent = {
         executor.submit(execute_agent, task): task[0]
         for task in agent_tasks
