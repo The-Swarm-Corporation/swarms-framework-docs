@@ -131,19 +131,10 @@ print(json_data)
 
 #### add_tools
 
-Intended to append the OpenAI schemas of a list of functions to the prompt content.
-
-<ParamField path="tools" type="List[Callable]" required>
-  List of callable functions to add as tools
-</ParamField>
-
-<Warning>
-`add_tools()` currently raises `TypeError`, because it concatenates the schema dict to the content string. It appends two newlines to `content` before it fails. Until it is fixed, build the schema yourself and pass it to `edit_prompt()`:
+Append the OpenAI function schemas of a list of functions to the prompt content, as indented JSON after a blank line. The change goes through `edit_prompt()`, so it is recorded in `edit_history`, can be undone with `rollback()`, and is autosaved when `autosave=True`.
 
 ```python
-import json
-
-from swarms import BaseTool
+from swarms import Prompt
 
 def double(x: int) -> int:
     """Double the input.
@@ -156,10 +147,18 @@ def double(x: int) -> int:
     """
     return x * 2
 
-schema = BaseTool(tools=[double]).convert_tool_into_openai_schema()
-prompt.edit_prompt(prompt.get_prompt() + "\n\n" + json.dumps(schema, indent=2))
+prompt = Prompt(content="You are a math assistant.")
+content = prompt.add_tools([double])
+print(content)
 ```
-</Warning>
+
+<ParamField path="tools" type="List[Callable]" required>
+  List of callable functions to add as tools. Each needs a docstring and type hints
+</ParamField>
+
+<ResponseField name="return" type="str">
+  The updated prompt content
+</ResponseField>
 
 ## Pre-built Prompt Templates
 
