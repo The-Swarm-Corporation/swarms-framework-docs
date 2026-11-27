@@ -193,7 +193,7 @@ The `Agent` class provides extensive configuration options to customize behavior
 </ParamField>
 
 <ParamField path="loop_interval" type="int" default="0">
-  Delay in seconds between loops.
+  Delay in seconds between loops. The agent does not sleep after the final loop, so `max_loops=5, loop_interval=1` waits 4 seconds in total.
   
   ```python
   agent = Agent(max_loops=5, loop_interval=1)  # 1 second delay
@@ -393,7 +393,7 @@ asyncio.run(main())
 </ParamField>
 
 <ParamField path="interactive" type="bool" default="False">
-  Enable interactive mode for conversational agents.
+  Enable interactive mode for conversational agents. After each loop except the last, the agent prompts you for a follow-up and adds it to the conversation, so a session takes at most `max_loops - 1` follow-ups. There is no prompt after the final loop, and with `max_loops=1` there is none at all. Typing `custom_exit_command` or pressing Ctrl+C or Ctrl+D at the prompt ends the session early.
   
   ```python
   agent = Agent(interactive=True)

@@ -450,7 +450,7 @@ except ValueError as e:
     # Output: "Agent 'agent3' is not registered."
 ```
 
-`run()` does not validate the whole flow first. It raises a similar `ValueError` only when it reaches the step that references the unregistered agent, so every earlier step has already run. Validate up front to avoid wasting that work. `set_custom_flow()` validates the new flow immediately and keeps the old one if the new one is invalid.
+`run()` and `run_stream()` call `validate_flow()` before the first step, so a flow that names an unregistered agent raises the same `ValueError: Agent '<name>' is not registered.` before any agent runs, and no model call is spent on the earlier steps. `set_custom_flow()` validates the new flow immediately and keeps the old one if the new one is invalid.
 
 ## Related Architectures
 
