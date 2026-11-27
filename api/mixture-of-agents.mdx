@@ -31,7 +31,7 @@ from swarms import MixtureOfAgents
 </ParamField>
 
 <ParamField path="agents" type="List[Agent]" default="None">
-  A list of reference agents to be used in the mixture. These agents will be executed in parallel layers. An empty list raises `ValueError`
+  A list of reference agents to be used in the mixture. These agents will be executed in parallel layers. An empty list raises `ValueError`, and so do two agents with the same `agent_name`: answers are kept by name, so only one of them would reach the aggregator. An `Agent` created without an `agent_name` is named `swarm-worker-01`
 </ParamField>
 
 <ParamField path="aggregator_agent" type="Agent" default="None">
@@ -92,6 +92,7 @@ Performs a reliability check on the Mixture of Agents class configuration.
 - `ValueError`: If no agents are provided
 - `ValueError`: If no aggregator system prompt is provided
 - `ValueError`: If no layers are specified
+- `ValueError`: If two agents share an `agent_name`
 
 ---
 
