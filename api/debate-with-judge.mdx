@@ -150,11 +150,12 @@ result = debate.run("Should we colonize Mars?")
 Executes the debate with judge refinement process for a single task and returns the refined result.
 
 ```python
-def run(self, task: str) -> Union[str, List, dict]
+def run(self, task: str, img: Optional[str] = None) -> Union[str, List, dict]
 ```
 
 **Parameters:**
 - `task` (str): The initial topic or question to debate
+- `img` (Optional[str]): Image Pro, Con and the Judge see with the topic in every round: a file path, URL or base64 string. Defaults to `None`
 
 **Returns:** The formatted conversation history or final refined answer, depending on `output_type`
 

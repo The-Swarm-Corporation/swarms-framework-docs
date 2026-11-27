@@ -137,7 +137,7 @@ Agents score high when they are addressed, can correct a consequential mistake, 
 
 ## Methods
 
-### `run(task, streaming_callback=None)`
+### `run(task, streaming_callback=None, img=None)`
 
 Synchronously run the turn-based groupchat until a lull (no agent's bid clears `threshold`) or until `max_loops` messages have been posted. Starts a new conversation (seeded from `channel` when one is set), posts `task` as the first message, then on each turn collects a concurrent `(score, message)` bid from every agent, lets the single highest (recency-adjusted) bidder speak, and returns the formatted conversation.
 
@@ -146,6 +146,7 @@ def run(
     self,
     task: str,
     streaming_callback: Optional[Callable[[str, str, bool], None]] = None,
+    img: Optional[str] = None,
 ) -> Any
 ```
 
@@ -155,6 +156,10 @@ def run(
 
 <ParamField path="streaming_callback" type="Optional[Callable[[str, str, bool], None]]" optional>
   Optional `(agent_name, chunk, is_final)` callback. Each posted message — the initial task and every winning speaker's reply — is replayed to it as whitespace-chunked tokens, with `is_final=True` marking the end of that speaker's turn. Matches the streaming signature used elsewhere in the framework (`ConcurrentWorkflow`, `HierarchicalSwarm`).
+</ParamField>
+
+<ParamField path="img" type="Optional[str]" optional>
+  Image every agent sees with the task when it bids, and again if it is asked to speak: a file path, URL or base64 string.
 </ParamField>
 
 **Returns:** the conversation formatted per `output_type`.

@@ -66,7 +66,7 @@ result = judge.step(task: str = None, img: Optional[str] = None, messages: Optio
 
 ### run()
 
-Executes evaluation in multiple iterations with context building. Each iteration sends the judge's earlier verdicts back to it as chat turns, so later iterations refine earlier ones.
+Executes evaluation in multiple iterations with context building. Each iteration sends the judge's earlier verdicts from this run back to it as chat turns, and asks it to refine them. The evaluation prompt stays the first turn, with the image when one is given.
 
 ```python
 result = judge.run(task: str, img: Optional[str] = None) -> Union[str, int]
@@ -87,7 +87,7 @@ results = judge.run_batched(tasks: List[str]) -> List[Union[str, int]]
 `step()` and `run()` raise `AgentJudgeExecutionError` when evaluation fails.
 
 <Warning>
-`judge.conversation` is not cleared between calls. Each `run()` result, including each `run_batched()` result, contains every earlier task and verdict from the same judge, and later evaluations see them as context. Create a new `AgentJudge` for each independent evaluation.
+`judge.conversation` is not cleared between calls. Each `run()` result, including each `run_batched()` result, contains every earlier task and verdict from the same judge, and with `return_score=True` those count toward the score. The model sees only the current run's turns. Create a new `AgentJudge` for each independent evaluation.
 </Warning>
 
 ### usage
