@@ -1,0 +1,216 @@
+---
+title: "SelfAssemblingSwarm"
+description: "Agents form their own teams and search for the architecture that solves a task best, then keep it as a reusable harness"
+icon: "diagram-project"
+---
+
+## Overview
+
+`SelfAssemblingSwarm` gives a set of agents a task and nothing else. The agents split the work, form teams, choose how each team works, connect teams to each other, and keep reorganising until they find the structure that solves the task best. A run gives you two things:
+
+1. **An answer** to the task.
+2. **A harness**: the best structure found (teams, roles, protocols and channels), saved as a plain spec that can run again on similar tasks without paying to discover it again.
+
+The algorithm is called Coalition Architecture Search. It treats a multi-agent architecture as a genome of subgoals, teams, protocols and channels. Agents make local moves over that genome (join, leave, merge, split, rewire), and every move is judged by one shared, independently verified result. The full design is in [SELF_ASSEMBLING_SWARM.md](https://github.com/kyegomez/swarms/blob/master/SELF_ASSEMBLING_SWARM.md).
+
+## How a search works
+
+Each epoch runs these phases:
+
+1. **Decompose.** Agents propose subgoals for the task, and the proposals are consolidated into at most `max_subgoals`, plus a final `integrate` subgoal that combines them.
+2. **Pitch and match.** Agents propose team charters for subgoals and join teams. Joining weighs each agent's learned skill on that kind of subgoal, its trust in the other members, exploration and how many teams it is already on.
+3. **Choose protocols.** Each team picks how it works inside.
+4. **Wire.** Teams are linked by channels so they can ask each other for input and challenge each other's outputs.
+5. **Act.** The structure runs on the task.
+6. **Assess.** An independent verifier scores the answer. Credit is split across teams and agents from measured contribution and, optionally, peer review.
+7. **Adapt.** Learned skill, trust, protocol and channel estimates are updated. Agents move between teams, and teams merge, split, change protocol or dissolve.
+
+Fitness is quality minus weighted cost and time:
+
+```
+fitness = quality - cost_weight * cost - latency_weight * latency
+```
+
+The best structure of each shape is kept in an archive, so the search keeps diverse options. It stops after `max_loops` epochs, on a plateau, at `target_score`, or at `budget_tokens`.
+
+### Team protocols
+
+| Protocol | Least members | Inside the team |
+|---|---|---|
+| `SOLO` | 1 | One agent does the subgoal |
+| `CHAIN` | 2 | Each member refines the previous member's output |
+| `FANOUT` | 2 | Members work independently and one merges the results |
+| `CRITIC_LOOP` | 2 | A maker drafts, a critic reviews, and the loop repeats |
+| `LEAD` | 2 | A lead splits the subgoal among the others and assembles their parts |
+| `DEBATE` | 3 | Members argue positions and a judge member rules |
+| `VOTE` | 3 | Members answer independently and the most-supported answer wins |
+
+### How agents talk
+
+Every message an agent sends is a forced tool call, chosen from the message tools that fit the step. A working agent might call `submit_output` or `request_input`, a reviewer `approve_draft` or `request_changes`, and an agent reading another team's work `raise_challenge` or `endorse_output`. While the swarm is calling an agent, these message tools stand in for the agent's own tools, MCP servers and streaming. All of them are put back afterwards.
+
+## Installation
+
+```bash
+pip install -U swarms
+```
+
+## Constructor
+
+<ParamField path="agents" type="List[Agent]" required>
+  The agents that organise themselves. Names must be unique. The design doc suggests 8 to 16 agents; fewer than 6 leaves little room to organise.
+</ParamField>
+
+<ParamField path="verifier" type="Optional[Callable[[str, str], float]]" default="None">
+  Scores an answer from 0 to 1, given the task and the answer. When not given, an LLM judge writes a rubric for the task, scores answers against it, and compares answers head to head to give each team credit.
+</ParamField>
+
+<ParamField path="judge_model_name" type="str" default="gpt-5.4">
+  Model of the default LLM judge
+</ParamField>
+
+<ParamField path="max_loops" type="int" default="6">
+  Most epochs of search
+</ParamField>
+
+<ParamField path="max_subgoals" type="int" default="5">
+  Most subgoals kept from the decomposition
+</ParamField>
+
+<ParamField path="team_size_cap" type="int" default="4">
+  Most members on one team
+</ParamField>
+
+<ParamField path="teams_per_agent" type="int" default="2">
+  Most teams one agent may be on at once. An agent on two teams links them.
+</ParamField>
+
+<ParamField path="cost_weight" type="float" default="0.2">
+  Weight of token cost against quality in the fitness
+</ParamField>
+
+<ParamField path="latency_weight" type="float" default="0.05">
+  Weight of time against quality in the fitness
+</ParamField>
+
+<ParamField path="verifier_repeats" type="int" default="1">
+  Times each answer is scored; the mean is used. Raise it for a noisy verifier.
+</ParamField>
+
+<ParamField path="budget_tokens" type="Optional[int]" default="None">
+  Stop once this many tokens are spent in total
+</ParamField>
+
+<ParamField path="target_score" type="Optional[float]" default="None">
+  Stop once an epoch's quality reaches this
+</ParamField>
+
+<ParamField path="probe_size" type="int" default="3">
+  Tasks sampled per epoch by `run_family`
+</ParamField>
+
+<ParamField path="challenges" type="bool" default="True">
+  Whether teams may challenge each other's outputs
+</ParamField>
+
+<ParamField path="peer_review" type="bool" default="True">
+  Whether team members rate each other for credit
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="8">
+  Most concurrent model calls in one step
+</ParamField>
+
+<ParamField path="config" type="Optional[CASConfig]" default="None">
+  Tuning knobs of the search, such as exploration temperature, learning rate, merge and split thresholds, and patience. Defaults when not given. See `CASConfig` in the source for every field.
+</ParamField>
+
+<ParamField path="seed" type="Optional[int]" default="None">
+  Seed for the swarm's random choices
+</ParamField>
+
+<ParamField path="output_type" type="OutputType" default="final">
+  How `run` formats the conversation. The default returns the best answer found. See [output types](/agents/structured-outputs).
+</ParamField>
+
+<ParamField path="autosave" type="bool" default="False">
+  Save the conversation to the workspace after a run
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+  Log each epoch and every structured message
+</ParamField>
+
+`id`, `name` and `description` are also accepted. The constructor raises `ValueError` when the agents or settings are invalid.
+
+## Methods
+
+### run(task, img=None)
+
+Search for the best architecture for one task and return its answer, formatted by `output_type`. `img` is shown to the working agents and the judge with the task. Raises `ValueError` for an empty task.
+
+### run_family(tasks, img=None)
+
+Search for one architecture that serves a family of similar tasks. Each epoch scores the structure on a fresh sample of `probe_size` tasks, then the best harness answers every task it was not already scored on. Returns one answer per task, in the order given.
+
+### run_harness(task, img=None, harness=None)
+
+Run a frozen harness on a task with no search and no scoring. Uses the latest search's harness when `harness` isn't given. Raises `ValueError` when there is no harness, or when the harness names an agent the swarm doesn't have.
+
+## After a search
+
+| Attribute | What it holds |
+|---|---|
+| `harness` | The best structure as a plain dict: `subgoals`, `teams` (each with its `subgoal`, `protocol` and `members` with roles), `channels`, `liaisons`, plus its `quality`, `fitness`, `tokens` and `epoch` |
+| `pareto` | The archived structures that no other beats on both quality and tokens, each with its harness |
+| `report` | Per-epoch records, counts of each message type, and the learned skill, trust, protocol and channel estimates |
+| `usage` | Provider token usage summed over every agent the swarm holds |
+| `conversation` | The run as a `Conversation` |
+
+Save `harness` and pass it to `run_harness` later to reuse a structure without searching again.
+
+## Example
+
+```python
+from swarms import Agent, SelfAssemblingSwarm
+
+agents = [
+    Agent(
+        agent_name=name,
+        system_prompt=prompt,
+        model_name="gpt-5.4-mini",
+        max_loops=1,
+    )
+    for name, prompt in [
+        ("Researcher", "You find facts and sources."),
+        ("Analyst", "You compare options and weigh trade-offs."),
+        ("Writer", "You write clear, structured prose."),
+        ("Critic", "You find errors and gaps."),
+    ]
+]
+
+swarm = SelfAssemblingSwarm(agents=agents, max_loops=1, verbose=True)
+
+print(swarm.run("Compare PostgreSQL and MongoDB for a new SaaS app."))
+print(swarm.harness["teams"])
+
+# Reuse the structure it found, with no search
+print(swarm.run_harness("Compare MySQL and DynamoDB for a new SaaS app."))
+```
+
+## Cost
+
+A search makes many model calls: every epoch runs the whole structure, scores it, and asks agents to review, rate and move. Set `budget_tokens`, keep `max_loops` low while trying it out, and use a cheaper model for the agents or `judge_model_name`. Once a search has found a good harness, `run_harness` reruns it at the cost of a single pass.
+
+## When to choose SelfAssemblingSwarm
+
+| You want | Use |
+|---|---|
+| The agents to find the best structure for a task and keep it | `SelfAssemblingSwarm` |
+| Specialists to split one task into teams in a single pass | [`TeamFormationSwarm`](/api/team-formation-swarm) |
+| Identical agents coordinating with no leader through direct messages | [`SelfOrganizingSwarm`](/api/self-organizing-swarm) |
+| To try fixed architectures through one interface | [`SwarmRouter`](/api/swarm-router) |
+
+## Source code
+
+[self_assembling_swarm.py](https://github.com/kyegomez/swarms/blob/master/swarms/structs/self_assembling_swarm.py)
