@@ -145,8 +145,8 @@ quick = GroupChat(agents=[proponent, opponent], max_loops=6)
   How many of the most recent speakers are subject to `recency_penalty`.
 </ParamField>
 
-<ParamField path="output_type" type="str" default="str-all-except-first">
-  History format. The default joins the replies without speaker names. Use `"str"` for a `Name: message` transcript, or `"list"` / `"dict"` to iterate individual messages.
+<ParamField path="output_type" type="str" default="str">
+  History format. The default is a `Name: message` transcript that starts with the task. Use `"str-all-except-first"` for the replies without speaker names, or `"list"` / `"dict"` to iterate individual messages.
 </ParamField>
 
 <ParamField path="auto_equip" type="bool" default="True">

@@ -195,17 +195,17 @@ for topic, result in zip(topics, results):
 | `preset_agents` | `True` | Use built-in optimized agents |
 | `max_loops` | `3` | Number of debate rounds |
 | `model_name` | `"gpt-5.4"` | Model for preset agents |
-| `output_type` | `"str-all-except-first"` | Output format |
+| `output_type` | `"str"` | Output format |
 | `verbose` | `True` | Enable detailed logging |
 
 ### Output Types
 
-The conversation records each round's Pro argument, Con argument, and judge synthesis (each agent's answer, not its full transcript). The task itself is not recorded.
+The conversation records the task first, then each round's Pro argument, Con argument, and judge synthesis (each agent's answer, not its full transcript).
 
 | Value | Description |
 |-------|-------------|
-| `"str-all-except-first"` | The recorded answers joined by newlines, without speaker names (default). Because the task is not in the conversation, this skips the first message: the Pro agent's round-1 argument |
-| `"str"` / `"all"` | Every message as `Name: content` text |
+| `"str"` / `"all"` | Every message as `Name: content` text, starting with the task (default) |
+| `"str-all-except-first"` | The recorded answers joined by newlines, without the task or speaker names |
 | `"dict"` / `"list"` | A list of role/content message dicts |
 | `"final"` | Only the judge's last synthesis, the refined answer |
 
