@@ -35,7 +35,7 @@ Each sample runs one loop. To change that, pass an `Agent` argument through `**k
 | Method | Description | Returns |
 |--------|-------------|---------|
 | `run(task, img=None, answer=None, *args, **kwargs)` | Generates `num_samples` responses concurrently and aggregates them. Extra arguments are forwarded to each sample agent's `run()` | The conversation formatted by `output_type`, or `None` when evaluation mode rejects the samples |
-| `check_responses_for_answer(responses, answer)` | Checks if `answer` appears as a substring of any response | `bool` |
+| `check_responses_for_answer(responses, answer)` | Checks if `answer` appears in any response as a whole word or number. `4` matches `The answer is 4.` but not `42`, `0.4`, `-4`, `4,000` or `3/4` | `bool` |
 | `batched_run(tasks, *args, **kwargs)` | Calls `run` on each task in order | `list` of `run` results |
 
 ### Properties
@@ -145,7 +145,7 @@ for i, result in enumerate(results):
 
 The agent uses `ThreadPoolExecutor` to generate the responses concurrently. Each sample gets its own freshly built reasoning `Agent`, so no sample sees another sample's answer and the draws stay independent. Responses are collected in the order they finish.
 
-When `eval=True` and you pass `answer`, `run()` checks whether `answer` appears in any response. If none contains it, `run()` returns `None` and skips aggregation. Without `answer`, the check is skipped.
+When `eval=True` and you pass `answer`, `run()` checks whether `answer` appears in any response as a whole word or number. If none contains it, `run()` returns `None` and skips aggregation. Without `answer`, the check is skipped.
 
 `run()` records the task, the list of responses, and the aggregated answer (as `"Majority Voting Agent"`) in `agent.conversation`. That conversation is not cleared between calls, so a second `run()` or `batched_run()` returns the earlier tasks' messages too. Create a new `SelfConsistencyAgent`, or read only the last message, when you need one task's result on its own.
 
