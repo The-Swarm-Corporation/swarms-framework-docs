@@ -77,6 +77,8 @@ def route_task(self, task: str) -> dict
   When the boss selects multiple agents, `handle_multiple_handoffs()` runs all of them concurrently but only appends the **first** selected agent's response to the conversation — every other agent's output is computed and then discarded. The boss's `reasoning` is never added to the conversation either (it is only printed to the console when `print_on=True`), so it is not present in the returned result.
 </Note>
 
+Each selected agent runs the task on top of its own history, and when the run ends the router puts that history back as it was. A later task routed to the same agent isn't sent with the earlier tasks and answers. Messages you add to an agent's `short_memory` yourself stay, and go out with every task routed to it.
+
 ### run()
 
 Alias for `route_task()`. Each call is recorded as a `MultiAgentRouter.run` trace span when telemetry is enabled. Calling the router directly, `router(task)`, does the same thing.
