@@ -31,7 +31,7 @@ from swarms import HierarchicalSwarm
 </ParamField>
 
 <ParamField path="agents" type="AgentListType" default="None">
-  List of worker agents available for task execution. Must not be empty. Nested orchestrators work too; they are matched by their `name`
+  List of worker agents available for task execution. Must not be empty. Nested orchestrators work too; they are matched by their `name`. Each order finds its worker by name, so two different workers with the same name raise `ValueError` at construction. The same worker can still be listed twice.
 </ParamField>
 
 <ParamField path="max_loops" type="int" default="1">
@@ -331,6 +331,7 @@ Performs validation checks to ensure the swarm is properly configured.
 - max_agent_retries is greater than or equal to 0
 - max_reassignment_attempts is greater than or equal to 0
 - max_workers is greater than 0 when provided
+- No two different workers share a name
 - Director is available (creates default if needed)
 
 **Raises:**
