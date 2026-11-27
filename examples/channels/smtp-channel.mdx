@@ -156,7 +156,7 @@ swarm = PlannerWorkerSwarm(
 swarm.run("Draft a go-to-market plan for a B2B analytics product.")
 ```
 
-The thread receives the task, the planner's plan, each worker's result and the cycle judge's verdict.
+The thread receives the task, the planner's plan and each worker's result. With `max_loops=1` the only cycle is the last, so the judge doesn't run and no verdict is posted unless you set `judge_final_cycle=True`.
 
 ## Pick up the thread later
 

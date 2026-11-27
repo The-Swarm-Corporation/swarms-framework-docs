@@ -30,7 +30,7 @@ The swarm follows a cycle-based workflow:
 
 1. **Planning**: A planner agent decomposes the goal into concrete, prioritized tasks with dependencies
 2. **Execution**: Worker agents independently claim tasks from a shared queue and execute them concurrently via `ThreadPoolExecutor` -- no worker-to-worker coordination
-3. **Evaluation**: A judge agent evaluates the combined results and decides: complete, fill gaps, or fresh start
+3. **Evaluation**: A judge agent evaluates the combined results and decides: complete, fill gaps, or fresh start. Cycle `max_loops` skips the judge, since no cycle follows to act on its verdict, unless `judge_final_cycle=True`. A complete verdict on an earlier cycle still ends the run there
 4. **Iteration**: If not complete, the planner receives judge feedback and produces new tasks for the next cycle
 
 `PlannerWorkerSwarm` emits OpenTelemetry spans: one when it is constructed, and one for each `run()` call. Worker threads carry the tracing context, so each worker's `Agent.run` span nests under the swarm run. See [Telemetry](/deployment/telemetry) to turn tracing off.
@@ -96,7 +96,11 @@ pip install -U swarms
 </ParamField>
 
 <ParamField path="channel" type="CommsChannel" default="None">
-  A comms channel the swarm posts to: the task as `User`, the planner's plan, each worker's result under its name, and the cycle judge's verdict. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
+  A comms channel the swarm posts to: the task as `User`, the planner's plan, each worker's result under its name, and the verdict of each cycle the judge evaluates. Any channel set on a member agent is detached with a warning, so each message is posted once. See [Comms Channels](/api/channels/overview).
+</ParamField>
+
+<ParamField path="judge_final_cycle" type="bool" default="False">
+  Also run the judge after cycle `max_loops`. Its verdict can't start another cycle, so by default the swarm skips that call, and a run that reaches cycle `max_loops` has no verdict row for it. Set `True` to keep the final quality score in the output.
 </ParamField>
 
 **Raises:**
@@ -125,7 +129,7 @@ def run(
 - `task` (str): The goal to accomplish
 - `img` (str, optional): Optional image input, passed to the planner, every worker and the judge
 
-**Returns:** Formatted conversation history per `output_type`
+**Returns:** Formatted conversation history per `output_type`. A run that reaches cycle `max_loops` has the judge's verdict for that cycle only when `judge_final_cycle=True`
 
 **Raises:**
 - `ValueError`: If `task` is not provided
@@ -201,10 +205,10 @@ result = swarm.run(
 print(result)
 ```
 
-The judge evaluates each cycle:
+A run that uses all three cycles might go like this:
 - **Cycle 1**: Judge finds gaps ("missing regional analysis") -- planner creates targeted tasks
 - **Cycle 2**: Judge finds remaining issues ("outlook section too shallow") -- planner fills gaps
-- **Cycle 3**: Judge marks complete with quality 9/10
+- **Cycle 3**: Cycle `max_loops` runs without a judge call. With `judge_final_cycle=True`, the judge scores it too, for example complete with quality 9/10
 
 ### Recursive Sub-Planners
 
@@ -296,6 +300,7 @@ Cycle 1:
   Planner receives: original task
   Workers execute: tasks from queue
   Judge evaluates: complete? gaps? drift?
+    (skipped if this is cycle max_loops, e.g. max_loops=1, unless judge_final_cycle=True)
 
 Cycle 2+ (if not complete):
   If fresh start: clear ALL tasks, planner starts from scratch with judge feedback
@@ -303,6 +308,7 @@ Cycle 2+ (if not complete):
   Planner receives: original task + judge feedback + identified gaps
   Workers execute: new tasks
   Judge re-evaluates
+    (skipped on cycle max_loops unless judge_final_cycle=True)
 ```
 
 ### How It Works
@@ -399,7 +405,7 @@ Represents a single task in the shared queue.
 | Consideration | Description |
 |---|---|
 | **Parallelism** | The primary performance advantage -- N workers execute N tasks simultaneously instead of sequentially |
-| **Planner/Judge Overhead** | Each cycle adds 2 LLM calls (planner + judge) on top of the worker calls. Use smaller/faster models for these roles |
+| **Planner/Judge Overhead** | Each cycle adds 2 LLM calls (planner + judge) on top of the worker calls, and cycle `max_loops` adds only the planner call unless `judge_final_cycle=True`. Use smaller/faster models for these roles |
 | **Sub-Planner Cost** | `max_planner_depth > 1` adds one planner call per CRITICAL task. Only enable when tasks genuinely need decomposition |
 | **Memory Reset** | Worker memory is reset between tasks, which adds a small overhead but prevents context pollution |
 | **Task Timeout** | Per-task timeout spawns a nested thread -- slight overhead. The stuck call is not killed; the task is marked failed once it returns |

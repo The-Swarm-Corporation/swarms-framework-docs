@@ -182,7 +182,7 @@ Nine structures take a `channel` argument. Each one posts to the channel through
 | [`HierarchicalSwarm`](/api/hierarchical-swarm) | The task, the director's plan and orders, each worker's report, and the director's feedback | `User` |
 | [`GroupChat`](/api/group-chat) | The task, then each message that wins a turn | `User` |
 | [`MajorityVoting`](/api/majority-voting) | The task, each voter's answer, then the consensus agent's answer | `user` |
-| [`PlannerWorkerSwarm`](/api/planner-worker-swarm) | The task, the planner's plan, each worker's result, and the cycle judge's verdict | `User` |
+| [`PlannerWorkerSwarm`](/api/planner-worker-swarm) | The task, the planner's plan, each worker's result, and the verdict of each cycle the judge evaluates (cycle `max_loops` only with `judge_final_cycle=True`) | `User` |
 
 [`SwarmRouter(channel=...)`](/api/swarm-router) forwards the channel to the structure it builds for these `swarm_type` values: `SequentialWorkflow`, `ConcurrentWorkflow`, `AgentRearrange`, `MixtureOfAgents`, `HierarchicalSwarm`, `GroupChat`, `MajorityVoting` and `PlannerWorkerSwarm`. Other swarm types ignore it.
 
