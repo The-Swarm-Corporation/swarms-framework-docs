@@ -268,7 +268,7 @@ def execute_question_generation(
 ) -> Dict[str, str]
 ```
 
-Generates the active variant's specialized questions for a task using the configured `question_agent_model_name`, without running the worker agents or synthesis. Each variant has its own decomposer prompt and function schema. Returns the raw parsed tool-call output, including `thinking`, the per-agent `*_question` keys, `tool_call_id`, and `function_name` (or an `error` key if the arguments could not be parsed). Returns an empty dict when the model makes no tool call.
+Generates the active variant's specialized questions for a task using the configured `question_agent_model_name`, without running the worker agents or synthesis. Each variant has its own decomposer prompt and function schema, and the prompt describes each worker by its role in that variant's roster. In the medium variant, the prompt asks for a research and facts question for Harper, a logic, math and code question for Benjamin, and a creative and divergent thinking question for Lucas. Returns the raw parsed tool-call output, including `thinking`, the per-agent `*_question` keys, `tool_call_id`, and `function_name` (or an `error` key if the arguments could not be parsed). Returns an empty dict when the model makes no tool call.
 
 <ParamField path="task" type="str" required>
   The main task to analyze and decompose into specialized questions
