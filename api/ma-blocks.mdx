@@ -15,8 +15,9 @@ icon: "cubes"
 | `find_agent_by_name` | Look up an agent by `.agent_name` in a list |
 | `find_agent_by_id` | Look up an agent by `.id` in a list |
 | `return_all_agent_names` | Return every agent's `.agent_name` |
+| `check_duplicate_agent_names` | Raise `ValueError` when two agents in a list share a name |
 
-`aggregate`, `run_agent`, and `find_agent_by_name` are exported from the top-level `swarms` package. The rest must be imported from `swarms.structs.ma_blocks`.
+`aggregate`, `run_agent`, and `find_agent_by_name` are exported from the top-level `swarms` package. The rest must be imported from `swarms.structs.ma_blocks`, except `check_duplicate_agent_names`, which lives in `swarms.structs.ma_utils`.
 
 Reach for these when you want quick composability — a function call instead of `ConcurrentWorkflow(...).run(...)`.
 
@@ -167,6 +168,50 @@ def return_all_agent_names(
 **Returns:** `List[str]` — `agent.agent_name` for every agent, in order.
 
 **Import:** not exported from top-level `swarms` — use `from swarms.structs.ma_blocks import return_all_agent_names`.
+
+## check_duplicate_agent_names()
+
+Raise `ValueError` when two agents in a list share a name. An agent's name is its `.agent_name`, or `.name` when it has no `.agent_name` attribute, as for a nested swarm. `MajorityVoting`, `AgentRearrange`, `SequentialWorkflow`, `MultiAgentRouter`, `HierarchicalSwarm`, `LLMCouncil`, `GroupChat` and `MixtureOfAgents` run this check on their agents when they are built.
+
+```python
+def check_duplicate_agent_names(
+    agents: List[Any],
+    allow_repeats: bool = False,
+) -> None
+```
+
+<ParamField path="agents" type="List[Any]" required>
+  The agents to check, such as the list passed to a multi-agent structure. An empty list passes.
+</ParamField>
+
+<ParamField path="allow_repeats" type="bool" default="False">
+  Accept the same object listed more than once. Two different objects with one name still raise `ValueError`.
+</ParamField>
+
+**Returns:** `None`.
+
+**Raises:**
+
+| Exception | Condition |
+|---|---|
+| `ValueError` | Two entries share a name, unless they are the same object and `allow_repeats` is `True`. The message is `More than one agent is named 'X'. Agent names must be unique.` |
+
+```python
+from swarms import Agent
+from swarms.structs.ma_utils import check_duplicate_agent_names
+
+writer = Agent(agent_name="Writer", model_name="gpt-5.4")
+
+# Passes: the same agent listed twice
+check_duplicate_agent_names([writer, writer], allow_repeats=True)
+
+# Raises ValueError: More than one agent is named 'Writer'.
+check_duplicate_agent_names(
+    [writer, Agent(agent_name="Writer", model_name="gpt-5.4")]
+)
+```
+
+**Import:** not exported from top-level `swarms`. Use `from swarms.structs.ma_utils import check_duplicate_agent_names`.
 
 ## Usage Examples
 
