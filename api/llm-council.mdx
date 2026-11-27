@@ -243,10 +243,10 @@ When no custom `council_members` are provided, `LLMCouncil` creates four preset 
 
 | Agent name | Default model | Persona |
 |---|---|---|
-| `GPT-Councilor` | `gpt-5.1` | Analytical and comprehensive |
+| `GPT-Councilor` | `gpt-6-luna` | Analytical and comprehensive |
 | `Gemini-Councilor` | `gemini/gemini-3.5-flash-lite` | Concise and well-structured |
-| `Claude-Councilor` | `anthropic/claude-sonnet-5-5` | Thoughtful and balanced |
-| `Grok-Councilor` | `xai/grok-4-1-fast-reasoning` | Creative and innovative |
+| `Claude-Councilor` | `anthropic/claude-haiku-5-5` | Thoughtful and balanced |
+| `Grok-Councilor` | `xai/grok-4.3` | Creative and innovative |
 
 The default council calls four providers, so you need credentials for OpenAI, Google Gemini, Anthropic, and xAI. Pass `council_models` to swap any of the four preset models, or pass `council_members` to supply your own `Agent` list.
 
