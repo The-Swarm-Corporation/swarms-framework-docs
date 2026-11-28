@@ -220,7 +220,7 @@ for agent_name, result in results_dict.items():
 
 ### run_agents_concurrently_multiprocess()
 
-Runs multiple agents on the same task in batches. Despite the name, it does not start processes: each batch runs through `run_agents_concurrently_async` (every agent in the batch at once) on one dedicated event loop, and batches run one after another.
+Runs multiple agents on the same task in batches. Despite the name, it does not start processes: each batch runs through `run_agents_concurrently_async` (every agent in the batch at once) on one event loop, and batches run one after another. When it is called from code that already has a running event loop, such as a Jupyter cell or an `async` function, the batches run on a worker thread and the call blocks until they finish.
 
 ```python
 def run_agents_concurrently_multiprocess(
@@ -237,9 +237,9 @@ def run_agents_concurrently_multiprocess(
 
 **Returns:** List of outputs from each agent, in input order
 
-<Warning>
-It creates and runs its own event loop, so call it from synchronous code. Inside a running event loop, `await run_agents_concurrently_async(...)` instead.
-</Warning>
+<Note>
+Called inside a running event loop, it blocks that loop until every batch finishes. In async code that has to keep serving other requests meanwhile, `await run_agents_concurrently_async(...)` instead.
+</Note>
 
 ```python
 import os
